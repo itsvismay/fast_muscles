@@ -70,7 +70,12 @@ public:
         }
 
         setP();
-    }  
+        setA();
+        // setVertexWiseMassDiag();
+        setMassMatrix();
+    } 
+
+
         
     void setP(){
         Matrix4d p;
@@ -83,8 +88,6 @@ public:
         SparseMatrix<double> Id(mT.rows(), mT.rows());
         Id.setIdentity();
         mP = Eigen::kroneckerProduct(Id, subP);
-        std::cout<<mP<<std::endl;
-        std::cout<<mP.nonZeros()<<std::endl;
     }
 
     void setA(){
@@ -104,8 +107,76 @@ public:
         mA.setFromTriplets(triplets.begin(), triplets.end());
     }
 
-    void setVertexWiseMassMatrix(){
+    void setMassMatrix(){
+        vector<Trip> triplets;
+        triplets.reserve(12*mT.rows());
 
+        for(int i=0; i<mT.rows(); i++){
+            double undef_vol = get_volume(
+                    mV.row(mT.row(i)[0]), 
+                    mV.row(mT.row(i)[1]), 
+                    mV.row(mT.row(i)[2]), 
+                    mV.row(mT.row(i)[3]));
+            
+            triplets.push_back(Trip(12*i + 0 , 12*i + 0 , undef_vol/4.0));
+            triplets.push_back(Trip(12*i + 1 , 12*i + 1 , undef_vol/4.0));
+            triplets.push_back(Trip(12*i + 2 , 12*i + 2 , undef_vol/4.0));
+
+            triplets.push_back(Trip(12*i + 3 , 12*i + 3 , undef_vol/4.0));
+            triplets.push_back(Trip(12*i + 4 , 12*i + 4 , undef_vol/4.0));
+            triplets.push_back(Trip(12*i + 5 , 12*i + 5 , undef_vol/4.0));
+
+            triplets.push_back(Trip(12*i + 6 , 12*i + 6 , undef_vol/4.0));
+            triplets.push_back(Trip(12*i + 7 , 12*i + 7 , undef_vol/4.0));
+            triplets.push_back(Trip(12*i + 8 , 12*i + 8 , undef_vol/4.0));
+
+            triplets.push_back(Trip(12*i + 9 , 12*i + 9 , undef_vol/4.0));
+            triplets.push_back(Trip(12*i + 10, 12*i + 10, undef_vol/4.0));
+            triplets.push_back(Trip(12*i + 11, 12*i + 11, undef_vol/4.0));
+        }
+        // mMass.resize(12*mT.rows(), 12*mT.row());
+        mMass.setFromTriplets(triplets.begin(), triplets.end());
+        std::cout<<mMass<<std::endl;
+    }
+
+    void setVertexWiseMassDiag(){
+        VectorXd mass_diag(3*mT.rows());
+        mass_diag.setZero();
+
+        for(int i=0; i<mT.rows(); i++){
+            double undef_vol = get_volume(
+                    mV.row(mT.row(i)[0]), 
+                    mV.row(mT.row(i)[1]), 
+                    mV.row(mT.row(i)[2]), 
+                    mV.row(mT.row(i)[3]));
+
+            mass_diag(3*mT.row(i)[0]+0) += undef_vol/4.0;
+            mass_diag(3*mT.row(i)[0]+1) += undef_vol/4.0;
+            mass_diag(3*mT.row(i)[0]+2) += undef_vol/4.0;
+
+            mass_diag(3*mT.row(i)[1]+0) += undef_vol/4.0;
+            mass_diag(3*mT.row(i)[1]+1) += undef_vol/4.0;
+            mass_diag(3*mT.row(i)[1]+2) += undef_vol/4.0;
+
+            mass_diag(3*mT.row(i)[2]+0) += undef_vol/4.0;
+            mass_diag(3*mT.row(i)[2]+1) += undef_vol/4.0;
+            mass_diag(3*mT.row(i)[2]+2) += undef_vol/4.0;
+
+            mass_diag(3*mT.row(i)[3]+0) += undef_vol/4.0;
+            mass_diag(3*mT.row(i)[3]+1) += undef_vol/4.0;
+            mass_diag(3*mT.row(i)[3]+2) += undef_vol/4.0;
+
+        }
+    }
+
+    inline double get_volume(Vector3d p1, Vector3d p2, Vector3d p3, Vector3d p4){
+        Matrix3d Dm;
+        Dm.col(0) = p1 - p4;
+        Dm.col(1) = p2 - p4;
+        Dm.col(2) = p3 - p4;
+        double density = 1000;
+        double m_undeformedVol = (1.0/6)*fabs(Dm.determinant());
+        return m_undeformedVol;
     }
 
     inline MatrixXd& V(){ return mV; }
