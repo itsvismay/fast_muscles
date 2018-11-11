@@ -1,0 +1,11 @@
+{
+  "mesh_file":"/home/vismay/recode/fast_muscles/data/testbar/bar.1.mesh",
+  "youngs": 5000,
+  "poissons": 0.2,
+  "fibre_mag": 0,
+  "fibre_dir": [1, 0, 1],
+  "axis": 0,
+  "thresh": 1,
+  "gravity": -10,
+  "timestep": 0.1
+}
