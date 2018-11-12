@@ -20,8 +20,8 @@ protected:
 
     //Used in the sim
     SparseMatrix<double> mMass, mFree, mConstrain, 
-                        GF, GR, GS, GU, mP;
-    SparseMatrix<int> mA, mC;
+                        GF, GR, GS, GU, mP, mC;
+    SparseMatrix<int> mA;
 
     VectorXi mfix, mmov, melemType;
     VectorXd contx, mx, mx0, ms, melemYoungs, melemPoissons;
@@ -46,9 +46,6 @@ public:
         mx0.resize(mV.cols()*mV.rows());
         mx.resize(mV.cols()*mV.rows());
 
-        mA.resize(12*mT.rows(), 3*mV.rows());
-        mP.resize(12*mT.rows(), 12*mT.rows());
-
         #pragma omp parallel for
         for(int i=0; i<mV.rows(); i++){
             mx0[3*i+0] = mV(i,0); mx0[3*i+1] = mV(i,1); mx0[3*i+2] = mV(i,2);   
@@ -71,26 +68,41 @@ public:
 
         setP();
         setA();
-        // setVertexWiseMassDiag();
+        setC();
         setMassMatrix();
+        setVertexWiseMassDiag();
     } 
 
-
-        
+    void setC(){
+        mC.resize(12*mT.rows(), 12*mT.rows());
+        Matrix4d inner;
+        inner.setOnes();
+        SparseMatrix<double> Id3(3, 3);
+        Id3.setIdentity();
+        SparseMatrix<double> subC = Eigen::kroneckerProduct(inner/4.0, Id3);
+        std::cout<<subC<<std::endl;
+        SparseMatrix<double> Id(mT.rows(), mT.rows());
+        Id.setIdentity();
+        mC = Eigen::kroneckerProduct(Id, subC);
+    }
+ 
     void setP(){
+        mP.resize(12*mT.rows(), 12*mT.rows());
         Matrix4d p;
         p<< 3, -1, -1, -1,
             -1, 3, -1, -1,
             -1, -1, 3, -1,
             -1, -1, -1, 3;
-
-        MatrixXd subP = Eigen::kroneckerProduct(p/4.0, MatrixXd::Identity(3,3));
+        SparseMatrix<double> Id3(3, 3);
+        Id3.setIdentity();
+        SparseMatrix<double> subP = Eigen::kroneckerProduct(p/4.0, Id3);
         SparseMatrix<double> Id(mT.rows(), mT.rows());
         Id.setIdentity();
         mP = Eigen::kroneckerProduct(Id, subP);
     }
 
     void setA(){
+        mA.resize(12*mT.rows(), 3*mV.rows());
         vector<Trip> triplets;
         triplets.reserve(12*mT.rows());
 
@@ -108,8 +120,9 @@ public:
     }
 
     void setMassMatrix(){
+        mMass.resize(12*mT.rows(), 12*mT.rows());
         vector<Trip> triplets;
-        triplets.reserve(12*mT.rows());
+        triplets.reserve(2*12*mT.rows());
 
         for(int i=0; i<mT.rows(); i++){
             double undef_vol = get_volume(
@@ -136,11 +149,10 @@ public:
         }
         // mMass.resize(12*mT.rows(), 12*mT.row());
         mMass.setFromTriplets(triplets.begin(), triplets.end());
-        std::cout<<mMass<<std::endl;
     }
 
     void setVertexWiseMassDiag(){
-        VectorXd mass_diag(3*mT.rows());
+        VectorXd mass_diag(3*mV.rows());
         mass_diag.setZero();
 
         for(int i=0; i<mT.rows(); i++){
@@ -165,7 +177,6 @@ public:
             mass_diag(3*mT.row(i)[3]+0) += undef_vol/4.0;
             mass_diag(3*mT.row(i)[3]+1) += undef_vol/4.0;
             mass_diag(3*mT.row(i)[3]+2) += undef_vol/4.0;
-
         }
     }
 
