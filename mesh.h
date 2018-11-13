@@ -15,16 +15,18 @@ class Mesh
 {
 
 protected:
-    MatrixXd mV;
-    MatrixXi mT;
+    MatrixXd mV, discV;
+    MatrixXi mT, discT;
 
     //Used in the sim
-    SparseMatrix<double> mMass, mFree, mConstrain, 
+    SparseMatrix<double> mMass, 
                         GF, GR, GS, GU, mP, mC;
-    SparseMatrix<int> mA;
+    SparseMatrix<int> mA, mFree, mConstrained;
 
-    VectorXi mfix, mmov, melemType;
-    VectorXd contx, mx, mx0, ms, melemYoungs, melemPoissons;
+    VectorXi melemType;
+    VectorXd contx, discx, mx, mx0, ms, melemYoungs, melemPoissons, mu, mr;
+    MatrixXd mR;
+    std::vector<int> mfix, mmov;
     //end
 
     
@@ -32,7 +34,7 @@ protected:
 public:
     Mesh(){}
 
-    Mesh(MatrixXi& iT, MatrixXd& iV, VectorXi& ifix, VectorXi& imov){
+    Mesh(MatrixXi& iT, MatrixXd& iV, std::vector<int>& ifix, std::vector<int>& imov){
         mV = iV;
         mT = iT;
         mfix = ifix;
@@ -40,8 +42,8 @@ public:
 
         double youngs = 600000;
         double poissons = 0.45;
-        double mu = youngs/(2+ 2*poissons);
-        double lambda = youngs*poissons/((1+poissons)*(1-2*poissons));
+        // double mu = youngs/(2+ 2*poissons);
+        // double lambda = youngs*poissons/((1+poissons)*(1-2*poissons));
         
         mx0.resize(mV.cols()*mV.rows());
         mx.resize(mV.cols()*mV.rows());
@@ -53,25 +55,41 @@ public:
         mx.setZero();
 
 
-        ms.resize(6*mT.rows());
-        melemYoungs.resize(12*mT.rows());
-        melemPoissons.resize(12*mT.rows());
-        #pragma omp parallel for
-        for(int i=0; i<mT.rows(); i++){
-            ms[i+0] = 1;
-            ms[i+1] = 1;
-            ms[i+2] = 1;
-            ms[i+3] = 0;
-            ms[i+4] = 0;
-            ms[i+5] = 0;
-        }
 
         setP();
         setA();
         setC();
         setMassMatrix();
         setVertexWiseMassDiag();
-    } 
+        setFreedConstrainedMatrices();
+        
+        discT.resize(mT.rows(), 4);
+        discV.resize(4*mT.rows(), 3);
+        ms.resize(6*mT.rows());
+        mu.resize(4*mT.rows());
+        mr.resize(4*mT.rows());
+        melemYoungs.resize(mT.rows());
+        melemPoissons.resize(mT.rows());
+        #pragma omp parallel for
+        for(int i=0; i<mT.rows(); i++){
+            ms[6*i+0] = 1; ms[6*i+1] = 1; ms[6*i+2] = 1; ms[6*i+3] = 0; ms[6*i+4] = 0; ms[6*i+5] = 0;
+            melemYoungs[i] = youngs;
+            melemPoissons[i] = poissons;
+            // mu[i+0] = 0; mu[i+1] = 1; mu[i+2] = 0; mu[i+3] = 0;
+            // mr[i+0] = 1; mr[i+1] = 0; mr[i+2] = 0; mr[i+3] = 0;
+            discT(i, 0) = 4*i+0; discT(i, 1) = 4*i+1; discT(i, 2) = 4*i+2; discT(i, 3) = 4*i+3;
+        }
+        GR.resize(12*mT.rows(), 12*mT.rows());
+        GR.setIdentity();
+        mR.resize(3*mT.rows(), 3);
+        for(int i=0; i<mT.rows(); i++){
+            mR.block<3,3>(3*i, 0) = MatrixXd::Identity(3,3);
+        }
+        GU.resize(12*mT.rows(), 12*mT.rows());
+        GS.resize(12*mT.rows(), 12*mT.rows());
+        GS.setIdentity();
+        setGlobalF(true, true, true);
+    }
 
     void setC(){
         mC.resize(12*mT.rows(), 12*mT.rows());
@@ -80,7 +98,6 @@ public:
         SparseMatrix<double> Id3(3, 3);
         Id3.setIdentity();
         SparseMatrix<double> subC = Eigen::kroneckerProduct(inner/4.0, Id3);
-        std::cout<<subC<<std::endl;
         SparseMatrix<double> Id(mT.rows(), mT.rows());
         Id.setIdentity();
         mC = Eigen::kroneckerProduct(Id, subC);
@@ -180,6 +197,97 @@ public:
         }
     }
 
+    void setFreedConstrainedMatrices(){
+        vector<int> notfix;
+
+        mFree.resize(3*mV.rows(), 3*mV.rows() - 3*mfix.size());
+        mFree.setZero();
+
+        int i = 0;
+        int f = 0;
+        for(int j =0; j<mFree.cols()/3; j++){
+            if (i==mfix[f]){
+                f++;
+                i++;
+                j--;
+
+                continue;
+            }   
+            notfix.push_back(i);
+            mFree.coeffRef(3*i+0, 3*j+0) = 1;
+            mFree.coeffRef(3*i+1, 3*j+1) = 1;
+            mFree.coeffRef(3*i+2, 3*j+2) = 1; 
+            
+            i++;
+        }
+
+        mConstrained.resize(3*mV.rows(), 3*mV.rows() - 3*notfix.size());
+        mConstrained.setZero();
+
+        i = 0;
+        f = 0;
+        for(int j =0; j<mConstrained.cols()/3; j++){
+            if (i==notfix[f]){
+                f++;
+                i++;
+                j--;
+
+                continue;
+            }   
+            notfix.push_back(i);
+            mConstrained.coeffRef(3*i+0, 3*j+0) = 1;
+            mConstrained.coeffRef(3*i+1, 3*j+1) = 1;
+            mConstrained.coeffRef(3*i+2, 3*j+2) = 1; 
+            
+            i++;
+        }
+    }
+
+    void setGlobalF(bool updateR, bool updateS, bool updateU){
+        if(updateU){
+            //TODO: update to be parametrized by input mU
+            GU.setIdentity();
+            // for(int t = 0; t<mT.rows(); t++){
+            //     GU.block<3,3>() = MatrixXd::Identity(3,3);
+            // }
+        }
+
+        if(updateR){
+            //TODO: update to be parametrized by input mR
+            for(int t = 0; t<mT.rows(); t++){
+                for(int j=0; j<4; j++){
+                    GR.coeffRef(3*j+12*t + 0, 3*j+12*t + 0) = mR(3*t + 0, 0);
+                    GR.coeffRef(3*j+12*t + 0, 3*j+12*t + 1) = mR(3*t + 0, 1);
+                    GR.coeffRef(3*j+12*t + 0, 3*j+12*t + 2) = mR(3*t + 0, 2);
+                    GR.coeffRef(3*j+12*t + 1, 3*j+12*t + 0) = mR(3*t + 1, 0);
+                    GR.coeffRef(3*j+12*t + 1, 3*j+12*t + 1) = mR(3*t + 1, 1);
+                    GR.coeffRef(3*j+12*t + 1, 3*j+12*t + 2) = mR(3*t + 1, 2);
+                    GR.coeffRef(3*j+12*t + 2, 3*j+12*t + 0) = mR(3*t + 2, 0);
+                    GR.coeffRef(3*j+12*t + 2, 3*j+12*t + 1) = mR(3*t + 2, 1);
+                    GR.coeffRef(3*j+12*t + 2, 3*j+12*t + 2) = mR(3*t + 2, 2);
+                }
+            }
+        }
+
+        if(updateS){
+            for(int t = 0; t<mT.rows(); t++){
+                for(int j = 0; j<4; j++){
+                    GS.coeffRef(3*j+12*t + 0, 3*j+12*t + 0) = ms[6*t + 0];
+                    GS.coeffRef(3*j+12*t + 0, 3*j+12*t + 1) = ms[6*t + 3];
+                    GS.coeffRef(3*j+12*t + 0, 3*j+12*t + 2) = ms[6*t + 4];
+                    GS.coeffRef(3*j+12*t + 1, 3*j+12*t + 0) = ms[6*t + 3];
+                    GS.coeffRef(3*j+12*t + 1, 3*j+12*t + 1) = ms[6*t + 1];
+                    GS.coeffRef(3*j+12*t + 1, 3*j+12*t + 2) = ms[6*t + 5];
+                    GS.coeffRef(3*j+12*t + 2, 3*j+12*t + 0) = ms[6*t + 4];
+                    GS.coeffRef(3*j+12*t + 2, 3*j+12*t + 1) = ms[6*t + 5];
+                    GS.coeffRef(3*j+12*t + 2, 3*j+12*t + 2) = ms[6*t + 2];
+                }
+            }
+        }
+
+        GF = GR*GU*GS*GU.transpose();
+    }
+
     inline double get_volume(Vector3d p1, Vector3d p2, Vector3d p3, Vector3d p4){
         Matrix3d Dm;
         Dm.col(0) = p1 - p4;
@@ -191,15 +299,60 @@ public:
     }
 
     inline MatrixXd& V(){ return mV; }
-    
     inline MatrixXi& T(){ return mT; }
+    inline SparseMatrix<double>& P(){ return mP; }
+    inline SparseMatrix<int>& A(){ return mA; }
+    inline SparseMatrix<int>& B(){ return mFree; }
+    inline SparseMatrix<int>& AB(){ return mConstrained; }
 
     inline VectorXd& x(){ 
         contx = mx+mx0;
         return contx;
     }
 
-    inline SparseMatrix<double>& M(){ return mMass;}
+    inline VectorXd& s(){
+        return ms;
+    }
+
+    inline VectorXd& xbar(){
+        discx = GF*mP*mA*mx0;
+        return discx;
+    }
+
+    inline MatrixXd continuousV(){
+        Eigen::Map<Eigen::MatrixXd> newV(x().data(), mV.cols(), mV.rows());
+        return newV.transpose();
+    }
+
+    inline MatrixXi& discontinuousT(){ return discT; }
+
+    MatrixXd& discontinuousV(){
+        VectorXd dx = xbar();
+        VectorXd CAx = mC*mA*x();
+        VectorXd newx = dx + CAx;
+
+        #pragma omp parallel for
+        for(int t =0; t<mT.rows(); t++){
+            discV(4*t+0, 0) = newx[12*t+0];
+            discV(4*t+0, 1) = newx[12*t+1];
+            discV(4*t+0, 2) = newx[12*t+2];
+            discV(4*t+1, 0) = newx[12*t+3];
+            discV(4*t+1, 1) = newx[12*t+4];
+            discV(4*t+1, 2) = newx[12*t+5];
+            discV(4*t+2, 0) = newx[12*t+6];
+            discV(4*t+2, 1) = newx[12*t+7];
+            discV(4*t+2, 2) = newx[12*t+8];
+            discV(4*t+3, 0) = newx[12*t+9];
+            discV(4*t+3, 1) = newx[12*t+10];
+            discV(4*t+3, 2) = newx[12*t+11];
+        }
+        return discV;
+    }
+
+    inline SparseMatrix<double>& M(){ return mMass; }
+
+    template<class T>
+    inline void print(T a){ std::cout<<a<<std::endl; }
 
 };
 
