@@ -19,9 +19,8 @@ protected:
     MatrixXi mT, discT;
 
     //Used in the sim
-    SparseMatrix<double> mMass, 
-                        GF, GR, GS, GU, mP, mC;
-    SparseMatrix<int> mA, mFree, mConstrained;
+    SparseMatrix<double> mMass, mGF, mGR, mGS, mGU, mP, mC;
+    SparseMatrix<double> mA, mFree, mConstrained;
 
     VectorXi melemType;
     VectorXd contx, discx, mx, mx0, ms, melemYoungs, melemPoissons, mu, mr;
@@ -79,15 +78,15 @@ public:
             // mr[i+0] = 1; mr[i+1] = 0; mr[i+2] = 0; mr[i+3] = 0;
             discT(i, 0) = 4*i+0; discT(i, 1) = 4*i+1; discT(i, 2) = 4*i+2; discT(i, 3) = 4*i+3;
         }
-        GR.resize(12*mT.rows(), 12*mT.rows());
-        GR.setIdentity();
+        mGR.resize(12*mT.rows(), 12*mT.rows());
+        mGR.setIdentity();
         mR.resize(3*mT.rows(), 3);
         for(int i=0; i<mT.rows(); i++){
             mR.block<3,3>(3*i, 0) = MatrixXd::Identity(3,3);
         }
-        GU.resize(12*mT.rows(), 12*mT.rows());
-        GS.resize(12*mT.rows(), 12*mT.rows());
-        GS.setIdentity();
+        mGU.resize(12*mT.rows(), 12*mT.rows());
+        mGS.resize(12*mT.rows(), 12*mT.rows());
+        mGS.setIdentity();
         setGlobalF(true, true, true);
     }
 
@@ -198,8 +197,12 @@ public:
     }
 
     void setFreedConstrainedMatrices(){
-        vector<int> notfix;
+        if(mmov.size()>0){
+            mfix.insert(mfix.end(), mmov.begin(), mmov.end());
+        }
+        std::sort (mfix.begin(), mfix.end());
 
+        vector<int> notfix;
         mFree.resize(3*mV.rows(), 3*mV.rows() - 3*mfix.size());
         mFree.setZero();
 
@@ -246,7 +249,7 @@ public:
     void setGlobalF(bool updateR, bool updateS, bool updateU){
         if(updateU){
             //TODO: update to be parametrized by input mU
-            GU.setIdentity();
+            mGU.setIdentity();
             // for(int t = 0; t<mT.rows(); t++){
             //     GU.block<3,3>() = MatrixXd::Identity(3,3);
             // }
@@ -256,15 +259,15 @@ public:
             //TODO: update to be parametrized by input mR
             for(int t = 0; t<mT.rows(); t++){
                 for(int j=0; j<4; j++){
-                    GR.coeffRef(3*j+12*t + 0, 3*j+12*t + 0) = mR(3*t + 0, 0);
-                    GR.coeffRef(3*j+12*t + 0, 3*j+12*t + 1) = mR(3*t + 0, 1);
-                    GR.coeffRef(3*j+12*t + 0, 3*j+12*t + 2) = mR(3*t + 0, 2);
-                    GR.coeffRef(3*j+12*t + 1, 3*j+12*t + 0) = mR(3*t + 1, 0);
-                    GR.coeffRef(3*j+12*t + 1, 3*j+12*t + 1) = mR(3*t + 1, 1);
-                    GR.coeffRef(3*j+12*t + 1, 3*j+12*t + 2) = mR(3*t + 1, 2);
-                    GR.coeffRef(3*j+12*t + 2, 3*j+12*t + 0) = mR(3*t + 2, 0);
-                    GR.coeffRef(3*j+12*t + 2, 3*j+12*t + 1) = mR(3*t + 2, 1);
-                    GR.coeffRef(3*j+12*t + 2, 3*j+12*t + 2) = mR(3*t + 2, 2);
+                    mGR.coeffRef(3*j+12*t + 0, 3*j+12*t + 0) = mR(3*t + 0, 0);
+                    mGR.coeffRef(3*j+12*t + 0, 3*j+12*t + 1) = mR(3*t + 0, 1);
+                    mGR.coeffRef(3*j+12*t + 0, 3*j+12*t + 2) = mR(3*t + 0, 2);
+                    mGR.coeffRef(3*j+12*t + 1, 3*j+12*t + 0) = mR(3*t + 1, 0);
+                    mGR.coeffRef(3*j+12*t + 1, 3*j+12*t + 1) = mR(3*t + 1, 1);
+                    mGR.coeffRef(3*j+12*t + 1, 3*j+12*t + 2) = mR(3*t + 1, 2);
+                    mGR.coeffRef(3*j+12*t + 2, 3*j+12*t + 0) = mR(3*t + 2, 0);
+                    mGR.coeffRef(3*j+12*t + 2, 3*j+12*t + 1) = mR(3*t + 2, 1);
+                    mGR.coeffRef(3*j+12*t + 2, 3*j+12*t + 2) = mR(3*t + 2, 2);
                 }
             }
         }
@@ -272,20 +275,20 @@ public:
         if(updateS){
             for(int t = 0; t<mT.rows(); t++){
                 for(int j = 0; j<4; j++){
-                    GS.coeffRef(3*j+12*t + 0, 3*j+12*t + 0) = ms[6*t + 0];
-                    GS.coeffRef(3*j+12*t + 0, 3*j+12*t + 1) = ms[6*t + 3];
-                    GS.coeffRef(3*j+12*t + 0, 3*j+12*t + 2) = ms[6*t + 4];
-                    GS.coeffRef(3*j+12*t + 1, 3*j+12*t + 0) = ms[6*t + 3];
-                    GS.coeffRef(3*j+12*t + 1, 3*j+12*t + 1) = ms[6*t + 1];
-                    GS.coeffRef(3*j+12*t + 1, 3*j+12*t + 2) = ms[6*t + 5];
-                    GS.coeffRef(3*j+12*t + 2, 3*j+12*t + 0) = ms[6*t + 4];
-                    GS.coeffRef(3*j+12*t + 2, 3*j+12*t + 1) = ms[6*t + 5];
-                    GS.coeffRef(3*j+12*t + 2, 3*j+12*t + 2) = ms[6*t + 2];
+                    mGS.coeffRef(3*j+12*t + 0, 3*j+12*t + 0) = ms[6*t + 0];
+                    mGS.coeffRef(3*j+12*t + 0, 3*j+12*t + 1) = ms[6*t + 3];
+                    mGS.coeffRef(3*j+12*t + 0, 3*j+12*t + 2) = ms[6*t + 4];
+                    mGS.coeffRef(3*j+12*t + 1, 3*j+12*t + 0) = ms[6*t + 3];
+                    mGS.coeffRef(3*j+12*t + 1, 3*j+12*t + 1) = ms[6*t + 1];
+                    mGS.coeffRef(3*j+12*t + 1, 3*j+12*t + 2) = ms[6*t + 5];
+                    mGS.coeffRef(3*j+12*t + 2, 3*j+12*t + 0) = ms[6*t + 4];
+                    mGS.coeffRef(3*j+12*t + 2, 3*j+12*t + 1) = ms[6*t + 5];
+                    mGS.coeffRef(3*j+12*t + 2, 3*j+12*t + 2) = ms[6*t + 2];
                 }
             }
         }
 
-        GF = GR*GU*GS*GU.transpose();
+        mGF = mGR*mGU*mGS*mGU.transpose();
     }
 
     inline double get_volume(Vector3d p1, Vector3d p2, Vector3d p3, Vector3d p4){
@@ -300,26 +303,38 @@ public:
 
     inline MatrixXd& V(){ return mV; }
     inline MatrixXi& T(){ return mT; }
-    inline SparseMatrix<double>& P(){ return mP; }
-    inline SparseMatrix<int>& A(){ return mA; }
-    inline SparseMatrix<int>& B(){ return mFree; }
-    inline SparseMatrix<int>& AB(){ return mConstrained; }
+    inline SparseMatrix<double>& GR(){ return mGR; }
+    inline SparseMatrix<double>& GS(){ return mGS; }
+    inline SparseMatrix<double>& GU(){ return mGU; }
 
-    inline VectorXd& x(){ 
+    inline SparseMatrix<double>& P(){ return mP; }
+    inline SparseMatrix<double>& A(){ return mA; }
+    inline SparseMatrix<double>& B(){ return mFree; }
+    inline SparseMatrix<double>& AB(){ return mConstrained; }
+    inline MatrixXd& Rclusters(){ return mR; }
+    inline VectorXd& x0(){ return mx0; }
+    VectorXd& x(){ 
         contx = mx+mx0;
         return contx;
+    }
+
+    inline VectorXd& dx(){ return mx;}
+
+    void dx(VectorXd& ix){ 
+        mx = ix;
+        return;
     }
 
     inline VectorXd& s(){
         return ms;
     }
 
-    inline VectorXd& xbar(){
-        discx = GF*mP*mA*mx0;
+    VectorXd& xbar(){
+        discx = mGF*mP*mA*mx0;
         return discx;
     }
 
-    inline MatrixXd continuousV(){
+    MatrixXd continuousV(){
         Eigen::Map<Eigen::MatrixXd> newV(x().data(), mV.cols(), mV.rows());
         return newV.transpose();
     }

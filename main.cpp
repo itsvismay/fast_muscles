@@ -33,9 +33,9 @@ int main(int argc, char *argv[])
     MatrixXi F;
     igl::readMESH(j_input["mesh_file"], V, T, F);
 
-    std::vector<int> fix = {0,3};
+    std::vector<int> fix = {0,5};
     std::sort (fix.begin(), fix.end());
-    std::vector<int> mov = {};
+    std::vector<int> mov = {1,2};
     std::sort (mov.begin(), mov.end());
 
     std::cout<<"-----Mesh-------"<<std::endl;
@@ -43,8 +43,6 @@ int main(int argc, char *argv[])
 
     std::cout<<"-----ARAP-------"<<std::endl;
     Arap* arap = new Arap(*mesh);
-    arap->minimize(*mesh);
-
 
     igl::opengl::glfw::Viewer viewer;
     std::cout<<"-----Display-------"<<std::endl;
@@ -58,18 +56,26 @@ int main(int argc, char *argv[])
     };
 
     viewer.callback_key_down = [&](igl::opengl::glfw::Viewer & viewer, unsigned char key, int modifiers)
-    {   //Doing things
-        VectorXd& s = mesh->s();
-        for(int i=0; i<mesh->T().rows(); i++){
-            s[6*i+1] += 0.1;
+    {   
+        viewer.data().clear();
+        //Doing things
+        // VectorXd& s = mesh->s();
+        // for(int i=0; i<mesh->T().rows(); i++){
+        //     s[6*i+1] += 0.1;
+        // }
+        // mesh->setGlobalF(false, true, false);
+        
+        VectorXd& dx = mesh->dx();
+        for(int i=0; i<mov.size(); i++){
+            dx[3*mov[i]] += 5;
         }
-        mesh->setGlobalF(false, true, false);
         // std::cout<<mesh->s()<<std::endl;
         //----------------
+        arap->minimize(*mesh);
 
         //Draw continuous mesh
-        // MatrixXd newV = mesh->continuousV();
-        // viewer.data().set_vertices(newV);
+        MatrixXd newV = mesh->continuousV();
+        viewer.data().set_mesh(newV, F);
         //Draw disc mesh
         std::cout<<std::endl;
         MatrixXd discV = mesh->discontinuousV();
@@ -94,11 +100,9 @@ int main(int argc, char *argv[])
             viewer.data().add_points(mesh->V().row(fix[i]),Eigen::RowVector3d(1,0,0));
         }
         for(int i=0; i<mov.size(); i++){
-            viewer.data().add_points(mesh->V().row(mov[i]),Eigen::RowVector3d(0,1,0));
+            viewer.data().add_points(newV.row(mov[i]),Eigen::RowVector3d(0,1,0));
         }
         
-
-
         return false;
     };
 
