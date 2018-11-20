@@ -39,8 +39,9 @@ public:
         mfix = ifix;
         mmov = imov;
 
-        double youngs = 600000;
-        double poissons = 0.45;
+        double youngs = 60000;
+        double poissons = 0.450;
+
         // double mu = youngs/(2+ 2*poissons);
         // double lambda = youngs*poissons/((1+poissons)*(1-2*poissons));
         
@@ -312,7 +313,10 @@ public:
     inline SparseMatrix<double>& B(){ return mFree; }
     inline SparseMatrix<double>& AB(){ return mConstrained; }
     inline MatrixXd& Rclusters(){ return mR; }
+    inline VectorXd& eYoungs(){ return melemYoungs; }
+    inline VectorXd& ePoissons(){ return melemPoissons; }
     inline VectorXd& x0(){ return mx0; }
+    
     VectorXd& x(){ 
         contx = mx+mx0;
         return contx;

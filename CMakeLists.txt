@@ -5,7 +5,9 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 set(JSON_HPP_SRC_DIR "/home/vismay/recode/json/single_include/nlohmann")
 set(SPECTRA_INCLUDE_DIR "/home/vismay/spectra-0.5.0/include")
 set(SUITESPARSE_HINT "/home/vismay/recode/SuiteSparse")
-set(ALGLIB_SRC_DIR "/home/vismay/recode/alglib-cpp/src")
+set(BFGSB_SRC_DIR "/home/vismay/recode/CppNumericalSolvers/include")
+#set(ALGLIB_SRC_DIR "/home/vismay/recode/alglib-cpp/src")
+
 
 # libigl
 option(LIBIGL_USE_STATIC_LIBRARY "Use libigl as static library" OFF)
@@ -32,14 +34,14 @@ find_package(SUITESPARSE REQUIRED QUIET)
 
 include_directories(${JSON_HPP_SRC_DIR})
 include_directories(${SPECTRA_INCLUDE_DIR})
+include_directories(${BFGSB_SRC_DIR})
 include_directories(${SUITESPARSE_INCLUDE_DIRS})
-include_directories(${ALGLIB_SRC_DIR})
+#include_directories(${ALGLIB_SRC_DIR})
 
 # Add your project files
-file(GLOB HEADFILES "*.h" "${ALGLIB_SRC_DIR}/*.h")
-file(GLOB SRCFILES "${ALGLIB_SRC_DIR}/*.cpp")
-#file(GLOB EXTERNALS "../spectra-0.5.0/include/*.h")
+file(GLOB HEADFILES "*.h" "${BFGSB_SRC_DIR}/cppoptlib/*.h" "${BFGSB_SRC_DIR}/cppoptlib/solver/*.h")
+#file(GLOB SRCFILES "${ALGLIB_SRC_DIR}/*.cpp")
+file(GLOB EXTERNALS "../spectra-0.5.0/include/*.h")
 add_executable(${PROJECT_NAME} "main.cpp" ${HEADFILES} ${SRCFILES} ${EXTERNALS})
-#add_executable(arap_ex "arap_main.cpp" ${HEADFILES} ${SRCFILES} ${EXTERNALS})
-target_link_libraries(${PROJECT_NAME} -lglfw igl::core igl::opengl igl::opengl_glfw -fopenmp ${SUITESPARSE_LIBRARIES})
-#target_link_libraries(arap_ex -lglfw igl::core igl::opengl igl::opengl_glfw -fopenmp ${SUITESPARSE_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} -lglfw igl::core igl::opengl igl::opengl_glfw -fopenmp)
+

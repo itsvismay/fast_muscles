@@ -10,12 +10,27 @@
 
 #include "mesh.h"
 #include "arap.h"
+#include "elastic.h"
+#include "solver.h"
+
 
 using json = nlohmann::json;
 
 using namespace Eigen;
 using namespace std;
 json j_input;
+
+std::vector<int> getMaxVerts_Axis_Tolerance(MatrixXd& mV, int dim, double tolerance=1e-5){
+    auto maxX = mV.col(dim).maxCoeff();
+    std::vector<int> maxV;
+    for(unsigned int ii=0; ii<mV.rows(); ++ii) {
+
+        if(fabs(mV(ii,dim) - maxX) < tolerance) {
+            maxV.push_back(ii);
+        }
+    }
+    return maxV;
+}
 
 int main(int argc, char *argv[])
 {
@@ -32,17 +47,34 @@ int main(int argc, char *argv[])
     MatrixXi T;
     MatrixXi F;
     igl::readMESH(j_input["mesh_file"], V, T, F);
-
-    std::vector<int> fix = {0,5};
+    V = V/10;
+    std::vector<int> fix = getMaxVerts_Axis_Tolerance(V, 1);
     std::sort (fix.begin(), fix.end());
-    std::vector<int> mov = {1,2};
+    std::vector<int> mov = {};
     std::sort (mov.begin(), mov.end());
 
     std::cout<<"-----Mesh-------"<<std::endl;
     Mesh* mesh = new Mesh(T, V, fix, mov);
 
-    std::cout<<"-----ARAP-------"<<std::endl;
+    std::cout<<"-----ARAP-----"<<std::endl;
     Arap* arap = new Arap(*mesh);
+
+    std::cout<<"-----Neo-------"<<std::endl;
+    Elastic* neo = new Elastic(*mesh);
+
+    std::cout<<"-----Solver-------"<<std::endl;
+    int DIM = mesh->s().size();
+    StaticSolve<double> f(DIM, mesh, arap, neo);
+    cppoptlib:LbfgsbSolver<StaticSolve<double>> solver;
+    VectorXd lb = (mesh->s().array() - 1)*1e6 + 1e-6;
+    // std::cout<<lb<<std::endl;
+    VectorXd ub = (mesh->s().array() - 1)*1e6 + 1e-6;
+    // std::cout<<ub<<std::endl;
+    f.setLowerBound(lb);
+    // f.setUpperBound(ub)
+      
+
+    
 
     igl::opengl::glfw::Viewer viewer;
     std::cout<<"-----Display-------"<<std::endl;
@@ -56,26 +88,36 @@ int main(int argc, char *argv[])
     };
 
     viewer.callback_key_down = [&](igl::opengl::glfw::Viewer & viewer, unsigned char key, int modifiers)
-    {   
+    {   std::cout<<"Key down, "<<key<<std::endl;
         viewer.data().clear();
         //Doing things
         // VectorXd& s = mesh->s();
         // for(int i=0; i<mesh->T().rows(); i++){
         //     s[6*i+1] += 0.1;
         // }
-        // mesh->setGlobalF(false, true, false);
         
-        VectorXd& dx = mesh->dx();
-        for(int i=0; i<mov.size(); i++){
-            dx[3*mov[i]] += 5;
-        }
-        // std::cout<<mesh->s()<<std::endl;
+        // VectorXd& dx = mesh->dx();
+        // for(int i=0; i<mov.size(); i++){
+        //     dx[3*mov[i]+1] += 3;
+        // }
         //----------------
-        arap->minimize(*mesh);
 
+        VectorXd news = mesh->s();
+        if(key==' ')
+            solver.minimize(f, news);
+        for(int i=0; i<news.size(); i++){
+            mesh->s()[i] = news[i];
+        }
+        std::cout<<"new s"<<std::endl;
+        std::cout<<news.transpose()<<std::endl;
+        // std::cout<<mesh->s().transpose()<<std::endl;
+        //----------------
+        mesh->setGlobalF(false, true, false);
+        arap->minimize(*mesh);
         //Draw continuous mesh
         MatrixXd newV = mesh->continuousV();
         viewer.data().set_mesh(newV, F);
+        
         //Draw disc mesh
         std::cout<<std::endl;
         MatrixXd discV = mesh->discontinuousV();
