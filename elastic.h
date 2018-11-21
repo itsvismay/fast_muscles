@@ -221,7 +221,7 @@ public:
 	double Energy(Mesh& m){
 		double Elas =  WikipediaEnergy(m);
 		double Muscle = MuscleEnergy(m);
-		std::cout<<Elas<<", "<<Muscle<<std::endl;
+		// std::cout<<"	elas: "<<Elas<<", muscle: "<<Muscle<<std::endl;
 		return Elas + Muscle;
 	}
 

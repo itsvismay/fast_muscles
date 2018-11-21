@@ -48,7 +48,6 @@ public:
 		col2<<C.transpose(), MatrixXd::Zero(C.rows(), C.rows());
 		MatrixXd KKTmat(Exx.rows()+C.rows(), Exx.rows()+C.rows());
 		KKTmat<<col1,col2;
-		print(KKTmat);
 		ARAPKKTSolver.compute(KKTmat);
 			
 	}
@@ -66,20 +65,30 @@ public:
 	}
 
 	VectorXd FDGrad(Mesh& m){
-		VectorXd grad = VectorXd::Zero(m.s().size());
+		//DEDs = dEds + dEdx*dxds + dEdR*dRds
+
+		//dEds
+		VectorXd dEds = VectorXd::Zero(m.s().size());
 		VectorXd& s = m.s();
 
 		double E0 = Energy(m);
 		double eps = 1e-5;
-		for(int i=0; i<grad.size(); i++){
+		for(int i=0; i<dEds.size(); i++){
 			s[i] += eps;
 			m.setGlobalF(false, true, false);
 			double Ei = Energy(m);
-			grad[i] = (Ei - E0)/eps;
+			dEds[i] = (Ei - E0)/eps;
 			s[i] -= eps;
 		}
 		m.setGlobalF(false, true, false);
-		return grad;
+
+		//dEdx
+		//already implemented
+
+		//dEdR
+		
+
+		return dEds;
 	}
 
 	void Jacobians(Mesh& m){
@@ -145,7 +154,7 @@ public:
 	}
 
 	void minimize(Mesh& m){
-		print(" + ARAP minimize");
+		// print("		+ ARAP minimize");
 		
 		VectorXd Ex0 = dEdx(m);
 		for(int i=0; i< 100; i++){
@@ -156,7 +165,7 @@ public:
 			VectorXd Ex = dEdx(m);
 		
 			if ((Ex - Ex0).norm()<1e-7){
-				std::cout<<" - ARAP minimize "<<i<<std::endl;
+				// std::cout<<"		- ARAP minimize "<<i<<std::endl;
 				return;
 			}
 			Ex0 = Ex;

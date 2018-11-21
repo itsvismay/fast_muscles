@@ -8,6 +8,7 @@
 #include "cppoptlib/meta.h"
 #include "cppoptlib/boundedproblem.h"
 #include "cppoptlib/solver/lbfgsbsolver.h"
+#include "cppoptlib/solver/neldermeadsolver.h"
 
 using namespace cppoptlib;
 using Eigen::VectorXd;
@@ -17,8 +18,8 @@ private:
     Mesh* mesh;
     Arap* arap;
     Elastic* elas;
-    double alpha_neo =1e4;
-    double alpha_arap = 1e1; 
+    double alpha_neo =0;
+    double alpha_arap = 1e2; 
 
 public:
     using typename cppoptlib::BoundedProblem<T>::Scalar;
@@ -35,27 +36,40 @@ public:
         for(int i=0; i<x.size(); i++){
             mesh->s()[i] = x[i];
         }
+        mesh->setGlobalF(false, true, false);
 
-        arap->minimize(*mesh);
-        double Eneo = elas->Energy(*mesh);
-        double Earap = arap->Energy(*mesh);
-        std::cout<<"Energy"<<std::endl;
-        std::cout<<Eneo<<", "<<Earap<<std::endl;
-        // std::cout<<x.transpose()<<std::endl;
-        return alpha_neo*Eneo + alpha_arap*Earap;
+        // arap->minimize(*mesh);
+        double Eneo = 0;// alpha_neo*elas->Energy(*mesh);
+        double Earap = alpha_arap*arap->Energy(*mesh);
+                // std::cout<<"Energy"<<std::endl;
+                // std::cout<<"neo: "<<alpha_neo*Eneo<<", arap: "<<alpha_arap*Earap<<std::endl;
+                // std::cout<<mesh->s().transpose()<<std::endl;
+        return Eneo + Earap;
     }
-    void gradient(const TVector &x, TVector &grad) {
-        std::cout<<"Grad"<<std::endl;
-        for(int i=0; i<x.size(); i++){
-            mesh->s()[i] = x[i];
-        }
+    // void gradient(const TVector &x, TVector &grad) {
+    //     std::cout<<"Grad"<<std::endl;
+    //     for(int i=0; i<x.size(); i++){
+    //         mesh->s()[i] = x[i];
+    //     }
+    //     mesh->setGlobalF(false, true, false);
 
-        VectorXd pegrad = elas->PEGradient(*mesh);
-        VectorXd arapgrad = arap->FDGrad(*mesh);
+    //     // VectorXd pegrad = elas->PEGradient(*mesh);
+    //     VectorXd arapgrad = arap->FDGrad(*mesh);
 
-        for(int i=0; i< pegrad.size(); i++){
-            grad[i] = alpha_neo*pegrad[i] + alpha_arap*arapgrad[i];
-        }
+    //     for(int i=0; i< x.size(); i++){
+    //         // grad[i] = alpha_neo*pegrad[i];
+    //         grad[i] = alpha_arap*arapgrad[i];
+    //     }
+    //     std::cout<<grad.transpose()<<std::endl;
+    // }
+
+    bool callback(const Criteria<T> &state, const TVector &x) {
+        // std::cout << "(" << std::setw(2) << state.iterations << ")"
+        //           << " ||dx|| = " << std::fixed << std::setw(8) << std::setprecision(4) << state.gradNorm
+        //           << " ||x|| = "  << std::setw(6) << x.norm()
+        //           << " f(x) = "   << std::setw(8) << value(x)
+        //           << " x = [" << std::setprecision(8) << x.transpose() << "]" << std::endl;
+        return true;
     }
 };
 
