@@ -316,6 +316,7 @@ public:
     inline VectorXd& eYoungs(){ return melemYoungs; }
     inline VectorXd& ePoissons(){ return melemPoissons; }
     inline VectorXd& x0(){ return mx0; }
+    inline VectorXd& s(){return ms;}
     
     VectorXd& x(){ 
         contx = mx+mx0;
@@ -329,9 +330,6 @@ public:
         return;
     }
 
-    inline VectorXd& s(){
-        return ms;
-    }
 
     VectorXd& xbar(){
         discx = mGF*mP*mA*mx0;

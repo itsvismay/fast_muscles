@@ -17,6 +17,8 @@ private:
     Mesh* mesh;
     Arap* arap;
     Elastic* elas;
+    double alpha_neo =1e4;
+    double alpha_arap = 1e1; 
 
 public:
     using typename cppoptlib::BoundedProblem<T>::Scalar;
@@ -34,12 +36,13 @@ public:
             mesh->s()[i] = x[i];
         }
 
-        // arap->minimize(*mesh);
-        double En = elas->Energy(*mesh);
+        arap->minimize(*mesh);
+        double Eneo = elas->Energy(*mesh);
+        double Earap = arap->Energy(*mesh);
         std::cout<<"Energy"<<std::endl;
-        std::cout<<En<<std::endl;
+        std::cout<<Eneo<<", "<<Earap<<std::endl;
         // std::cout<<x.transpose()<<std::endl;
-        return En;
+        return alpha_neo*Eneo + alpha_arap*Earap;
     }
     void gradient(const TVector &x, TVector &grad) {
         std::cout<<"Grad"<<std::endl;
@@ -48,10 +51,11 @@ public:
         }
 
         VectorXd pegrad = elas->PEGradient(*mesh);
+        VectorXd arapgrad = arap->FDGrad(*mesh);
+
         for(int i=0; i< pegrad.size(); i++){
-            grad[i] = pegrad[i];
+            grad[i] = alpha_neo*pegrad[i] + alpha_arap*arapgrad[i];
         }
-        // std::cout<<pegrad.transpose()<<std::endl;
     }
 };
 

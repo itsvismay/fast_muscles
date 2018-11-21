@@ -8,9 +8,9 @@
 
 #include <json.hpp>
 
-#include "mesh.h"
-#include "arap.h"
-#include "elastic.h"
+// #include "mesh.h"
+// #include "arap.h"
+// #include "elastic.h"
 #include "solver.h"
 
 
@@ -22,6 +22,18 @@ json j_input;
 
 std::vector<int> getMaxVerts_Axis_Tolerance(MatrixXd& mV, int dim, double tolerance=1e-5){
     auto maxX = mV.col(dim).maxCoeff();
+    std::vector<int> maxV;
+    for(unsigned int ii=0; ii<mV.rows(); ++ii) {
+
+        if(fabs(mV(ii,dim) - maxX) < tolerance) {
+            maxV.push_back(ii);
+        }
+    }
+    return maxV;
+}
+
+std::vector<int> getMinVerts_Axis_Tolerance(MatrixXd& mV, int dim, double tolerance=1e-5){
+    auto maxX = mV.col(dim).minCoeff();
     std::vector<int> maxV;
     for(unsigned int ii=0; ii<mV.rows(); ++ii) {
 
@@ -103,17 +115,17 @@ int main(int argc, char *argv[])
         //----------------
 
         VectorXd news = mesh->s();
-        if(key==' ')
+        if(key==' '){
             solver.minimize(f, news);
-        for(int i=0; i<news.size(); i++){
-            mesh->s()[i] = news[i];
+            for(int i=0; i<news.size(); i++){
+                mesh->s()[i] = news[i];
+            }
+            std::cout<<"new s"<<std::endl;
+            std::cout<<news.transpose()<<std::endl;
+            mesh->setGlobalF(false, true, false);
         }
-        std::cout<<"new s"<<std::endl;
-        std::cout<<news.transpose()<<std::endl;
-        // std::cout<<mesh->s().transpose()<<std::endl;
+        
         //----------------
-        mesh->setGlobalF(false, true, false);
-        arap->minimize(*mesh);
         //Draw continuous mesh
         MatrixXd newV = mesh->continuousV();
         viewer.data().set_mesh(newV, F);

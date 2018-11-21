@@ -39,9 +39,13 @@ include_directories(${SUITESPARSE_INCLUDE_DIRS})
 #include_directories(${ALGLIB_SRC_DIR})
 
 # Add your project files
-file(GLOB HEADFILES "*.h" "${BFGSB_SRC_DIR}/cppoptlib/*.h" "${BFGSB_SRC_DIR}/cppoptlib/solver/*.h")
+file(GLOB HEADFILES "*.h")
 #file(GLOB SRCFILES "${ALGLIB_SRC_DIR}/*.cpp")
-file(GLOB EXTERNALS "../spectra-0.5.0/include/*.h")
+file(GLOB EXTERNALS "../spectra-0.5.0/include/*.h" "${BFGSB_SRC_DIR}/cppoptlib/*.h" "${BFGSB_SRC_DIR}/cppoptlib/solver/*.h")
+
 add_executable(${PROJECT_NAME} "main.cpp" ${HEADFILES} ${SRCFILES} ${EXTERNALS})
 target_link_libraries(${PROJECT_NAME} -lglfw igl::core igl::opengl igl::opengl_glfw -fopenmp)
+add_executable(fd "finitedifference.cpp" ${HEADFILES} ${SRCFILES} ${EXTERNALS})
+target_link_libraries(${PROJECT_NAME} -lglfw igl::core igl::opengl igl::opengl_glfw -fopenmp)
+target_link_libraries(fd -lglfw igl::core igl::opengl igl::opengl_glfw -fopenmp)
 

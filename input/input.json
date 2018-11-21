@@ -7,5 +7,6 @@
   "axis": 0,
   "thresh": 1,
   "gravity": -10,
-  "timestep": 0.1
+  "timestep": 0.1,
+  "fd_eps": 1e-5
 }
