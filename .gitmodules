@@ -1,0 +1,9 @@
+[submodule "muscle_gen/extern/libigl"]
+	path = muscle_gen/extern/libigl
+	url = https://github.com/libigl/libigl.git
+[submodule "muscle_gen/extern/lf-utils"]
+	path = muscle_gen/extern/lf-utils
+	url = https://github.com/zero-impact/lf-utils.git
+[submodule "muscle_gen/extern/TetWild"]
+	path = muscle_gen/extern/TetWild
+	url = https://github.com/Yixin-Hu/TetWild.git
