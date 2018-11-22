@@ -93,6 +93,7 @@ int main(int argc, char *argv[])
     // f.setUpperBound(ub)
     
     std::cout<<"Energy "<<arap->Energy(*mesh)<<std::endl;
+    VectorXd arapgrad = arap->FDGrad(*mesh);
     // exit(0);
 
     igl::opengl::glfw::Viewer viewer;

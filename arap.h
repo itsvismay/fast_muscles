@@ -83,10 +83,45 @@ public:
 		m.setGlobalF(false, true, false);
 
 		//dEdx
-		//already implemented
+		VectorXd Ex = dEdx(m);
 
 		//dEdR
+		VectorXd negPAx = -1*m.P()*m.A()*m.x();
+		VectorXd USUtPAx0 = m.GU()*m.GS()*UtPAx0;
+		MatrixXd dEdR = negPAx*USUtPAx0.transpose();
 		
+		//dxds
+		VectorXd z0 = m.x();
+		MatrixXd dxds(m.s().size(), z0.size());
+		vector<SparseMatrix<double>> dRds_r3;
+
+		for(int i=0; i<m.s().size(); i++){
+			// dxds_right.setZero();
+			// dxds_left.setZero();
+
+			m.s()[i] += 0.5*eps;
+			m.setGlobalF(false, true, false);
+			minimize(m);
+			VectorXd dxds_left = m.dx();
+			SparseMatrix<double> dRds_left = m.GR();
+			m.s()[i] -= 0.5*eps;
+			m.setGlobalF(false, true, false);
+			minimize(m);
+			
+			m.s()[i] -= 0.5*eps;
+			m.setGlobalF(false, true, false);
+			minimize(m);
+			VectorXd dxds_right = m.dx();
+			SparseMatrix<double> dRds_right = m.GR();
+			m.s()[i] += 0.5*eps;
+			m.setGlobalF(false, true, false);
+			minimize(m);
+
+			dxds.row(i) = (dxds_left - dxds_right)/eps;
+			SparseMatrix<double> dRdsi =(dRds_left - dRds_right)/eps; 
+			dRds_r3.push_back(dRdsi);
+		}
+		exit(0);
 
 		return dEds;
 	}
