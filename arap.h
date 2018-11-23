@@ -83,14 +83,16 @@ public:
 		m.setGlobalF(false, true, false);
 
 		//dEdx
+		VectorXd dEds1 = VectorXd::Zero(m.s().size());
 		VectorXd Ex = dEdx(m);
 
 		//dEdR
+		VectorXd dEds2 = VectorXd::Zero(m.s().size());
 		VectorXd negPAx = -1*m.P()*m.A()*m.x();
 		VectorXd USUtPAx0 = m.GU()*m.GS()*UtPAx0;
 		MatrixXd dEdR = negPAx*USUtPAx0.transpose();
 		
-		//dxds
+		//dxds dRds
 		VectorXd z0 = m.x();
 		MatrixXd dxds(m.s().size(), z0.size());
 		vector<SparseMatrix<double>> dRds_r3;
@@ -120,10 +122,10 @@ public:
 			dxds.row(i) = (dxds_left - dxds_right)/eps;
 			SparseMatrix<double> dRdsi =(dRds_left - dRds_right)/eps; 
 			dRds_r3.push_back(dRdsi);
+			dEds2[i] = (dRdsi.cwiseProduct(dEdR)).sum();
 		}
-		exit(0);
-
-		return dEds;
+		dEds1 = dxds*Ex;
+		return dEds + dEds1 + dEds2;
 	}
 
 	void Jacobians(Mesh& m){

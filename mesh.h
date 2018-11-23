@@ -3,6 +3,10 @@
 
 #include <Eigen/CholmodSupport>
 #include <unsupported/Eigen/KroneckerProduct>
+#include <MatOp/SparseGenMatProd.h>
+#include <MatOp/SparseCholesky.h>
+#include <SymGEigsSolver.h>
+#include <GenEigsSolver.h>
 
 
 using namespace Eigen;
@@ -22,10 +26,14 @@ protected:
     SparseMatrix<double> mMass, mGF, mGR, mGS, mGU, mP, mC;
     SparseMatrix<double> mA, mFree, mConstrained;
 
-    VectorXi melemType;
+    VectorXi melemType, r_elem_cluster_map;
     VectorXd contx, discx, mx, mx0, ms, melemYoungs, melemPoissons, mu, mr;
-    MatrixXd mR;
+    MatrixXd mR, mG, msW;
+    VectorXd mass_diag;
+
     std::vector<int> mfix, mmov;
+    std::map<int, std::vector<int>> r_cluster_elem_map;
+    std::vector<SparseMatrix<int>> RotationBLOCK;
     //end
 
     
@@ -48,7 +56,6 @@ public:
         mx0.resize(mV.cols()*mV.rows());
         mx.resize(mV.cols()*mV.rows());
 
-        #pragma omp parallel for
         for(int i=0; i<mV.rows(); i++){
             mx0[3*i+0] = mV(i,0); mx0[3*i+1] = mV(i,1); mx0[3*i+2] = mV(i,2);   
         }
@@ -62,23 +69,17 @@ public:
         setMassMatrix();
         setVertexWiseMassDiag();
         setFreedConstrainedMatrices();
+        setElemWiseYoungsPoissons(youngs, poissons);
+        setDiscontinuousMeshT();
         
-        discT.resize(mT.rows(), 4);
-        discV.resize(4*mT.rows(), 3);
-        ms.resize(6*mT.rows());
+        setupModes(10);
+        setupRotationClusters(mT.rows());
+        setupSkinningHandles(mT.rows());
+        
+        
         mu.resize(4*mT.rows());
-        mr.resize(4*mT.rows());
-        melemYoungs.resize(mT.rows());
-        melemPoissons.resize(mT.rows());
-        #pragma omp parallel for
-        for(int i=0; i<mT.rows(); i++){
-            ms[6*i+0] = 1; ms[6*i+1] = 1; ms[6*i+2] = 1; ms[6*i+3] = 0; ms[6*i+4] = 0; ms[6*i+5] = 0;
-            melemYoungs[i] = youngs;
-            melemPoissons[i] = poissons;
-            // mu[i+0] = 0; mu[i+1] = 1; mu[i+2] = 0; mu[i+3] = 0;
-            // mr[i+0] = 1; mr[i+1] = 0; mr[i+2] = 0; mr[i+3] = 0;
-            discT(i, 0) = 4*i+0; discT(i, 1) = 4*i+1; discT(i, 2) = 4*i+2; discT(i, 3) = 4*i+3;
-        }
+        
+
         mGR.resize(12*mT.rows(), 12*mT.rows());
         mGR.setIdentity();
         mR.resize(3*mT.rows(), 3);
@@ -89,6 +90,161 @@ public:
         mGS.resize(12*mT.rows(), 12*mT.rows());
         mGS.setIdentity();
         setGlobalF(true, true, true);
+    }
+
+    void setupModes(int nummodes){
+        print("+EIG SOLVE");
+        //For now, no modes, just use G = Id
+        // mG = MatrixXd::Identity(3*mV.rows(), 3*mV.rows());
+
+        SparseMatrix<double> K = (mP*mA).transpose()*mP*mA;
+        Spectra::SparseGenMatProd<double> Aop(K);
+        SparseMatrix<double> M(3*mV.rows(), 3*mV.rows());
+        for(int i=0; i<mass_diag.size(); i++){
+            M.coeffRef(i,i) = mass_diag[i];
+        }
+
+        Spectra::SparseCholesky<double> Bop(M);
+        Spectra::SymGEigsSolver<double, Spectra::SMALLEST_MAGN, Spectra::SparseGenMatProd<double>, Spectra::SparseCholesky<double>, Spectra::GEIGS_CHOLESKY>geigs(&Aop, &Bop, nummodes, M.rows());
+
+        geigs.init();
+        int nconv = geigs.compute();
+        VectorXd eigenvalues;
+        MatrixXd eigenvectors;
+        if(geigs.info() == Spectra::SUCCESSFUL)
+        {
+            eigenvalues = geigs.eigenvalues();
+            eigenvectors = geigs.eigenvectors();
+        }
+        else
+        {
+            cout<<"EIG SOLVE FAILED: "<<endl<<geigs.info()<<endl;
+            exit(0);
+        }
+        // eigenvalues.head(eigenvalues.size() - 3));
+        MatrixXd eV = eigenvectors.leftCols(eigenvalues.size() -3);
+        print("-EIG SOLVE");
+
+        //############handle modes KKT solve#####
+        print("+ModesForHandles");
+        SparseMatrix<double> C = mConstrained.transpose();
+        SparseMatrix<double> HandleModesKKTmat(K.rows()+C.rows(), K.rows()+C.rows());
+        HandleModesKKTmat.setZero();
+        std::vector<Trip> KTrips = to_triplets(K);
+        std::vector<Trip> CTrips = to_triplets(C);
+        for(int i=0; i<CTrips.size(); i++){
+            int row = CTrips[i].row();
+            int col = CTrips[i].col();
+            int val = CTrips[i].value();
+            KTrips.push_back(Trip(row+K.rows(), col, val));
+            KTrips.push_back(Trip(col, row+K.cols(), val));
+        }
+        KTrips.insert(KTrips.end(),CTrips.begin(), CTrips.end());
+        HandleModesKKTmat.setFromTriplets(KTrips.begin(), KTrips.end());
+        
+        SparseMatrix<double>eHconstrains(K.rows()+C.rows(), C.rows());
+        eHconstrains.setZero();
+        std::vector<Trip> eHTrips;
+        for(int i=0; i<C.rows(); i++){
+            eHTrips.push_back(Trip(i+K.rows(), i, 1));
+        }
+        eHconstrains.setFromTriplets(eHTrips.begin(), eHTrips.end());
+        SparseLU<SparseMatrix<double>> solver;
+        solver.compute(HandleModesKKTmat);
+        SparseMatrix<double> eHsparse = solver.solve(eHconstrains);
+        MatrixXd eH = MatrixXd(eHsparse).topRows(K.rows());
+        print("-ModesForHandles");
+        
+        //###############QR get orth basis of Modes, eH#######
+        MatrixXd eHeV(eH.rows(), eH.cols()+eV.cols());
+        eHeV<<eH,eV;
+        HouseholderQR<MatrixXd> QR(eHeV);
+        MatrixXd thinQ = MatrixXd::Identity(eHeV.rows(), eHeV.cols());
+        MatrixXd Q = QR.householderQ()*thinQ;        
+        //SET TO G
+
+    }
+
+    void setupRotationClusters(int nrc){
+        r_elem_cluster_map.resize(mT.rows());
+            for(int i=0; i<mT.rows() ;i++){
+                //Delete once rotation clusters works
+                r_elem_cluster_map[i] = i;
+            }
+        // r_elem_cluster_map = //outputfrom kmeans_rotation_clustering
+        for(int i=0; i<mT.rows(); i++){
+            r_cluster_elem_map[r_elem_cluster_map[i]].push_back(i);
+        }
+
+        mr.resize(9*nrc);
+        for(int i=0; i<nrc; i++){
+            mr[9*i+0] = 1;
+            mr[9*i+1] = 0;
+            mr[9*i+2] = 0;
+            mr[9*i+3] = 0;
+            mr[9*i+4] = 1;
+            mr[9*i+5] = 0;
+            mr[9*i+6] = 0;
+            mr[9*i+7] = 0;
+            mr[9*i+8] = 1;
+        }
+
+
+        for(int c=0; c<nrc; c++){
+            vector<int> notfix = r_cluster_elem_map[c];
+            SparseMatrix<int> bo(mT.rows(), notfix.size());
+            bo.setZero();
+
+            int i = 0;
+            int f = 0;
+            for(int j =0; j<bo.cols(); j++){
+                if (i==notfix[f]){
+                    bo.coeffRef(i, j) = 1;
+                    f++;
+                    i++;
+                    continue;
+                }
+                j--;
+                i++;
+            }
+
+            SparseMatrix<int> Id12(12,12);
+            Id12.setIdentity();
+            SparseMatrix<int> b = Eigen::kroneckerProduct(bo, Id12);
+            // for(int q=0; q<notfix.size();q++)
+            //     print(notfix[q]);
+            // print(b);
+            RotationBLOCK.push_back(b);
+        }
+    }
+
+    void setupSkinningHandles(int nsh){
+        ms.resize(6*nsh);
+
+        for(int i=0; i<nsh; i++){
+            ms[6*i+0] = 1; ms[6*i+1] = 1; ms[6*i+2] = 1; ms[6*i+3] = 0; ms[6*i+4] = 0; ms[6*i+5] = 0;
+        }
+
+        //use BBW skinning, but for now, set by hand
+        MatrixXd tW = MatrixXd::Identity(mT.rows(), nsh);
+        msW = Eigen::kroneckerProduct(tW, MatrixXd::Identity(6,6));
+
+    }
+
+    void setElemWiseYoungsPoissons(double youngs, double poissons){
+        melemYoungs.resize(mT.rows());
+        melemPoissons.resize(mT.rows());
+        for(int i=0; i<mT.rows(); i++){
+            melemYoungs[i] = youngs; melemPoissons[i] = poissons;
+        }
+    }
+
+    void setDiscontinuousMeshT(){
+        discT.resize(mT.rows(), 4);
+        discV.resize(4*mT.rows(), 3);
+        for(int i=0; i<mT.rows(); i++){
+            discT(i, 0) = 4*i+0; discT(i, 1) = 4*i+1; discT(i, 2) = 4*i+2; discT(i, 3) = 4*i+3;
+        }
     }
 
     void setC(){
@@ -169,7 +325,7 @@ public:
     }
 
     void setVertexWiseMassDiag(){
-        VectorXd mass_diag(3*mV.rows());
+        mass_diag.resize(3*mV.rows());
         mass_diag.setZero();
 
         for(int i=0; i<mT.rows(); i++){
@@ -238,7 +394,6 @@ public:
 
                 continue;
             }   
-            notfix.push_back(i);
             mConstrained.coeffRef(3*i+0, 3*j+0) = 1;
             mConstrained.coeffRef(3*i+1, 3*j+1) = 1;
             mConstrained.coeffRef(3*i+2, 3*j+2) = 1; 
@@ -290,6 +445,14 @@ public:
         }
 
         mGF = mGR*mGU*mGS*mGU.transpose();
+    }
+
+    std::vector<Eigen::Triplet<double>> to_triplets(Eigen::SparseMatrix<double> & M){
+        std::vector<Eigen::Triplet<double>> v;
+        for(int i = 0; i < M.outerSize(); i++)
+            for(typename Eigen::SparseMatrix<double>::InnerIterator it(M,i); it; ++it)
+                v.emplace_back(it.row(),it.col(),it.value());
+        return v;
     }
 
     inline double get_volume(Vector3d p1, Vector3d p2, Vector3d p3, Vector3d p4){
@@ -348,7 +511,6 @@ public:
         VectorXd CAx = mC*mA*x();
         VectorXd newx = dx + CAx;
 
-        #pragma omp parallel for
         for(int t =0; t<mT.rows(); t++){
             discV(4*t+0, 0) = newx[12*t+0];
             discV(4*t+0, 1) = newx[12*t+1];

@@ -18,7 +18,7 @@ private:
     Mesh* mesh;
     Arap* arap;
     Elastic* elas;
-    double alpha_neo =0;
+    double alpha_neo =1e2;
     double alpha_arap = 1e2; 
 
 public:
@@ -38,11 +38,11 @@ public:
         }
         mesh->setGlobalF(false, true, false);
 
-        // arap->minimize(*mesh);
-        double Eneo = 0;// alpha_neo*elas->Energy(*mesh);
+        arap->minimize(*mesh);
+        double Eneo = alpha_neo*elas->Energy(*mesh);
         double Earap = alpha_arap*arap->Energy(*mesh);
-                // std::cout<<"Energy"<<std::endl;
-                // std::cout<<"neo: "<<alpha_neo*Eneo<<", arap: "<<alpha_arap*Earap<<std::endl;
+                std::cout<<"Energy"<<std::endl;
+                std::cout<<"neo: "<<alpha_neo*Eneo<<", arap: "<<alpha_arap*Earap<<std::endl;
                 // std::cout<<mesh->s().transpose()<<std::endl;
         return Eneo + Earap;
     }

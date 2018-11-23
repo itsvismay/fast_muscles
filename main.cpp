@@ -64,18 +64,17 @@ int main(int argc, char *argv[])
     V = V/10;
     std::vector<int> fix = {5,6};//getMaxVerts_Axis_Tolerance(V, 1);
     std::sort (fix.begin(), fix.end());
-    std::vector<int> mov = getMinVerts_Axis_Tolerance(V, 1);
+    std::vector<int> mov = {};//getMinVerts_Axis_Tolerance(V, 1);
     std::sort (mov.begin(), mov.end());
+
 
     std::cout<<"-----Mesh-------"<<std::endl;
     Mesh* mesh = new Mesh(T, V, fix, mov);
-
     std::cout<<"-----ARAP-----"<<std::endl;
     Arap* arap = new Arap(*mesh);
-
     std::cout<<"-----Neo-------"<<std::endl;
     Elastic* neo = new Elastic(*mesh);
-
+    
     std::cout<<"-----Solver-------"<<std::endl;
     int DIM = mesh->s().size();
     StaticSolve<double> f(DIM, mesh, arap, neo);
@@ -86,14 +85,12 @@ int main(int argc, char *argv[])
     cppoptlib:NelderMeadSolver<StaticSolve<double>> solver;
     // solver.setStopCriteria(crit);
     VectorXd lb = (mesh->s().array() - 1)*1e6 + 1e-6;
-    // std::cout<<lb<<std::endl;
     VectorXd ub = (mesh->s().array() - 1)*1e6 + 1e-6;
     // std::cout<<ub<<std::endl;
     // f.setLowerBound(lb);
     // f.setUpperBound(ub)
     
     std::cout<<"Energy "<<arap->Energy(*mesh)<<std::endl;
-    VectorXd arapgrad = arap->FDGrad(*mesh);
     // exit(0);
 
     igl::opengl::glfw::Viewer viewer;
