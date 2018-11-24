@@ -30,11 +30,13 @@ option(LIBIGL_WITH_XML              "Use XML"            OFF)
 
 find_package(LIBIGL REQUIRED QUIET)
 find_package(SUITESPARSE REQUIRED QUIET)
+find_package(OpenCV REQUIRED)
 
 include_directories(${JSON_HPP_SRC_DIR})
 include_directories(${SPECTRA_DIR})
 include_directories(${BFGSB_SRC_DIR})
 include_directories(${SUITESPARSE_INCLUDE_DIRS})
+include_directories(${OpenCV_INCLUDE_DIRS})
 
 # Add your project files
 file(GLOB HEADFILES "*.h")
@@ -42,8 +44,7 @@ file(GLOB HEADFILES "*.h")
 file(GLOB EXTERNALS "${SPECTRA_DIR}/*.h" "${SPECTRA_DIR}/MatOp/*.h" "${BFGSB_SRC_DIR}/cppoptlib/*.h" "${BFGSB_SRC_DIR}/cppoptlib/solver/*.h")
 
 add_executable(${PROJECT_NAME} "main.cpp" ${HEADFILES} ${SRCFILES} ${EXTERNALS})
-target_link_libraries(${PROJECT_NAME} -lglfw igl::core igl::opengl igl::opengl_glfw -fopenmp)
 add_executable(fd "finitedifference.cpp" ${HEADFILES} ${SRCFILES} ${EXTERNALS})
-target_link_libraries(${PROJECT_NAME} -lglfw igl::core igl::opengl igl::opengl_glfw -fopenmp)
-target_link_libraries(fd -lglfw igl::core igl::opengl igl::opengl_glfw -fopenmp)
-
+target_link_libraries(${PROJECT_NAME} -lglfw igl::core igl::opengl igl::opengl_glfw -fopenmp ${OpenCV_LIBS})
+target_link_libraries(fd -lglfw igl::core igl::opengl igl::opengl_glfw -fopenmp ${OpenCV_LIBS})
+ 

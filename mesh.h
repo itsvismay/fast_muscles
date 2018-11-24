@@ -7,6 +7,8 @@
 #include <MatOp/SparseCholesky.h>
 #include <SymGEigsSolver.h>
 #include <GenEigsSolver.h>
+#include <opencv2/opencv.hpp>
+#include <opencv2/core/eigen.hpp>
 
 
 using namespace Eigen;
@@ -93,10 +95,12 @@ public:
     }
 
     void setupModes(int nummodes){
-        print("+EIG SOLVE");
-        //For now, no modes, just use G = Id
-        // mG = MatrixXd::Identity(3*mV.rows(), 3*mV.rows());
+        if(nummodes==0){
+            //For now, no modes, just use G = Id
+            mG = MatrixXd::Identity(3*mV.rows(), 3*mV.rows());
+        }
 
+        print("+EIG SOLVE");
         SparseMatrix<double> K = (mP*mA).transpose()*mP*mA;
         Spectra::SparseGenMatProd<double> Aop(K);
         SparseMatrix<double> M(3*mV.rows(), 3*mV.rows());
@@ -106,7 +110,6 @@ public:
 
         Spectra::SparseCholesky<double> Bop(M);
         Spectra::SymGEigsSolver<double, Spectra::SMALLEST_MAGN, Spectra::SparseGenMatProd<double>, Spectra::SparseCholesky<double>, Spectra::GEIGS_CHOLESKY>geigs(&Aop, &Bop, nummodes, M.rows());
-
         geigs.init();
         int nconv = geigs.compute();
         VectorXd eigenvalues;
@@ -160,18 +163,19 @@ public:
         eHeV<<eH,eV;
         HouseholderQR<MatrixXd> QR(eHeV);
         MatrixXd thinQ = MatrixXd::Identity(eHeV.rows(), eHeV.cols());
-        MatrixXd Q = QR.householderQ()*thinQ;        
-        //SET TO G
+        //SET Q TO G
+        mG = QR.householderQ()*thinQ;        
 
     }
 
     void setupRotationClusters(int nrc){
         r_elem_cluster_map.resize(mT.rows());
-            for(int i=0; i<mT.rows() ;i++){
-                //Delete once rotation clusters works
-                r_elem_cluster_map[i] = i;
-            }
-        // r_elem_cluster_map = //outputfrom kmeans_rotation_clustering
+            // for(int i=0; i<mT.rows() ;i++){
+            //     //Delete once rotation clusters works
+            //     r_elem_cluster_map[i] = i;
+            // }
+        kmeans_rotation_clustering(r_elem_cluster_map, nrc); //output from kmeans_rotation_clustering
+        
         for(int i=0; i<mT.rows(); i++){
             r_cluster_elem_map[r_elem_cluster_map[i]].push_back(i);
         }
@@ -228,7 +232,56 @@ public:
         //use BBW skinning, but for now, set by hand
         MatrixXd tW = MatrixXd::Identity(mT.rows(), nsh);
         msW = Eigen::kroneckerProduct(tW, MatrixXd::Identity(6,6));
+    }
 
+    void kmeans_rotation_clustering(VectorXi& idx, int clusters){
+        MatrixXd G = mG.colwise() + mx0;
+        // std::cout<<mC.rows()<<", "<<mC.cols()<<std::endl;
+        // std::cout<<mA.rows()<<", "<<mA.cols()<<std::endl;
+        // std::cout<<G.rows()<<", "<<G.cols()<<std::endl;
+        // std::cout<<mT.rows()<<std::endl;
+        Matrix<double, Dynamic, Dynamic, RowMajor> CAG = mC*mA*G;
+
+        MatrixXd Data = MatrixXd::Zero(mT.rows(), 3*G.cols());
+        for(int i=0; i<mT.rows(); i++){
+            RowVectorXd r1 = CAG.row(12*i);
+            RowVectorXd r2 = CAG.row(12*i+1);
+            RowVectorXd r3 = CAG.row(12*i+2);
+            RowVectorXd point(3*G.cols());
+            point<<r1,r2,r3;
+            Data.row(i) = point;
+        }
+        MatrixXd Centroids;
+        kmeans(Data, clusters, 100, Centroids, idx);
+        print(idx.transpose());
+        print(idx.size());
+        exit(0);
+    }
+
+    void kmeans(const Eigen::MatrixXd& F, //data. Every column is a feature
+                const int num_labels, // number of clusters
+                const int num_iter, // number of iterations
+                Eigen::MatrixXd& D, // dictionary of clusters (every column is a cluster)
+                Eigen::VectorXi& labels) // map D to F.
+    {
+        assert(sizeof(float) == 4);
+        cv::Mat cv_F(F.rows(), F.cols(), CV_32F);
+        for (int i = 0; i < F.rows(); ++i)
+            for (int j = 0; j < F.cols(); ++j)
+                cv_F.at<float>(i,j) = F(i,j);
+
+        cv::Mat cv_labels;
+        cv::Mat cv_centers;
+        cv::TermCriteria criteria(CV_TERMCRIT_ITER|CV_TERMCRIT_EPS, 10000, 0.0001);
+        cv::kmeans(cv_F, num_labels, cv_labels, criteria, num_iter, cv::KMEANS_RANDOM_CENTERS, cv_centers);
+
+        int num_points = F.rows();
+        int num_features = F.cols();
+    
+        labels.resize(num_points);
+        for (int i=0; i<labels.rows(); ++i){
+            labels(i) = cv_labels.at<int>(i,0);
+        }
     }
 
     void setElemWiseYoungsPoissons(double youngs, double poissons){
