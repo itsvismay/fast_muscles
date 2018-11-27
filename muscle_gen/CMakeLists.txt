@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 ### ---- libIGL options: choose between header only and compiled static library
-option(LIBIGL_USE_STATIC_LIBRARY     "Use libigl as static library" OFF)
+option(LIBIGL_USE_STATIC_LIBRARY     "Use libigl as static library" ON) # TODO is this even working?
 option(LIBIGL_WITH_CGAL              "Use CGAL"                     ON)
 option(LIBIGL_WITH_COMISO            "Use CoMiso"                   OFF)
 option(LIBIGL_WITH_CORK              "Use Cork"                     OFF)
@@ -28,7 +28,14 @@ list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/extern/libigl/cmake)
 include(libigl)
 ### ---- End of libigl
 
+
+### Adding Tetwild
 ADD_SUBDIRECTORY(${PROJECT_SOURCE_DIR}/extern/TetWild)
+
+
+### Adding JSON
+set(JSON_BuildTests OFF CACHE INTERNAL "")
+ADD_SUBDIRECTORY(${PROJECT_SOURCE_DIR}/extern/json)
 
 
 ### Add your project files
@@ -36,4 +43,4 @@ include_directories("src/" ${PROJECT_SOURCE_DIR}/extern/lf-utils/cpp/)
 file(GLOB SRCFILES src/*.cpp)
 
 add_executable(${PROJECT_NAME} ${SRCFILES})
-target_link_libraries(${PROJECT_NAME} igl::core igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui igl::cgal libTetWild)
+target_link_libraries(${PROJECT_NAME} igl::core igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui igl::cgal libTetWild nlohmann_json::nlohmann_json)

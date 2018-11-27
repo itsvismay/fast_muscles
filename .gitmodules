@@ -7,3 +7,6 @@
 [submodule "muscle_gen/extern/TetWild"]
 	path = muscle_gen/extern/TetWild
 	url = https://github.com/Yixin-Hu/TetWild.git
+[submodule "muscle_gen/extern/json"]
+	path = muscle_gen/extern/json
+	url = https://github.com/nlohmann/json.git
