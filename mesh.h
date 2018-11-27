@@ -9,6 +9,9 @@
 #include <GenEigsSolver.h>
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/eigen.hpp>
+#include <igl/boundary_conditions.h>
+#include <igl/lbs_matrix.h>
+#include <igl/bbw.h>
 
 
 using namespace Eigen;
@@ -28,14 +31,14 @@ protected:
     SparseMatrix<double> mMass, mGF, mGR, mGS, mGU, mP, mC;
     SparseMatrix<double> mA, mFree, mConstrained;
 
-    VectorXi melemType, r_elem_cluster_map;
-    VectorXd contx, discx, mx, mx0, ms, melemYoungs, melemPoissons, mu, mr;
+    VectorXi melemType, mr_elem_cluster_map, ms_handles_ind;
+    VectorXd mcontx, mdiscx, mx, mx0, ms, melemYoungs, melemPoissons, mu, mr;
     MatrixXd mR, mG, msW;
-    VectorXd mass_diag;
+    VectorXd mmass_diag;
 
     std::vector<int> mfix, mmov;
-    std::map<int, std::vector<int>> r_cluster_elem_map;
-    std::vector<SparseMatrix<int>> RotationBLOCK;
+    std::map<int, std::vector<int>> mr_cluster_elem_map;
+    std::vector<SparseMatrix<int>> mRotationBLOCK;
     //end
 
     
@@ -76,7 +79,7 @@ public:
         
         setupModes(10);
         setupRotationClusters(mT.rows());
-        setupSkinningHandles(mT.rows());
+        setupSkinningHandles(2);
         
         
         mu.resize(4*mT.rows());
@@ -104,8 +107,8 @@ public:
         SparseMatrix<double> K = (mP*mA).transpose()*mP*mA;
         Spectra::SparseGenMatProd<double> Aop(K);
         SparseMatrix<double> M(3*mV.rows(), 3*mV.rows());
-        for(int i=0; i<mass_diag.size(); i++){
-            M.coeffRef(i,i) = mass_diag[i];
+        for(int i=0; i<mmass_diag.size(); i++){
+            M.coeffRef(i,i) = mmass_diag[i];
         }
 
         Spectra::SparseCholesky<double> Bop(M);
@@ -165,19 +168,18 @@ public:
         MatrixXd thinQ = MatrixXd::Identity(eHeV.rows(), eHeV.cols());
         //SET Q TO G
         mG = QR.householderQ()*thinQ;        
-
     }
 
     void setupRotationClusters(int nrc){
-        r_elem_cluster_map.resize(mT.rows());
+        mr_elem_cluster_map.resize(mT.rows());
             // for(int i=0; i<mT.rows() ;i++){
             //     //Delete once rotation clusters works
-            //     r_elem_cluster_map[i] = i;
+            //     mr_elem_cluster_map[i] = i;
             // }
-        kmeans_rotation_clustering(r_elem_cluster_map, nrc); //output from kmeans_rotation_clustering
+        kmeans_rotation_clustering(mr_elem_cluster_map, nrc); //output from kmeans_rotation_clustering
         
         for(int i=0; i<mT.rows(); i++){
-            r_cluster_elem_map[r_elem_cluster_map[i]].push_back(i);
+            mr_cluster_elem_map[mr_elem_cluster_map[i]].push_back(i);
         }
 
         mr.resize(9*nrc);
@@ -195,7 +197,7 @@ public:
 
 
         for(int c=0; c<nrc; c++){
-            vector<int> notfix = r_cluster_elem_map[c];
+            vector<int> notfix = mr_cluster_elem_map[c];
             SparseMatrix<int> bo(mT.rows(), notfix.size());
             bo.setZero();
 
@@ -218,7 +220,7 @@ public:
             // for(int q=0; q<notfix.size();q++)
             //     print(notfix[q]);
             // print(b);
-            RotationBLOCK.push_back(b);
+            mRotationBLOCK.push_back(b);
         }
     }
 
@@ -229,9 +231,129 @@ public:
             ms[6*i+0] = 1; ms[6*i+1] = 1; ms[6*i+2] = 1; ms[6*i+3] = 0; ms[6*i+4] = 0; ms[6*i+5] = 0;
         }
 
-        //use BBW skinning, but for now, set by hand
-        MatrixXd tW = MatrixXd::Identity(mT.rows(), nsh);
-        msW = Eigen::kroneckerProduct(tW, MatrixXd::Identity(6,6));
+        VectorXi skinning_elem_cluster_map;
+        std::map<int, std::vector<int>> skinning_cluster_elem_map;
+        kmeans_rotation_clustering(skinning_elem_cluster_map, nsh);
+        for(int i=0; i<mT.rows(); i++){
+            skinning_cluster_elem_map[mr_elem_cluster_map[i]].push_back(i);
+        }
+
+        ms_handles_ind.resize(nsh);
+        VectorXd CAx0 = mC*mA*mx0;
+        for(int k=0; k<nsh; k++){
+            vector<int> els = skinning_cluster_elem_map[k];
+            VectorXd centx = VectorXd::Zero(els.size());
+            VectorXd centy = VectorXd::Zero(els.size());
+            VectorXd centz = VectorXd::Zero(els.size());
+            Vector3d avg_cent;
+            for(int i=0; i<els.size(); i++){
+                centx[i] = CAx0[12*els[i]];
+                centy[i] = CAx0[12*els[i]+1];
+                centz[i] = CAx0[12*els[i]+2];
+            }
+            avg_cent<<centx.sum()/centx.size(), centy.sum()/centy.size(),centz.sum()/centz.size();
+            int minind = els[0];
+            double mindist = (avg_cent - Vector3d(centx[0],centy[0],centz[0])).norm();
+            for(int i=1; i<els.size(); i++){
+                double dist = (avg_cent - Vector3d(centx[i], centy[i], centz[i])).norm();
+                if(dist<mindist){
+                    mindist = dist;
+                    minind = els[i];
+                }
+            }
+            ms_handles_ind[k] = minind;
+        }
+
+        bbw_strain_skinning_matrix(ms_handles_ind);
+    }
+
+    void bbw_strain_skinning_matrix(VectorXi& handles){
+        std::set<int> unique_vertex_handles;
+        std::set<int>::iterator it;
+        for(int i=0; i<handles.size(); i++){
+            unique_vertex_handles.insert(mT(handles[i], 0));
+            unique_vertex_handles.insert(mT(handles[i], 1));
+            unique_vertex_handles.insert(mT(handles[i], 2));
+            unique_vertex_handles.insert(mT(handles[i], 3));
+        }
+
+        int i=0;
+        it = unique_vertex_handles.end();
+        VectorXi map_verts_to_unique_verts = VectorXi::Zero(*(--it)+1).array() -1;
+        for (it=unique_vertex_handles.begin(); it!=unique_vertex_handles.end(); ++it){
+            map_verts_to_unique_verts[*it] = i;
+            i++;
+        }
+
+        MatrixXi vert_to_tet = MatrixXi::Zero(handles.size(), 4);
+        i=0;
+        for(i=0; i<handles.size(); i++){
+            vert_to_tet.row(i)[0] = map_verts_to_unique_verts[mT.row(handles[i])[0]];
+            vert_to_tet.row(i)[1] = map_verts_to_unique_verts[mT.row(handles[i])[1]];
+            vert_to_tet.row(i)[2] = map_verts_to_unique_verts[mT.row(handles[i])[2]];
+            vert_to_tet.row(i)[3] = map_verts_to_unique_verts[mT.row(handles[i])[3]];
+        }
+        
+        MatrixXd C = MatrixXd::Zero(unique_vertex_handles.size(), 3);
+        VectorXi P = VectorXi::Zero(unique_vertex_handles.size());
+        i=0;
+        for (it=unique_vertex_handles.begin(); it!=unique_vertex_handles.end(); ++it){
+            C.row(i) = mV.row(*it);
+            P(i) = i;
+            i++;
+        }
+
+        // List of boundary indices (aka fixed value indices into VV)
+        VectorXi b;
+        // List of boundary conditions of each weight function
+        MatrixXd bc;
+        igl::boundary_conditions(mV, mT, C, P, MatrixXi(), MatrixXi(), b, bc);
+        // compute BBW weights matrix
+        igl::BBWData bbw_data;
+        // only a few iterations for sake of demo
+        bbw_data.active_set_params.max_iter = 8;
+        bbw_data.verbosity = 2;
+        
+        MatrixXd W, M;
+        if(!igl::bbw(mV, mT, b, bc, bbw_data, W))
+        {
+            print("EXIT: Error here");
+            return;
+        }
+
+        // Normalize weights to sum to one
+        igl::normalize_row_sums(W,W);
+        // precompute linear blend skinning matrix
+        igl::lbs_matrix(mV,W,M);
+        print(W);
+
+        MatrixXd tW = MatrixXd::Zero(mT.rows(), handles.size());
+        for(int t =0; t<mT.rows(); t++){
+            VectorXi e = mT.row(t);
+            for(int h=0; h<handles.size(); h++){
+                if(t==handles[h]){
+                    tW.row(t) *= 0;
+                    tW(t,h) = 1;
+                    break;
+                }
+                double p0 = 0;
+                double p1 = 0;
+                double p2 = 0;
+                double p3 = 0;
+                for(int j=0; j<vert_to_tet.cols(); ++j){
+                    p0 += W(e[0], vert_to_tet(h, j));
+                    p1 += W(e[1], vert_to_tet(h, j));
+                    p2 += W(e[2], vert_to_tet(h, j));
+                    p3 += W(e[3], vert_to_tet(h, j));
+                }
+                tW(t, h) = (p0+p1+p2+p3)/4;  
+            }
+        }
+        igl::normalize_row_sums(tW, tW);
+
+        MatrixXd Id6 = MatrixXd::Identity(6, 6);
+        msW = Eigen::kroneckerProduct(tW, Id6);
+       
     }
 
     void kmeans_rotation_clustering(VectorXi& idx, int clusters){
@@ -253,17 +375,15 @@ public:
         }
         MatrixXd Centroids;
         kmeans(Data, clusters, 100, Centroids, idx);
-        print(idx.transpose());
-        print(idx.size());
-        exit(0);
     }
 
-    void kmeans(const Eigen::MatrixXd& F, //data. Every column is a feature
-                const int num_labels, // number of clusters
-                const int num_iter, // number of iterations
-                Eigen::MatrixXd& D, // dictionary of clusters (every column is a cluster)
-                Eigen::VectorXi& labels) // map D to F.
-    {
+    void kmeans(const Eigen::MatrixXd& F, const int num_labels, const int num_iter, Eigen::MatrixXd& D, Eigen::VectorXi& labels){ 
+        // const Eigen::MatrixXd& F, //data. Every column is a feature
+        // const int num_labels, // number of clusters
+        // const int num_iter, // number of iterations
+        // Eigen::MatrixXd& D, // dictionary of clusters (every column is a cluster)
+        // Eigen::VectorXi& labels){ // map D to F.
+    
         assert(sizeof(float) == 4);
         cv::Mat cv_F(F.rows(), F.cols(), CV_32F);
         for (int i = 0; i < F.rows(); ++i)
@@ -277,7 +397,12 @@ public:
 
         int num_points = F.rows();
         int num_features = F.cols();
-    
+        // D.resize(num_features, num_labels);
+
+        // for (int i=0; i<cv_centers.rows; ++i)
+        //     for (int j=0; j<cv_centers.cols; ++j)
+        //         D(j,i) = cv_centers.at<float>(i,j);
+
         labels.resize(num_points);
         for (int i=0; i<labels.rows(); ++i){
             labels(i) = cv_labels.at<int>(i,0);
@@ -378,8 +503,8 @@ public:
     }
 
     void setVertexWiseMassDiag(){
-        mass_diag.resize(3*mV.rows());
-        mass_diag.setZero();
+        mmass_diag.resize(3*mV.rows());
+        mmass_diag.setZero();
 
         for(int i=0; i<mT.rows(); i++){
             double undef_vol = get_volume(
@@ -388,21 +513,21 @@ public:
                     mV.row(mT.row(i)[2]), 
                     mV.row(mT.row(i)[3]));
 
-            mass_diag(3*mT.row(i)[0]+0) += undef_vol/4.0;
-            mass_diag(3*mT.row(i)[0]+1) += undef_vol/4.0;
-            mass_diag(3*mT.row(i)[0]+2) += undef_vol/4.0;
+            mmass_diag(3*mT.row(i)[0]+0) += undef_vol/4.0;
+            mmass_diag(3*mT.row(i)[0]+1) += undef_vol/4.0;
+            mmass_diag(3*mT.row(i)[0]+2) += undef_vol/4.0;
 
-            mass_diag(3*mT.row(i)[1]+0) += undef_vol/4.0;
-            mass_diag(3*mT.row(i)[1]+1) += undef_vol/4.0;
-            mass_diag(3*mT.row(i)[1]+2) += undef_vol/4.0;
+            mmass_diag(3*mT.row(i)[1]+0) += undef_vol/4.0;
+            mmass_diag(3*mT.row(i)[1]+1) += undef_vol/4.0;
+            mmass_diag(3*mT.row(i)[1]+2) += undef_vol/4.0;
 
-            mass_diag(3*mT.row(i)[2]+0) += undef_vol/4.0;
-            mass_diag(3*mT.row(i)[2]+1) += undef_vol/4.0;
-            mass_diag(3*mT.row(i)[2]+2) += undef_vol/4.0;
+            mmass_diag(3*mT.row(i)[2]+0) += undef_vol/4.0;
+            mmass_diag(3*mT.row(i)[2]+1) += undef_vol/4.0;
+            mmass_diag(3*mT.row(i)[2]+2) += undef_vol/4.0;
 
-            mass_diag(3*mT.row(i)[3]+0) += undef_vol/4.0;
-            mass_diag(3*mT.row(i)[3]+1) += undef_vol/4.0;
-            mass_diag(3*mT.row(i)[3]+2) += undef_vol/4.0;
+            mmass_diag(3*mT.row(i)[3]+0) += undef_vol/4.0;
+            mmass_diag(3*mT.row(i)[3]+1) += undef_vol/4.0;
+            mmass_diag(3*mT.row(i)[3]+2) += undef_vol/4.0;
         }
     }
 
@@ -535,8 +660,8 @@ public:
     inline VectorXd& s(){return ms;}
     
     VectorXd& x(){ 
-        contx = mx+mx0;
-        return contx;
+        mcontx = mx+mx0;
+        return mcontx;
     }
 
     inline VectorXd& dx(){ return mx;}
@@ -548,8 +673,8 @@ public:
 
 
     VectorXd& xbar(){
-        discx = mGF*mP*mA*mx0;
-        return discx;
+        mdiscx = mGF*mP*mA*mx0;
+        return mdiscx;
     }
 
     MatrixXd continuousV(){
