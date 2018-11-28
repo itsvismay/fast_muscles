@@ -5,13 +5,13 @@
 #include <igl/readMESH.h>
 #include <igl/readOBJ.h>
 #include <igl/slice.h>
+#include <igl/boundary_facets.h>
 
-#include <json.hpp>
 
-// #include "mesh.h"
-// #include "arap.h"
+#include "mesh.h"
+#include "arap.h"
 // #include "elastic.h"
-#include "solver.h"
+// #include "solver.h"
 
 
 using json = nlohmann::json;
@@ -19,6 +19,12 @@ using json = nlohmann::json;
 using namespace Eigen;
 using namespace std;
 json j_input;
+
+RowVector3d red(1,0,0);
+RowVector3d purple(1,0,1);
+RowVector3d green(0,1,0);
+RowVector3d black(0,0,0);
+MatrixXd Colors;
 
 std::vector<int> getMaxVerts_Axis_Tolerance(MatrixXd& mV, int dim, double tolerance=1e-5){
     auto maxX = mV.col(dim).maxCoeff();
@@ -52,46 +58,44 @@ int main(int argc, char *argv[])
     json j_config_parameters;
     std::ifstream i("../input/input.json");
     i >> j_input;
-
-    double youngs_mod = j_input["youngs"];
-    double poisson = j_input["poissons"];
-    double gravity = j_input["gravity"];
     
     MatrixXd V;
     MatrixXi T;
     MatrixXi F;
     igl::readMESH(j_input["mesh_file"], V, T, F);
-    V = V/10;
-    std::vector<int> fix = {5,6};//getMaxVerts_Axis_Tolerance(V, 1);
+    igl::boundary_facets(T, F);
+    
+    std::vector<int> fix = getMaxVerts_Axis_Tolerance(V, 1);
     std::sort (fix.begin(), fix.end());
     std::vector<int> mov = {};//getMinVerts_Axis_Tolerance(V, 1);
     std::sort (mov.begin(), mov.end());
 
 
     std::cout<<"-----Mesh-------"<<std::endl;
-    Mesh* mesh = new Mesh(T, V, fix, mov);
+    Mesh* mesh = new Mesh(T, V, fix, mov, j_input);
     std::cout<<"-----ARAP-----"<<std::endl;
     Arap* arap = new Arap(*mesh);
-    std::cout<<"-----Neo-------"<<std::endl;
-    Elastic* neo = new Elastic(*mesh);
+    // std::cout<<"-----Neo-------"<<std::endl;
+    // Elastic* neo = new Elastic(*mesh);
     
-    std::cout<<"-----Solver-------"<<std::endl;
-    int DIM = mesh->s().size();
-    StaticSolve<double> f(DIM, mesh, arap, neo);
-    // Criteria<double> crit = Criteria<double>::defaults();
-    // crit.xDelta = 1e-4;
-    // crit.fDelta = 1e-4;
-    // crit.gradNorm = 1e-4; 
-    cppoptlib:NelderMeadSolver<StaticSolve<double>> solver;
-    // solver.setStopCriteria(crit);
-    VectorXd lb = (mesh->s().array() - 1)*1e6 + 1e-6;
-    VectorXd ub = (mesh->s().array() - 1)*1e6 + 1e-6;
-    // std::cout<<ub<<std::endl;
-    // f.setLowerBound(lb);
-    // f.setUpperBound(ub)
-    
-    std::cout<<"Energy "<<arap->Energy(*mesh)<<std::endl;
-    // exit(0);
+    // std::cout<<"-----Solver-------"<<std::endl;
+        // int DIM = mesh->s().size();
+        // StaticSolve<double> f(DIM, mesh, arap, neo);
+        // // Criteria<double> crit = Criteria<double>::defaults();
+        // // crit.xDelta = 1e-4;
+        // // crit.fDelta = 1e-4;
+        // // crit.gradNorm = 1e-4; 
+        // cppoptlib:LbfgsbSolver<StaticSolve<double>> solver;
+        // // solver.setStopCriteria(crit);
+        // VectorXd lb = (mesh->s().array() - 1)*1e6 + 1e-6;
+        // VectorXd ub = (mesh->s().array() - 1)*1e6 + 1e-6;
+        // // std::cout<<ub<<std::endl;
+        // f.setLowerBound(lb);
+        // // f.setUpperBound(ub)
+        
+        // std::cout<<"Energy "<<arap->Energy(*mesh)<<std::endl;
+        // // Colors.resize(T.rows(), 3);
+        // // Colors.setOnes();
 
     igl::opengl::glfw::Viewer viewer;
     std::cout<<"-----Display-------"<<std::endl;
@@ -108,29 +112,30 @@ int main(int argc, char *argv[])
     {   std::cout<<"Key down, "<<key<<std::endl;
         viewer.data().clear();
         //Doing things
-        // VectorXd& s = mesh->s();
-        // for(int i=0; i<mesh->T().rows(); i++){
-        //     s[6*i+1] += 0.1;
-        // }
-        
-        VectorXd& dx = mesh->dx();
-        for(int i=0; i<mov.size(); i++){
-            dx[3*mov[i]+1] += 3;
+        VectorXd& s = mesh->red_s();
+        for(int i=0; i<s.size()/6; i++){
+            s[6*i] += 0.1;
         }
+        mesh->setGlobalF(false, true, false);
+        
+        // VectorXd& dx = mesh->dx();
+        // for(int i=0; i<mov.size(); i++){
+        //     dx[3*mov[i]+1] += 1;
+        // }
         //----------------
 
-        VectorXd news = mesh->s();
+        VectorXd news = mesh->red_s();
         if(key==' '){
-            solver.minimize(f, news);
-            for(int i=0; i<news.size(); i++){
-                mesh->s()[i] = news[i];
-            }
-            std::cout<<"new s"<<std::endl;
-            std::cout<<news.transpose()<<std::endl;
-            mesh->setGlobalF(false, true, false);
-            std::cout << "f in argmin " << f(news) << std::endl;
-            std::cout << "Solver status: " << solver.status() << std::endl;
-            std::cout << "Final criteria values: " << std::endl << solver.criteria() << std::endl;
+            // solver.minimize(f, news);
+            // for(int i=0; i<news.size(); i++){
+            //     mesh->s()[i] = news[i];
+            // }
+            // std::cout<<"new s"<<std::endl;
+            // std::cout<<news.transpose()<<std::endl;
+            // std::cout << "f in argmin " << f(news) << std::endl;
+            // std::cout << "Solver status: " << solver.status() << std::endl;
+            // std::cout << "Final criteria values: " << std::endl << solver.criteria() << std::endl;
+            arap->minimize(*mesh);
         }
         
         //----------------
@@ -164,6 +169,7 @@ int main(int argc, char *argv[])
         for(int i=0; i<mov.size(); i++){
             viewer.data().add_points(newV.row(mov[i]),Eigen::RowVector3d(0,1,0));
         }
+        // viewer.data().set_colors(Colors);
         
         return false;
     };

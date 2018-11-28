@@ -19,7 +19,8 @@ protected:
 
 public:
 	Elastic(Mesh& m){
-		forces.resize(m.s().size());
+
+		forces.resize(m.red_s().size());
 		forces.setZero();
 	}
 
@@ -220,7 +221,7 @@ public:
 
 	double Energy(Mesh& m){
 		double Elas =  WikipediaEnergy(m);
-		double Muscle = MuscleEnergy(m);
+		double Muscle = 0;// MuscleEnergy(m);
 		// std::cout<<"	elas: "<<Elas<<", muscle: "<<Muscle<<std::endl;
 		return Elas + Muscle;
 	}
@@ -228,7 +229,7 @@ public:
 	VectorXd PEGradient(Mesh& m){
 		forces.setZero();
 		WikipediaForce(m);
-		MuscleForce(m);
+		// MuscleForce(m);
 		return forces;
 	}
 

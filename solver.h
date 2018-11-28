@@ -18,7 +18,7 @@ private:
     Mesh* mesh;
     Arap* arap;
     Elastic* elas;
-    double alpha_neo =1e2;
+    double alpha_neo =1;
     double alpha_arap = 1e2; 
 
 public:
@@ -34,16 +34,16 @@ public:
     
     double value(const TVector &x) {
         for(int i=0; i<x.size(); i++){
-            mesh->s()[i] = x[i];
+            mesh->red_s()[i] = x[i];
         }
         mesh->setGlobalF(false, true, false);
 
         arap->minimize(*mesh);
-        double Eneo = alpha_neo*elas->Energy(*mesh);
+        double Eneo = 0;// alpha_neo*elas->Energy(*mesh);
         double Earap = alpha_arap*arap->Energy(*mesh);
                 std::cout<<"Energy"<<std::endl;
                 std::cout<<"neo: "<<alpha_neo*Eneo<<", arap: "<<alpha_arap*Earap<<std::endl;
-                // std::cout<<mesh->s().transpose()<<std::endl;
+                std::cout<<mesh->s().transpose()<<std::endl;
         return Eneo + Earap;
     }
     // void gradient(const TVector &x, TVector &grad) {
@@ -60,7 +60,7 @@ public:
     //         // grad[i] = alpha_neo*pegrad[i];
     //         grad[i] = alpha_arap*arapgrad[i];
     //     }
-    //     std::cout<<grad.transpose()<<std::endl;
+
     // }
 
     bool callback(const Criteria<T> &state, const TVector &x) {

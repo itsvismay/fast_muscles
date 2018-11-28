@@ -23,11 +23,11 @@ public:
 	Arap(Mesh& m){
 		int r_size = m.T().rows();
 		int z_size = m.x0().size();
-		int s_size = m.s().size();
+		int s_size = m.red_s().size();
 		int t_size = m.T().rows();
 
-		SparseMatrix<double> spExx = (m.P()*m.A()).transpose()*(m.P()*m.A());
-		Exx = MatrixXd(spExx);
+		Exx = (m.P()*m.A()*m.G()).transpose()*(m.P()*m.A()*m.G());
+		print(Exx);
 		Err = MatrixXd::Zero(r_size, r_size);
 		Exs = MatrixXd::Zero(z_size, s_size);
 		Ers = MatrixXd::Zero(r_size, s_size);
@@ -35,19 +35,13 @@ public:
 		PAx0 = m.P()*m.A()*m.x0();
 		UtPAx0 = m.GU().transpose()*PAx0;
 
-		MatrixXd C = MatrixXd(m.AB().transpose());
+		MatrixXd CG = MatrixXd(m.AB().transpose())*m.G();
+		print(CG);
 
-		MatrixXd col1(Exx.rows()+C.rows(), Exx.cols());
-		MatrixXd col2(Exx.rows()+C.rows(), C.rows());
-		// std::cout<<"Exx "<<Exx.rows()<<", "<<Exx.cols()<<std::endl;
-		// std::cout<<"C "<<C.rows()<<", "<<C.cols()<<std::endl;
-		// std::cout<<"col1 "<<col1.rows()<<", "<<col1.cols()<<std::endl;
-		// std::cout<<"col2 "<<col2.rows()<<", "<<col2.cols()<<std::endl;
-
-		col1<< Exx, C;
-		col2<<C.transpose(), MatrixXd::Zero(C.rows(), C.rows());
-		MatrixXd KKTmat(Exx.rows()+C.rows(), Exx.rows()+C.rows());
-		KKTmat<<col1,col2;
+		MatrixXd KKTmat = MatrixXd::Zero(Exx.rows()+CG.rows(), Exx.rows()+CG.rows());
+		KKTmat.block(0,0, Exx.rows(), Exx.cols()) = Exx;
+		KKTmat.block(Exx.rows(), 0, CG.rows(), CG.cols()) = CG;
+		KKTmat.block(0, Exx.cols(), CG.cols(), CG.rows()) = CG.transpose();
 		ARAPKKTSolver.compute(KKTmat);
 			
 	}
@@ -59,7 +53,7 @@ public:
 	}
 
 	inline double Energy(Mesh& m, VectorXd& z, SparseMatrix<double>& R, SparseMatrix<double>& S, SparseMatrix<double>& U){
-		VectorXd PAx = m.P()*m.A()*z;
+		VectorXd PAx = m.P()*m.A()*m.G()*z;
 		VectorXd FPAx0 = R*U*S*U.transpose()*m.P()*m.A()*m.x0();
 		return 0.5*(PAx - FPAx0).squaredNorm();
 	}
@@ -68,8 +62,8 @@ public:
 		//DEDs = dEds + dEdx*dxds + dEdR*dRds
 
 		//dEds
-		VectorXd dEds = VectorXd::Zero(m.s().size());
-		VectorXd& s = m.s();
+		VectorXd dEds = VectorXd::Zero(m.red_s().size());
+		VectorXd& s = m.red_s();
 
 		double E0 = Energy(m);
 		double eps = 1e-5;
@@ -83,39 +77,39 @@ public:
 		m.setGlobalF(false, true, false);
 
 		//dEdx
-		VectorXd dEds1 = VectorXd::Zero(m.s().size());
+		VectorXd dEds1 = VectorXd::Zero(m.red_s().size());
 		VectorXd Ex = dEdx(m);
 
 		//dEdR
-		VectorXd dEds2 = VectorXd::Zero(m.s().size());
+		VectorXd dEds2 = VectorXd::Zero(m.red_s().size());
 		VectorXd negPAx = -1*m.P()*m.A()*m.x();
 		VectorXd USUtPAx0 = m.GU()*m.GS()*UtPAx0;
 		MatrixXd dEdR = negPAx*USUtPAx0.transpose();
 		
 		//dxds dRds
 		VectorXd z0 = m.x();
-		MatrixXd dxds(m.s().size(), z0.size());
+		MatrixXd dxds(m.red_s().size(), z0.size());
 		vector<SparseMatrix<double>> dRds_r3;
 
-		for(int i=0; i<m.s().size(); i++){
+		for(int i=0; i<m.red_s().size(); i++){
 			// dxds_right.setZero();
 			// dxds_left.setZero();
 
-			m.s()[i] += 0.5*eps;
+			m.red_s()[i] += 0.5*eps;
 			m.setGlobalF(false, true, false);
 			minimize(m);
 			VectorXd dxds_left = m.dx();
 			SparseMatrix<double> dRds_left = m.GR();
-			m.s()[i] -= 0.5*eps;
+			m.red_s()[i] -= 0.5*eps;
 			m.setGlobalF(false, true, false);
 			minimize(m);
 			
-			m.s()[i] -= 0.5*eps;
+			m.red_s()[i] -= 0.5*eps;
 			m.setGlobalF(false, true, false);
 			minimize(m);
 			VectorXd dxds_right = m.dx();
 			SparseMatrix<double> dRds_right = m.GR();
-			m.s()[i] += 0.5*eps;
+			m.red_s()[i] += 0.5*eps;
 			m.setGlobalF(false, true, false);
 			minimize(m);
 
@@ -145,6 +139,10 @@ public:
 		VectorXd Ex = dEdx(m);
 	}
 
+	void dSds(){
+
+	}
+
 	VectorXd dEdx(Mesh& m){
 		VectorXd PAx = m.P()*m.A()*m.x();
 		VectorXd FPAx0 = m.xbar();
@@ -155,38 +153,51 @@ public:
 	void itT(Mesh& m){
 		VectorXd FPAx0 = m.xbar();
 		VectorXd deltaABtx = m.AB().transpose()*m.dx();
-		VectorXd AtPtFPAx0 = (m.P()*m.A()).transpose()*FPAx0;
-		VectorXd AtPtPAx0 = (m.P()*m.A()).transpose()*(m.P()*m.A()*m.x0());
+		VectorXd GtAtPtFPAx0 = (m.P()*m.A()*m.G()).transpose()*FPAx0;
+		VectorXd GtAtPtPAx0 = (m.P()*m.A()*m.G()).transpose()*(m.P()*m.A()*m.x0());
 
-		VectorXd gb = AtPtFPAx0 - AtPtPAx0;
+		VectorXd gb = GtAtPtFPAx0 - GtAtPtPAx0;
 		VectorXd gd(gb.size()+deltaABtx.size());
 		gd<<gb,deltaABtx;
 		VectorXd gu = ARAPKKTSolver.solve(gd).head(gb.size());
-		m.dx(gu);
+		m.red_x(gu);
 	}
 
 	void itR(Mesh& m){
 		VectorXd PAx = m.P()*m.A()*m.x();
 		VectorXd USUtPAx0 = m.GU()*m.GS()*UtPAx0;
-		MatrixXd ePAx(4,3);
-		MatrixXd eUSUtPAx0(4,3);
-		MatrixXd& mR =m.Rclusters();
-		for (int i=0; i<m.T().rows(); i++){
-			ePAx.row(0) = PAx.segment<3>(12*i);
-			ePAx.row(1) = PAx.segment<3>(12*i+3);
-			ePAx.row(2) = PAx.segment<3>(12*i+6);
-			ePAx.row(3) = PAx.segment<3>(12*i+9);
+		VectorXd& mr =m.red_r();
+		std::map<int, std::vector<int>>& c_e_map = m.r_cluster_elem_map();
+		for (int i=0; i<mr.size()/9; i++){
+			std::vector<int> cluster_elem = c_e_map[i];
+			MatrixXd ePAx(4*cluster_elem.size(),3);
+			MatrixXd eUSUtPAx0(4*cluster_elem.size(),3);
+			for(int c=0; c<cluster_elem.size(); c++){
+				ePAx.row(4*c+0) = PAx.segment<3>(12*cluster_elem[c]);
+				ePAx.row(4*c+1) = PAx.segment<3>(12*cluster_elem[c]+3);
+				ePAx.row(4*c+2) = PAx.segment<3>(12*cluster_elem[c]+6);
+				ePAx.row(4*c+3) = PAx.segment<3>(12*cluster_elem[c]+9);
+				
+				eUSUtPAx0.row(4*c+0) = USUtPAx0.segment<3>(12*cluster_elem[c]);
+				eUSUtPAx0.row(4*c+1) = USUtPAx0.segment<3>(12*cluster_elem[c]+3);
+				eUSUtPAx0.row(4*c+2) = USUtPAx0.segment<3>(12*cluster_elem[c]+6);
+				eUSUtPAx0.row(4*c+3) = USUtPAx0.segment<3>(12*cluster_elem[c]+9);
+			}
 
-			eUSUtPAx0.row(0) = USUtPAx0.segment<3>(12*i);
-			eUSUtPAx0.row(1) = USUtPAx0.segment<3>(12*i+3);
-			eUSUtPAx0.row(2) = USUtPAx0.segment<3>(12*i+6);
-			eUSUtPAx0.row(3) = USUtPAx0.segment<3>(12*i+9);
 
 			Matrix3d F = ePAx.transpose()*eUSUtPAx0;
 			Matrix3d ri,ti,ui,vi;
      		Vector3d _;
       		igl::polar_svd(F,ri,ti,ui,_,vi);
-      		mR.block<3,3>(3*i,0) = ri;
+      		mr[9*i+0] = ri(0,0);
+      		mr[9*i+1] = ri(0,1);
+      		mr[9*i+2] = ri(0,2);
+      		mr[9*i+3] = ri(1,0);
+      		mr[9*i+4] = ri(1,1);
+      		mr[9*i+5] = ri(1,2);
+      		mr[9*i+6] = ri(2,0);
+      		mr[9*i+7] = ri(2,1);
+      		mr[9*i+8] = ri(2,2);
 		}
 	}
 
@@ -210,29 +221,6 @@ public:
 	}
 
 
-	void createKKTMatrix(SparseMatrix<double>& Full, SparseMatrix<double> & TL, SparseMatrix<double> & BL, SparseMatrix<double> & TR, SparseMatrix<double> & BR){
-		// SparseMatrix<double> KKTmat(Exx.rows()+C.rows(), Exx.rows()+C.rows());
-		// KKTmat.setZero();
-		// std::vector<Trip> ExxTrips = to_triplets(Exx);
-		// std::vector<Trip> CTrips = to_triplets(C);
-		// std::vector<Trip> CtTrips = to_triplets(m.AB());
-		// for(int i=0; i<CTrips.size(); i++){
-		// 	int row = CTrips[i].row();
-		// 	int col = CTrips[i].col();
-		// 	int val = CTrips[i].value();
-		// 	ExxTrips.push_back(Trip(row+Exx.rows(), col, val));
-
-		// 	ExxTrips.push_back(Trip(col, row+Exx.cols(), val));
-		// }
-		// ExxTrips.insert(ExxTrips.end(),CTrips.begin(), CTrips.end());
-		// KKTmat.setFromTriplets(ExxTrips.begin(), ExxTrips.end());
-		
-		// std::vector<Eigen::Triplet<double>> v;
-		// for(int i = 0; i < M.outerSize(); i++)
-		// 	for(typename Eigen::SparseMatrix<double>::InnerIterator it(M,i); it; ++it)
-		// 		v.emplace_back(it.row(),it.col(),it.value());
-		// return v;
-	}
 	template<class T>
     inline void print(T a){ std::cout<<a<<std::endl; }
 

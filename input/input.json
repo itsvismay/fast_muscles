@@ -1,12 +1,9 @@
 {
   "mesh_file":"/home/vismay/recode/fast_muscles/data/testbar/bar.1.mesh",
-  "youngs": 5000,
-  "poissons": 0.2,
+  "youngs": 60000,
+  "poissons": 0.45,
   "fibre_mag": 0,
-  "fibre_dir": [1, 0, 1],
-  "axis": 0,
-  "thresh": 1,
-  "gravity": -10,
-  "timestep": 0.1,
-  "fd_eps": 1e-5
+  "number_skinning_handles": 2,
+  "number_rot_clusters": 2,
+  "number_modes": 10
 }
