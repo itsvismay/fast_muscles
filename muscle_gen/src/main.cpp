@@ -269,15 +269,8 @@ int main(int argc, char *argv[])
 	MatrixXd fiber_directions = Map<const MatrixXd>((G*W).eval().data(), muscle_mesh.T.rows(), 3);
 	fiber_directions.rowwise().normalize();
 
-	std::cout << fiber_directions << std::endl;
 	double fiber_scale = 0.1;
-	// MatrixXd fiber_dirs(centers.rows(), 3);
-	// for(int i = 0; i < fiber_dirs.rows(); i++) {
-	// 	fiber_dirs.row(i) = RowVector3d(0.0, 1.0, 0.0);
-	// }
 	std::vector<MatrixXd> fiber_edges(2);
-	// igl::slice(muscle_mesh.V, b, 1, fiber_edges[0]);
-	// fiber_edges[1] = fiber_edges[0] + 0.5 * bc;
 	MatrixXd muscle_centers;
 	igl::barycenter(muscle_mesh.V, muscle_mesh.T, muscle_centers);
 	fiber_edges[0] = muscle_centers;
@@ -285,8 +278,8 @@ int main(int argc, char *argv[])
 
 	// Map them back to the combined mesh
 	MatrixXd combined_fiber_directions = MatrixXd::Zero(combined_tet_mesh.T.rows(), 3);
-	std::vector<int> muscle_to_combined_indices = tet_indices_per_mesh[2]; // TODO improve this
-	for(int i = 0; i < fiber_directions.size(); i++) {
+	const std::vector<int> &muscle_to_combined_indices = tet_indices_per_mesh[2]; // TODO improve this
+	for(int i = 0; i < fiber_directions.rows(); i++) {
 		combined_fiber_directions.row(muscle_to_combined_indices[i]) = fiber_directions.row(i);
 	}
 
