@@ -1,3 +1,6 @@
+#include <iostream>
+#include <vector>
+
 #include <tetwild/tetwild.h>
 #include <tetwild/Args.h>
 
@@ -22,112 +25,43 @@
 
 #include <nlohmann/json.hpp>
 
-#include <iostream>
-#include <vector>
-
 #include "lf_utils.h"
 
+#include "MeshTypes.h"
+#include "viewer.h"
+
+using namespace muscle_gen;
 using namespace Eigen;
 using json = nlohmann::json;
 
-struct Mesh {
-	MatrixXd V;
-	MatrixXi F;
-};
-
-struct TetMesh {
-	MatrixXd V;
-	MatrixXi T;
-	VectorXd A; // Max dihedral angles..
-};
-
-const std::vector<Vector3d> color_cycle = {
-	Vector3d(1.0, 0.0, 0.0),
-	Vector3d(0.0, 1.0, 0.0),
-	Vector3d(0.0, 0.0, 1.0),
-	Vector3d(1.0, 1.0, 0.0)
-};
-
-bool update_cutaway(igl::opengl::glfw::Viewer &viewer, const TetMesh &tet_mesh, double t, int mesh_index)
-{
-	Eigen::MatrixXd B;
-	igl::barycenter(tet_mesh.V,tet_mesh.T, B);
-
-	using namespace std;
-	VectorXd v = B.col(2).array() - B.col(2).minCoeff();
-	v /= v.col(0).maxCoeff();
-	vector<int> s;
-	for (unsigned i=0; i<v.size();++i)
-		if (v(i) < t)
-			s.push_back(i);
-	MatrixXd V_temp(s.size()*4,3);
-	MatrixXi F_temp(s.size()*4,3);
-	for (unsigned i=0; i<s.size();++i)
-	{
-		V_temp.row(i*4+0) = tet_mesh.V.row(tet_mesh.T(s[i],0));
-		V_temp.row(i*4+1) = tet_mesh.V.row(tet_mesh.T(s[i],1));
-		V_temp.row(i*4+2) = tet_mesh.V.row(tet_mesh.T(s[i],2));
-		V_temp.row(i*4+3) = tet_mesh.V.row(tet_mesh.T(s[i],3));
-		F_temp.row(i*4+0) << (i*4)+0, (i*4)+1, (i*4)+3;
-		F_temp.row(i*4+1) << (i*4)+0, (i*4)+2, (i*4)+1;
-		F_temp.row(i*4+2) << (i*4)+3, (i*4)+2, (i*4)+0;
-		F_temp.row(i*4+3) << (i*4)+1, (i*4)+2, (i*4)+3;
-	}
-
-	viewer.selected_data_index = mesh_index;
-	viewer.data().clear();
-	viewer.data().set_mesh(V_temp,F_temp);
-	viewer.data().set_face_based(true);
-
-	const auto c = color_cycle[mesh_index % color_cycle.size()];
-	viewer.data().uniform_colors(c, Vector3d(1.0,1.0,1.0), Vector3d(1.0,1.0,1.0));
-	return false;
+struct Args {
+	bool load_existing_tets = false;
+	std::string config_path;
 }
 
-void launch_viewer(const std::vector<TetMesh> &tet_meshes, const std::vector<MatrixXd> &fiber_edges) {
-	igl::opengl::glfw::Viewer viewer;
-	igl::opengl::glfw::imgui::ImGuiMenu menu;
-	viewer.plugins.push_back(&menu);
-	float cutaway_offset = 0.5f;
+Args parse_args(int argc, char *argv) {
+	Args args;
 
-	std::vector<int> mesh_indices;
-	for(const auto &tet_mesh : tet_meshes) {
-		const int mesh_index = viewer.append_mesh();
-		mesh_indices.push_back(mesh_index);
-		update_cutaway(viewer, tet_mesh, cutaway_offset, mesh_index);
+	if(argc != 2 && argc != 3) {
+		std::cout << "Usage: ./muscle_gen <config>.json [optional] --load_existing_tets " << std::endl;
+		exit(0);
 	}
 	
-	menu.callback_draw_viewer_menu = [&]()
-	{
-		if(ImGui::InputFloat("Cutaway Plane", &cutaway_offset, 0.1f, 1.0f, 1)) {
-			for(int i = 0; i < tet_meshes.size(); i++) {
-				update_cutaway(viewer, tet_meshes[i], cutaway_offset, mesh_indices[i]);
-			}
+	args.config_path = argv[1];
+
+	if(argc >= 3) {
+		if(std::string(argv[2]) == "--load_existing_tets") {
+			args.load_existing_tets = true;
 		}
-	};
+	}
 
-	viewer.data().add_edges(fiber_edges[0], fiber_edges[1], RowVector3d(1.0, 0.0, 0.0));
-
-	viewer.launch();
+	return args;
 }
-
 
 int main(int argc, char *argv[])
 {
-
-	// TODO switch to JSON?
-	if(argc != 5 && argc != 6) {
-		std::cout << "Usage: ./muscle_gen <output_dir> <bone1>.obj <bone2>.obj <muscle>.obj [optional] --load_combined " << std::endl;
-		return 1;
-	}
+	Args args = parse_args(argc, argv);
 	
-	// Skip Tetwild
-	bool load_combined = false;
-	if(argc >= 6) {
-		if(std::string(argv[5]) == "--load_combined") {
-			load_combined = true;
-		}
-	}
 
 	std::string output_dir = argv[1];
 	std::vector<std::string> paths = {argv[2], argv[3], argv[4]};
@@ -155,7 +89,7 @@ int main(int argc, char *argv[])
 
 	// Tetrahedralize it
 	TetMesh combined_tet_mesh;
-	if(load_combined) {
+	if(load_existing_tets) {
 		igl::readDMAT((output_dir + "/combined_T.dmat"), combined_tet_mesh.T);
 		igl::readDMAT((output_dir + "/combined_V.dmat"), combined_tet_mesh.V);
 	} else {
