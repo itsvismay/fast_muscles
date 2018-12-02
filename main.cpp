@@ -114,7 +114,7 @@ int main(int argc, char *argv[])
         //Doing things
         VectorXd& s = mesh->red_s();
         for(int i=0; i<s.size()/6; i++){
-            s[6*i] += 0.1;
+            s[6*i+1] += 0.1;
         }
         mesh->setGlobalF(false, true, false);
         

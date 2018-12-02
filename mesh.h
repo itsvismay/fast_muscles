@@ -41,7 +41,7 @@ protected:
 
     std::vector<int> mfix, mmov;
     std::map<int, std::vector<int>> mr_cluster_elem_map;
-    std::vector<SparseMatrix<int>> mRotationBLOCK;
+    std::vector<SparseMatrix<double>> mRotationBLOCK;
     //end
 
     
@@ -85,6 +85,7 @@ public:
         
         mu.resize(4*mT.rows());
         mred_x.resize(mG.cols());
+        mred_x.setZero();
         
 
         mGR.resize(12*mT.rows(), 12*mT.rows());
@@ -170,12 +171,20 @@ public:
     void setupRotationClusters(int nrc){
         print("+ Rotation Clusters");
         if(nrc==0){
+            //unreduced
             nrc = mT.rows();
         }
 
         mr_elem_cluster_map.resize(mT.rows());
-        kmeans_rotation_clustering(mr_elem_cluster_map, nrc); //output from kmeans_rotation_clustering
-        
+        if(nrc==mT.rows()){
+            //unreduced
+            for(int i=0; i<mT.rows(); i++){
+                mr_elem_cluster_map[i] = i;
+            }   
+        }else{
+            kmeans_rotation_clustering(mr_elem_cluster_map, nrc); //output from kmeans_rotation_clustering
+        }
+
         for(int i=0; i<mT.rows(); i++){
             mr_cluster_elem_map[mr_elem_cluster_map[i]].push_back(i);
         }
@@ -196,7 +205,7 @@ public:
 
         for(int c=0; c<nrc; c++){
             vector<int> notfix = mr_cluster_elem_map[c];
-            SparseMatrix<int> bo(mT.rows(), notfix.size());
+            SparseMatrix<double> bo(mT.rows(), notfix.size());
             bo.setZero();
 
             int i = 0;
@@ -212,13 +221,9 @@ public:
                 i++;
             }
 
-            SparseMatrix<int> Id12(12,12);
+            SparseMatrix<double> Id12(12,12);
             Id12.setIdentity();
-            SparseMatrix<int> b = Eigen::kroneckerProduct(bo, Id12);
-            // for(int q=0; q<notfix.size();q++)
-            //     print(notfix[q]);
-            // print(bo);
-            // print("");
+            SparseMatrix<double> b = Eigen::kroneckerProduct(bo, Id12);
             mRotationBLOCK.push_back(b);
         }
         print("- Rotation Clusters");
@@ -244,6 +249,7 @@ public:
             //use BBW skinning, but for now, set by hand
             MatrixXd tW = MatrixXd::Identity(mT.rows(), nsh);
             msW = Eigen::kroneckerProduct(tW, MatrixXd::Identity(6,6));
+            print("- Skinning Handles");
             return;
         }
         VectorXi skinning_elem_cluster_map;
@@ -617,7 +623,8 @@ public:
         if(updateR){
             //iterate through rotation clusters
             for (int t=0; t<mred_r.size()/9; t++){
-                //dont use the RotBLOCK matrix. Insert manually into elements within
+                //dont use the RotBLOCK matrix like I did in python. 
+                //Insert manually into elements within
                 //the rotation cluster
                 for(int c=0; c<mr_cluster_elem_map[t].size(); c++){
                     for(int j=0; j<4; j++){
@@ -679,6 +686,7 @@ public:
     inline SparseMatrix<double>& GR(){ return mGR; }
     inline SparseMatrix<double>& GS(){ return mGS; }
     inline SparseMatrix<double>& GU(){ return mGU; }
+    inline SparseMatrix<double>& GF(){ return mGF; }
 
     inline SparseMatrix<double>& P(){ return mP; }
     inline SparseMatrix<double>& A(){ return mA; }
@@ -692,6 +700,9 @@ public:
     inline VectorXd& x0(){ return mx0; }
     inline VectorXd& red_s(){return mred_s; }
     inline std::map<int, std::vector<int>>& r_cluster_elem_map(){ return mr_cluster_elem_map; }
+    inline MatrixXd& sW(){ return msW; }
+    inline std::vector<SparseMatrix<double>>& RotBLOCK(){ return mRotationBLOCK; }
+
     VectorXd& x(){ 
         mcontx = mG*mred_x+mx0;
         return mcontx;
