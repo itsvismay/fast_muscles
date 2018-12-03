@@ -50,9 +50,9 @@ public:
 		KKTmat.block(0, aExx.cols(), CG.cols(), CG.rows()) = CG.transpose();
 		aARAPKKTSolver.compute(KKTmat);
 
-		setupRedSparseDRdr(m);
-		setupRedSparseDSds(m);
-		setupFastErTerms(m);
+		setupRedSparseDRdr(m);//one time pre-processing
+		setupRedSparseDSds(m);//one time pre-processing
+		// setupFastErTerms(m);
 		dEdr(m);
 	}
 
@@ -153,12 +153,11 @@ public:
 
 	}
 
-	void setupFastErTerms(Mesh& m){
-		// std::vector<Trip> trip_UU;
-		
-		// for(int t=0; t<m.T().rows(); t++){
-
-		// }
+	VectorXd dEdx(Mesh& m){
+		VectorXd PAx = m.P()*m.A()*m.x();
+		VectorXd FPAx0 = m.xbar();
+		VectorXd res = (aPA*m.G()).transpose()*(PAx - FPAx0);
+		return res;
 	}
 
 	VectorXd dEdr(Mesh& m){
@@ -176,14 +175,15 @@ public:
 	}
 
 	VectorXd dEds(Mesh& m){
-		VectorXd SUtPAx0 = m.GS()*aUtPAx0;
-		VectorXd UtRtPAx = (m.GR()*m.GU()).transpose()*aPA*m.x();
-	
+		SparseMatrix<double> RU =m.GR()*m.GU(); 
+		VectorXd UtRtRUSUtPAx0 = (RU).transpose()*RU*m.GS()*aUtPAx0;
+		VectorXd UtRtPAx = (RU).transpose()*aPA*m.x();
+
 		aEs.setZero();
 		for(int i=0; i<aEs.size(); i++){
 			std::vector<Trip> v = aDS[i];
 			for(int k=0; k<aDS[i].size(); k++){
-				aEs[i] += SUtPAx0[v[k].row()]*aUtPAx0[v[k].col()] - UtRtPAx[v[k].row()]*aUtPAx0[v[k].col()];
+				aEs[i] += (UtRtRUSUtPAx0[v[k].row()]*aUtPAx0[v[k].col()] - UtRtPAx[v[k].row()]*aUtPAx0[v[k].col()])*v[k].value();
 			}
 		}
 		return aEs;
@@ -228,9 +228,7 @@ public:
 	}
 
 	void setupRedSparseDSds(Mesh& m){
-		
-		MatrixXd& sW = m.sW();
-
+	
 		for(int i=0; i<m.red_s().size()/6; i++){
 			VectorXd sWx = m.sW().col(6*i+0); 
 
@@ -240,7 +238,7 @@ public:
 			vector<Trip> s01;
 			vector<Trip> s02;
 			vector<Trip> s12;
-			for(int j=0; j<m.T().rows()/12; j++){
+			for(int j=0; j<m.T().rows(); j++){
 				sx.push_back(Trip(12*j+0, 12*j+0, sWx[6*i]));
 				sx.push_back(Trip(12*j+3, 12*j+3, sWx[6*i]));
 				sx.push_back(Trip(12*j+6, 12*j+6, sWx[6*i]));
@@ -292,12 +290,6 @@ public:
 		}
 	}
 
-	VectorXd dEdx(Mesh& m){
-		VectorXd PAx = m.P()*m.A()*m.x();
-		VectorXd FPAx0 = m.xbar();
-		VectorXd res = (aPA*m.G()).transpose()*(PAx - FPAx0);
-		return res;
-	}
 
 	void itT(Mesh& m){
 		VectorXd FPAx0 = m.xbar();
@@ -379,7 +371,7 @@ public:
 		return v;
 	}
 
-
+	inline MatrixXd& Exx(){ return aExx; }
 	template<class T>
     inline void print(T a){ std::cout<<a<<std::endl; }
 

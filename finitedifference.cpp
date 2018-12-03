@@ -115,9 +115,108 @@ int checkARAP(Mesh& mesh, Arap& arap){
 	};
 	//-----------------------
 
-	Ex();
-	Er();
-	Es();
+	//CHECK Exx--------------
+	auto Exx = [&mesh, &arap, E0, eps](){
+		MatrixXd& real = arap.Exx();
+		MatrixXd fake = MatrixXd::Zero(mesh.red_x().size(), mesh.red_x().size());
+		VectorXd z = mesh.red_x();
+		for(int i=0; i<fake.rows(); i++){
+			for(int j=0; j<fake.cols(); j++){
+				z[i] += eps;
+				z[j] += eps;
+				double Eij = arap.Energy(mesh, z, mesh.GR(), mesh.GS(), mesh.GU());
+				z[i] -= eps;
+				z[j] -= eps;
+
+				z[i] += eps;
+				double Ei = arap.Energy(mesh, z, mesh.GR(), mesh.GS(), mesh.GU());
+				z[i] -= eps;
+
+				z[j] += eps;
+				double Ej = arap.Energy(mesh, z, mesh.GR(), mesh.GS(), mesh.GU());
+				z[j] -= eps;
+
+				fake(i,j) = ((Eij - Ei - Ej + E0)/(eps*eps));
+			}
+		}
+		std::cout<<"Exx"<<std::endl;
+		std::cout<<(fake- real).norm()<<std::endl;
+	};
+
+	//-----------------------
+
+	//CHECK Exr/Erx-------------
+	auto Exr = [&mesh, &arap, E0, eps](){
+		// MatrixXd& real = arap.Exx();
+		MatrixXd fake = MatrixXd::Zero(mesh.red_x().size(), mesh.red_r().size());
+		VectorXd z = mesh.red_x();
+
+		for(int i=0; i<fake.rows(); i++){
+			for(int j=0; j<fake.cols(); j++){
+				mesh.red_r()[i] += eps;
+				z[j] += eps;
+				mesh.setGlobalF(true, false, false);
+				double Eij = arap.Energy(mesh, z, mesh.GR(), mesh.GS(), mesh.GU());
+				mesh.red_r()[i] -= eps;
+				z[j] -= eps;
+
+				mesh.red_r()[i] += eps;
+				mesh.setGlobalF(true, false, false);
+				double Ei = arap.Energy(mesh, z, mesh.GR(), mesh.GS(), mesh.GU());
+				mesh.red_r()z[i] -= eps;
+
+				z[j] += eps;
+				mesh.setGlobalF(true, false, false);
+				double Ej = arap.Energy(mesh, z, mesh.GR(), mesh.GS(), mesh.GU());
+				z[j] -= eps;
+
+				fake(i,j) = ((Eij - Ei - Ej + E0)/(eps*eps));
+			}
+		}
+		mesh.setGlobalF(true, false, false);
+		std::cout<<"Erx"<<std::endl;
+		// std::cout<<(fake- real).norm()<<std::endl;
+	}
+	//-----------------------
+
+	//CHECK Exs-------------
+	auto Exr = [&mesh, &arap, E0, eps](){
+		// MatrixXd& real = arap.Exx();
+		MatrixXd fake = MatrixXd::Zero(mesh.red_x().size(), mesh.red_r().size());
+		VectorXd z = mesh.red_x();
+
+		for(int i=0; i<fake.rows(); i++){
+			for(int j=0; j<fake.cols(); j++){
+				mesh.red_r()[i] += eps;
+				z[j] += eps;
+				mesh.setGlobalF(true, false, false);
+				double Eij = arap.Energy(mesh, z, mesh.GR(), mesh.GS(), mesh.GU());
+				mesh.red_r()[i] -= eps;
+				z[j] -= eps;
+
+				mesh.red_r()[i] += eps;
+				mesh.setGlobalF(true, false, false);
+				double Ei = arap.Energy(mesh, z, mesh.GR(), mesh.GS(), mesh.GU());
+				mesh.red_r()z[i] -= eps;
+
+				z[j] += eps;
+				mesh.setGlobalF(true, false, false);
+				double Ej = arap.Energy(mesh, z, mesh.GR(), mesh.GS(), mesh.GU());
+				z[j] -= eps;
+
+				fake(i,j) = ((Eij - Ei - Ej + E0)/(eps*eps));
+			}
+		}
+		mesh.setGlobalF(true, false, false);
+		std::cout<<"Erx"<<std::endl;
+		// std::cout<<(fake- real).norm()<<std::endl;
+	}
+	//-----------------------
+	
+	// Ex();
+	// Er();
+	// Es();
+	Exx();
 
 }
 
@@ -142,7 +241,7 @@ int main(int argc, char *argv[])
     std::cout<<"-----Mesh-------"<<std::endl;
     Mesh* mesh = new Mesh(T, V, fix, mov, j_input);
     mesh->red_s()[0] -=0.1;
-    mesh->red_r()[0] += 0.1;
+    mesh->red_r()[0] -= 0.1;
     mesh->setGlobalF(true, true, false);
     std::cout<<"-----ARAP-----"<<std::endl;
     Arap* arap = new Arap(*mesh);
