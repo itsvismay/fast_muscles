@@ -147,77 +147,116 @@ int checkARAP(Mesh& mesh, Arap& arap){
 
 	//CHECK Exr/Erx-------------
 	auto Exr = [&mesh, &arap, E0, eps](){
-		// MatrixXd& real = arap.Exx();
+		MatrixXd& real = arap.Exr(mesh);
 		MatrixXd fake = MatrixXd::Zero(mesh.red_x().size(), mesh.red_r().size());
 		VectorXd z = mesh.red_x();
 
 		for(int i=0; i<fake.rows(); i++){
 			for(int j=0; j<fake.cols(); j++){
-				mesh.red_r()[i] += eps;
-				z[j] += eps;
+				mesh.red_r()[j] += eps;
+				z[i] += eps;
 				mesh.setGlobalF(true, false, false);
 				double Eij = arap.Energy(mesh, z, mesh.GR(), mesh.GS(), mesh.GU());
-				mesh.red_r()[i] -= eps;
-				z[j] -= eps;
+				mesh.red_r()[j] -= eps;
+				z[i] -= eps;
 
-				mesh.red_r()[i] += eps;
+				mesh.red_r()[j] += eps;
 				mesh.setGlobalF(true, false, false);
 				double Ei = arap.Energy(mesh, z, mesh.GR(), mesh.GS(), mesh.GU());
-				mesh.red_r()z[i] -= eps;
+				mesh.red_r()[j] -= eps;
 
-				z[j] += eps;
+				z[i] += eps;
 				mesh.setGlobalF(true, false, false);
 				double Ej = arap.Energy(mesh, z, mesh.GR(), mesh.GS(), mesh.GU());
-				z[j] -= eps;
+				z[i] -= eps;
 
 				fake(i,j) = ((Eij - Ei - Ej + E0)/(eps*eps));
 			}
 		}
 		mesh.setGlobalF(true, false, false);
-		std::cout<<"Erx"<<std::endl;
-		// std::cout<<(fake- real).norm()<<std::endl;
-	}
+		std::cout<<"Exr"<<std::endl;
+		std::cout<<real<<std::endl;
+		std::cout<<(fake- real).norm()<<std::endl;
+	};
 	//-----------------------
 
 	//CHECK Exs-------------
-	auto Exr = [&mesh, &arap, E0, eps](){
-		// MatrixXd& real = arap.Exx();
-		MatrixXd fake = MatrixXd::Zero(mesh.red_x().size(), mesh.red_r().size());
+	auto Exs = [&mesh, &arap, E0, eps](){
+		MatrixXd& real = arap.Exs(mesh);
+		MatrixXd fake = MatrixXd::Zero(mesh.red_x().size(), mesh.red_s().size());
 		VectorXd z = mesh.red_x();
 
 		for(int i=0; i<fake.rows(); i++){
 			for(int j=0; j<fake.cols(); j++){
-				mesh.red_r()[i] += eps;
-				z[j] += eps;
-				mesh.setGlobalF(true, false, false);
+				mesh.red_s()[j] += eps;
+				z[i] += eps;
+				mesh.setGlobalF(false, true, false);
 				double Eij = arap.Energy(mesh, z, mesh.GR(), mesh.GS(), mesh.GU());
+				mesh.red_s()[j] -= eps;
+				z[i] -= eps;
+
+				mesh.red_s()[j] += eps;
+				mesh.setGlobalF(false, true, false);
+				double Ei = arap.Energy(mesh, z, mesh.GR(), mesh.GS(), mesh.GU());
+				mesh.red_s()[j] -= eps;
+
+				z[i] += eps;
+				mesh.setGlobalF(false, true, false);
+				double Ej = arap.Energy(mesh, z, mesh.GR(), mesh.GS(), mesh.GU());
+				z[i] -= eps;
+
+				fake(i,j) = ((Eij - Ei - Ej + E0)/(eps*eps));
+			}
+		}
+		mesh.setGlobalF(false, true, false);
+		std::cout<<"Exs"<<std::endl;
+		std::cout<<real<<std::endl;
+		std::cout<<(fake- real).norm()<<std::endl;
+	};
+	//-----------------------
+
+	//CHECK Err--------------
+	auto Err = [&mesh, &arap, E0, eps](){
+		MatrixXd& real = arap.Err(mesh);
+		MatrixXd fake = MatrixXd::Zero(mesh.red_r().size(), mesh.red_r().size());
+
+		for(int i=0; i<fake.rows(); i++){
+			for(int j=0; j<fake.cols(); j++){
+				mesh.red_r()[j] += eps;
+				mesh.red_r()[i] += eps;
+				mesh.setGlobalF(true, false, false);
+				double Eij = arap.Energy(mesh, mesh.red_x(), mesh.GR(), mesh.GS(), mesh.GU());
+				mesh.red_r()[j] -= eps;
 				mesh.red_r()[i] -= eps;
-				z[j] -= eps;
+
+				mesh.red_r()[j] += eps;
+				mesh.setGlobalF(true, false, false);
+				double Ei = arap.Energy(mesh, mesh.red_x(), mesh.GR(), mesh.GS(), mesh.GU());
+				mesh.red_r()[j] -= eps;
 
 				mesh.red_r()[i] += eps;
 				mesh.setGlobalF(true, false, false);
-				double Ei = arap.Energy(mesh, z, mesh.GR(), mesh.GS(), mesh.GU());
-				mesh.red_r()z[i] -= eps;
-
-				z[j] += eps;
-				mesh.setGlobalF(true, false, false);
-				double Ej = arap.Energy(mesh, z, mesh.GR(), mesh.GS(), mesh.GU());
-				z[j] -= eps;
+				double Ej = arap.Energy(mesh, mesh.red_x(), mesh.GR(), mesh.GS(), mesh.GU());
+				mesh.red_r()[i] -= eps;
 
 				fake(i,j) = ((Eij - Ei - Ej + E0)/(eps*eps));
 			}
 		}
 		mesh.setGlobalF(true, false, false);
-		std::cout<<"Erx"<<std::endl;
-		// std::cout<<(fake- real).norm()<<std::endl;
-	}
+		std::cout<<"Err"<<std::endl;
+		std::cout<<fake<<std::endl;
+		std::cout<<(fake- real).norm()<<std::endl;
+	};
 	//-----------------------
+
 	
 	// Ex();
 	// Er();
 	// Es();
-	Exx();
-
+	// Exx();
+	// Exr();
+	// Exs();
+	Err();
 }
 
 int main(int argc, char *argv[])

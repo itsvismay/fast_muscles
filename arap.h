@@ -17,7 +17,7 @@ class Arap
 protected:
 	PartialPivLU<MatrixXd>  aARAPKKTSolver;
 	VectorXd aPAx0, aUtPAx0, aEr, aEs;
-	MatrixXd aExx, aErx, aErr, aExs, aErs, aPAG;
+	MatrixXd aExx, aExr, aErr, aExs, aErs, aPAG;
 	SparseMatrix<double> aPA;
 
 	std::vector<SparseMatrix<double>> aDR;
@@ -34,6 +34,7 @@ public:
 		aErr = MatrixXd::Zero(r_size, r_size);
 		aExs = MatrixXd::Zero(z_size, s_size);
 		aErs = MatrixXd::Zero(r_size, s_size);
+		aExr = MatrixXd::Zero(z_size, r_size);
 		aEr = VectorXd::Zero(r_size);
 		aEs = VectorXd::Zero(s_size);
 
@@ -161,14 +162,15 @@ public:
 	}
 
 	VectorXd dEdr(Mesh& m){
-		VectorXd PAg_FPAx0 = aPA*(m.G()*m.red_x() + m.x0()) - m.GF()*aPA*m.x0();
+		VectorXd PAg = aPA*(m.G()*m.red_x() + m.x0());
+		VectorXd FPAx0 = m.GF()*aPA*m.x0();
 		VectorXd USUtPAx0 = m.GU()*m.GS()*aUtPAx0;
 
 		aEr.setZero();
 		for(int i=0; i<aEr.size(); i++){
 			auto v = to_triplets(aDR[i]);
 			for(int k=0; k<v.size(); k++){
-				aEr[i] += -1*PAg_FPAx0[v[k].row()]*USUtPAx0[v[k].col()]*v[k].value();
+				aEr[i] += -1*PAg[v[k].row()]*USUtPAx0[v[k].col()]*v[k].value() + FPAx0[v[k].row()]*USUtPAx0[v[k].col()]*v[k].value();
 			}
 		}
 		return aEr;
@@ -187,6 +189,65 @@ public:
 			}
 		}
 		return aEs;
+	}
+
+	MatrixXd& Exr(Mesh& m){
+		VectorXd USUtPAx0 = m.GU()*m.GS()*aUtPAx0;
+		
+		aExr.setZero();
+		for(int i=0; i<aExr.rows(); i++){
+			for(int j=0; j<aExr.cols(); j++){
+				auto v = to_triplets(aDR[j]);
+				for(int k=0; k<v.size(); k++){
+					aExr(i,j) += -1*v[k].value()*(aPAG(v[k].row(), i)*USUtPAx0[v[k].col()]);
+				}
+			}
+		}
+		
+		return aExr;
+
+	}
+
+	MatrixXd& Exs(Mesh& m){
+		MatrixXd GtAtPtRU = aPAG.transpose()*(m.GR()*m.GU());
+
+		aExs.setZero();
+		for(int i=0; i<GtAtPtRU.rows(); i++){
+			for(int j=0; j<aExs.cols(); j++){
+				std::vector<Trip> v = aDS[j];
+				for(int k=0; k<v.size(); k++){
+					aExs(i,j) += -1*v[k].value()*(GtAtPtRU(i, v[k].row())*aUtPAx0[v[k].col()]);
+				}
+			}
+		}
+		return aExs;
+	}
+
+	MatrixXd& Err(Mesh& m){	
+		VectorXd USUtPAx0 = m.GU()*m.GS()*aUtPAx0;
+
+		MatrixXd TEMP = MatrixXd::Zero(12*m.T().rows(), aErr.rows());
+
+		aErr.setZero();
+		for(int j=0; j<aErr.cols(); j++){
+			auto v = to_triplets(aDR[j]);
+			for(int k=0; k<v.size(); k++){
+				TEMP(v[k].row(),j) += v[k].value()*(USUtPAx0[v[k].col()]);
+			}
+		}
+
+		for(int i=0; i<aErr.rows(); i++){
+			auto v = to_triplets(aDR[i]);
+			for(int j=0; j<TEMP.cols(); j++){
+				for(int k=0; k<v.size(); k++){
+					aErr(i,j) += v[k].value()*(USUtPAx0[v[k].col()]*TEMP(v[k].row(), j));
+				}	
+			}
+		}
+		
+		print("ERR");
+		print(aErr);
+		return aErr;
 	}
 
 	void setupRedSparseDRdr(Mesh& m){
