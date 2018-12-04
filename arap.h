@@ -244,10 +244,64 @@ public:
 				}	
 			}
 		}
-		
-		print("ERR");
-		print(aErr);
+
 		return aErr;
+	}
+
+	MatrixXd& Ers(Mesh& m){
+		VectorXd PAg = aPA*m.x();
+		VectorXd FPAx0 = m.GF()*aPA*m.x();
+		SparseMatrix<double> RUt = (m.GR()*m.GU()).transpose();
+		VectorXd USUtPAx0 = m.GU()*m.GS()*aUtPAx0;
+
+		print("temp1");
+		MatrixXd TEMP1 = MatrixXd::Zero(12*m.T().rows(), aErs.rows());
+		for(int i=0; i<TEMP1.rows(); i++){
+			for(int j=0; j<TEMP1.cols(); j++){
+				auto v = to_triplets(aDR[j]);
+				for(int k=0; k<v.size(); k++){
+					TEMP1(i,j) += v[k].value()*(-1*m.GU().coeff(v[k].row(), i)*PAg[v[k].col()]);
+				}
+			}
+		}
+
+		print("temp2");
+		MatrixXd TEMP2 = MatrixXd::Zero(12*m.T().rows(), aErs.rows());
+		for(int i=0; i<TEMP2.rows(); i++){
+			for(int j=0; j<TEMP2.cols(); j++){
+				auto v = to_triplets(aDR[j]);
+				for(int k=0; k<v.size(); k++){
+					TEMP2(i,j) += v[k].value()*(m.GU().coeff(v[k].row(), i)*FPAx0[v[k].col()] + RUt.coeff(i, v[k].row())*USUtPAx0[v[k].col()]);
+				}
+			}
+		}
+		aErs.setZero();
+
+		print("mid1");
+		for(int i=0; i<aErs.cols(); i++){
+			std::vector<Trip> v = aDS[i];
+			for(int j=0; j<TEMP1.cols(); j++){
+				for(int k=0; k<v.size(); k++){
+					aErs(j, i) += v[k].value()*(aUtPAx0[v[k].col()]*TEMP1(v[k].row(), j));
+				}
+			}
+		}
+		print("mid2");
+		for(int i=0; i<aErs.cols(); i++){
+			std::vector<Trip> v = aDS[i];
+			for(int j=0; j<TEMP2.cols(); j++){
+				for(int k=0; k<v.size(); k++){
+					aErs(j, i) += v[k].value()*(aUtPAx0[v[k].col()]*TEMP2(v[k].row(), j));
+				}
+			}
+		}
+
+
+
+		print("ERS");
+		print(aErs);
+
+		return aErs;
 	}
 
 	void setupRedSparseDRdr(Mesh& m){
