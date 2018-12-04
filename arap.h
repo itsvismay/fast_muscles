@@ -185,7 +185,8 @@ public:
 		for(int i=0; i<aEs.size(); i++){
 			std::vector<Trip> v = aDS[i];
 			for(int k=0; k<aDS[i].size(); k++){
-				aEs[i] += (UtRtRUSUtPAx0[v[k].row()]*aUtPAx0[v[k].col()] - UtRtPAx[v[k].row()]*aUtPAx0[v[k].col()])*v[k].value();
+				// aEs[i] -= UtRtPAx[v[k].row()]*aUtPAx0[v[k].col()]*v[k].value();
+				aEs[i] += UtRtRUSUtPAx0[v[k].row()]*aUtPAx0[v[k].col()]*v[k].value();
 			}
 		}
 		return aEs;
@@ -256,14 +257,14 @@ public:
 
 		print("temp1");
 		MatrixXd TEMP1 = MatrixXd::Zero(12*m.T().rows(), aErs.rows());
-		for(int i=0; i<TEMP1.rows(); i++){
-			for(int j=0; j<TEMP1.cols(); j++){
-				auto v = to_triplets(aDR[j]);
-				for(int k=0; k<v.size(); k++){
-					TEMP1(i,j) += v[k].value()*(-1*m.GU().coeff(v[k].row(), i)*PAg[v[k].col()]);
-				}
-			}
-		}
+		// for(int i=0; i<TEMP1.rows(); i++){
+		// 	for(int j=0; j<TEMP1.cols(); j++){
+		// 		auto v = to_triplets(aDR[j]);
+		// 		for(int k=0; k<v.size(); k++){
+		// 			TEMP1(i,j) += v[k].value()*(-1*m.GU().coeff(v[k].col(), i)*PAg[v[k].row()]);
+		// 		}
+		// 	}
+		// }
 
 		print("temp2");
 		MatrixXd TEMP2 = MatrixXd::Zero(12*m.T().rows(), aErs.rows());
@@ -275,17 +276,18 @@ public:
 				}
 			}
 		}
-		aErs.setZero();
 
+		aErs.setZero();
 		print("mid1");
-		for(int i=0; i<aErs.cols(); i++){
-			std::vector<Trip> v = aDS[i];
-			for(int j=0; j<TEMP1.cols(); j++){
-				for(int k=0; k<v.size(); k++){
-					aErs(j, i) += v[k].value()*(aUtPAx0[v[k].col()]*TEMP1(v[k].row(), j));
-				}
-			}
-		}
+		// for(int i=0; i<aErs.cols(); i++){
+		// 	std::vector<Trip> v = aDS[i];
+		// 	for(int j=0; j<TEMP1.cols(); j++){
+		// 		for(int k=0; k<v.size(); k++){
+		// 			aErs(j, i) += v[k].value()*(aUtPAx0[v[k].col()]*TEMP1(v[k].row(), j));
+		// 		}
+		// 	}
+		// }
+		
 		print("mid2");
 		for(int i=0; i<aErs.cols(); i++){
 			std::vector<Trip> v = aDS[i];

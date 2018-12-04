@@ -283,7 +283,32 @@ int checkARAP(Mesh& mesh, Arap& arap){
 	};
 	//-----------------------
 
-	
+	//CHECK Ers--------------
+	auto Ers_part1 = [&mesh, &arap, E0, eps](){
+		MatrixXd& real = arap.Ers(mesh);
+		MatrixXd fake = MatrixXd::Zero(mesh.red_r().size(), mesh.red_s().size());
+
+		for(int i=0; i<fake.rows(); i++){
+				mesh.red_r()[i] += 0.5*eps;
+				mesh.setGlobalF(true, false, false);
+				VectorXd Eleft = arap.dEds(mesh);
+				mesh.red_r()[i] -= 0.5*eps;
+
+				mesh.red_r()[i] -= 0.5*eps;
+				mesh.setGlobalF(true, false, false);
+				VectorXd Eright = arap.dEds(mesh);
+				mesh.red_r()[i] += 0.5*eps;
+
+				fake.row(i) = (Eleft-Eright)/eps;
+		}
+		mesh.setGlobalF(true, false, false);
+		std::cout<<"Ers_part1"<<std::endl;
+		std::cout<<fake<<std::endl;
+		std::cout<<(fake- real).norm()<<std::endl;
+	};
+	//-----------------------
+
+
 	// Ex();
 	// Er();
 	// Es();
@@ -291,7 +316,8 @@ int checkARAP(Mesh& mesh, Arap& arap){
 	// Exr();
 	// Exs();
 	// Err();
-	Ers();
+	// Ers();
+	Ers_part1();
 }
 
 int main(int argc, char *argv[])
