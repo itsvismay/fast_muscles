@@ -166,10 +166,10 @@ public:
 		std::cout<<JacKKT.rows()<<", "<<JacKKT.cols()<<std::endl;
 		std::cout<<rhs.rows()<<", "<<rhs.cols()<<std::endl;
 
-		FullPivLU<MatrixXd> JacKKTSolver;
-		JacKKTSolver.compute(JacKKT);
+		// FullPivLU<MatrixXd> JacKKTSolver;
+		// JacKKTSolver.compute(JacKKT);
 		print("computed");
-		MatrixXd results = JacKKTSolver.solve(rhs);
+		MatrixXd results = JacKKT.fullPivLu().solve(KKT_constrains);
 
 		print(results);
 
