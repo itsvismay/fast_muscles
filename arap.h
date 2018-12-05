@@ -135,15 +135,63 @@ public:
 	}
 
 	void Jacobians(Mesh& m){
-		// Hessians(m, Exx, Erx, Err, Exs, Ers);
-		// lhs_left
-		//return dEds, dgds, drds
+		Hessians(m);
+		
+		MatrixXd lhs_left(aExx.rows()+aExr.cols(), aExx.cols());
+		lhs_left<<aExx, aExr.transpose();
+
+		MatrixXd lhs_right(aExr.rows() + aErr.rows() , aExr.cols());
+		lhs_right<<aExr, aErr; 
+
+		MatrixXd rhs(aExs.rows()+aErs.rows(), aExs.cols());
+		rhs<<-1*aExs, -1*aErs;
+		
+		MatrixXd CG = MatrixXd(m.AB().transpose())*m.G();
+
+		MatrixXd col1(lhs_left.rows()+CG.rows(), lhs_left.cols());
+		col1<<lhs_left, CG;
+
+		MatrixXd col2(lhs_right.rows()+CG.rows(), lhs_right.cols());
+		col2<<lhs_right,MatrixXd::Zero(CG.rows(), lhs_right.cols());
+
+		MatrixXd col3(CG.cols()+CG.rows()+aErr.rows(), CG.rows());
+		col3<<CG.transpose(),MatrixXd::Zero(CG.rows()+aErr.rows(), CG.rows());
+
+		MatrixXd KKT_constrains(rhs.rows() + CG.rows(), rhs.cols());
+		KKT_constrains<<rhs,MatrixXd::Zero(CG.rows(), rhs.cols());
+
+		MatrixXd JacKKT(col1.rows(), col1.rows());
+		JacKKT<<col1, col2, col3;
+		
+		std::cout<<JacKKT.rows()<<", "<<JacKKT.cols()<<std::endl;
+		std::cout<<rhs.rows()<<", "<<rhs.cols()<<std::endl;
+
+		FullPivLU<MatrixXd> JacKKTSolver;
+		JacKKTSolver.compute(JacKKT);
+		print("computed");
+		MatrixXd results = JacKKTSolver.solve(rhs);
+
+		print(results);
+
 	}
 
-	void Hessians(Mesh& m, MatrixXd& Exx, MatrixXd& Erx, MatrixXd& Err, MatrixXd& Exs, MatrixXd& Ers){
+	void Hessians(Mesh& m){
+		print("+Hessians");
 		//Exx is constant
 
-		// Erx = 
+		// Erx
+		Exr(m);
+
+		//Err
+		Err(m);
+
+		//Exs
+		Exs(m);
+
+		//Ers
+		Ers(m);
+
+		print("-Hessians");
 	}
 
 	void Gradients(Mesh& m){
@@ -151,7 +199,9 @@ public:
 		VectorXd Ex = dEdx(m);
 
 		// fastEr(m);
-
+		dEdx(m);
+		dEdr(m);
+		dEds(m);
 	}
 
 	VectorXd dEdx(Mesh& m){
@@ -185,7 +235,7 @@ public:
 		for(int i=0; i<aEs.size(); i++){
 			std::vector<Trip> v = aDS[i];
 			for(int k=0; k<aDS[i].size(); k++){
-				// aEs[i] -= UtRtPAx[v[k].row()]*aUtPAx0[v[k].col()]*v[k].value();
+				aEs[i] -= UtRtPAx[v[k].row()]*aUtPAx0[v[k].col()]*v[k].value();
 				aEs[i] += UtRtRUSUtPAx0[v[k].row()]*aUtPAx0[v[k].col()]*v[k].value();
 			}
 		}
@@ -255,40 +305,36 @@ public:
 		SparseMatrix<double> RUt = (m.GR()*m.GU()).transpose();
 		VectorXd USUtPAx0 = m.GU()*m.GS()*aUtPAx0;
 
-		print("temp1");
 		MatrixXd TEMP1 = MatrixXd::Zero(12*m.T().rows(), aErs.rows());
-		// for(int i=0; i<TEMP1.rows(); i++){
-		// 	for(int j=0; j<TEMP1.cols(); j++){
-		// 		auto v = to_triplets(aDR[j]);
-		// 		for(int k=0; k<v.size(); k++){
-		// 			TEMP1(i,j) += v[k].value()*(-1*m.GU().coeff(v[k].col(), i)*PAg[v[k].row()]);
-		// 		}
-		// 	}
-		// }
+		for(int i=0; i<TEMP1.rows(); i++){
+			for(int j=0; j<TEMP1.cols(); j++){
+				auto v = to_triplets(aDR[j]);
+				for(int k=0; k<v.size(); k++){
+					TEMP1(i,j) += v[k].value()*(-1*m.GU().coeff(v[k].col(), i)*PAg[v[k].row()]);
+				}
+			}
+		}
 
-		print("temp2");
 		MatrixXd TEMP2 = MatrixXd::Zero(12*m.T().rows(), aErs.rows());
 		for(int i=0; i<TEMP2.rows(); i++){
 			for(int j=0; j<TEMP2.cols(); j++){
 				auto v = to_triplets(aDR[j]);
 				for(int k=0; k<v.size(); k++){
-					TEMP2(i,j) += v[k].value()*(m.GU().coeff(v[k].row(), i)*FPAx0[v[k].col()] + RUt.coeff(i, v[k].row())*USUtPAx0[v[k].col()]);
+					TEMP2(i,j) += v[k].value()*(m.GU().coeff(v[k].col(), i)*FPAx0[v[k].row()] + RUt.coeff(i, v[k].row())*USUtPAx0[v[k].col()]);
 				}
 			}
 		}
 
 		aErs.setZero();
-		print("mid1");
-		// for(int i=0; i<aErs.cols(); i++){
-		// 	std::vector<Trip> v = aDS[i];
-		// 	for(int j=0; j<TEMP1.cols(); j++){
-		// 		for(int k=0; k<v.size(); k++){
-		// 			aErs(j, i) += v[k].value()*(aUtPAx0[v[k].col()]*TEMP1(v[k].row(), j));
-		// 		}
-		// 	}
-		// }
+		for(int i=0; i<aErs.cols(); i++){
+			std::vector<Trip> v = aDS[i];
+			for(int j=0; j<TEMP1.cols(); j++){
+				for(int k=0; k<v.size(); k++){
+					aErs(j, i) += v[k].value()*(aUtPAx0[v[k].col()]*TEMP1(v[k].row(), j));
+				}
+			}
+		}
 		
-		print("mid2");
 		for(int i=0; i<aErs.cols(); i++){
 			std::vector<Trip> v = aDS[i];
 			for(int j=0; j<TEMP2.cols(); j++){
@@ -298,10 +344,6 @@ public:
 			}
 		}
 
-
-
-		print("ERS");
-		print(aErs);
 
 		return aErs;
 	}
@@ -349,55 +391,56 @@ public:
 		for(int i=0; i<m.red_s().size()/6; i++){
 			VectorXd sWx = m.sW().col(6*i+0); 
 
-			vector<Trip> sx;
-			vector<Trip> sy;
-			vector<Trip> sz;
-			vector<Trip> s01;
-			vector<Trip> s02;
-			vector<Trip> s12;
-			for(int j=0; j<m.T().rows(); j++){
-				sx.push_back(Trip(12*j+0, 12*j+0, sWx[6*i]));
-				sx.push_back(Trip(12*j+3, 12*j+3, sWx[6*i]));
-				sx.push_back(Trip(12*j+6, 12*j+6, sWx[6*i]));
-				sx.push_back(Trip(12*j+9, 12*j+9, sWx[6*i]));
+			vector<Trip> sx = {};
+			vector<Trip> sy = {};
+			vector<Trip> sz = {};
+			vector<Trip> s01 = {};
+			vector<Trip> s02 = {};
+			vector<Trip> s12 = {};
+			for(int j=0; j<m.sW().rows()/6; j++){
+				sx.push_back(Trip(12*j+0, 12*j+0, sWx[6*j]));
+				sx.push_back(Trip(12*j+3, 12*j+3, sWx[6*j]));
+				sx.push_back(Trip(12*j+6, 12*j+6, sWx[6*j]));
+				sx.push_back(Trip(12*j+9, 12*j+9, sWx[6*j]));
 
-				sy.push_back(Trip(12*j+0+1, 12*j+0+1, sWx[6*i]));
-				sy.push_back(Trip(12*j+3+1, 12*j+3+1, sWx[6*i]));
-				sy.push_back(Trip(12*j+6+1, 12*j+6+1, sWx[6*i]));
-				sy.push_back(Trip(12*j+9+1, 12*j+9+1, sWx[6*i]));
+				sy.push_back(Trip(12*j+0+1, 12*j+0+1, sWx[6*j]));
+				sy.push_back(Trip(12*j+3+1, 12*j+3+1, sWx[6*j]));
+				sy.push_back(Trip(12*j+6+1, 12*j+6+1, sWx[6*j]));
+				sy.push_back(Trip(12*j+9+1, 12*j+9+1, sWx[6*j]));
 
-				sz.push_back(Trip(12*j+0+2, 12*j+0+2, sWx[6*i]));
-				sz.push_back(Trip(12*j+3+2, 12*j+3+2, sWx[6*i]));
-				sz.push_back(Trip(12*j+6+2, 12*j+6+2, sWx[6*i]));
-				sz.push_back(Trip(12*j+9+2, 12*j+9+2, sWx[6*i]));
+				sz.push_back(Trip(12*j+0+2, 12*j+0+2, sWx[6*j]));
+				sz.push_back(Trip(12*j+3+2, 12*j+3+2, sWx[6*j]));
+				sz.push_back(Trip(12*j+6+2, 12*j+6+2, sWx[6*j]));
+				sz.push_back(Trip(12*j+9+2, 12*j+9+2, sWx[6*j]));
 
-				s01.push_back(Trip(12*j+0, 12*j+0+1, sWx[6*i]));
-				s01.push_back(Trip(12*j+3, 12*j+3+1, sWx[6*i]));
-				s01.push_back(Trip(12*j+6, 12*j+6+1, sWx[6*i]));
-				s01.push_back(Trip(12*j+9, 12*j+9+1, sWx[6*i]));
-				s01.push_back(Trip(12*j+0+1, 12*j+0, sWx[6*i]));
-				s01.push_back(Trip(12*j+3+1, 12*j+3, sWx[6*i]));
-				s01.push_back(Trip(12*j+6+1, 12*j+6, sWx[6*i]));
-				s01.push_back(Trip(12*j+9+1, 12*j+9, sWx[6*i]));
+				s01.push_back(Trip(12*j+0, 12*j+0+1, sWx[6*j]));
+				s01.push_back(Trip(12*j+3, 12*j+3+1, sWx[6*j]));
+				s01.push_back(Trip(12*j+6, 12*j+6+1, sWx[6*j]));
+				s01.push_back(Trip(12*j+9, 12*j+9+1, sWx[6*j]));
+				s01.push_back(Trip(12*j+0+1, 12*j+0, sWx[6*j]));
+				s01.push_back(Trip(12*j+3+1, 12*j+3, sWx[6*j]));
+				s01.push_back(Trip(12*j+6+1, 12*j+6, sWx[6*j]));
+				s01.push_back(Trip(12*j+9+1, 12*j+9, sWx[6*j]));
 				
-				s02.push_back(Trip(12*j+0, 12*j+0+2, sWx[6*i]));
-				s02.push_back(Trip(12*j+3, 12*j+3+2, sWx[6*i]));
-				s02.push_back(Trip(12*j+6, 12*j+6+2, sWx[6*i]));
-				s02.push_back(Trip(12*j+9, 12*j+9+2, sWx[6*i]));
-				s02.push_back(Trip(12*j+0+2, 12*j+0, sWx[6*i]));
-				s02.push_back(Trip(12*j+3+2, 12*j+3, sWx[6*i]));
-				s02.push_back(Trip(12*j+6+2, 12*j+6, sWx[6*i]));
-				s02.push_back(Trip(12*j+9+2, 12*j+9, sWx[6*i]));
+				s02.push_back(Trip(12*j+0, 12*j+0+2, sWx[6*j]));
+				s02.push_back(Trip(12*j+3, 12*j+3+2, sWx[6*j]));
+				s02.push_back(Trip(12*j+6, 12*j+6+2, sWx[6*j]));
+				s02.push_back(Trip(12*j+9, 12*j+9+2, sWx[6*j]));
+				s02.push_back(Trip(12*j+0+2, 12*j+0, sWx[6*j]));
+				s02.push_back(Trip(12*j+3+2, 12*j+3, sWx[6*j]));
+				s02.push_back(Trip(12*j+6+2, 12*j+6, sWx[6*j]));
+				s02.push_back(Trip(12*j+9+2, 12*j+9, sWx[6*j]));
 
-				s12.push_back(Trip(12*j+0+1, 12*j+0+2, sWx[6*i]));
-				s12.push_back(Trip(12*j+3+1, 12*j+3+2, sWx[6*i]));
-				s12.push_back(Trip(12*j+6+1, 12*j+6+2, sWx[6*i]));
-				s12.push_back(Trip(12*j+9+1, 12*j+9+2, sWx[6*i]));
-				s12.push_back(Trip(12*j+0+2, 12*j+0+1, sWx[6*i]));
-				s12.push_back(Trip(12*j+3+2, 12*j+3+1, sWx[6*i]));
-				s12.push_back(Trip(12*j+6+2, 12*j+6+1, sWx[6*i]));
-				s12.push_back(Trip(12*j+9+2, 12*j+9+1, sWx[6*i]));
+				s12.push_back(Trip(12*j+0+1, 12*j+0+2, sWx[6*j]));
+				s12.push_back(Trip(12*j+3+1, 12*j+3+2, sWx[6*j]));
+				s12.push_back(Trip(12*j+6+1, 12*j+6+2, sWx[6*j]));
+				s12.push_back(Trip(12*j+9+1, 12*j+9+2, sWx[6*j]));
+				s12.push_back(Trip(12*j+0+2, 12*j+0+1, sWx[6*j]));
+				s12.push_back(Trip(12*j+3+2, 12*j+3+1, sWx[6*j]));
+				s12.push_back(Trip(12*j+6+2, 12*j+6+1, sWx[6*j]));
+				s12.push_back(Trip(12*j+9+2, 12*j+9+1, sWx[6*j]));
 			}
+			
 			aDS.push_back(sx);
 			aDS.push_back(sy);
 			aDS.push_back(sz);
