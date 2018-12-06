@@ -424,8 +424,7 @@ int checkARAP(Mesh& mesh, Arap& arap){
 	Jac_drds();
 }
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]){
     std::cout<<"-----Configs-------"<<std::endl;
     json j_config_parameters;
     std::ifstream i("../input/input.json");
@@ -444,11 +443,16 @@ int main(int argc, char *argv[])
 
     std::cout<<"-----Mesh-------"<<std::endl;
     Mesh* mesh = new Mesh(T, V, fix, mov, j_input);
-    // mesh->red_s()[0] -=0.1;
-    // mesh->red_r()[0] += 0.1;
-    mesh->setGlobalF(true, true, false);
+
     std::cout<<"-----ARAP-----"<<std::endl;
     Arap* arap = new Arap(*mesh);
+
+    VectorXd& s = mesh->red_s();
+    for(int i=0; i<s.size()/6; i++){
+        s[6*i+1] += 0.1;
+    }
+    mesh->setGlobalF(false, true, false);
+    arap->minimize(*mesh);
 
     checkARAP(*mesh, *arap);
 
