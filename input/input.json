@@ -5,6 +5,6 @@
   "fibre_mag": 0,
   "number_skinning_handles": 1,
   "number_rot_clusters": 1,
-  "number_modes": 10,
+  "number_modes": 0,
   "fd_eps": 1e-6
 }

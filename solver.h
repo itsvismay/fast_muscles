@@ -43,25 +43,29 @@ public:
         double Earap = alpha_arap*arap->Energy(*mesh);
                 std::cout<<"Energy"<<std::endl;
                 std::cout<<"neo: "<<alpha_neo*Eneo<<", arap: "<<alpha_arap*Earap<<std::endl;
-                std::cout<<mesh->s().transpose()<<std::endl;
+                std::cout<<mesh->red_s().transpose()<<std::endl;
         return Eneo + Earap;
     }
-    // void gradient(const TVector &x, TVector &grad) {
-    //     std::cout<<"Grad"<<std::endl;
-    //     for(int i=0; i<x.size(); i++){
-    //         mesh->s()[i] = x[i];
-    //     }
-    //     mesh->setGlobalF(false, true, false);
+    void gradient(const TVector &x, TVector &grad) {
+        std::cout<<"Grad"<<std::endl;
+        for(int i=0; i<x.size(); i++){
+            mesh->red_s()[i] = x[i];
+        }
+        mesh->setGlobalF(false, true, false);
 
-    //     // VectorXd pegrad = elas->PEGradient(*mesh);
-    //     VectorXd arapgrad = arap->FDGrad(*mesh);
+        // VectorXd pegrad = elas->PEGradient(*mesh);
+        VectorXd arapgrad = arap->Jacobians(*mesh);
+        std::cout<<"Gradient"<<std::endl;
+        std::cout<<arapgrad.transpose()<<std::endl;
 
-    //     for(int i=0; i< x.size(); i++){
-    //         // grad[i] = alpha_neo*pegrad[i];
-    //         grad[i] = alpha_arap*arapgrad[i];
-    //     }
+        for(int i=0; i< x.size(); i++){
+            // grad[i] = alpha_neo*pegrad[i];
+            grad[i] = alpha_arap*arapgrad[i];
+        }
 
-    // }
+        // exit(0);
+
+    }
 
     bool callback(const Criteria<T> &state, const TVector &x) {
         // std::cout << "(" << std::setw(2) << state.iterations << ")"

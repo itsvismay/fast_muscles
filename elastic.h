@@ -30,7 +30,7 @@ public:
 
 	double MuscleEnergy(Mesh& mesh){
 		double En = 0;
-		VectorXd& s = mesh.s();
+		VectorXd s = mesh.sW()*mesh.red_s();
 		Matrix3d c;
 		for(int t=0; t<mesh.T().rows(); t++){
 			c.coeffRef(0, 0) = s[6*t + 0];
@@ -75,7 +75,7 @@ public:
 	}
 
 	void MuscleForce(Mesh& mesh){
-		VectorXd& s = mesh.s();
+		VectorXd s = mesh.sW()*mesh.red_s();
 		Matrix3d c;
 		for(int t=0; t<mesh.T().rows(); t++){
 			c.coeffRef(0, 0) = s[6*t + 0];
@@ -120,7 +120,7 @@ public:
 		VectorXd& eY = mesh.eYoungs();
 		VectorXd& eP = mesh.ePoissons();
 
-		VectorXd& s = mesh.s();
+		VectorXd s = mesh.sW()*mesh.red_s();
 		// std::cout<<s.transpose()<<std::endl;
 		Matrix3d c;
 		for(int t =0; t<mesh.T().rows(); t++){
@@ -201,7 +201,7 @@ public:
 		VectorXd& eY = mesh.eYoungs();
 		VectorXd& eP = mesh.ePoissons();
 
-		VectorXd& s = mesh.s();
+		VectorXd s = mesh.sW()*mesh.red_s();
 		Matrix3d c;
 		for(int t =0; t<mesh.T().rows(); t++){
 			c.coeffRef(0, 0) = s[6*t + 0];

@@ -337,6 +337,8 @@ int checkARAP(Mesh& mesh, Arap& arap){
 
 	//CHECK dgds-----------------------
 	auto Jac_dgds = [&mesh, &arap, E0, eps](){
+		arap.Jacobians(mesh);
+		
 		MatrixXd dgds = MatrixXd::Zero(mesh.red_x().size(), mesh.red_s().size());
 		VectorXd z0 = mesh.red_x();
 		VectorXd& z = mesh.red_x();
@@ -374,8 +376,6 @@ int checkARAP(Mesh& mesh, Arap& arap){
 
 	//CHECK drds-----------------------
 	auto Jac_drds = [&mesh, &arap, E0, eps](){
-		arap.Jacobians(mesh);
-
 		MatrixXd drds = MatrixXd::Zero(mesh.red_r().size(), mesh.red_s().size());
 
 		for(int i=0; i<mesh.red_s().size(); i++){
@@ -412,15 +412,15 @@ int checkARAP(Mesh& mesh, Arap& arap){
 	// Ex();
 	// Er();
 	// Es();
-	// Exx();
-	// Exr();
-	// Exs();
-	// Err();
+	Exx();
+	Exr();
+	Exs();
+	Err();
 	// Ers();
-	// Ers_part1();
+	Ers_part1();
 	// Ers_part2();
 
-	// Jac_dgds();
+	Jac_dgds();
 	Jac_drds();
 }
 
@@ -444,8 +444,8 @@ int main(int argc, char *argv[])
 
     std::cout<<"-----Mesh-------"<<std::endl;
     Mesh* mesh = new Mesh(T, V, fix, mov, j_input);
-    mesh->red_s()[0] -=0.1;
-    mesh->red_r()[0] += 0.1;
+    // mesh->red_s()[0] -=0.1;
+    // mesh->red_r()[0] += 0.1;
     mesh->setGlobalF(true, true, false);
     std::cout<<"-----ARAP-----"<<std::endl;
     Arap* arap = new Arap(*mesh);

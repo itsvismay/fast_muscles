@@ -4,6 +4,9 @@
 #include <igl/polar_svd.h>
 #include "mesh.h"
 #include<Eigen/SparseLU>
+#include <iostream>
+#include <string>
+// #include <UtilitiesEigen.h>
 
 
 using namespace Eigen;
@@ -16,7 +19,7 @@ class Arap
 
 protected:
 	PartialPivLU<MatrixXd>  aARAPKKTSolver;
-	VectorXd aPAx0, aUtPAx0, aEr, aEs;
+	VectorXd aPAx0, aUtPAx0, aEr, aEs, aEx;
 	MatrixXd aExx, aExr, aErr, aExs, aErs, aPAG;
 	SparseMatrix<double> aPA;
 
@@ -134,7 +137,7 @@ public:
 		return dEds + dEds1 + dEds2;
 	}
 
-	void Jacobians(Mesh& m){
+	VectorXd Jacobians(Mesh& m){
 		Hessians(m);
 		
 		MatrixXd lhs_left(aExx.rows()+aExr.cols(), aExx.cols());
@@ -166,13 +169,36 @@ public:
 		std::cout<<JacKKT.rows()<<", "<<JacKKT.cols()<<std::endl;
 		std::cout<<rhs.rows()<<", "<<rhs.cols()<<std::endl;
 
-		// FullPivLU<MatrixXd> JacKKTSolver;
-		// JacKKTSolver.compute(JacKKT);
-		print("computed");
-		MatrixXd results = JacKKT.fullPivLu().solve(KKT_constrains);
+		Gradients(m);
 
-		print(results);
+		// std::ofstream lhs_file("lhs.mat");
+		// if (lhs_file.is_open())
+		// {
+		// lhs_file << JacKKT;
+		// }
+		// lhs_file.close();
+		// std::ofstream rhs_file("rhs.mat");
+		// if (rhs_file.is_open())
+		// {
+		// rhs_file << KKT_constrains;
+		// }
+		// rhs_file.close();
 
+
+		MatrixXd results = JacKKT.fullPivLu().solve(KKT_constrains).topRows(rhs.rows());
+
+
+		MatrixXd dgds = results.topRows(aExx.rows());
+		MatrixXd drds = results.bottomRows(aErr.rows());
+		// print(aEx);
+		// print(aEr);
+		// print(aEs);
+		// print(dgds);
+		// print(drds);
+		VectorXd DEDs = dgds.transpose()*aEx + drds.transpose()*aEr + aEs;
+		print("DEDS");
+		print(DEDs.transpose());
+		return DEDs;
 	}
 
 	void Hessians(Mesh& m){
@@ -195,13 +221,11 @@ public:
 	}
 
 	void Gradients(Mesh& m){
-
-		VectorXd Ex = dEdx(m);
-
-		// fastEr(m);
-		dEdx(m);
-		dEdr(m);
-		dEds(m);
+		print("+ Gradients");
+		aEx = dEdx(m);
+		aEr = dEdr(m);
+		aEs = dEds(m);
+		print("- Gradients");
 	}
 
 	VectorXd dEdx(Mesh& m){
@@ -256,7 +280,6 @@ public:
 		}
 		
 		return aExr;
-
 	}
 
 	MatrixXd& Exs(Mesh& m){
@@ -449,7 +472,6 @@ public:
 			aDS.push_back(s12);
 		}
 	}
-
 
 	void itT(Mesh& m){
 		VectorXd FPAx0 = m.xbar();
