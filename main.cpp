@@ -67,7 +67,7 @@ int main(int argc, char *argv[])
     
     std::vector<int> fix = getMaxVerts_Axis_Tolerance(V, 1);
     std::sort (fix.begin(), fix.end());
-    std::vector<int> mov = {1,7}; //getMinVerts_Axis_Tolerance(V, 1);
+    std::vector<int> mov = getMinVerts_Axis_Tolerance(V, 1);
     for(int i=0; i<mov.size(); i++)
         std::cout<<mov[i]<<std::endl;
     std::sort (mov.begin(), mov.end());
@@ -78,7 +78,7 @@ int main(int argc, char *argv[])
     Mesh* mesh = new Mesh(T, V, fix, mov, j_input);
     std::cout<<"-----ARAP-----"<<std::endl;
     Arap* arap = new Arap(*mesh);
-    arap->Jacobians(*mesh);
+    // arap->Jacobians(*mesh);
 
     std::cout<<"-----Neo-------"<<std::endl;
     Elastic* neo = new Elastic(*mesh);
@@ -130,7 +130,7 @@ int main(int argc, char *argv[])
         if(key==' '){
             VectorXd& dx = mesh->dx();
             for(int i=0; i<mov.size(); i++){
-                dx[3*mov[i]+1] += 1;
+                dx[3*mov[i]+0] += 1;
             }
             // // Doing things
             // VectorXd& s = mesh->red_s();
@@ -139,17 +139,17 @@ int main(int argc, char *argv[])
             // }
             // mesh->setGlobalF(false, true, false);
             
-            VectorXd news = mesh->red_s();
-            solver.minimize(f, news);
-            for(int i=0; i<news.size(); i++){
-                mesh->red_s()[i] = news[i];
-            }
+            // VectorXd news = mesh->red_s();
+            // solver.minimize(f, news);
+            // for(int i=0; i<news.size(); i++){
+            //     mesh->red_s()[i] = news[i];
+            // }
             // std::cout<<"new s"<<std::endl;
             // std::cout<<news.transpose()<<std::endl;
-            std::cout << "f in argmin " << f(news) << std::endl;
-            std::cout << "Solver status: " << solver.status() << std::endl;
-            std::cout << "Final criteria values: " << std::endl << solver.criteria() << std::endl;
-            // arap->minimize(*mesh);
+            // std::cout << "f in argmin " << f(news) << std::endl;
+            // std::cout << "Solver status: " << solver.status() << std::endl;
+            // std::cout << "Final criteria values: " << std::endl << solver.criteria() << std::endl;
+            arap->minimize(*mesh);
         }
         
         //----------------
