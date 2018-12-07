@@ -76,7 +76,6 @@ int checkARAP(Mesh& mesh, Arap& arap){
 		VectorXd fake = VectorXd::Zero(real.size());
 		for(int i=0; i<fake.size(); i++){
 			mesh.red_w()[i] += 0.5*eps;
-			std::cout<<mesh.red_w()<<std::endl;
 			mesh.setGlobalF(true, false, false);
 			double Eleft = arap.Energy(mesh, z, mesh.GR(), mesh.GS(), mesh.GU());
 			mesh.red_w()[i] -= 0.5*eps;

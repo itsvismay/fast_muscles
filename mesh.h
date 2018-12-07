@@ -642,12 +642,11 @@ public:
                 ri(2,2) = mred_r[9*t+8];
 
                 // % Rodrigues formula %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                Vector3d w = mred_w.segment<3>(3*t);
-                
+                Vector3d w;
+                w<<mred_w(3*t+0),mred_w(3*t+1),mred_w(3*t+2);
                 double wlen = w.norm();
-                if (wlen<1e-9){
+                if (wlen>1e-9){
                     print("Rodrigues");
-                    print(w);
                     double wX = w(0);
                     double wY = w(1);
                     double wZ = w(2);
@@ -660,7 +659,6 @@ public:
                         -wY*s + wX*wZ*c1, wX*s + wY*wZ*c1, c + wZ*wZ*c1;
                     
                     r = ri*Rot;
-                    print(r);
                     print("end Rodrigues");
                 }else{
                     r = ri;
