@@ -13,6 +13,8 @@
 #include <igl/lbs_matrix.h>
 #include <igl/bbw.h>
 #include <json.hpp>
+#include <unsupported/Eigen/MatrixFunctions>
+
 
 
 
@@ -649,14 +651,11 @@ public:
                     double wX = w(0);
                     double wY = w(1);
                     double wZ = w(2);
-                    double c = cos(wlen);
-                    double s = sin(wlen);
-                    double c1 = 1 - c;
-                    Matrix3d Rot;
-                    Rot<< c + wX*wX*c1, -wZ*s + wX*wY*c1, wY*s + wX*wZ*c1,
-                        wZ*s + wX*wY*c1, c + wY*wY*c1, -wX*s + wY*wZ*c1,
-                        -wY*s + wX*wZ*c1, wX*s + wY*wZ*c1, c + wZ*wZ*c1;
-                    
+                    Matrix3d cross;
+                    cross<<0, -wZ, wY,
+                            wZ, 0, -wX,
+                            -wY, wX, 0;
+                    Matrix3d Rot = cross.exp();
                     r = ri*Rot;
                 }else{
                     r = ri;
