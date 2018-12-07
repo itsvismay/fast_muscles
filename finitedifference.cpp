@@ -75,20 +75,21 @@ int checkARAP(Mesh& mesh, Arap& arap){
 		VectorXd z = mesh.red_x();
 		VectorXd fake = VectorXd::Zero(real.size());
 		for(int i=0; i<fake.size(); i++){
-			mesh.red_r()[i] += 0.5*eps;
+			mesh.red_w()[i] += 0.5*eps;
+			std::cout<<mesh.red_w()<<std::endl;
 			mesh.setGlobalF(true, false, false);
 			double Eleft = arap.Energy(mesh, z, mesh.GR(), mesh.GS(), mesh.GU());
-			mesh.red_r()[i] -= 0.5*eps;
-			mesh.red_r()[i] -= 0.5*eps;
+			mesh.red_w()[i] -= 0.5*eps;
+			mesh.red_w()[i] -= 0.5*eps;
 			mesh.setGlobalF(true, false, false);
 			double Eright = arap.Energy(mesh, z, mesh.GR(), mesh.GS(), mesh.GU());
-			mesh.red_r()[i] += 0.5*eps;
+			mesh.red_w()[i] += 0.5*eps;
 			fake[i] = (Eleft - Eright)/eps;
 		}
 		mesh.setGlobalF(true, false, false);
 		std::cout<<"Er error:"<<(real-fake).norm()<<std::endl;	
-		// std::cout<<fake.transpose()<<std::endl;
-		// std::cout<<real.transpose()<<std::endl;
+		std::cout<<fake.transpose()<<std::endl;
+		std::cout<<real.transpose()<<std::endl;
 	};
 	//-----------------------
 
@@ -410,18 +411,18 @@ int checkARAP(Mesh& mesh, Arap& arap){
 
 
 	// Ex();
-	// Er();
+	Er();
 	// Es();
-	Exx();
-	Exr();
-	Exs();
-	Err();
+	// Exx();
+	// Exr();
+	// Exs();
+	// Err();
 	// Ers();
-	Ers_part1();
+	// Ers_part1();
 	// Ers_part2();
 
-	Jac_dgds();
-	Jac_drds();
+	// Jac_dgds();
+	// Jac_drds();
 }
 
 int main(int argc, char *argv[]){
@@ -446,13 +447,6 @@ int main(int argc, char *argv[]){
 
     std::cout<<"-----ARAP-----"<<std::endl;
     Arap* arap = new Arap(*mesh);
-
-    VectorXd& s = mesh->red_s();
-    for(int i=0; i<s.size()/6; i++){
-        s[6*i+1] += 0.1;
-    }
-    mesh->setGlobalF(false, true, false);
-    arap->minimize(*mesh);
 
     checkARAP(*mesh, *arap);
 

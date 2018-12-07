@@ -35,7 +35,7 @@ protected:
     SparseMatrix<double> mA, mFree, mConstrained;
 
     VectorXi melemType, mr_elem_cluster_map, ms_handles_ind;
-    VectorXd mcontx, mdiscx, mx, mx0, mred_s, melemYoungs, melemPoissons, mu, mred_r, mred_x;
+    VectorXd mcontx, mdiscx, mx, mx0, mred_s, melemYoungs, melemPoissons, mu, mred_r, mred_x, mred_w;
     MatrixXd mR, mG, msW;
     VectorXd mmass_diag;
 
@@ -201,6 +201,8 @@ public:
             mred_r[9*i+7] = 0;
             mred_r[9*i+8] = 1;
         }
+        mred_w.resize(3*nrc);
+        mred_w.setZero();
 
 
         for(int c=0; c<nrc; c++){
@@ -622,21 +624,60 @@ public:
 
         if(updateR){
             //iterate through rotation clusters
+            Matrix3d ri = Matrix3d::Zero();
+            Matrix3d r;
+
             for (int t=0; t<mred_r.size()/9; t++){
                 //dont use the RotBLOCK matrix like I did in python. 
                 //Insert manually into elements within
                 //the rotation cluster
+                ri(0,0) = mred_r[9*t+0];
+                ri(0,1) = mred_r[9*t+1];
+                ri(0,2) = mred_r[9*t+2];
+                ri(1,0) = mred_r[9*t+3];
+                ri(1,1) = mred_r[9*t+4];
+                ri(1,2) = mred_r[9*t+5];
+                ri(2,0) = mred_r[9*t+6];
+                ri(2,1) = mred_r[9*t+7];
+                ri(2,2) = mred_r[9*t+8];
+
+                // % Rodrigues formula %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                Vector3d w = mred_w.segment<3>(3*t);
+                
+                double wlen = w.norm();
+                if (wlen<1e-9){
+                    print("Rodrigues");
+                    print(w);
+                    double wX = w(0);
+                    double wY = w(1);
+                    double wZ = w(2);
+                    double c = cos(wlen);
+                    double s = sin(wlen);
+                    double c1 = 1 - c;
+                    Matrix3d Rot;
+                    Rot<< c + wX*wX*c1, -wZ*s + wX*wY*c1, wY*s + wX*wZ*c1,
+                        wZ*s + wX*wY*c1, c + wY*wY*c1, -wX*s + wY*wZ*c1,
+                        -wY*s + wX*wZ*c1, wX*s + wY*wZ*c1, c + wZ*wZ*c1;
+                    
+                    r = ri*Rot;
+                    print(r);
+                    print("end Rodrigues");
+                }else{
+                    r = ri;
+                }
+                // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
                 for(int c=0; c<mr_cluster_elem_map[t].size(); c++){
                     for(int j=0; j<4; j++){
-                        mGR.coeffRef(3*j+12*mr_cluster_elem_map[t][c] + 0, 3*j+12*mr_cluster_elem_map[t][c] + 0) = mred_r[9*t+0];
-                        mGR.coeffRef(3*j+12*mr_cluster_elem_map[t][c] + 0, 3*j+12*mr_cluster_elem_map[t][c] + 1) = mred_r[9*t+1];
-                        mGR.coeffRef(3*j+12*mr_cluster_elem_map[t][c] + 0, 3*j+12*mr_cluster_elem_map[t][c] + 2) = mred_r[9*t+2];
-                        mGR.coeffRef(3*j+12*mr_cluster_elem_map[t][c] + 1, 3*j+12*mr_cluster_elem_map[t][c] + 0) = mred_r[9*t+3];
-                        mGR.coeffRef(3*j+12*mr_cluster_elem_map[t][c] + 1, 3*j+12*mr_cluster_elem_map[t][c] + 1) = mred_r[9*t+4];
-                        mGR.coeffRef(3*j+12*mr_cluster_elem_map[t][c] + 1, 3*j+12*mr_cluster_elem_map[t][c] + 2) = mred_r[9*t+5];
-                        mGR.coeffRef(3*j+12*mr_cluster_elem_map[t][c] + 2, 3*j+12*mr_cluster_elem_map[t][c] + 0) = mred_r[9*t+6];
-                        mGR.coeffRef(3*j+12*mr_cluster_elem_map[t][c] + 2, 3*j+12*mr_cluster_elem_map[t][c] + 1) = mred_r[9*t+7];
-                        mGR.coeffRef(3*j+12*mr_cluster_elem_map[t][c] + 2, 3*j+12*mr_cluster_elem_map[t][c] + 2) = mred_r[9*t+8];
+                        mGR.coeffRef(3*j+12*mr_cluster_elem_map[t][c] + 0, 3*j+12*mr_cluster_elem_map[t][c] + 0) = r(0 ,0);
+                        mGR.coeffRef(3*j+12*mr_cluster_elem_map[t][c] + 0, 3*j+12*mr_cluster_elem_map[t][c] + 1) = r(0 ,1);
+                        mGR.coeffRef(3*j+12*mr_cluster_elem_map[t][c] + 0, 3*j+12*mr_cluster_elem_map[t][c] + 2) = r(0 ,2);
+                        mGR.coeffRef(3*j+12*mr_cluster_elem_map[t][c] + 1, 3*j+12*mr_cluster_elem_map[t][c] + 0) = r(1 ,0);
+                        mGR.coeffRef(3*j+12*mr_cluster_elem_map[t][c] + 1, 3*j+12*mr_cluster_elem_map[t][c] + 1) = r(1 ,1);
+                        mGR.coeffRef(3*j+12*mr_cluster_elem_map[t][c] + 1, 3*j+12*mr_cluster_elem_map[t][c] + 2) = r(1 ,2);
+                        mGR.coeffRef(3*j+12*mr_cluster_elem_map[t][c] + 2, 3*j+12*mr_cluster_elem_map[t][c] + 0) = r(2 ,0);
+                        mGR.coeffRef(3*j+12*mr_cluster_elem_map[t][c] + 2, 3*j+12*mr_cluster_elem_map[t][c] + 1) = r(2 ,1);
+                        mGR.coeffRef(3*j+12*mr_cluster_elem_map[t][c] + 2, 3*j+12*mr_cluster_elem_map[t][c] + 2) = r(2 ,2);
                     }
                 }
             }
@@ -695,6 +736,7 @@ public:
     inline SparseMatrix<double>& B(){ return mFree; }
     inline SparseMatrix<double>& AB(){ return mConstrained; }
     inline VectorXd& red_r(){ return mred_r; }
+    inline VectorXd& red_w(){ return mred_w; }
     inline VectorXd& eYoungs(){ return melemYoungs; }
     inline VectorXd& ePoissons(){ return melemPoissons; }
     inline VectorXd& x0(){ return mx0; }

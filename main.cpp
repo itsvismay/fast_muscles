@@ -78,7 +78,6 @@ int main(int argc, char *argv[])
     Mesh* mesh = new Mesh(T, V, fix, mov, j_input);
     std::cout<<"-----ARAP-----"<<std::endl;
     Arap* arap = new Arap(*mesh);
-    // arap->Jacobians(*mesh);
 
     std::cout<<"-----Neo-------"<<std::endl;
     Elastic* neo = new Elastic(*mesh);

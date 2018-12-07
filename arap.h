@@ -28,7 +28,7 @@ protected:
 
 public:
 	Arap(Mesh& m){
-		int r_size = m.red_r().size();
+		int r_size = m.red_w().size();
 		int z_size = m.red_x().size();
 		int s_size = m.red_s().size();
 		int t_size = m.T().rows();
@@ -244,7 +244,7 @@ public:
 		for(int i=0; i<aEr.size(); i++){
 			auto v = to_triplets(aDR[i]);
 			for(int k=0; k<v.size(); k++){
-				aEr[i] += -1*PAg[v[k].row()]*USUtPAx0[v[k].col()]*v[k].value() + FPAx0[v[k].row()]*USUtPAx0[v[k].col()]*v[k].value();
+				aEr[i] += -1*PAg[v[k].col()]*USUtPAx0[v[k].row()]*v[k].value();
 			}
 		}
 		return aEr;
@@ -372,21 +372,24 @@ public:
 	}
 
 	void setupRedSparseDRdr(Mesh& m){
-		Matrix3d r1; r1<<1,0,0,0,0,0,0,0,0;
-		Matrix3d r2; r2<<0,1,0,0,0,0,0,0,0;
-		Matrix3d r3; r3<<0,0,1,0,0,0,0,0,0;
-		Matrix3d r4; r4<<0,0,0,1,0,0,0,0,0;
-		Matrix3d r5; r5<<0,0,0,0,1,0,0,0,0;
-		Matrix3d r6; r6<<0,0,0,0,0,1,0,0,0;
-		Matrix3d r7; r7<<0,0,0,0,0,0,1,0,0;
-		Matrix3d r8; r8<<0,0,0,0,0,0,0,1,0;
-		Matrix3d r9; r9<<0,0,0,0,0,0,0,0,1;
+		Matrix3d Jx = RodriguesRotation(1,0,0,1);
+		Matrix3d Jy = RodriguesRotation(0,1,0,1);
+		Matrix3d Jz = RodriguesRotation(0,0,1,1);
+
 		std::map<int, std::vector<int>>& c_e_map = m.r_cluster_elem_map();
 		//iterator through rotation clusters
-		for(int t=0; t<m.red_r().size()/9;t++){
+		for(int t=0; t<m.red_w().size()/3;t++){
 			SparseMatrix<double> Ident(4*c_e_map[t].size(), 4*c_e_map[t].size());
             Ident.setIdentity();
             SparseMatrix<double>& B = m.RotBLOCK()[t];
+			Matrix3d R0; 
+			R0<< m.red_r()[9*t+0], m.red_r()[9*t+1], m.red_r()[9*t+2],
+				m.red_r()[9*t+3], m.red_r()[9*t+4], m.red_r()[9*t+5],
+				m.red_r()[9*t+6], m.red_r()[9*t+7], m.red_r()[9*t+8];
+
+			Matrix3d r1 = R0*Jx;
+			Matrix3d r2 = R0*Jy;
+			Matrix3d r3 = R0*Jz;
 			
 			SparseMatrix<double> block1 = Eigen::kroneckerProduct(Ident, r1);
 			aDR.push_back(B*block1*B.transpose());
@@ -394,18 +397,7 @@ public:
 			aDR.push_back(B*block2*B.transpose());
 			SparseMatrix<double> block3 = Eigen::kroneckerProduct(Ident, r3);
 			aDR.push_back(B*block3*B.transpose());
-			SparseMatrix<double> block4 = Eigen::kroneckerProduct(Ident, r4);
-			aDR.push_back(B*block4*B.transpose());
-			SparseMatrix<double> block5 = Eigen::kroneckerProduct(Ident, r5);
-			aDR.push_back(B*block5*B.transpose());
-			SparseMatrix<double> block6 = Eigen::kroneckerProduct(Ident, r6);
-			aDR.push_back(B*block6*B.transpose());
-			SparseMatrix<double> block7 = Eigen::kroneckerProduct(Ident, r7);
-			aDR.push_back(B*block7*B.transpose());
-			SparseMatrix<double> block8 = Eigen::kroneckerProduct(Ident, r8);
-			aDR.push_back(B*block8*B.transpose());
-			SparseMatrix<double> block9 = Eigen::kroneckerProduct(Ident, r9);
-			aDR.push_back(B*block9*B.transpose());
+		
 		}
 	}
 
@@ -556,6 +548,17 @@ public:
 	inline MatrixXd& Exx(){ return aExx; }
 	template<class T>
     inline void print(T a){ std::cout<<a<<std::endl; }
+
+    MatrixXd RodriguesRotation(double wX, double wY, double wZ, double wlen){
+        double c = cos(wlen);
+        double s = sin(wlen);
+        double c1 = 1 - c;
+        Matrix3d Rot;
+        Rot<< c + wX*wX*c1, -wZ*s + wX*wY*c1, wY*s + wX*wZ*c1,
+            wZ*s + wX*wY*c1, c + wY*wY*c1, -wX*s + wY*wZ*c1,
+            -wY*s + wX*wZ*c1, wX*s + wY*wZ*c1, c + wZ*wZ*c1;
+        return Rot;
+    }
 
 };
 
