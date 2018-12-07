@@ -23,8 +23,7 @@ protected:
 	MatrixXd aExx, aExr, aErr, aExs, aErs, aPAG;
 	SparseMatrix<double> aPA;
 
-	std::vector<SparseMatrix<double>> aDR;
-	std::vector<vector<Trip>> aDS;
+	std::vector<vector<Trip>> aDS, aDR;
 
 public:
 	Arap(Mesh& m){
@@ -71,70 +70,6 @@ public:
 		VectorXd PAx = m.P()*m.A()*(m.G()*z + m.x0());
 		VectorXd FPAx0 = R*U*S*U.transpose()*m.P()*m.A()*m.x0();
 		return 0.5*(PAx - FPAx0).squaredNorm();
-	}
-
-	VectorXd FDGrad(Mesh& m){
-		//DEDs = dEds + dEdx*dxds + dEdR*dRds
-
-		//dEds
-		VectorXd dEds = VectorXd::Zero(m.red_s().size());
-		VectorXd& s = m.red_s();
-
-		double E0 = Energy(m);
-		double eps = 1e-5;
-		for(int i=0; i<dEds.size(); i++){
-			s[i] += eps;
-			m.setGlobalF(false, true, false);
-			double Ei = Energy(m);
-			dEds[i] = (Ei - E0)/eps;
-			s[i] -= eps;
-		}
-		m.setGlobalF(false, true, false);
-
-		//dEdx
-		VectorXd dEds1 = VectorXd::Zero(m.red_s().size());
-		VectorXd Ex = dEdx(m);
-
-		//dEdR
-		VectorXd dEds2 = VectorXd::Zero(m.red_s().size());
-		VectorXd negPAx = -1*m.P()*m.A()*m.x();
-		VectorXd USUtPAx0 = m.GU()*m.GS()*aUtPAx0;
-		MatrixXd dEdR = negPAx*USUtPAx0.transpose();
-		
-		//dxds dRds
-		VectorXd z0 = m.x();
-		MatrixXd dxds(m.red_s().size(), z0.size());
-		vector<SparseMatrix<double>> dRds_r3;
-
-		for(int i=0; i<m.red_s().size(); i++){
-			// dxds_right.setZero();
-			// dxds_left.setZero();
-
-			m.red_s()[i] += 0.5*eps;
-			m.setGlobalF(false, true, false);
-			minimize(m);
-			VectorXd dxds_left = m.dx();
-			SparseMatrix<double> dRds_left = m.GR();
-			m.red_s()[i] -= 0.5*eps;
-			m.setGlobalF(false, true, false);
-			minimize(m);
-			
-			m.red_s()[i] -= 0.5*eps;
-			m.setGlobalF(false, true, false);
-			minimize(m);
-			VectorXd dxds_right = m.dx();
-			SparseMatrix<double> dRds_right = m.GR();
-			m.red_s()[i] += 0.5*eps;
-			m.setGlobalF(false, true, false);
-			minimize(m);
-
-			dxds.row(i) = (dxds_left - dxds_right)/eps;
-			SparseMatrix<double> dRdsi =(dRds_left - dRds_right)/eps; 
-			dRds_r3.push_back(dRdsi);
-			dEds2[i] = (dRdsi.cwiseProduct(dEdR)).sum();
-		}
-		dEds1 = dxds*Ex;
-		return dEds + dEds1 + dEds2;
 	}
 
 	VectorXd Jacobians(Mesh& m){
@@ -237,12 +172,11 @@ public:
 
 	VectorXd dEdr(Mesh& m){
 		VectorXd PAg = aPA*(m.G()*m.red_x() + m.x0());
-		VectorXd FPAx0 = m.GF()*aPA*m.x0();
 		VectorXd USUtPAx0 = m.GU()*m.GS()*aUtPAx0;
 
 		aEr.setZero();
 		for(int i=0; i<aEr.size(); i++){
-			auto v = to_triplets(aDR[i]);
+			auto v = aDR[i];
 			for(int k=0; k<v.size(); k++){
 				aEr[i] += -1*PAg[v[k].col()]*USUtPAx0[v[k].row()]*v[k].value();
 			}
@@ -252,7 +186,7 @@ public:
 
 	VectorXd dEds(Mesh& m){
 		SparseMatrix<double> RU =m.GR()*m.GU(); 
-		VectorXd UtRtRUSUtPAx0 = (RU).transpose()*RU*m.GS()*aUtPAx0;
+		VectorXd SUtPAx0 = m.GS()*aUtPAx0;
 		VectorXd UtRtPAx = (RU).transpose()*aPA*m.x();
 
 		aEs.setZero();
@@ -260,7 +194,7 @@ public:
 			std::vector<Trip> v = aDS[i];
 			for(int k=0; k<aDS[i].size(); k++){
 				aEs[i] -= UtRtPAx[v[k].row()]*aUtPAx0[v[k].col()]*v[k].value();
-				aEs[i] += UtRtRUSUtPAx0[v[k].row()]*aUtPAx0[v[k].col()]*v[k].value();
+				aEs[i] += SUtPAx0[v[k].row()]*aUtPAx0[v[k].col()]*v[k].value();
 			}
 		}
 		return aEs;
@@ -272,7 +206,7 @@ public:
 		aExr.setZero();
 		for(int i=0; i<aExr.rows(); i++){
 			for(int j=0; j<aExr.cols(); j++){
-				auto v = to_triplets(aDR[j]);
+				auto v = aDR[j];
 				for(int k=0; k<v.size(); k++){
 					aExr(i,j) += -1*v[k].value()*(aPAG(v[k].row(), i)*USUtPAx0[v[k].col()]);
 				}
@@ -304,14 +238,14 @@ public:
 
 		aErr.setZero();
 		for(int j=0; j<aErr.cols(); j++){
-			auto v = to_triplets(aDR[j]);
+			auto v = aDR[j];
 			for(int k=0; k<v.size(); k++){
 				TEMP(v[k].row(),j) += v[k].value()*(USUtPAx0[v[k].col()]);
 			}
 		}
 
 		for(int i=0; i<aErr.rows(); i++){
-			auto v = to_triplets(aDR[i]);
+			auto v = aDR[i];
 			for(int j=0; j<TEMP.cols(); j++){
 				for(int k=0; k<v.size(); k++){
 					aErr(i,j) += v[k].value()*(USUtPAx0[v[k].col()]*TEMP(v[k].row(), j));
@@ -331,7 +265,7 @@ public:
 		MatrixXd TEMP1 = MatrixXd::Zero(12*m.T().rows(), aErs.rows());
 		for(int i=0; i<TEMP1.rows(); i++){
 			for(int j=0; j<TEMP1.cols(); j++){
-				auto v = to_triplets(aDR[j]);
+				auto v = aDR[j];
 				for(int k=0; k<v.size(); k++){
 					TEMP1(i,j) += v[k].value()*(-1*m.GU().coeff(v[k].col(), i)*PAg[v[k].row()]);
 				}
@@ -341,7 +275,7 @@ public:
 		MatrixXd TEMP2 = MatrixXd::Zero(12*m.T().rows(), aErs.rows());
 		for(int i=0; i<TEMP2.rows(); i++){
 			for(int j=0; j<TEMP2.cols(); j++){
-				auto v = to_triplets(aDR[j]);
+				auto v = aDR[j];
 				for(int k=0; k<v.size(); k++){
 					TEMP2(i,j) += v[k].value()*(m.GU().coeff(v[k].col(), i)*FPAx0[v[k].row()] + RUt.coeff(i, v[k].row())*USUtPAx0[v[k].col()]);
 				}
@@ -372,9 +306,9 @@ public:
 	}
 
 	void setupRedSparseDRdr(Mesh& m){
-		Matrix3d Jx = RodriguesRotation(1,0,0,1);
-		Matrix3d Jy = RodriguesRotation(0,1,0,1);
-		Matrix3d Jz = RodriguesRotation(0,0,1,1);
+		Matrix3d Jx = cross_prod_mat(1,0,0);
+		Matrix3d Jy = cross_prod_mat(0,1,0);
+		Matrix3d Jz = cross_prod_mat(0,0,1);
 
 		std::map<int, std::vector<int>>& c_e_map = m.r_cluster_elem_map();
 		//iterator through rotation clusters
@@ -392,11 +326,14 @@ public:
 			Matrix3d r3 = R0*Jz;
 			
 			SparseMatrix<double> block1 = Eigen::kroneckerProduct(Ident, r1);
-			aDR.push_back(B*block1*B.transpose());
+			SparseMatrix<double> slice1 = B*block1*B.transpose();
 			SparseMatrix<double> block2 = Eigen::kroneckerProduct(Ident, r2);
-			aDR.push_back(B*block2*B.transpose());
+			SparseMatrix<double> slice2 = B*block2*B.transpose();
 			SparseMatrix<double> block3 = Eigen::kroneckerProduct(Ident, r3);
-			aDR.push_back(B*block3*B.transpose());
+			SparseMatrix<double> slice3 = B*block3*B.transpose();
+			aDR.push_back(to_triplets(slice1));
+			aDR.push_back(to_triplets(slice2));
+			aDR.push_back(to_triplets(slice3));
 		
 		}
 	}
@@ -514,6 +451,7 @@ public:
       		mr[9*i+7] = ri(2,1);
       		mr[9*i+8] = ri(2,2);
 		}
+
 	}
 
 	void minimize(Mesh& m){
@@ -558,6 +496,14 @@ public:
             wZ*s + wX*wY*c1, c + wY*wY*c1, -wX*s + wY*wZ*c1,
             -wY*s + wX*wZ*c1, wX*s + wY*wZ*c1, c + wZ*wZ*c1;
         return Rot;
+    }
+
+    MatrixXd cross_prod_mat(double wX, double wY, double wZ){
+        Matrix3d cross;
+        cross<<0, -wZ, wY,
+        		wZ, 0, -wX,
+        		-wY, wX, 0;
+        return cross;
     }
 
 };

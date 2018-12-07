@@ -646,7 +646,6 @@ public:
                 w<<mred_w(3*t+0),mred_w(3*t+1),mred_w(3*t+2);
                 double wlen = w.norm();
                 if (wlen>1e-9){
-                    print("Rodrigues");
                     double wX = w(0);
                     double wY = w(1);
                     double wZ = w(2);
@@ -659,7 +658,6 @@ public:
                         -wY*s + wX*wZ*c1, wX*s + wY*wZ*c1, c + wZ*wZ*c1;
                     
                     r = ri*Rot;
-                    print("end Rodrigues");
                 }else{
                     r = ri;
                 }
