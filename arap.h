@@ -6,7 +6,8 @@
 #include<Eigen/SparseLU>
 #include <iostream>
 #include <string>
-// #include <UtilitiesEigen.h>
+#include <math.h>   
+#include <unsupported/Eigen/MatrixFunctions>
 
 
 using namespace Eigen;
@@ -54,10 +55,9 @@ public:
 		KKTmat.block(0, aExx.cols(), CG.cols(), CG.rows()) = CG.transpose();
 		aARAPKKTSolver.compute(KKTmat);
 
-		setupRedSparseDRdr(m);//one time pre-processing
-		setupRedSparseDSds(m);//one time pre-processing
+		// setupRedSparseDRdr(m);//one time pre-processing
+		// setupRedSparseDSds(m);//one time pre-processing
 		// setupFastErTerms(m);
-		dEdr(m);
 	}
 
 	inline double Energy(Mesh& m){
@@ -372,41 +372,41 @@ public:
 	}
 
 	void setupRedSparseDRdr(Mesh& m){
-		Matrix3d r1; r1<<1,0,0,0,0,0,0,0,0;
-		Matrix3d r2; r2<<0,1,0,0,0,0,0,0,0;
-		Matrix3d r3; r3<<0,0,1,0,0,0,0,0,0;
-		Matrix3d r4; r4<<0,0,0,1,0,0,0,0,0;
-		Matrix3d r5; r5<<0,0,0,0,1,0,0,0,0;
-		Matrix3d r6; r6<<0,0,0,0,0,1,0,0,0;
-		Matrix3d r7; r7<<0,0,0,0,0,0,1,0,0;
-		Matrix3d r8; r8<<0,0,0,0,0,0,0,1,0;
-		Matrix3d r9; r9<<0,0,0,0,0,0,0,0,1;
-		std::map<int, std::vector<int>>& c_e_map = m.r_cluster_elem_map();
-		//iterator through rotation clusters
-		for(int t=0; t<m.red_r().size()/9;t++){
-			SparseMatrix<double> Ident(4*c_e_map[t].size(), 4*c_e_map[t].size());
-            Ident.setIdentity();
-            SparseMatrix<double>& B = m.RotBLOCK()[t];
+		// Matrix3d r1; r1<<1,0,0,0,0,0,0,0,0;
+		// Matrix3d r2; r2<<0,1,0,0,0,0,0,0,0;
+		// Matrix3d r3; r3<<0,0,1,0,0,0,0,0,0;
+		// Matrix3d r4; r4<<0,0,0,1,0,0,0,0,0;
+		// Matrix3d r5; r5<<0,0,0,0,1,0,0,0,0;
+		// Matrix3d r6; r6<<0,0,0,0,0,1,0,0,0;
+		// Matrix3d r7; r7<<0,0,0,0,0,0,1,0,0;
+		// Matrix3d r8; r8<<0,0,0,0,0,0,0,1,0;
+		// Matrix3d r9; r9<<0,0,0,0,0,0,0,0,1;
+		// std::map<int, std::vector<int>>& c_e_map = m.r_cluster_elem_map();
+		// //iterator through rotation clusters
+		// for(int t=0; t<m.red_r().size()/3;t++){
+		// 	SparseMatrix<double> Ident(4*c_e_map[t].size(), 4*c_e_map[t].size());
+  //           Ident.setIdentity();
+  //           SparseMatrix<double>& B = m.RotBLOCK()[t];
 			
-			SparseMatrix<double> block1 = Eigen::kroneckerProduct(Ident, r1);
-			aDR.push_back(B*block1*B.transpose());
-			SparseMatrix<double> block2 = Eigen::kroneckerProduct(Ident, r2);
-			aDR.push_back(B*block2*B.transpose());
-			SparseMatrix<double> block3 = Eigen::kroneckerProduct(Ident, r3);
-			aDR.push_back(B*block3*B.transpose());
-			SparseMatrix<double> block4 = Eigen::kroneckerProduct(Ident, r4);
-			aDR.push_back(B*block4*B.transpose());
-			SparseMatrix<double> block5 = Eigen::kroneckerProduct(Ident, r5);
-			aDR.push_back(B*block5*B.transpose());
-			SparseMatrix<double> block6 = Eigen::kroneckerProduct(Ident, r6);
-			aDR.push_back(B*block6*B.transpose());
-			SparseMatrix<double> block7 = Eigen::kroneckerProduct(Ident, r7);
-			aDR.push_back(B*block7*B.transpose());
-			SparseMatrix<double> block8 = Eigen::kroneckerProduct(Ident, r8);
-			aDR.push_back(B*block8*B.transpose());
-			SparseMatrix<double> block9 = Eigen::kroneckerProduct(Ident, r9);
-			aDR.push_back(B*block9*B.transpose());
-		}
+		// 	SparseMatrix<double> block1 = Eigen::kroneckerProduct(Ident, r1);
+		// 	aDR.push_back(B*block1*B.transpose());
+		// 	SparseMatrix<double> block2 = Eigen::kroneckerProduct(Ident, r2);
+		// 	aDR.push_back(B*block2*B.transpose());
+		// 	SparseMatrix<double> block3 = Eigen::kroneckerProduct(Ident, r3);
+		// 	aDR.push_back(B*block3*B.transpose());
+		// 	SparseMatrix<double> block4 = Eigen::kroneckerProduct(Ident, r4);
+		// 	aDR.push_back(B*block4*B.transpose());
+		// 	SparseMatrix<double> block5 = Eigen::kroneckerProduct(Ident, r5);
+		// 	aDR.push_back(B*block5*B.transpose());
+		// 	SparseMatrix<double> block6 = Eigen::kroneckerProduct(Ident, r6);
+		// 	aDR.push_back(B*block6*B.transpose());
+		// 	SparseMatrix<double> block7 = Eigen::kroneckerProduct(Ident, r7);
+		// 	aDR.push_back(B*block7*B.transpose());
+		// 	SparseMatrix<double> block8 = Eigen::kroneckerProduct(Ident, r8);
+		// 	aDR.push_back(B*block8*B.transpose());
+		// 	SparseMatrix<double> block9 = Eigen::kroneckerProduct(Ident, r9);
+		// 	aDR.push_back(B*block9*B.transpose());
+		// }
 	}
 
 	void setupRedSparseDSds(Mesh& m){
@@ -491,7 +491,7 @@ public:
 		VectorXd USUtPAx0 = m.GU()*m.GS()*aUtPAx0;
 		VectorXd& mr =m.red_r();
 		std::map<int, std::vector<int>>& c_e_map = m.r_cluster_elem_map();
-		for (int i=0; i<mr.size()/9; i++){
+		for (int i=0; i<mr.size()/3; i++){
 			std::vector<int> cluster_elem = c_e_map[i];
 			MatrixXd ePAx(4*cluster_elem.size(),3);
 			MatrixXd eUSUtPAx0(4*cluster_elem.size(),3);
@@ -512,20 +512,25 @@ public:
 			Matrix3d ri,ti,ui,vi;
      		Vector3d _;
       		igl::polar_svd(F,ri,ti,ui,_,vi);
-      		mr[9*i+0] = ri(0,0);
-      		mr[9*i+1] = ri(0,1);
-      		mr[9*i+2] = ri(0,2);
-      		mr[9*i+3] = ri(1,0);
-      		mr[9*i+4] = ri(1,1);
-      		mr[9*i+5] = ri(1,2);
-      		mr[9*i+6] = ri(2,0);
-      		mr[9*i+7] = ri(2,1);
-      		mr[9*i+8] = ri(2,2);
+
+			double cosTheta = 0.5*(ri.trace() -1);
+			double theta = acos(cosTheta);
+			if (fabs(theta)<1e-9){
+				mr[3*i] =0;
+				mr[3*i+1] =0;
+				mr[3*i+2] =0;
+			}else{
+				double sinTheta = sin(theta);
+				Matrix3d brac_w = (theta/(2*sinTheta))*(ri - ri.transpose());
+	      		mr[3*i+0] = brac_w(2,1);
+	      		mr[3*i+1] = brac_w(0,2);
+	      		mr[3*i+2] = brac_w(1,0);
+			}
 		}
 	}
 
 	void minimize(Mesh& m){
-		// print("		+ ARAP minimize");
+		print("		+ ARAP minimize");
 		
 		VectorXd Ex0 = dEdx(m);
 		for(int i=0; i< 100; i++){
@@ -536,7 +541,7 @@ public:
 			VectorXd Ex = dEdx(m);
 		
 			if ((Ex - Ex0).norm()<1e-7){
-				// std::cout<<"		- ARAP minimize "<<i<<std::endl;
+				std::cout<<"		- ARAP minimize "<<i<<" "<<Ex.norm()<<std::endl;
 				return;
 			}
 			Ex0 = Ex;

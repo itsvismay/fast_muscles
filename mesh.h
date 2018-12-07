@@ -13,6 +13,7 @@
 #include <igl/lbs_matrix.h>
 #include <igl/bbw.h>
 #include <json.hpp>
+#include <math.h>   
 
 
 
@@ -89,6 +90,7 @@ public:
         
 
         mGR.resize(12*mT.rows(), 12*mT.rows());
+        mGR.setIdentity();
         mGU.resize(12*mT.rows(), 12*mT.rows());
         mGS.resize(12*mT.rows(), 12*mT.rows());
         setGlobalF(true, true, true);
@@ -189,17 +191,11 @@ public:
             mr_cluster_elem_map[mr_elem_cluster_map[i]].push_back(i);
         }
 
-        mred_r.resize(9*nrc);
+        mred_r.resize(3*nrc);
         for(int i=0; i<nrc; i++){
-            mred_r[9*i+0] = 1;
-            mred_r[9*i+1] = 0;
-            mred_r[9*i+2] = 0;
-            mred_r[9*i+3] = 0;
-            mred_r[9*i+4] = 1;
-            mred_r[9*i+5] = 0;
-            mred_r[9*i+6] = 0;
-            mred_r[9*i+7] = 0;
-            mred_r[9*i+8] = 1;
+            mred_r[3*i+0] = 0;
+            mred_r[3*i+1] = 0;
+            mred_r[3*i+2] = 0;
         }
 
 
@@ -622,21 +618,42 @@ public:
 
         if(updateR){
             //iterate through rotation clusters
-            for (int t=0; t<mred_r.size()/9; t++){
+            for (int t=0; t<mred_r.size()/3; t++){
                 //dont use the RotBLOCK matrix like I did in python. 
                 //Insert manually into elements within
                 //the rotation cluster
-                for(int c=0; c<mr_cluster_elem_map[t].size(); c++){
-                    for(int j=0; j<4; j++){
-                        mGR.coeffRef(3*j+12*mr_cluster_elem_map[t][c] + 0, 3*j+12*mr_cluster_elem_map[t][c] + 0) = mred_r[9*t+0];
-                        mGR.coeffRef(3*j+12*mr_cluster_elem_map[t][c] + 0, 3*j+12*mr_cluster_elem_map[t][c] + 1) = mred_r[9*t+1];
-                        mGR.coeffRef(3*j+12*mr_cluster_elem_map[t][c] + 0, 3*j+12*mr_cluster_elem_map[t][c] + 2) = mred_r[9*t+2];
-                        mGR.coeffRef(3*j+12*mr_cluster_elem_map[t][c] + 1, 3*j+12*mr_cluster_elem_map[t][c] + 0) = mred_r[9*t+3];
-                        mGR.coeffRef(3*j+12*mr_cluster_elem_map[t][c] + 1, 3*j+12*mr_cluster_elem_map[t][c] + 1) = mred_r[9*t+4];
-                        mGR.coeffRef(3*j+12*mr_cluster_elem_map[t][c] + 1, 3*j+12*mr_cluster_elem_map[t][c] + 2) = mred_r[9*t+5];
-                        mGR.coeffRef(3*j+12*mr_cluster_elem_map[t][c] + 2, 3*j+12*mr_cluster_elem_map[t][c] + 0) = mred_r[9*t+6];
-                        mGR.coeffRef(3*j+12*mr_cluster_elem_map[t][c] + 2, 3*j+12*mr_cluster_elem_map[t][c] + 1) = mred_r[9*t+7];
-                        mGR.coeffRef(3*j+12*mr_cluster_elem_map[t][c] + 2, 3*j+12*mr_cluster_elem_map[t][c] + 2) = mred_r[9*t+8];
+                // % Rodrigues formula %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                Vector3d w = mred_r.segment<3>(3*t);
+                double wlen = w.norm();
+                if (wlen>6.28){
+                    print("REPARAMETERIZE ROTATIONS");
+                    exit(0);
+                }
+                if(wlen>1e-9){
+
+                    double wX = w(0);
+                    double wY = w(1);
+                    double wZ = w(2);
+                    double c = cos(wlen);
+                    double s = sin(wlen);
+                    double c1 = 1 - c;
+                    Matrix3d Rot;
+                    Rot<< c + wX*wX*c1, -wZ*s + wX*wY*c1, wY*s + wX*wZ*c1,
+                        wZ*s + wX*wY*c1, c + wY*wY*c1, -wX*s + wY*wZ*c1,
+                        -wY*s + wX*wZ*c1, wX*s + wY*wZ*c1, c + wZ*wZ*c1;
+                    // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                    for(int c=0; c<mr_cluster_elem_map[t].size(); c++){
+                        for(int j=0; j<4; j++){
+                            mGR.coeffRef(3*j+12*mr_cluster_elem_map[t][c] + 0, 3*j+12*mr_cluster_elem_map[t][c] + 0) = Rot(0, 0);
+                            mGR.coeffRef(3*j+12*mr_cluster_elem_map[t][c] + 0, 3*j+12*mr_cluster_elem_map[t][c] + 1) = Rot(0, 1);
+                            mGR.coeffRef(3*j+12*mr_cluster_elem_map[t][c] + 0, 3*j+12*mr_cluster_elem_map[t][c] + 2) = Rot(0, 2);
+                            mGR.coeffRef(3*j+12*mr_cluster_elem_map[t][c] + 1, 3*j+12*mr_cluster_elem_map[t][c] + 0) = Rot(1, 0);
+                            mGR.coeffRef(3*j+12*mr_cluster_elem_map[t][c] + 1, 3*j+12*mr_cluster_elem_map[t][c] + 1) = Rot(1, 1);
+                            mGR.coeffRef(3*j+12*mr_cluster_elem_map[t][c] + 1, 3*j+12*mr_cluster_elem_map[t][c] + 2) = Rot(1, 2);
+                            mGR.coeffRef(3*j+12*mr_cluster_elem_map[t][c] + 2, 3*j+12*mr_cluster_elem_map[t][c] + 0) = Rot(2, 0);
+                            mGR.coeffRef(3*j+12*mr_cluster_elem_map[t][c] + 2, 3*j+12*mr_cluster_elem_map[t][c] + 1) = Rot(2, 1);
+                            mGR.coeffRef(3*j+12*mr_cluster_elem_map[t][c] + 2, 3*j+12*mr_cluster_elem_map[t][c] + 2) = Rot(2, 2);
+                        }
                     }
                 }
             }
