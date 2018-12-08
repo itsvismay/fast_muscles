@@ -67,7 +67,7 @@ int main(int argc, char *argv[])
     
     std::vector<int> fix = getMaxVerts_Axis_Tolerance(V, 1);
     std::sort (fix.begin(), fix.end());
-    std::vector<int> mov = getMinVerts_Axis_Tolerance(V, 1);
+    std::vector<int> mov = {1,7}; //getMinVerts_Axis_Tolerance(V, 1);
     for(int i=0; i<mov.size(); i++)
         std::cout<<mov[i]<<std::endl;
     std::sort (mov.begin(), mov.end());
@@ -85,12 +85,12 @@ int main(int argc, char *argv[])
     std::cout<<"-----Solver-------"<<std::endl;
         int DIM = mesh->red_s().size();
         StaticSolve<double> f(DIM, mesh, arap, neo);
-        Criteria<double> crit = Criteria<double>::defaults();
-        crit.xDelta = 1e-4;
-        crit.fDelta = 1e-4;
-        crit.gradNorm = 1e-4; 
+        // Criteria<double> crit = Criteria<double>::defaults();
+        // crit.xDelta = 1e-4;
+        // crit.fDelta = 1e-4;
+        // crit.gradNorm = 1e-4; 
         cppoptlib:LbfgsbSolver<StaticSolve<double>> solver;
-        solver.setStopCriteria(crit);
+        // solver.setStopCriteria(crit);
         VectorXd lb = (mesh->red_s().array() - 1)*1e6 + 1e-6;
         VectorXd ub = (mesh->red_s().array() - 1)*1e6 + 1e-6;
         // std::cout<<ub<<std::endl;
@@ -129,7 +129,7 @@ int main(int argc, char *argv[])
         if(key==' '){
             VectorXd& dx = mesh->dx();
             for(int i=0; i<mov.size(); i++){
-                dx[3*mov[i]+0] += 1;
+                dx[3*mov[i]+1] += 3;
             }
             // // Doing things
             // VectorXd& s = mesh->red_s();
@@ -138,17 +138,18 @@ int main(int argc, char *argv[])
             // }
             // mesh->setGlobalF(false, true, false);
             
-            // VectorXd news = mesh->red_s();
-            // solver.minimize(f, news);
-            // for(int i=0; i<news.size(); i++){
-            //     mesh->red_s()[i] = news[i];
-            // }
-            // std::cout<<"new s"<<std::endl;
-            // std::cout<<news.transpose()<<std::endl;
-            // std::cout << "f in argmin " << f(news) << std::endl;
-            // std::cout << "Solver status: " << solver.status() << std::endl;
-            // std::cout << "Final criteria values: " << std::endl << solver.criteria() << std::endl;
-            arap->minimize(*mesh);
+            VectorXd news = mesh->red_s();
+            solver.minimize(f, news);
+            for(int i=0; i<news.size(); i++){
+                mesh->red_s()[i] = news[i];
+            }
+
+            std::cout<<"new s"<<std::endl;
+            std::cout<<news.transpose()<<std::endl;
+            std::cout << "f in argmin " << f(news) << std::endl;
+            std::cout << "Solver status: " << solver.status() << std::endl;
+            std::cout << "Final criteria values: " << std::endl << solver.criteria() << std::endl;
+            // arap->minimize(*mesh);
         }
         
         //----------------

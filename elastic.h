@@ -103,13 +103,15 @@ public:
 		}
 		// double W = C1*(I1 -3 -2*log(J)) + D1*(log(J)*log(J));
 		double W = C1*(I1bar -3) + D1*(J-1)*(J-1);
-		if(W<0){
+		if(W<-1e-5){
 			std::cout<<"Negative energy"<<std::endl;
 			std::cout<<"W: "<<W<<std::endl;
 			std::cout<<"I1, log(J), I1bar: "<<I1<<", "<<log(J)<<", "<<I1bar<<std::endl;
 			std::cout<<"term1: "<<C1*(I1bar -3)<<std::endl;
 			std::cout<<"term2: "<<D1*(J-1)*(J-1)<<std::endl;
 			exit(0);
+		}else if(W<0){
+			return 0;
 		}
 		return W;
 	}
@@ -202,6 +204,7 @@ public:
 		VectorXd& eP = mesh.ePoissons();
 
 		VectorXd s = mesh.sW()*mesh.red_s();
+
 		Matrix3d c;
 		for(int t =0; t<mesh.T().rows(); t++){
 			c.coeffRef(0, 0) = s[6*t + 0];

@@ -23,7 +23,7 @@ protected:
 	MatrixXd aExx, aExr, aErr, aExs, aErs, aPAG;
 	SparseMatrix<double> aPA;
 
-	std::vector<vector<Trip>> aDS, aDR;
+	std::vector<vector<Trip>> aDS, aDR, aDDR;
 
 public:
 	Arap(Mesh& m){
@@ -55,6 +55,7 @@ public:
 
 		setupRedSparseDRdr(m);//one time pre-processing
 		setupRedSparseDSds(m);//one time pre-processing
+		setupRedSparseDDRdrdr(m);
 		// setupFastErTerms(m);
 		dEdr(m);
 	}
@@ -125,14 +126,13 @@ public:
 
 		MatrixXd dgds = results.topRows(aExx.rows());
 		MatrixXd drds = results.bottomRows(aErr.rows());
-		// print(aEx);
-		// print(aEr);
-		// print(aEs);
+		// print("DGDS");
 		// print(dgds);
+		// print("DRDS");
 		// print(drds);
 		VectorXd DEDs = dgds.transpose()*aEx + drds.transpose()*aEr + aEs;
-		print("DEDS");
-		print(DEDs.transpose());
+		// print("DEDS");
+		// print(DEDs.transpose());
 		return DEDs;
 	}
 
@@ -233,34 +233,49 @@ public:
 
 	MatrixXd& Err(Mesh& m){	
 		VectorXd USUtPAx0 = m.GU()*m.GS()*aUtPAx0;
+		VectorXd PAx = aPA*(m.G()*m.red_x() + m.x0());
 
-		MatrixXd TEMP = MatrixXd::Zero(12*m.T().rows(), aErr.rows());
 
 		aErr.setZero();
-		for(int j=0; j<aErr.cols(); j++){
-			auto v = aDR[j];
-			for(int k=0; k<v.size(); k++){
-				TEMP(v[k].row(),j) += v[k].value()*(USUtPAx0[v[k].col()]);
+		for(int i=0; i<aErr.rows()/3; i++){
+			auto v00 = aDDR[9*i+0];
+			auto v01 = aDDR[9*i+1];
+			auto v02 = aDDR[9*i+2];
+			auto v11 = aDDR[9*i+4];
+			auto v12 = aDDR[9*i+5];
+			auto v22 = aDDR[9*i+8];
+			for(int k=0; k<v00.size(); k++){
+				aErr(3*i+0,3*i+0) += -1*v00[k].value()*(PAx[v00[k].col()]*USUtPAx0[v00[k].row()]);
 			}
+			for(int k=0; k<v11.size(); k++){
+				aErr(3*i+1,3*i+1) += -1*v11[k].value()*(PAx[v11[k].col()]*USUtPAx0[v11[k].row()]);
+			}
+			for(int k=0; k<v22.size(); k++){
+				aErr(3*i+2,3*i+2) += -1*v22[k].value()*(PAx[v22[k].col()]*USUtPAx0[v22[k].row()]);
+			}
+			for(int k=0; k<v01.size(); k++){
+				aErr(3*i+0,3*i+1) += -1*v01[k].value()*(PAx[v01[k].col()]*USUtPAx0[v01[k].row()]);
+			}
+			for(int k=0; k<v02.size(); k++){
+				aErr(3*i+0,3*i+2) += -1*v02[k].value()*(PAx[v02[k].col()]*USUtPAx0[v02[k].row()]);
+			}
+			for(int k=0; k<v12.size(); k++){
+				aErr(3*i+1,3*i+2) += -1*v12[k].value()*(PAx[v12[k].col()]*USUtPAx0[v12[k].row()]);
+			}
+			
+			aErr(3*i+1, 3*i+0) = aErr(3*i+0, 3*i+1);
+			aErr(3*i+2, 3*i+0) = aErr(3*i+0, 3*i+2);
+			aErr(3*i+2, 3*i+1) = aErr(3*i+1, 3*i+2);
+				
 		}
 
-		for(int i=0; i<aErr.rows(); i++){
-			auto v = aDR[i];
-			for(int j=0; j<TEMP.cols(); j++){
-				for(int k=0; k<v.size(); k++){
-					aErr(i,j) += v[k].value()*(USUtPAx0[v[k].col()]*TEMP(v[k].row(), j));
-				}	
-			}
-		}
+
 
 		return aErr;
 	}
 
 	MatrixXd& Ers(Mesh& m){
 		VectorXd PAg = aPA*m.x();
-		VectorXd FPAx0 = m.GF()*aPA*m.x();
-		SparseMatrix<double> RUt = (m.GR()*m.GU()).transpose();
-		VectorXd USUtPAx0 = m.GU()*m.GS()*aUtPAx0;
 
 		MatrixXd TEMP1 = MatrixXd::Zero(12*m.T().rows(), aErs.rows());
 		for(int i=0; i<TEMP1.rows(); i++){
@@ -268,16 +283,6 @@ public:
 				auto v = aDR[j];
 				for(int k=0; k<v.size(); k++){
 					TEMP1(i,j) += v[k].value()*(-1*m.GU().coeff(v[k].col(), i)*PAg[v[k].row()]);
-				}
-			}
-		}
-
-		MatrixXd TEMP2 = MatrixXd::Zero(12*m.T().rows(), aErs.rows());
-		for(int i=0; i<TEMP2.rows(); i++){
-			for(int j=0; j<TEMP2.cols(); j++){
-				auto v = aDR[j];
-				for(int k=0; k<v.size(); k++){
-					TEMP2(i,j) += v[k].value()*(m.GU().coeff(v[k].col(), i)*FPAx0[v[k].row()] + RUt.coeff(i, v[k].row())*USUtPAx0[v[k].col()]);
 				}
 			}
 		}
@@ -291,15 +296,7 @@ public:
 				}
 			}
 		}
-		
-		for(int i=0; i<aErs.cols(); i++){
-			std::vector<Trip> v = aDS[i];
-			for(int j=0; j<TEMP2.cols(); j++){
-				for(int k=0; k<v.size(); k++){
-					aErs(j, i) += v[k].value()*(aUtPAx0[v[k].col()]*TEMP2(v[k].row(), j));
-				}
-			}
-		}
+
 
 
 		return aErs;
@@ -326,16 +323,75 @@ public:
 			Matrix3d r3 = R0*Jz;
 			
 			SparseMatrix<double> block1 = Eigen::kroneckerProduct(Ident, r1);
-			SparseMatrix<double> slice1 = B*block1*B.transpose();
 			SparseMatrix<double> block2 = Eigen::kroneckerProduct(Ident, r2);
-			SparseMatrix<double> slice2 = B*block2*B.transpose();
 			SparseMatrix<double> block3 = Eigen::kroneckerProduct(Ident, r3);
+			SparseMatrix<double> slice1 = B*block1*B.transpose();
+			SparseMatrix<double> slice2 = B*block2*B.transpose();
 			SparseMatrix<double> slice3 = B*block3*B.transpose();
 			aDR.push_back(to_triplets(slice1));
 			aDR.push_back(to_triplets(slice2));
 			aDR.push_back(to_triplets(slice3));
 		
 		}
+	}
+
+	void setupRedSparseDDRdrdr(Mesh& m){
+		Matrix3d Jx = cross_prod_mat(1,0,0);
+		Matrix3d Jy = cross_prod_mat(0,1,0);
+		Matrix3d Jz = cross_prod_mat(0,0,1);
+
+		std::map<int, std::vector<int>>& c_e_map = m.r_cluster_elem_map();
+		for(int t=0; t<m.red_w().size()/3; t++){
+			SparseMatrix<double> Ident(4*c_e_map[t].size(), 4*c_e_map[t].size());
+            Ident.setIdentity();
+            SparseMatrix<double>& B = m.RotBLOCK()[t];
+			Matrix3d R0; 
+			R0<< m.red_r()[9*t+0], m.red_r()[9*t+1], m.red_r()[9*t+2],
+				m.red_r()[9*t+3], m.red_r()[9*t+4], m.red_r()[9*t+5],
+				m.red_r()[9*t+6], m.red_r()[9*t+7], m.red_r()[9*t+8];
+
+			Matrix3d r1 = R0*0.5*(Jx*Jx + Jx*Jx);
+			Matrix3d r2 = R0*0.5*(Jx*Jy + Jy*Jx);
+			Matrix3d r3 = R0*0.5*(Jx*Jz + Jz*Jx);
+			Matrix3d r4 = R0*0.5*(Jy*Jx + Jx*Jy);
+			Matrix3d r5 = R0*0.5*(Jy*Jy + Jy*Jy);
+			Matrix3d r6 = R0*0.5*(Jy*Jz + Jz*Jy);
+			Matrix3d r7 = R0*0.5*(Jz*Jx + Jx*Jz);
+			Matrix3d r8 = R0*0.5*(Jz*Jy + Jy*Jz);
+			Matrix3d r9 = R0*0.5*(Jz*Jz + Jz*Jz);
+
+			SparseMatrix<double> block1 = Eigen::kroneckerProduct(Ident, r1);
+			SparseMatrix<double> block2 = Eigen::kroneckerProduct(Ident, r2);
+			SparseMatrix<double> block3 = Eigen::kroneckerProduct(Ident, r3);
+			SparseMatrix<double> block4 = Eigen::kroneckerProduct(Ident, r4);
+			SparseMatrix<double> block5 = Eigen::kroneckerProduct(Ident, r5);
+			SparseMatrix<double> block6 = Eigen::kroneckerProduct(Ident, r6);
+			SparseMatrix<double> block7 = Eigen::kroneckerProduct(Ident, r7);
+			SparseMatrix<double> block8 = Eigen::kroneckerProduct(Ident, r8);
+			SparseMatrix<double> block9 = Eigen::kroneckerProduct(Ident, r9);
+
+
+			SparseMatrix<double> slice1 = B*block1*B.transpose();
+			SparseMatrix<double> slice2 = B*block2*B.transpose();
+			SparseMatrix<double> slice3 = B*block3*B.transpose();
+			SparseMatrix<double> slice4 = B*block4*B.transpose();
+			SparseMatrix<double> slice5 = B*block5*B.transpose();
+			SparseMatrix<double> slice6 = B*block6*B.transpose();
+			SparseMatrix<double> slice7 = B*block7*B.transpose();
+			SparseMatrix<double> slice8 = B*block8*B.transpose();
+			SparseMatrix<double> slice9 = B*block9*B.transpose();
+			
+
+			aDDR.push_back(to_triplets(slice1));
+			aDDR.push_back(to_triplets(slice2));
+			aDDR.push_back(to_triplets(slice3));
+			aDDR.push_back(to_triplets(slice4));
+			aDDR.push_back(to_triplets(slice5));
+			aDDR.push_back(to_triplets(slice6));
+			aDDR.push_back(to_triplets(slice7));
+			aDDR.push_back(to_triplets(slice8));
+			aDDR.push_back(to_triplets(slice9));
+		}	
 	}
 
 	void setupRedSparseDSds(Mesh& m){
@@ -407,12 +463,13 @@ public:
 		VectorXd deltaABtx = m.AB().transpose()*m.dx();
 		VectorXd GtAtPtFPAx0 = (m.P()*m.A()*m.G()).transpose()*FPAx0;
 		VectorXd GtAtPtPAx0 = (m.P()*m.A()*m.G()).transpose()*(m.P()*m.A()*m.x0());
-
 		VectorXd gb = GtAtPtFPAx0 - GtAtPtPAx0;
 		VectorXd gd(gb.size()+deltaABtx.size());
 		gd<<gb,deltaABtx;
 		VectorXd gu = aARAPKKTSolver.solve(gd).head(gb.size());
+		// print(gu.transpose());
 		m.red_x(gu);
+
 	}
 
 	void itR(Mesh& m){
@@ -455,7 +512,7 @@ public:
 	}
 
 	void minimize(Mesh& m){
-		// print("		+ ARAP minimize");
+		print("		+ ARAP minimize");
 		
 		VectorXd Ex0 = dEdx(m);
 		for(int i=0; i< 100; i++){
@@ -466,7 +523,7 @@ public:
 			VectorXd Ex = dEdx(m);
 		
 			if ((Ex - Ex0).norm()<1e-7){
-				// std::cout<<"		- ARAP minimize "<<i<<std::endl;
+				std::cout<<"		- ARAP minimize "<<i<<std::endl;
 				return;
 			}
 			Ex0 = Ex;

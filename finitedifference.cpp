@@ -87,8 +87,8 @@ int checkARAP(Mesh& mesh, Arap& arap){
 		}
 		mesh.setGlobalF(true, false, false);
 		std::cout<<"Er error:"<<(real-fake).norm()<<std::endl;	
-		std::cout<<fake.transpose()<<std::endl;
-		std::cout<<real.transpose()<<std::endl;
+		// std::cout<<fake.transpose()<<std::endl;
+		// std::cout<<real.transpose()<<std::endl;
 	};
 	//-----------------------
 
@@ -221,26 +221,26 @@ int checkARAP(Mesh& mesh, Arap& arap){
 	//CHECK Err--------------
 	auto Err = [&mesh, &arap, E0, eps](){
 		MatrixXd& real = arap.Err(mesh);
-		MatrixXd fake = MatrixXd::Zero(mesh.red_r().size(), mesh.red_r().size());
+		MatrixXd fake = MatrixXd::Zero(mesh.red_w().size(), mesh.red_w().size());
 
 		for(int i=0; i<fake.rows(); i++){
 			for(int j=0; j<fake.cols(); j++){
-				mesh.red_r()[j] += eps;
-				mesh.red_r()[i] += eps;
+				mesh.red_w()[j] += eps;
+				mesh.red_w()[i] += eps;
 				mesh.setGlobalF(true, false, false);
 				double Eij = arap.Energy(mesh, mesh.red_x(), mesh.GR(), mesh.GS(), mesh.GU());
-				mesh.red_r()[j] -= eps;
-				mesh.red_r()[i] -= eps;
+				mesh.red_w()[j] -= eps;
+				mesh.red_w()[i] -= eps;
 
-				mesh.red_r()[j] += eps;
+				mesh.red_w()[j] += eps;
 				mesh.setGlobalF(true, false, false);
 				double Ei = arap.Energy(mesh, mesh.red_x(), mesh.GR(), mesh.GS(), mesh.GU());
-				mesh.red_r()[j] -= eps;
+				mesh.red_w()[j] -= eps;
 
-				mesh.red_r()[i] += eps;
+				mesh.red_w()[i] += eps;
 				mesh.setGlobalF(true, false, false);
 				double Ej = arap.Energy(mesh, mesh.red_x(), mesh.GR(), mesh.GS(), mesh.GU());
-				mesh.red_r()[i] -= eps;
+				mesh.red_w()[i] -= eps;
 
 				fake(i,j) = ((Eij - Ei - Ej + E0)/(eps*eps));
 			}
@@ -248,6 +248,7 @@ int checkARAP(Mesh& mesh, Arap& arap){
 		mesh.setGlobalF(true, false, false);
 		std::cout<<"Err"<<std::endl;
 		// std::cout<<fake<<std::endl;
+		// std::cout<<real<<std::endl;
 		std::cout<<(fake- real).norm()<<std::endl;
 	};
 	//-----------------------
@@ -255,21 +256,21 @@ int checkARAP(Mesh& mesh, Arap& arap){
 	//CHECK Ers--------------
 	auto Ers = [&mesh, &arap, E0, eps](){
 		MatrixXd& real = arap.Ers(mesh);
-		MatrixXd fake = MatrixXd::Zero(mesh.red_r().size(), mesh.red_s().size());
+		MatrixXd fake = MatrixXd::Zero(mesh.red_w().size(), mesh.red_s().size());
 
 		for(int i=0; i<fake.rows(); i++){
 			for(int j=0; j<fake.cols(); j++){
-				mesh.red_r()[i] += eps;
+				mesh.red_w()[i] += eps;
 				mesh.red_s()[j] += eps;
 				mesh.setGlobalF(true, true, false);
 				double Eij = arap.Energy(mesh, mesh.red_x(), mesh.GR(), mesh.GS(), mesh.GU());
 				mesh.red_s()[j] -= eps;
-				mesh.red_r()[i] -= eps;
+				mesh.red_w()[i] -= eps;
 
-				mesh.red_r()[i] += eps;
+				mesh.red_w()[i] += eps;
 				mesh.setGlobalF(true, true, false);
 				double Ei = arap.Energy(mesh, mesh.red_x(), mesh.GR(), mesh.GS(), mesh.GU());
-				mesh.red_r()[i] -= eps;
+				mesh.red_w()[i] -= eps;
 
 				mesh.red_s()[j] += eps;
 				mesh.setGlobalF(true, true, false);
@@ -282,6 +283,7 @@ int checkARAP(Mesh& mesh, Arap& arap){
 		mesh.setGlobalF(true, true, false);
 		std::cout<<"Ers"<<std::endl;
 		// std::cout<<fake<<std::endl;
+		// std::cout<<real<<std::endl;
 		std::cout<<(fake- real).norm()<<std::endl;
 	};
 	//-----------------------
@@ -377,7 +379,7 @@ int checkARAP(Mesh& mesh, Arap& arap){
 
 	//CHECK drds-----------------------
 	auto Jac_drds = [&mesh, &arap, E0, eps](){
-		MatrixXd drds = MatrixXd::Zero(mesh.red_r().size(), mesh.red_s().size());
+		MatrixXd drds = MatrixXd::Zero(mesh.red_w().size(), mesh.red_s().size());
 
 		for(int i=0; i<mesh.red_s().size(); i++){
 
@@ -385,7 +387,7 @@ int checkARAP(Mesh& mesh, Arap& arap){
 			mesh.setGlobalF(false, true, false);
 			arap.minimize(mesh);
 
-			VectorXd drds_left = mesh.red_r();
+			VectorXd drds_left = mesh.red_w();
 
 			mesh.red_s()[i] -= 0.5*eps;
 			mesh.setGlobalF(false, true, false);
@@ -396,7 +398,7 @@ int checkARAP(Mesh& mesh, Arap& arap){
 			mesh.setGlobalF(false, true, false);
 			arap.minimize(mesh);
 			
-			VectorXd drds_right = mesh.red_r();
+			VectorXd drds_right = mesh.red_w();
 
 			mesh.red_s()[i] += 0.5*eps;
 			mesh.setGlobalF(false, true, false);
@@ -415,14 +417,10 @@ int checkARAP(Mesh& mesh, Arap& arap){
 	Es();
 	Exx();
 	Exr();
-	// Exr_part1();
-	// Exr_part2();
 	Exs();
-	// Err();
-	// Ers();
-	// Ers_part1();
-	// Ers_part2();
-
+	Ers();
+	Err();
+	
 	// Jac_dgds();
 	// Jac_drds();
 }
@@ -450,10 +448,10 @@ int main(int argc, char *argv[]){
     std::cout<<"-----ARAP-----"<<std::endl;
     Arap* arap = new Arap(*mesh);
 
-    for(int i=0; i<mesh->red_s().size()/6; i++){
-    	mesh->red_s()[6*i+1] += 0.1;
-    }
-    mesh->setGlobalF(false, true, false);
+    // for(int i=0; i<mesh->red_s().size()/6; i++){
+    // 	mesh->red_s()[6*i+1] += 0.1;
+    // }
+    // mesh->setGlobalF(false, true, false);
     // arap->minimize(*mesh);
 
     checkARAP(*mesh, *arap);
