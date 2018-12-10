@@ -707,7 +707,7 @@ public:
         return v;
     }
 
-    inline double get_volume(Vector3d p1, Vector3d p2, Vector3d p3, Vector3d p4){
+    double get_volume(Vector3d p1, Vector3d p2, Vector3d p3, Vector3d p4){
         Matrix3d Dm;
         Dm.col(0) = p1 - p4;
         Dm.col(1) = p2 - p4;
@@ -717,36 +717,31 @@ public:
         return m_undeformedVol;
     }
 
-    inline MatrixXd& V(){ return mV; }
-    inline MatrixXi& T(){ return mT; }
-    inline SparseMatrix<double>& GR(){ return mGR; }
-    inline SparseMatrix<double>& GS(){ return mGS; }
-    inline SparseMatrix<double>& GU(){ return mGU; }
-    inline SparseMatrix<double>& GF(){ return mGF; }
+    MatrixXd& V(){ return mV; }
+    MatrixXi& T(){ return mT; }
+    SparseMatrix<double>& GR(){ return mGR; }
+    SparseMatrix<double>& GS(){ return mGS; }
+    SparseMatrix<double>& GU(){ return mGU; }
+    SparseMatrix<double>& GF(){ return mGF; }
 
-    inline SparseMatrix<double>& P(){ return mP; }
-    inline SparseMatrix<double>& A(){ return mA; }
-    inline MatrixXd& G(){ return mG; }
+    SparseMatrix<double>& P(){ return mP; }
+    SparseMatrix<double>& A(){ return mA; }
+    MatrixXd& G(){ return mG; }
 
-    inline SparseMatrix<double>& B(){ return mFree; }
-    inline SparseMatrix<double>& AB(){ return mConstrained; }
-    inline VectorXd& red_r(){ return mred_r; }
-    inline VectorXd& red_w(){ return mred_w; }
-    inline VectorXd& eYoungs(){ return melemYoungs; }
-    inline VectorXd& ePoissons(){ return melemPoissons; }
-    inline VectorXd& x0(){ return mx0; }
-    inline VectorXd& red_s(){return mred_s; }
-    inline std::map<int, std::vector<int>>& r_cluster_elem_map(){ return mr_cluster_elem_map; }
-    inline MatrixXd& sW(){ return msW; }
-    inline std::vector<SparseMatrix<double>>& RotBLOCK(){ return mRotationBLOCK; }
+    SparseMatrix<double>& B(){ return mFree; }
+    SparseMatrix<double>& AB(){ return mConstrained; }
+    VectorXd& red_r(){ return mred_r; }
+    VectorXd& red_w(){ return mred_w; }
+    VectorXd& eYoungs(){ return melemYoungs; }
+    VectorXd& ePoissons(){ return melemPoissons; }
+    VectorXd& x0(){ return mx0; }
+    VectorXd& red_s(){return mred_s; }
+    std::map<int, std::vector<int>>& r_cluster_elem_map(){ return mr_cluster_elem_map; }
+    MatrixXd& sW(){ return msW; }
+    std::vector<SparseMatrix<double>>& RotBLOCK(){ return mRotationBLOCK; }
 
-    VectorXd& x(){ 
-        mcontx = mG*mred_x+mx0;
-        return mcontx;
-    }
-
-    inline VectorXd& dx(){ return mx;}
-    inline VectorXd& red_x(){ return mred_x; }
+    VectorXd& dx(){ return mx;}
+    VectorXd& red_x(){ return mred_x; }
     void red_x(VectorXd& ix){ 
         mred_x = ix;
         return; 
@@ -765,15 +760,17 @@ public:
     }
 
     MatrixXd continuousV(){
-        Eigen::Map<Eigen::MatrixXd> newV(x().data(), mV.cols(), mV.rows());
+        VectorXd x = mG*mred_x + mx0;
+        Eigen::Map<Eigen::MatrixXd> newV(x.data(), mV.cols(), mV.rows());
         return newV.transpose();
     }
 
-    inline MatrixXi& discontinuousT(){ return discT; }
+    MatrixXi& discontinuousT(){ return discT; }
 
     MatrixXd& discontinuousV(){
+        VectorXd x = mG*mred_x + mx0;
         VectorXd dx = xbar();
-        VectorXd CAx = mC*mA*x();
+        VectorXd CAx = mC*mA*x;
         VectorXd newx = dx + CAx;
 
         for(int t =0; t<mT.rows(); t++){
@@ -793,10 +790,10 @@ public:
         return discV;
     }
 
-    inline SparseMatrix<double>& M(){ return mMass; }
+    SparseMatrix<double>& M(){ return mMass; }
 
     template<class T>
-    inline void print(T a){ std::cout<<a<<std::endl; }
+    void print(T a){ std::cout<<a<<std::endl; }
 
 };
 

@@ -18,8 +18,8 @@ class Arap
 {
 
 protected:
-	PartialPivLU<MatrixXd>  aARAPKKTSolver;
-	VectorXd aPAx0, aUtPAx0, aEr, aEs, aEx;
+	FullPivLU<MatrixXd>  aARAPKKTSolver;
+	VectorXd aPAx0, aUtPAx0, aEr, aEs, aEx, aDEDs;
 	MatrixXd aExx, aExr, aErr, aExs, aErs, aPAG;
 	SparseMatrix<double> aPA;
 
@@ -53,27 +53,30 @@ public:
 		KKTmat.block(0, aExx.cols(), CG.cols(), CG.rows()) = CG.transpose();
 		aARAPKKTSolver.compute(KKTmat);
 
-		setupRedSparseDRdr(m);//one time pre-processing
 		setupRedSparseDSds(m);//one time pre-processing
+		setupRedSparseDRdr(m);
 		setupRedSparseDDRdrdr(m);
 		// setupFastErTerms(m);
 		dEdr(m);
 	}
 
-	inline double Energy(Mesh& m){
-		VectorXd PAx = aPA*m.x();
+	double Energy(Mesh& m){
+		VectorXd PAx = aPA*(m.G()*m.red_x() + m.x0());
 		VectorXd FPAx0 = m.GR()*m.GU()*m.GS()*m.GU().transpose()*aPA*m.x0();
 		double En= 0.5*(PAx - FPAx0).squaredNorm();
 		return En;
 	}
 
-	inline double Energy(Mesh& m, VectorXd& z, SparseMatrix<double>& R, SparseMatrix<double>& S, SparseMatrix<double>& U){
+	double Energy(Mesh& m, VectorXd& z, SparseMatrix<double>& R, SparseMatrix<double>& S, SparseMatrix<double>& U){
 		VectorXd PAx = m.P()*m.A()*(m.G()*z + m.x0());
 		VectorXd FPAx0 = R*U*S*U.transpose()*m.P()*m.A()*m.x0();
 		return 0.5*(PAx - FPAx0).squaredNorm();
 	}
 
 	VectorXd Jacobians(Mesh& m){
+		setupRedSparseDRdr(m);
+		setupRedSparseDDRdrdr(m);
+
 		Hessians(m);
 		
 		MatrixXd lhs_left(aExx.rows()+aExr.cols(), aExx.cols());
@@ -102,8 +105,8 @@ public:
 		MatrixXd JacKKT(col1.rows(), col1.rows());
 		JacKKT<<col1, col2, col3;
 		
-		std::cout<<JacKKT.rows()<<", "<<JacKKT.cols()<<std::endl;
-		std::cout<<rhs.rows()<<", "<<rhs.cols()<<std::endl;
+		// std::cout<<JacKKT.rows()<<", "<<JacKKT.cols()<<std::endl;
+		// std::cout<<rhs.rows()<<", "<<rhs.cols()<<std::endl;
 
 		Gradients(m);
 
@@ -123,24 +126,22 @@ public:
 
 		MatrixXd results = JacKKT.fullPivLu().solve(KKT_constrains).topRows(rhs.rows());
 
-
 		MatrixXd dgds = results.topRows(aExx.rows());
 		MatrixXd drds = results.bottomRows(aErr.rows());
 		// print("DGDS");
 		// print(dgds);
 		// print("DRDS");
 		// print(drds);
-		VectorXd DEDs = dgds.transpose()*aEx + drds.transpose()*aEr + aEs;
-		// print("DEDS");
-		// print(DEDs.transpose());
-		return DEDs;
+		aDEDs = dgds.transpose()*aEx + drds.transpose()*aEr + aEs;
+
+		return aDEDs;
 	}
 
 	void Hessians(Mesh& m){
-		print("+Hessians");
+		// print("+Hessians");
 		//Exx is constant
 
-		// Erx
+		// Exr
 		Exr(m);
 
 		//Err
@@ -152,25 +153,26 @@ public:
 		//Ers
 		Ers(m);
 
-		print("-Hessians");
+		// print("-Hessians");
 	}
 
 	void Gradients(Mesh& m){
-		print("+ Gradients");
+		// print("+ Gradients");
 		aEx = dEdx(m);
 		aEr = dEdr(m);
 		aEs = dEds(m);
-		print("- Gradients");
+		// print("- Gradients");
 	}
 
 	VectorXd dEdx(Mesh& m){
-		VectorXd PAx = m.P()*m.A()*m.x();
+		VectorXd PAx = aPA*(m.G()*m.red_x() + m.x0());;
 		VectorXd FPAx0 = m.xbar();
 		VectorXd res = (aPA*m.G()).transpose()*(PAx - FPAx0);
 		return res;
 	}
 
 	VectorXd dEdr(Mesh& m){
+		setupRedSparseDRdr(m);
 		VectorXd PAg = aPA*(m.G()*m.red_x() + m.x0());
 		VectorXd USUtPAx0 = m.GU()*m.GS()*aUtPAx0;
 
@@ -178,7 +180,7 @@ public:
 		for(int i=0; i<aEr.size(); i++){
 			auto v = aDR[i];
 			for(int k=0; k<v.size(); k++){
-				aEr[i] += -1*PAg[v[k].col()]*USUtPAx0[v[k].row()]*v[k].value();
+				aEr[i] += -1*PAg[v[k].row()]*USUtPAx0[v[k].col()]*v[k].value();
 			}
 		}
 		return aEr;
@@ -187,7 +189,7 @@ public:
 	VectorXd dEds(Mesh& m){
 		SparseMatrix<double> RU =m.GR()*m.GU(); 
 		VectorXd SUtPAx0 = m.GS()*aUtPAx0;
-		VectorXd UtRtPAx = (RU).transpose()*aPA*m.x();
+		VectorXd UtRtPAx = (RU).transpose()*aPA*(m.G()*m.red_x() + m.x0());;
 
 		aEs.setZero();
 		for(int i=0; i<aEs.size(); i++){
@@ -201,6 +203,7 @@ public:
 	}
 
 	MatrixXd& Exr(Mesh& m){
+		setupRedSparseDRdr(m);
 		VectorXd USUtPAx0 = m.GU()*m.GS()*aUtPAx0;
 		
 		aExr.setZero();
@@ -232,6 +235,7 @@ public:
 	}
 
 	MatrixXd& Err(Mesh& m){	
+		setupRedSparseDDRdrdr(m);
 		VectorXd USUtPAx0 = m.GU()*m.GS()*aUtPAx0;
 		VectorXd PAx = aPA*(m.G()*m.red_x() + m.x0());
 
@@ -245,22 +249,22 @@ public:
 			auto v12 = aDDR[9*i+5];
 			auto v22 = aDDR[9*i+8];
 			for(int k=0; k<v00.size(); k++){
-				aErr(3*i+0,3*i+0) += -1*v00[k].value()*(PAx[v00[k].col()]*USUtPAx0[v00[k].row()]);
+				aErr(3*i+0,3*i+0) += -1*v00[k].value()*(PAx[v00[k].row()]*USUtPAx0[v00[k].col()]);
 			}
 			for(int k=0; k<v11.size(); k++){
-				aErr(3*i+1,3*i+1) += -1*v11[k].value()*(PAx[v11[k].col()]*USUtPAx0[v11[k].row()]);
+				aErr(3*i+1,3*i+1) += -1*v11[k].value()*(PAx[v11[k].row()]*USUtPAx0[v11[k].col()]);
 			}
 			for(int k=0; k<v22.size(); k++){
-				aErr(3*i+2,3*i+2) += -1*v22[k].value()*(PAx[v22[k].col()]*USUtPAx0[v22[k].row()]);
+				aErr(3*i+2,3*i+2) += -1*v22[k].value()*(PAx[v22[k].row()]*USUtPAx0[v22[k].col()]);
 			}
 			for(int k=0; k<v01.size(); k++){
-				aErr(3*i+0,3*i+1) += -1*v01[k].value()*(PAx[v01[k].col()]*USUtPAx0[v01[k].row()]);
+				aErr(3*i+0,3*i+1) += -1*v01[k].value()*(PAx[v01[k].row()]*USUtPAx0[v01[k].col()]);
 			}
 			for(int k=0; k<v02.size(); k++){
-				aErr(3*i+0,3*i+2) += -1*v02[k].value()*(PAx[v02[k].col()]*USUtPAx0[v02[k].row()]);
+				aErr(3*i+0,3*i+2) += -1*v02[k].value()*(PAx[v02[k].row()]*USUtPAx0[v02[k].col()]);
 			}
 			for(int k=0; k<v12.size(); k++){
-				aErr(3*i+1,3*i+2) += -1*v12[k].value()*(PAx[v12[k].col()]*USUtPAx0[v12[k].row()]);
+				aErr(3*i+1,3*i+2) += -1*v12[k].value()*(PAx[v12[k].row()]*USUtPAx0[v12[k].col()]);
 			}
 			
 			aErr(3*i+1, 3*i+0) = aErr(3*i+0, 3*i+1);
@@ -275,7 +279,8 @@ public:
 	}
 
 	MatrixXd& Ers(Mesh& m){
-		VectorXd PAg = aPA*m.x();
+		setupRedSparseDRdr(m);
+		VectorXd PAg = aPA*(m.G()*m.red_x() + m.x0());;
 
 		MatrixXd TEMP1 = MatrixXd::Zero(12*m.T().rows(), aErs.rows());
 		for(int i=0; i<TEMP1.rows(); i++){
@@ -292,7 +297,7 @@ public:
 			std::vector<Trip> v = aDS[i];
 			for(int j=0; j<TEMP1.cols(); j++){
 				for(int k=0; k<v.size(); k++){
-					aErs(j, i) += v[k].value()*(aUtPAx0[v[k].col()]*TEMP1(v[k].row(), j));
+					aErs(j, i) += v[k].value()*(aUtPAx0[v[k].row()]*TEMP1(v[k].col(), j));
 				}
 			}
 		}
@@ -303,6 +308,7 @@ public:
 	}
 
 	void setupRedSparseDRdr(Mesh& m){
+		aDR.clear();
 		Matrix3d Jx = cross_prod_mat(1,0,0);
 		Matrix3d Jy = cross_prod_mat(0,1,0);
 		Matrix3d Jz = cross_prod_mat(0,0,1);
@@ -313,10 +319,11 @@ public:
 			SparseMatrix<double> Ident(4*c_e_map[t].size(), 4*c_e_map[t].size());
             Ident.setIdentity();
             SparseMatrix<double>& B = m.RotBLOCK()[t];
+            VectorXd mred_r = m.red_r();
 			Matrix3d R0; 
-			R0<< m.red_r()[9*t+0], m.red_r()[9*t+1], m.red_r()[9*t+2],
-				m.red_r()[9*t+3], m.red_r()[9*t+4], m.red_r()[9*t+5],
-				m.red_r()[9*t+6], m.red_r()[9*t+7], m.red_r()[9*t+8];
+			R0<< mred_r[9*t+0], mred_r[9*t+1], mred_r[9*t+2],
+				mred_r[9*t+3], mred_r[9*t+4], mred_r[9*t+5],
+				mred_r[9*t+6], mred_r[9*t+7], mred_r[9*t+8];
 
 			Matrix3d r1 = R0*Jx;
 			Matrix3d r2 = R0*Jy;
@@ -336,6 +343,7 @@ public:
 	}
 
 	void setupRedSparseDDRdrdr(Mesh& m){
+		aDDR.clear();
 		Matrix3d Jx = cross_prod_mat(1,0,0);
 		Matrix3d Jy = cross_prod_mat(0,1,0);
 		Matrix3d Jz = cross_prod_mat(0,0,1);
@@ -345,10 +353,11 @@ public:
 			SparseMatrix<double> Ident(4*c_e_map[t].size(), 4*c_e_map[t].size());
             Ident.setIdentity();
             SparseMatrix<double>& B = m.RotBLOCK()[t];
+			VectorXd mred_r = m.red_r();
 			Matrix3d R0; 
-			R0<< m.red_r()[9*t+0], m.red_r()[9*t+1], m.red_r()[9*t+2],
-				m.red_r()[9*t+3], m.red_r()[9*t+4], m.red_r()[9*t+5],
-				m.red_r()[9*t+6], m.red_r()[9*t+7], m.red_r()[9*t+8];
+			R0<< mred_r[9*t+0], mred_r[9*t+1], mred_r[9*t+2],
+				mred_r[9*t+3], mred_r[9*t+4], mred_r[9*t+5],
+				mred_r[9*t+6], mred_r[9*t+7], mred_r[9*t+8];
 
 			Matrix3d r1 = R0*0.5*(Jx*Jx + Jx*Jx);
 			Matrix3d r2 = R0*0.5*(Jx*Jy + Jy*Jx);
@@ -467,15 +476,15 @@ public:
 		VectorXd gd(gb.size()+deltaABtx.size());
 		gd<<gb,deltaABtx;
 		VectorXd gu = aARAPKKTSolver.solve(gd).head(gb.size());
-		// print(gu.transpose());
 		m.red_x(gu);
 
 	}
 
 	void itR(Mesh& m){
-		VectorXd PAx = aPA*m.x();
+		VectorXd PAx = aPA*(m.G()*m.red_x() + m.x0());
 		VectorXd USUtPAx0 = m.GU()*m.GS()*aUtPAx0;
 		VectorXd& mr =m.red_r();
+		
 		std::map<int, std::vector<int>>& c_e_map = m.r_cluster_elem_map();
 		for (int i=0; i<mr.size()/9; i++){
 			std::vector<int> cluster_elem = c_e_map[i];
@@ -509,12 +518,15 @@ public:
       		mr[9*i+8] = ri(2,2);
 		}
 
+		
+
 	}
 
 	void minimize(Mesh& m){
-		print("		+ ARAP minimize");
+		// print("		+ ARAP minimize");
 		
 		VectorXd Ex0 = dEdx(m);
+
 		for(int i=0; i< 100; i++){
 			itT(m);
 			itR(m);
@@ -523,7 +535,7 @@ public:
 			VectorXd Ex = dEdx(m);
 		
 			if ((Ex - Ex0).norm()<1e-7){
-				std::cout<<"		- ARAP minimize "<<i<<std::endl;
+				// std::cout<<"		- ARAP minimize "<<i<<std::endl;
 				return;
 			}
 			Ex0 = Ex;
@@ -540,9 +552,18 @@ public:
 		return v;
 	}
 
-	inline MatrixXd& Exx(){ return aExx; }
+	MatrixXd& Exx(){ return aExx; }
+	MatrixXd& Exr(){ return aExr; }
+	MatrixXd& Exs(){ return aExs; }
+	MatrixXd& Ers(){ return aErs; }
+	MatrixXd& Err(){ return aErr; }
+	VectorXd& Er() { return aEr; }
+	VectorXd& Es() { return aEs; }
+	VectorXd& Ex() { return aEx; }
+
+
 	template<class T>
-    inline void print(T a){ std::cout<<a<<std::endl; }
+    void print(T a){ std::cout<<a<<std::endl; }
 
     MatrixXd RodriguesRotation(double wX, double wY, double wZ, double wlen){
         double c = cos(wlen);

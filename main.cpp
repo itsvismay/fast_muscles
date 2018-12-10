@@ -88,13 +88,13 @@ int main(int argc, char *argv[])
         // Criteria<double> crit = Criteria<double>::defaults();
         // crit.xDelta = 1e-4;
         // crit.fDelta = 1e-4;
-        // crit.gradNorm = 1e-4; 
+        // crit.gradNorm = 1e-3; 
         cppoptlib:LbfgsbSolver<StaticSolve<double>> solver;
         // solver.setStopCriteria(crit);
-        VectorXd lb = (mesh->red_s().array() - 1)*1e6 + 1e-6;
-        VectorXd ub = (mesh->red_s().array() - 1)*1e6 + 1e-6;
-        // std::cout<<ub<<std::endl;
-        f.setLowerBound(lb);
+        // VectorXd lb = (mesh->red_s().array() - 1)*1e6 + 1e-6;
+        // VectorXd ub = (mesh->red_s().array() - 1)*1e6 + 1e-6;
+        // std::cout<<lb<<std::endl;
+        // f.setLowerBound(lb);
         // f.setUpperBound(ub)
         
         std::cout<<"Energy "<<arap->Energy(*mesh)<<std::endl;
@@ -134,7 +134,9 @@ int main(int argc, char *argv[])
             // // Doing things
             // VectorXd& s = mesh->red_s();
             // for(int i=0; i<s.size()/6; i++){
-            //     s[6*i+1] += 0.1;
+            //     s[6*i+0] += 0.1;
+            //     // s[6*i+1] += 0.1;
+            //     // s[6*i+2] += 0.1;
             // }
             // mesh->setGlobalF(false, true, false);
             
