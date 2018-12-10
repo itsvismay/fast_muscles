@@ -91,10 +91,10 @@ int main(int argc, char *argv[])
         // crit.gradNorm = 1e-3; 
         cppoptlib:LbfgsbSolver<StaticSolve<double>> solver;
         // solver.setStopCriteria(crit);
-        // VectorXd lb = (mesh->red_s().array() - 1)*1e6 + 1e-6;
+        VectorXd lb = (mesh->red_s().array() - 1)*1e6 + 1e-6;
         // VectorXd ub = (mesh->red_s().array() - 1)*1e6 + 1e-6;
         // std::cout<<lb<<std::endl;
-        // f.setLowerBound(lb);
+        f.setLowerBound(lb);
         // f.setUpperBound(ub)
         
         std::cout<<"Energy "<<arap->Energy(*mesh)<<std::endl;

@@ -370,6 +370,28 @@ public:
         return drds;
     }
     //---------------------------------
+
+    VectorXd Full_FD_Grad(Mesh& mesh, Arap& arap, double E0, double eps){
+        VectorXd z = mesh.red_x();
+        VectorXd fake = VectorXd::Zero(mesh.red_s().size());
+        for(int i=0; i<fake.size(); i++){
+            mesh.red_s()[i] += 0.5*eps;
+            mesh.setGlobalF(false, true, false);
+            arap.minimize(mesh);
+            double Eleft = arap.Energy(mesh);
+            mesh.red_s()[i] -= 0.5*eps;
+            
+            mesh.red_s()[i] -= 0.5*eps;
+            mesh.setGlobalF(false, true, false);
+            arap.minimize(mesh);
+            double Eright = arap.Energy(mesh);
+            mesh.red_s()[i] += 0.5*eps;
+            fake[i] = (Eleft - Eright)/eps;
+        }
+        mesh.setGlobalF(false, true, false);
+        // std::cout<<"FUll fake: "<<fake.transpose()<<std::endl;
+        return fake;
+    }
     
     double value(const TVector &x) {
         for(int i=0; i<x.size(); i++){
@@ -382,7 +404,7 @@ public:
         double Earap = alpha_arap*arap->Energy(*mesh);
                 std::cout<<"Energy"<<std::endl;
                 std::cout<<"neo: "<<alpha_neo*Eneo<<", arap: "<<alpha_arap*Earap<<std::endl;
-                std::cout<<mesh->red_s().transpose()<<std::endl;
+                // std::cout<<mesh->red_s().transpose()<<std::endl;
         return Eneo + Earap;
     }
     void gradient(const TVector &x, TVector &grad) {
@@ -394,86 +416,83 @@ public:
 
         // // VectorXd pegrad = elas->PEGradient(*mesh);
         VectorXd arapgrad = arap->Jacobians(*mesh);
-
-        std::cout<<"Gradient"<<std::endl;
-        std::cout<<mesh->red_s().transpose()<<std::endl;
         double eps = 1e-4;
         double E0 = arap->Energy(*mesh);
-        std::cout<<"ENERGY: "<<E0<<", "<<std::endl;
+
+        VectorXd full_fake = Full_FD_Grad(*mesh, *arap, E0, eps);
+        std::cout<<"FD GRAD"<<std::endl;
+        std::cout<<(full_fake - arapgrad).norm()<<std::endl;
+        
         VectorXd dEdr = Er(*mesh,*arap,E0, eps);
         VectorXd dEdx = Ex(*mesh,*arap,E0, eps);
-        std::cout<<arap->Energy(*mesh)<<std::endl;
         VectorXd dEds = Es(*mesh,*arap,E0, eps);
-        std::cout<<arap->Energy(*mesh)<<std::endl;
-
         MatrixXd dEdxx = Exx(*mesh, *arap, E0, eps);
         MatrixXd dEdxr = Exr(*mesh, *arap, E0, eps);
         MatrixXd dEdxs = Exs(*mesh, *arap, E0, eps);
         MatrixXd dEdrr = Err(*mesh, *arap, E0, eps);
         MatrixXd dEdrs = Ers_part1(*mesh, *arap, E0, eps);
-        
-        std::cout<<"Diff in deds: "<<(arapgrad - dEds).norm()<<std::endl;
-
-
-        // MatrixXd lhs_left(dEdxx.rows()+dEdxr.cols(), dEdxx.cols());
-        // lhs_left<<dEdxx, dEdxr.transpose();
-        // MatrixXd lhs_right(dEdxr.rows() + dEdrr.rows() , dEdxr.cols());
-        // lhs_right<<dEdxr, dEdrr; 
-        // MatrixXd rhs(dEdxs.rows()+dEdrs.rows(), dEdxs.cols());
-        // rhs<<-1*dEdxs, -1*dEdrs;
-        // MatrixXd CG = MatrixXd(mesh->AB().transpose())*mesh->G();
-        // MatrixXd col1(lhs_left.rows()+CG.rows(), lhs_left.cols());
-        // col1<<lhs_left, CG;
-        // MatrixXd col2(lhs_right.rows()+CG.rows(), lhs_right.cols());
-        // col2<<lhs_right,MatrixXd::Zero(CG.rows(), lhs_right.cols());
-        // MatrixXd col3(CG.cols()+CG.rows()+dEdrr.rows(), CG.rows());
-        // col3<<CG.transpose(),MatrixXd::Zero(CG.rows()+dEdrr.rows(), CG.rows());
-        // MatrixXd KKT_constrains(rhs.rows() + CG.rows(), rhs.cols());
-        // KKT_constrains<<rhs,MatrixXd::Zero(CG.rows(), rhs.cols());
-        // MatrixXd JacKKT(col1.rows(), col1.rows());
-        // JacKKT<<col1, col2, col3;
-
-        // MatrixXd results = JacKKT.fullPivLu().solve(KKT_constrains).topRows(rhs.rows());
-
-        // MatrixXd dgds = results.topRows(dEdxx.rows());
-        // MatrixXd drds = results.bottomRows(dEdrr.rows());
-
+        MatrixXd lhs_left(dEdxx.rows()+dEdxr.cols(), dEdxx.cols());
+        lhs_left<<dEdxx, dEdxr.transpose();
+        MatrixXd lhs_right(dEdxr.rows() + dEdrr.rows() , dEdxr.cols());
+        lhs_right<<dEdxr, dEdrr; 
+        MatrixXd rhs(dEdxs.rows()+dEdrs.rows(), dEdxs.cols());
+        rhs<<-1*dEdxs, -1*dEdrs;
+        MatrixXd CG = MatrixXd(mesh->AB().transpose())*mesh->G();
+        MatrixXd col1(lhs_left.rows()+CG.rows(), lhs_left.cols());
+        col1<<lhs_left, CG;
+        MatrixXd col2(lhs_right.rows()+CG.rows(), lhs_right.cols());
+        col2<<lhs_right,MatrixXd::Zero(CG.rows(), lhs_right.cols());
+        MatrixXd col3(CG.cols()+CG.rows()+dEdrr.rows(), CG.rows());
+        col3<<CG.transpose(),MatrixXd::Zero(CG.rows()+dEdrr.rows(), CG.rows());
+        MatrixXd KKT_constrains(rhs.rows() + CG.rows(), rhs.cols());
+        KKT_constrains<<rhs,MatrixXd::Zero(CG.rows(), rhs.cols());
+        MatrixXd JacKKT(col1.rows(), col1.rows());
+        JacKKT<<col1, col2, col3;
+        MatrixXd results = JacKKT.fullPivLu().solve(KKT_constrains).topRows(rhs.rows());
+        MatrixXd dgds = results.topRows(dEdxx.rows());
+        MatrixXd drds = results.bottomRows(dEdrr.rows());
+        VectorXd fake =  dgds.transpose()*dEdx + drds.transpose()*dEdr + dEds;
         // std::cout<<"DEDs"<<std::endl;
-        // VectorXd fake =  dgds.transpose()*dEdx + drds.transpose()*dEdr + dEds;
         // std::cout<<(fake - arapgrad).norm()<<std::endl;
-        // if((fake - arapgrad).norm()>0.5){
-        //     std::cout<<"Energy: "<<E0<<" - "<<arap->Energy(*mesh)<<std::endl;
-        //     // std::cout<<dEdrs<<std::endl<<std::endl;
-        //     // std::cout<<dEdrs1<<std::endl<<std::endl;
-        //     // std::cout<<arap->Ers()<<std::endl;
-        //     std::cout<<(dEdxx - arap->Exx()).norm()<<std::endl;
-        //     std::cout<<(dEdxr - arap->Exr()).norm()<<std::endl;
-        //     std::cout<<(dEdxs - arap->Exs()).norm()<<std::endl;
-        //     std::cout<<(dEdrs - arap->Ers()).norm()<<std::endl;
-        //     std::cout<<(dEdrr - arap->Err()).norm()<<std::endl;
+
+        // std::cout<<"Energy: "<<E0<<" - "<<arap->Energy(*mesh)<<std::endl;
+        // std::cout<<"Hessians"<<std::endl;
+        // std::cout<<"Exx "<<(dEdxx - arap->Exx()).norm()<<std::endl;
+        // std::cout<<"Exr "<<(dEdxr - arap->Exr()).norm()<<std::endl;
+        // std::cout<<"Exs "<<(dEdxs - arap->Exs()).norm()<<std::endl;
+        // std::cout<<"Ers "<<(dEdrs - arap->Ers()).norm()<<std::endl;
+        // std::cout<<"Err "<<(dEdrr - arap->Err()).norm()<<std::endl;
+        // std::cout<<"Gradients"<<std::endl;
+        // std::cout<<"Er "<<(dEdr - arap->Er()).norm()<<std::endl;
+        // std::cout<<"Es "<<(dEds - arap->Es()).norm()<<std::endl;
+        // std::cout<<"check deds"<<std::endl;
+        // std::cout<<dEds.transpose()<<std::endl;
+        // std::cout<<arap->Es().transpose()<<std::endl;
+        // std::cout<<"check deds"<<std::endl;
+        // std::cout<<(dEdx - arap->Ex()).norm()<<std::endl<<std::endl;
+
+
+        if((full_fake - arapgrad).norm()>0.1){
+            std::cout<<full_fake.transpose()<<std::endl<<std::endl;
+            std::cout<<arapgrad.transpose()<<std::endl<<std::endl;
+            std::cout<<fake.transpose()<<std::endl<<std::endl;
+
             
-
-
-        //     std::cout<<"Gradients"<<std::endl;
-        //     std::cout<<(dEdr - arap->Er()).norm()<<std::endl;
-        //     std::cout<<(dEdr - arap->Er()).norm()<<std::endl;
-        //     std::cout<<(dEds - arap->Es()).norm()<<std::endl;
-        //     std::cout<<"check deds"<<std::endl;
-        //     std::cout<<dEds.transpose()<<std::endl;
-        //     std::cout<<arap->Es().transpose()<<std::endl;
-        //     std::cout<<"check deds"<<std::endl;
-        //     std::cout<<(dEdx - arap->Ex()).norm()<<std::endl<<std::endl;
-        //     std::cout<<fake.transpose()<<std::endl<<std::endl;
-        //     std::cout<<arapgrad.transpose()<<std::endl<<std::endl;
-        //     std::cout<<mesh->red_s().transpose()<<std::endl;
-        //     std::cout<<mesh->red_x().transpose()<<std::endl;
-        //     std::cout<<mesh->red_r().transpose()<<std::endl;
-        //     std::cout<<mesh->red_w().transpose()<<std::endl;
-        //     exit(0);
-        // }
+        //     // std::cout<<fake.transpose()<<std::endl<<std::endl;
+        //     // std::cout<<arapgrad.transpose()<<std::endl<<std::endl;
+            std::cout<<"reds"<<std::endl;
+            std::cout<<mesh->red_s().transpose()<<std::endl;
+            std::cout<<"redx"<<std::endl;
+            std::cout<<mesh->red_x().transpose()<<std::endl;
+            std::cout<<"redr"<<std::endl;
+            std::cout<<mesh->red_r().transpose()<<std::endl;
+            std::cout<<"redw"<<std::endl;
+            std::cout<<mesh->red_w().transpose()<<std::endl;
+            exit(0);
+        }
         for(int i=0; i< x.size(); i++){
             // grad[i] = alpha_neo*pegrad[i];
-            grad[i] = alpha_arap*arapgrad[i];
+            grad[i] = alpha_arap*full_fake[i];
         }
 
         // exit(0);
