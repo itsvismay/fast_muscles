@@ -534,7 +534,7 @@ public:
 			
 			VectorXd Ex = dEdx(m);
 		
-			if ((Ex - Ex0).norm()<1e-7){
+			if ((Ex - Ex0).norm()<1e-12){
 				// std::cout<<"		- ARAP minimize "<<i<<std::endl;
 				return;
 			}

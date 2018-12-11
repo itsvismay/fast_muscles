@@ -6,6 +6,7 @@ set(JSON_HPP_SRC_DIR "/home/vismay/recode/json/single_include/nlohmann")
 set(SPECTRA_DIR "/home/vismay/recode/spectra-0.6.2/include")
 set(SUITESPARSE_HINT "/home/vismay/recode/SuiteSparse")
 set(BFGSB_SRC_DIR "/home/vismay/recode/CppNumericalSolvers/include")
+set(NEW_BFGSB_SRC_DIR "/home/vismay/recode/LBFGSpp/include")
 
 
 # libigl
@@ -35,6 +36,7 @@ find_package(OpenCV REQUIRED)
 include_directories(${JSON_HPP_SRC_DIR})
 include_directories(${SPECTRA_DIR})
 include_directories(${BFGSB_SRC_DIR})
+include_directories(${NEW_BFGSB_SRC_DIR})
 include_directories(${SUITESPARSE_INCLUDE_DIRS})
 include_directories(${OpenCV_INCLUDE_DIRS})
 
@@ -43,8 +45,10 @@ file(GLOB HEADFILES "*.h")
 #file(GLOB SRCFILES "${ALGLIB_SRC_DIR}/*.cpp")
 file(GLOB EXTERNALS "${SPECTRA_DIR}/*.h" "${SPECTRA_DIR}/MatOp/*.h" "${BFGSB_SRC_DIR}/cppoptlib/*.h" "${BFGSB_SRC_DIR}/cppoptlib/solver/*.h")
 
-add_executable(${PROJECT_NAME} "main.cpp" ${HEADFILES} ${SRCFILES} ${EXTERNALS})
-add_executable(fd "finitedifference.cpp" ${HEADFILES} ${SRCFILES} ${EXTERNALS})
-target_link_libraries(${PROJECT_NAME} -lglfw igl::core igl::opengl igl::opengl_glfw -fopenmp ${OpenCV_LIBS})
-target_link_libraries(fd -lglfw igl::core igl::opengl igl::opengl_glfw -fopenmp ${OpenCV_LIBS})
+#add_executable(${PROJECT_NAME} "main.cpp" ${HEADFILES} ${SRCFILES} ${EXTERNALS})
+#add_executable(fd "finitedifference.cpp" ${HEADFILES} ${SRCFILES} ${EXTERNALS})
+add_executable(ns "newsolvertest.cpp" ${HEADFILES} ${SRCFILES} ${EXTERNALS})
+#target_link_libraries(${PROJECT_NAME} -lglfw igl::core igl::opengl igl::opengl_glfw -fopenmp ${OpenCV_LIBS})
+#target_link_libraries(fd -lglfw igl::core igl::opengl igl::opengl_glfw -fopenmp ${OpenCV_LIBS})
+target_link_libraries(ns -lglfw igl::core igl::opengl igl::opengl_glfw -fopenmp ${OpenCV_LIBS})
  

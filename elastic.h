@@ -13,7 +13,7 @@ class Elastic
 {
 
 protected:
-	double muscle_fibre_mag = 100000;
+	double muscle_fibre_mag = 000;
 	double rho = 6.4; 
 	VectorXd forces;
 
@@ -224,7 +224,7 @@ public:
 
 	double Energy(Mesh& m){
 		double Elas =  WikipediaEnergy(m);
-		double Muscle = 0;// MuscleEnergy(m);
+		double Muscle = MuscleEnergy(m);
 		// std::cout<<"	elas: "<<Elas<<", muscle: "<<Muscle<<std::endl;
 		return Elas + Muscle;
 	}
@@ -232,7 +232,7 @@ public:
 	VectorXd PEGradient(Mesh& m){
 		forces.setZero();
 		WikipediaForce(m);
-		// MuscleForce(m);
+		MuscleForce(m);
 		return forces;
 	}
 
