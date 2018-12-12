@@ -49,28 +49,33 @@ private:
     Mesh* mesh;
     Arap* arap;
     Elastic* elas;
+    double alpha_arap = 1;
+    double alpha_neo = 1;
 
 public:
-    Rosenbrock(int n_, Mesh* m, Arap* a, Elastic* e) : n(n_) {
+    Rosenbrock(int n_, Mesh* m, Arap* a, Elastic* e, json& j_input) : n(n_) {
     	mesh = m;
         arap = a;
         elas = e;
+        alpha_arap = j_input["alpha_arap"];
+        alpha_neo = j_input["alpha_neo"];
+
     }
 
-    VectorXd Full_FD_Grad(Mesh& mesh, Arap& arap, double E0, double eps){
+    VectorXd Full_ARAP_Grad(Mesh& mesh, Arap& arap, Elastic& elas, double E0, double eps){
         VectorXd z = mesh.red_x();
         VectorXd fake = VectorXd::Zero(mesh.red_s().size());
         for(int i=0; i<fake.size(); i++){
             mesh.red_s()[i] += 0.5*eps;
             mesh.setGlobalF(false, true, false);
             arap.minimize(mesh);
-            double Eleft = arap.Energy(mesh);
+            double Eleft = alpha_arap*arap.Energy(mesh);
             mesh.red_s()[i] -= 0.5*eps;
             
             mesh.red_s()[i] -= 0.5*eps;
             mesh.setGlobalF(false, true, false);
             arap.minimize(mesh);
-            double Eright = arap.Energy(mesh);
+            double Eright = alpha_arap*arap.Energy(mesh);
             mesh.red_s()[i] += 0.5*eps;
             fake[i] = (Eleft - Eright)/eps;
         }
@@ -79,37 +84,86 @@ public:
         return fake;
     }
 
+    VectorXd Full_NEO_Grad(Mesh& mesh, Arap& arap, Elastic& elas, double E0, double eps){
+        VectorXd fake = VectorXd::Zero(mesh.red_s().size());
+        for(int i=0; i<fake.size(); i++){
+            mesh.red_s()[i] += 0.5*eps;
+            mesh.setGlobalF(false, true, false);
+            double Eleft = alpha_neo*elas.Energy(mesh);
+            mesh.red_s()[i] -= 0.5*eps;
+            
+            mesh.red_s()[i] -= 0.5*eps;
+            mesh.setGlobalF(false, true, false);
+            double Eright = alpha_neo*elas.Energy(mesh);
+            mesh.red_s()[i] += 0.5*eps;
+            fake[i] = (Eleft - Eright)/eps;
+        }
+        mesh.setGlobalF(false, true, false);
+        // std::cout<<"FUll fake: "<<fake.transpose()<<std::endl;
+        return fake;
+    }
+    VectorXd WikipediaEnergy_grad(Mesh& mesh, Elastic& elas, double eps){
+	    VectorXd fake = VectorXd::Zero(mesh.red_s().size());
+	    for(int i=0; i<fake.size(); i++){
+	        mesh.red_s()[i] += 0.5*eps;
+	        double Eleft = elas.WikipediaEnergy(mesh);
+	        mesh.red_s()[i] -= 0.5*eps;
+	        
+	        mesh.red_s()[i] -= 0.5*eps;
+	        double Eright = elas.WikipediaEnergy(mesh);
+	        mesh.red_s()[i] += 0.5*eps;
+	        fake[i] = (Eleft - Eright)/eps;
+	    }
+	    // mesh.setGlobalF(false, true, false);
+	    // std::cout<<"FUll fake: "<<fake.transpose()<<std::endl;
+	    return fake;
+	}
+
     double operator()(const VectorXd& x, VectorXd& grad)
     {
         for(int i=0; i<x.size(); i++){
             mesh->red_s()[i] = x[i];
         }
-        std::cout<<"updated s"<<std::endl;
-        std::cout<<x.transpose()<<std::endl;
+        // std::cout<<"updated s"<<std::endl;
+        // std::cout<<x.transpose()<<std::endl;
         mesh->setGlobalF(false, true, false);
         arap->minimize(*mesh);
 
-        double Earap = arap->Energy(*mesh);
-        double Eneo = 0; //elas->Energy(*mesh);
-        std::cout<<"neo: "<<Eneo<<", "<<"arap: "<<Earap<<std::endl;
+        double Eneo = alpha_neo*elas->Energy(*mesh);
+        double Earap = alpha_arap*arap->Energy(*mesh);
+        double fx = Eneo + Earap;
+        
+        std::cout<<"neo: "<<Eneo<<", "<<"arap: "<<Earap<<"tot: "<<Eneo+Earap<<std::endl;
 
-        // VectorXd pegrad = elas->PEGradient(*mesh);
-        VectorXd arapgrad = arap->Jacobians(*mesh);
-        // VectorXd fake = Full_FD_Grad(*mesh, *arap, fx, 1e-5);
-        // if ((arapgrad-fake).norm()>0.001){
-        // 	std::cout<<arapgrad<<std::endl<<std::endl;
-        // 	std::cout<<fake<<std::endl<<std::endl;
+        VectorXd pegrad = alpha_neo*elas->PEGradient(*mesh);
+        VectorXd arapgrad = alpha_arap*arap->Jacobians(*mesh);
+
+        // VectorXd fake_arap = Full_ARAP_Grad(*mesh, *arap,*elas, fx, 1e-5);
+        // if ((arapgrad-fake_arap).norm()>0.001){
+        // 	std::cout<<"fake arap issues"<<std::endl;
+        // 	std::cout<<arapgrad.transpose()<<std::endl<<std::endl;
+        // 	std::cout<<fake_arap.transpose()<<std::endl<<std::endl;
+        // 	exit(0);
+        // }
+
+        // VectorXd fake = alpha_neo*WikipediaEnergy_grad(*mesh, *elas, 1e-5);
+        // if ((pegrad-fake_neo).norm()>0.001){
+        // 	std::cout<<"fake physics issues"<<std::endl;
+        // 	std::cout<<x.transpose()<<std::endl;
+        // 	std::cout<<arapgrad.transpose()<<std::endl<<std::endl;
+        // 	std::cout<<fake_neo.transpose()<<std::endl<<std::endl;
         // 	exit(0);
         // }
 
         for(int i=0; i< x.size(); i++){
-        	// grad[i] = pegrad[i];
             grad[i] = arapgrad[i];
+        	grad[i] += pegrad[i];
             // grad[i] = fake[i];
         }
+        // std::cout<<pegrad.head(12).transpose()<<std::endl<<std::endl;
+        // std::cout<<arapgrad.head(12).transpose()<<std::endl<<std::endl;
 
-        double fx = Earap + Eneo;
-        assert( ! std::isnan(fx) );
+
         return fx;
     }
 };
@@ -129,7 +183,7 @@ int main()
     
     std::vector<int> fix = getMaxVerts_Axis_Tolerance(V, 1);
     std::sort (fix.begin(), fix.end());
-    std::vector<int> mov = {1,7};
+    std::vector<int> mov = {};//getMinVerts_Axis_Tolerance(V, 1);
     std::sort (mov.begin(), mov.end());
 
     std::cout<<"-----Mesh-------"<<std::endl;
@@ -143,10 +197,17 @@ int main()
 
     std::cout<<"-----Solver-------"<<std::endl;
     int DIM = mesh->red_s().size();
-    Rosenbrock f(DIM, mesh, arap, neo);
+    Rosenbrock f(DIM, mesh, arap, neo, j_input);
     LBFGSParam<double> param;
+    // param.epsilon = 1e-1;
+    // param.max_iterations = 1000;
+    // param.past = 2;
+    // param.m = 5;
+    param.linesearch = LBFGSpp::LBFGS_LINESEARCH_BACKTRACKING_WOLFE;
     LBFGSSolver<double> solver(param);
 
+    // mesh->red_s()[3] = -0.134599;
+    mesh->setGlobalF(false, true, false);
 
 	igl::opengl::glfw::Viewer viewer;
     std::cout<<"-----Display-------"<<std::endl;
@@ -176,7 +237,7 @@ int main()
         if(key==' '){
       		VectorXd& dx = mesh->dx();
 		    for(int i=0; i<mov.size(); i++){
-		        dx[3*mov[i]+1] += 3;
+		        dx[3*mov[i]+1] += 5;
 		    }
 
 		    double fx =0;

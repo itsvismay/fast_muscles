@@ -12,7 +12,7 @@
 
 #include "mesh.h"
 #include "arap.h"
-// #include "elastic.h"
+#include "elastic.h"
 // #include "solver.h"
 
 
@@ -510,6 +510,45 @@ int checkARAP(Mesh& mesh, Arap& arap){
 	// std::cout<<real<<std::endl;
 	// std::cout<<"L2 norm"<<std::endl;
 	// std::cout<<(real - DEDs).norm()<<std::endl;
+}
+
+VectorXd WikipediaEnergy_grad(Mesh& mesh, Elastic& elas, double E0, double eps){
+    VectorXd fake = VectorXd::Zero(mesh.red_s().size());
+    cout<<"start E0:"<<E0<<endl;
+    for(int i=0; i<fake.size(); i++){
+        mesh.red_s()[i] += 0.5*eps;
+        double Eleft = elas.WikipediaEnergy(mesh);
+        mesh.red_s()[i] -= 0.5*eps;
+        
+        mesh.red_s()[i] -= 0.5*eps;
+        double Eright = elas.WikipediaEnergy(mesh);
+        mesh.red_s()[i] += 0.5*eps;
+        fake[i] = (Eleft - E0)/(0.5*eps);
+    }
+    // mesh.setGlobalF(false, true, false);
+    // std::cout<<"FUll fake: "<<fake.transpose()<<std::endl;
+    return fake;
+}
+
+int checkElastic(Mesh& mesh, Elastic& elas){
+	double eps = j_input["fd_eps"];
+	double E0 = elas.WikipediaEnergy(mesh);
+	std::cout<<"Energy0: "<<E0<<std::endl;
+	
+	cout<<"Real wikipedia grad"<<endl;
+	VectorXd real = elas.WikipediaForce(mesh);
+	std::cout<<real.transpose()<<std::endl;
+	std::cout<<"Energy0: "<<elas.WikipediaEnergy(mesh)<<std::endl;
+
+	cout<<"Fake wikipedia grad"<<endl;
+	VectorXd fake = WikipediaEnergy_grad(mesh, elas, E0, eps);
+	cout<<(fake-real).norm()<<endl;
+	cout<<"E1 "<<elas.WikipediaEnergy(mesh)<<endl<<endl;
+
+
+
+	///////Muscles
+
 
 
 }
@@ -537,45 +576,36 @@ int main(int argc, char *argv[]){
     std::cout<<"-----ARAP-----"<<std::endl;
     Arap* arap = new Arap(*mesh);
 
-    // vector<double> s = {-1.54204,  -111.489,   2.26445,   27.0136, -0.684827,  -1.25524};
-    // for(int i=0; i<mesh->red_s().size(); i++){
-    // 	mesh->red_s()[i] = s[i];
+    std::cout<<"-----Neo-------"<<std::endl;
+    Elastic* neo = new Elastic(*mesh);
+
+    // VectorXd& dx = mesh->dx();
+    // for(int i=0; i<mov.size(); i++){
+    //     dx[3*mov[i]+1] += 3;
     // }
 
-    // vector<double> z = {-640.537,
-    //      1802.21 ,    -29.9618  ,          0     ,       3      ,      0 ,
-    //      -6.71683e-14    ,        0, -4.19802e-15 ,           0   ,         0  ,
-    //       0 , 3.86234e-14, -1.63709e-13, -2.55795e-15,  1.31847e-13 ,           0 ,
-    //                  0  ,   -549.077 ,     1500.96 ,    -29.9324   ,         0 ,
-    //                             3,            0};
-    // for(int i=0; i<mesh->red_x().size(); i++){
-    // 	mesh->red_x()[i] = z[i];
-    // }
+    vector<double> s = {0.996986, 0.730809, 0.99472,   -0.134599,  0.0210262,   0.0216317, 1.0145,
+        0.801846,    0.984477,    0.145338,  0.00280612 , -0.0886036,    0.976572 ,
+           0.852875,      1.0131 ,   0.175657, -0.00418633,   -0.163312 ,   0.982332  ,
+             0.897076,     1.01097 , 0.00616309,   0.0423661,  -0.0619048,    0.992371, 
+               0.77626 ,   0.976263 ,  0.0139843 ,  0.0354943,    0.156384,     1.00932 ,  
+                0.798815,     1.00102 ,  0.0987563, -0.00658236,   0.0186558,    0.975468, 
+                   0.658833,     1.04898 ,  -0.216346,  -0.0343779,     0.10836,     1.00196, 
+                      0.749595,     0.99475 ,  0.0158044, -0.00888359,   -0.051811,    0.987621,
+                         0.565278,     1.01795 ,  0.0255043,  -0.0394745,  -0.0635043,     1.01052,
+                            0.899457,    0.975795 , -0.0599184,    0.015183,   0.0641473,    0.988842 ,
+                                0.71731,    0.999449 ,   0.109627,  0.00821576,   0.0452765,     1.00889, 
+                                     0.7949,    0.997217,     0.14101,  0.00624776,   0.0176047};
+    
+   	// mesh->red_s()[0] = s[0];
+   	// mesh->red_s()[1] = s[1];
+   	// mesh->red_s()[2] = s[2];
+   	mesh->red_s()[3] =0.1;
+   	cout<<mesh->red_s().transpose()<<endl;
+    // mesh->setGlobalF(false, true, false);
 
-    // vector<double> r = { 0.99092 ,  -0.11636, -0.0673621,   0.116915 ,  0.993133, 0.00433635,
-    //   0.0663949, -0.0121726 ,  0.997719 ,   0.97084 , -0.130369,  -0.201181  , 0.122761 ,
-    //     0.991181 ,-0.0498932 ,  0.205912,  0.0237411 ,  0.978283,   0.982531 , -0.116016,
-    //        0.145508 ,  0.105143 ,  0.991207 , 0.0803381,  -0.153549, -0.0636356,    0.98609,
-    //           0.981611 , -0.114077 ,  0.153058,   0.102232 ,  0.991278,  0.0831697,
-    //             -0.161211 ,-0.0659928 ,  0.984711,
-    //    0.982638 , -0.108487,  -0.150508 ,  0.106715 ,  0.994092 ,-0.0198217,
-    //        0.15177, 0.00341606,    0.98841 ,  0.952171,  -0.124763,   0.278935,
-    //          0.0904413 ,  0.987015 ,  0.132747,  -0.291875 , -0.101171,   0.951091};
-    // for(int i=0; i<mesh->red_r().size(); i++){
-    // 	mesh->red_r()[i] = r[i];
-    // }
-    // mesh->setGlobalF(true, true, false);
+    // checkARAP(*mesh, *arap);
 
-    // arap->minimize(*mesh);
-    VectorXd& dx = mesh->dx();
-    for(int i=0; i<mov.size(); i++){
-        dx[3*mov[i]+1] += 3;
-    }
-
-    checkARAP(*mesh, *arap);
-
-    // std::cout<<"-----Neo-------"<<std::endl;
-    // Elastic* neo = new Elastic(*mesh);
-
+    checkElastic(*mesh, *neo);
 
 }

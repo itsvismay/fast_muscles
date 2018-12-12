@@ -13,15 +13,13 @@ class Elastic
 {
 
 protected:
-	double muscle_fibre_mag = 000;
+	double muscle_fibre_mag = 100000;
 	double rho = 6.4; 
-	VectorXd forces;
 
 public:
 	Elastic(Mesh& m){
 
-		forces.resize(m.red_s().size());
-		forces.setZero();
+		
 	}
 
 	double MuscleElementEnergy(Matrix3d& c, Vector3d& u){
@@ -74,7 +72,8 @@ public:
 		return f_m;
 	}
 
-	void MuscleForce(Mesh& mesh){
+	VectorXd MuscleForce(Mesh& mesh){
+		VectorXd forces = VectorXd::Zero(mesh.red_s().size());
 		VectorXd s = mesh.sW()*mesh.red_s();
 		Matrix3d c;
 		for(int t=0; t<mesh.T().rows(); t++){
@@ -91,18 +90,20 @@ public:
             u<<0,1,0;
             forces.segment<6>(6*t) += MuscleElementForce(c, u);
         }
+        return forces;
 	}
 
 	double WikipediaElementEnergy(Matrix3d& c, double C1, double D1){
 		double I1 = (c.transpose()*c).trace();
 		double J = c.determinant();
-		double I1bar = std::pow(J, -2/3.0)*I1;
-
 		if(c(0,0)<0 || c(1,1)<0 || c(2,2)<0 || J< 0){
 			return 1e40;
 		}
+
+		double I1bar = std::pow(J, -2/3.0)*I1;
 		// double W = C1*(I1 -3 -2*log(J)) + D1*(log(J)*log(J));
 		double W = C1*(I1bar -3) + D1*(J-1)*(J-1);
+
 		if(W<-1e-5){
 			std::cout<<"Negative energy"<<std::endl;
 			std::cout<<"W: "<<W<<std::endl;
@@ -113,6 +114,7 @@ public:
 		}else if(W<0){
 			return 0;
 		}
+
 		return W;
 	}
 
@@ -150,56 +152,44 @@ public:
 		double s5 = c(0,2);
 		double s6 = c(1,2);
 		double J = c.determinant();
-
+		
 		VectorXd f_e(6);
 		if(c(0,0)<0 || c(1,1)<0 || c(2,2)<0 || J< 0){
 			f_e<<1e40, 1e40, 1e40, 1e40, 1e40, 1e40;
 			return f_e;
 		}
 
-		// f_e<<C1*(1 - (2*(s2*s3 - pow(s6,2)))/(s1*s2*s3 - s3*pow(s4,2) - s2*pow(s5,2) + 2*s4*s5*s6 - s1*pow(s6,2))) + (2*D1*(s2*s3 - pow(s6,2))*log(s1*s2*s3 - s3*pow(s4,2) - s2*pow(s5,2) + 2*s4*s5*s6 - s1*pow(s6,2)))/(s1*s2*s3 - s3*pow(s4,2) - s2*pow(s5,2) + 2*s4*s5*s6 - s1*pow(s6,2)),
-		// C1*(1 - (2*(s1*s3 - pow(s5,2)))/(s1*s2*s3 - s3*pow(s4,2) - s2*pow(s5,2) + 2*s4*s5*s6 - s1*pow(s6,2))) + (2*D1*(s1*s3 - pow(s5,2))*log(s1*s2*s3 - s3*pow(s4,2) - s2*pow(s5,2) + 2*s4*s5*s6 - s1*pow(s6,2)))/(s1*s2*s3 - s3*pow(s4,2) - s2*pow(s5,2) + 2*s4*s5*s6 - s1*pow(s6,2)),
-		// C1*(1 - (2*(s1*s2 - pow(s4,2)))/(s1*s2*s3 - s3*pow(s4,2) - s2*pow(s5,2) + 2*s4*s5*s6 - s1*pow(s6,2))) + (2*D1*(s1*s2 - pow(s4,2))*log(s1*s2*s3 - s3*pow(s4,2) - s2*pow(s5,2) + 2*s4*s5*s6 - s1*pow(s6,2)))/(s1*s2*s3 - s3*pow(s4,2) - s2*pow(s5,2) + 2*s4*s5*s6 - s1*pow(s6,2)),
-		// (-2*C1*(-2*s3*s4 + 2*s5*s6))/(s1*s2*s3 - s3*pow(s4,2) - s2*pow(s5,2) + 2*s4*s5*s6 - s1*pow(s6,2)) + (2*D1*(-2*s3*s4 + 2*s5*s6)*log(s1*s2*s3 - s3*pow(s4,2) - s2*pow(s5,2) + 2*s4*s5*s6 - s1*pow(s6,2)))/(s1*s2*s3 - s3*pow(s4,2) - s2*pow(s5,2) + 2*s4*s5*s6 - s1*pow(s6,2)),
-		// (-2*C1*(-2*s2*s5 + 2*s4*s6))/(s1*s2*s3 - s3*pow(s4,2) - s2*pow(s5,2) + 2*s4*s5*s6 - s1*pow(s6,2)) + (2*D1*(-2*s2*s5 + 2*s4*s6)*log(s1*s2*s3 - s3*pow(s4,2) - s2*pow(s5,2) + 2*s4*s5*s6 - s1*pow(s6,2)))/(s1*s2*s3 - s3*pow(s4,2) - s2*pow(s5,2) + 2*s4*s5*s6 - s1*pow(s6,2)),
-		// (-2*C1*(2*s4*s5 - 2*s1*s6))/(s1*s2*s3 - s3*pow(s4,2) - s2*pow(s5,2) + 2*s4*s5*s6 - s1*pow(s6,2)) + (2*D1*(2*s4*s5 - 2*s1*s6)*log(s1*s2*s3 - s3*pow(s4,2) - s2*pow(s5,2) + 2*s4*s5*s6 - s1*pow(s6,2)))/(s1*s2*s3 - s3*pow(s4,2) - s2*pow(s5,2) + 2*s4*s5*s6 - s1*pow(s6,2));
-		f_e<<2*D1*(s2*s3 - pow(s6,2))*(-1 + s1*s2*s3 - s3*pow(s4,2) - s2*pow(s5,2) + 2*s4*s5*s6 - 
-       	s1*pow(s6,2)) + C1*((-0.6666666666666666*(pow(s1,2) + pow(s2,2) + pow(s3,2))*
-          (s2*s3 - pow(s6,2)))/
-        pow(s1*s2*s3 - s3*pow(s4,2) - s2*pow(s5,2) + 2*s4*s5*s6 - s1*pow(s6,2),
-         1.6666666666666665) + (2*s1)/
-        pow(s1*s2*s3 - s3*pow(s4,2) - s2*pow(s5,2) + 2*s4*s5*s6 - s1*pow(s6,2),
-         0.6666666666666666)),2*D1*(s1*s3 - pow(s5,2))*
-     	(-1 + s1*s2*s3 - s3*pow(s4,2) - s2*pow(s5,2) + 2*s4*s5*s6 - s1*pow(s6,2)) + 
-    	C1*((-0.6666666666666666*(pow(s1,2) + pow(s2,2) + pow(s3,2))*(s1*s3 - pow(s5,2)))/
-        pow(s1*s2*s3 - s3*pow(s4,2) - s2*pow(s5,2) + 2*s4*s5*s6 - s1*pow(s6,2),
-         1.6666666666666665) + (2*s2)/
-        pow(s1*s2*s3 - s3*pow(s4,2) - s2*pow(s5,2) + 2*s4*s5*s6 - s1*pow(s6,2),
-         0.6666666666666666)),2*D1*(s1*s2 - pow(s4,2))*
-     	(-1 + s1*s2*s3 - s3*pow(s4,2) - s2*pow(s5,2) + 2*s4*s5*s6 - s1*pow(s6,2)) + 
-    	C1*((-0.6666666666666666*(pow(s1,2) + pow(s2,2) + pow(s3,2))*(s1*s2 - pow(s4,2)))/
-        pow(s1*s2*s3 - s3*pow(s4,2) - s2*pow(s5,2) + 2*s4*s5*s6 - s1*pow(s6,2),
-         1.6666666666666665) + (2*s3)/
-        pow(s1*s2*s3 - s3*pow(s4,2) - s2*pow(s5,2) + 2*s4*s5*s6 - s1*pow(s6,2),
-         0.6666666666666666)),2*D1*(-2*s3*s4 + 2*s5*s6)*
-     	(-1 + s1*s2*s3 - s3*pow(s4,2) - s2*pow(s5,2) + 2*s4*s5*s6 - s1*pow(s6,2)) - 
-    	(0.6666666666666666*C1*(pow(s1,2) + pow(s2,2) + pow(s3,2))*(-2*s3*s4 + 2*s5*s6))/
-     	pow(s1*s2*s3 - s3*pow(s4,2) - s2*pow(s5,2) + 2*s4*s5*s6 - s1*pow(s6,2),
-      	1.6666666666666665),2*D1*(-2*s2*s5 + 2*s4*s6)*
-     	(-1 + s1*s2*s3 - s3*pow(s4,2) - s2*pow(s5,2) + 2*s4*s5*s6 - s1*pow(s6,2)) - 
-    	(0.6666666666666666*C1*(pow(s1,2) + pow(s2,2) + pow(s3,2))*(-2*s2*s5 + 2*s4*s6))/
-     	pow(s1*s2*s3 - s3*pow(s4,2) - s2*pow(s5,2) + 2*s4*s5*s6 - s1*pow(s6,2),
-      	1.6666666666666665),2*D1*(2*s4*s5 - 2*s1*s6)*
-     	(-1 + s1*s2*s3 - s3*pow(s4,2) - s2*pow(s5,2) + 2*s4*s5*s6 - s1*pow(s6,2)) - 
-    	(0.6666666666666666*C1*(pow(s1,2) + pow(s2,2) + pow(s3,2))*(2*s4*s5 - 2*s1*s6))/
-     	pow(s1*s2*s3 - s3*pow(s4,2) - s2*pow(s5,2) + 2*s4*s5*s6 - s1*pow(s6,2),
-      	1.6666666666666665);
+		f_e<<2*D1*(s2*s3 - std::pow(s6,2))*(-1 + s1*s2*s3 - s3*std::pow(s4,2) - s2*std::pow(s5,2) + 2*s4*s5*s6 - s1*std::pow(s6,2)) - 
+		    (0.6666666666666666*C1*(s2*s3 - std::pow(s6,2))*(std::pow(s1,2) + std::pow(s2,2) + std::pow(s3,2) + 2*std::pow(s4,2) + 2*std::pow(s5,2) + 2*std::pow(s6,2)))/
+		     std::pow(s1*s2*s3 - s3*std::pow(s4,2) - s2*std::pow(s5,2) + 2*s4*s5*s6 - s1*std::pow(s6,2),1.6666666666666665) + 
+		    (2*C1*s1)/std::pow(s1*s2*s3 - s3*std::pow(s4,2) - s2*std::pow(s5,2) + 2*s4*s5*s6 - s1*std::pow(s6,2),0.6666666666666666),
+		   2*D1*(s1*s3 - std::pow(s5,2))*(-1 + s1*s2*s3 - s3*std::pow(s4,2) - s2*std::pow(s5,2) + 2*s4*s5*s6 - s1*std::pow(s6,2)) - 
+		    (0.6666666666666666*C1*(s1*s3 - std::pow(s5,2))*(std::pow(s1,2) + std::pow(s2,2) + std::pow(s3,2) + 2*std::pow(s4,2) + 2*std::pow(s5,2) + 2*std::pow(s6,2)))/
+		     std::pow(s1*s2*s3 - s3*std::pow(s4,2) - s2*std::pow(s5,2) + 2*s4*s5*s6 - s1*std::pow(s6,2),1.6666666666666665) + 
+		    (2*C1*s2)/std::pow(s1*s2*s3 - s3*std::pow(s4,2) - s2*std::pow(s5,2) + 2*s4*s5*s6 - s1*std::pow(s6,2),0.6666666666666666),
+		   2*D1*(s1*s2 - std::pow(s4,2))*(-1 + s1*s2*s3 - s3*std::pow(s4,2) - s2*std::pow(s5,2) + 2*s4*s5*s6 - s1*std::pow(s6,2)) - 
+		    (0.6666666666666666*C1*(s1*s2 - std::pow(s4,2))*(std::pow(s1,2) + std::pow(s2,2) + std::pow(s3,2) + 2*std::pow(s4,2) + 2*std::pow(s5,2) + 2*std::pow(s6,2)))/
+		     std::pow(s1*s2*s3 - s3*std::pow(s4,2) - s2*std::pow(s5,2) + 2*s4*s5*s6 - s1*std::pow(s6,2),1.6666666666666665) + 
+		    (2*C1*s3)/std::pow(s1*s2*s3 - s3*std::pow(s4,2) - s2*std::pow(s5,2) + 2*s4*s5*s6 - s1*std::pow(s6,2),0.6666666666666666),
+		   (-0.6666666666666666*C1*(-2*s3*s4 + 2*s5*s6)*(std::pow(s1,2) + std::pow(s2,2) + std::pow(s3,2) + 2*std::pow(s4,2) + 2*std::pow(s5,2) + 2*std::pow(s6,2)))/
+		     std::pow(s1*s2*s3 - s3*std::pow(s4,2) - s2*std::pow(s5,2) + 2*s4*s5*s6 - s1*std::pow(s6,2),1.6666666666666665) + 
+		    (4*C1*s4)/std::pow(s1*s2*s3 - s3*std::pow(s4,2) - s2*std::pow(s5,2) + 2*s4*s5*s6 - s1*std::pow(s6,2),0.6666666666666666) + 
+		    4*D1*(s3*s4 - s5*s6)*(1 + s3*std::pow(s4,2) + s2*std::pow(s5,2) - 2*s4*s5*s6 + s1*(-(s2*s3) + std::pow(s6,2))),
+		   (-0.6666666666666666*C1*(-2*s2*s5 + 2*s4*s6)*(std::pow(s1,2) + std::pow(s2,2) + std::pow(s3,2) + 2*std::pow(s4,2) + 2*std::pow(s5,2) + 2*std::pow(s6,2)))/
+		     std::pow(s1*s2*s3 - s3*std::pow(s4,2) - s2*std::pow(s5,2) + 2*s4*s5*s6 - s1*std::pow(s6,2),1.6666666666666665) + 
+		    (4*C1*s5)/std::pow(s1*s2*s3 - s3*std::pow(s4,2) - s2*std::pow(s5,2) + 2*s4*s5*s6 - s1*std::pow(s6,2),0.6666666666666666) + 
+		    4*D1*(s2*s5 - s4*s6)*(1 + s3*std::pow(s4,2) + s2*std::pow(s5,2) - 2*s4*s5*s6 + s1*(-(s2*s3) + std::pow(s6,2))),
+		   (-0.6666666666666666*C1*(2*s4*s5 - 2*s1*s6)*(std::pow(s1,2) + std::pow(s2,2) + std::pow(s3,2) + 2*std::pow(s4,2) + 2*std::pow(s5,2) + 2*std::pow(s6,2)))/
+		     std::pow(s1*s2*s3 - s3*std::pow(s4,2) - s2*std::pow(s5,2) + 2*s4*s5*s6 - s1*std::pow(s6,2),1.6666666666666665) + 
+		    (4*C1*s6)/std::pow(s1*s2*s3 - s3*std::pow(s4,2) - s2*std::pow(s5,2) + 2*s4*s5*s6 - s1*std::pow(s6,2),0.6666666666666666) - 
+		    4*D1*(s4*s5 - s1*s6)*(1 + s3*std::pow(s4,2) + s2*std::pow(s5,2) - 2*s4*s5*s6 + s1*(-(s2*s3) + std::pow(s6,2)));
 
 
 		return f_e;
 	}
 
-	void WikipediaForce(Mesh& mesh){		
+	VectorXd WikipediaForce(Mesh& mesh){
+		VectorXd forces = VectorXd::Zero(mesh.red_s().size());		
 		VectorXd& eY = mesh.eYoungs();
 		VectorXd& eP = mesh.ePoissons();
 
@@ -220,6 +210,8 @@ public:
             double D1 = 0.5*(eY[t]*eP[t])/((1.0+eP[t])*(1.0-2.0*eP[t]));
             forces.segment<6>(6*t) += WikipediaElementForce(c, C1, D1);
 		}
+
+		return forces;
 	}
 
 	double Energy(Mesh& m){
@@ -230,10 +222,7 @@ public:
 	}
 
 	VectorXd PEGradient(Mesh& m){
-		forces.setZero();
-		WikipediaForce(m);
-		MuscleForce(m);
-		return forces;
+		return WikipediaForce(m)+MuscleForce(m);
 	}
 
 };
