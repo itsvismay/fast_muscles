@@ -2,7 +2,7 @@
 #include <igl/writeOBJ.h>
 #include <igl/barycenter.h>
 #include <igl/readOFF.h>
-#include <igl/readMESH.h>
+#include <igl/readDMAT.h>
 #include <igl/readOBJ.h>
 #include <igl/slice.h>
 #include <igl/boundary_facets.h>
@@ -62,96 +62,45 @@ int main(int argc, char *argv[])
     MatrixXd V;
     MatrixXi T;
     MatrixXi F;
-    igl::readMESH(j_input["mesh_file"], V, T, F);
+    igl::readDMAT(j_input["v_file"], V);
+    igl::readDMAT(j_input["t_file"], T);
     igl::boundary_facets(T, F);
+    cout<<"V size: "<<V.rows()<<endl;
+    cout<<"T size: "<<T.rows()<<endl;
+    cout<<"F size: "<<F.rows()<<endl;
     
     std::vector<int> fix = getMaxVerts_Axis_Tolerance(V, 1);
     std::sort (fix.begin(), fix.end());
-    std::vector<int> mov = {1,7}; //getMinVerts_Axis_Tolerance(V, 1);
-    for(int i=0; i<mov.size(); i++)
-        std::cout<<mov[i]<<std::endl;
+    std::vector<int> mov = getMinVerts_Axis_Tolerance(V, 1);
     std::sort (mov.begin(), mov.end());
+    std::vector<int> bones = {};
     // exit(0);
 
 
     std::cout<<"-----Mesh-------"<<std::endl;
-    Mesh* mesh = new Mesh(T, V, fix, mov, j_input);
-    std::cout<<"-----ARAP-----"<<std::endl;
-    Arap* arap = new Arap(*mesh);
-
-    std::cout<<"-----Neo-------"<<std::endl;
-    Elastic* neo = new Elastic(*mesh);
+    Mesh* mesh = new Mesh(T, V, fix, mov,bones, j_input);
     
+    std::cout<<"-----ARAP-----"<<std::endl;
+    std::cout<<"-----Neo-------"<<std::endl;
     std::cout<<"-----Solver-------"<<std::endl;
-        int DIM = mesh->red_s().size();
-        StaticSolve<double> f(DIM, mesh, arap, neo);
-        // Criteria<double> crit = Criteria<double>::defaults();
-        // crit.xDelta = 1e-4;
-        // crit.fDelta = 1e-4;
-        // crit.gradNorm = 1e-3; 
-        cppoptlib:LbfgsbSolver<StaticSolve<double>> solver;
-        // solver.setStopCriteria(crit);
-        VectorXd lb = (mesh->red_s().array() - 1)*1e6 + 1e-6;
-        // VectorXd ub = (mesh->red_s().array() - 1)*1e6 + 1e-6;
-        // std::cout<<lb<<std::endl;
-        f.setLowerBound(lb);
-        // f.setUpperBound(ub)
-        
-        std::cout<<"Energy "<<arap->Energy(*mesh)<<std::endl;
-        // Colors.resize(T.rows(), 3);
-        // Colors.setOnes();
 
-    igl::opengl::glfw::Viewer viewer;
+
     std::cout<<"-----Display-------"<<std::endl;
-    viewer.callback_pre_draw = [&](igl::opengl::glfw::Viewer & viewer)
-    {   
-        if(viewer.core.is_animating)
-        {
+    igl::opengl::glfw::Viewer viewer;
+    viewer.callback_pre_draw = [&](igl::opengl::glfw::Viewer & viewer){   
+        if(viewer.core.is_animating){
             
     	}
         return false;
     };
 
-    viewer.callback_key_down = [&](igl::opengl::glfw::Viewer & viewer, unsigned char key, int modifiers)
-    {   std::cout<<"Key down, "<<key<<std::endl;
+    viewer.callback_key_down = [&](igl::opengl::glfw::Viewer & viewer, unsigned char key, int modifiers){   
+        std::cout<<"Key down, "<<key<<std::endl;
         viewer.data().clear();
         
-        //Doing things
-        // VectorXd& s = mesh->red_s();
-        // for(int i=0; i<s.size()/6; i++){
-        //     s[6*i+1] += 0.1;
-        // }
-        // mesh->setGlobalF(false, true, false);
-        // arap->minimize(*mesh);
-        // std::cout<<arap->Jacobians(*mesh)<<std::endl;
-        // //----------------
 
         if(key==' '){
-            VectorXd& dx = mesh->dx();
-            for(int i=0; i<mov.size(); i++){
-                dx[3*mov[i]+1] += 3;
-            }
-            // // Doing things
-            // VectorXd& s = mesh->red_s();
-            // for(int i=0; i<s.size()/6; i++){
-            //     s[6*i+0] += 0.1;
-            //     // s[6*i+1] += 0.1;
-            //     // s[6*i+2] += 0.1;
-            // }
-            // mesh->setGlobalF(false, true, false);
-            
-            VectorXd news = mesh->red_s();
-            solver.minimize(f, news);
-            for(int i=0; i<news.size(); i++){
-                mesh->red_s()[i] = news[i];
-            }
-
-            std::cout<<"new s"<<std::endl;
-            std::cout<<news.transpose()<<std::endl;
-            std::cout << "f in argmin " << f(news) << std::endl;
-            std::cout << "Solver status: " << solver.status() << std::endl;
-            std::cout << "Final criteria values: " << std::endl << solver.criteria() << std::endl;
-            // arap->minimize(*mesh);
+          
         }
         
         //----------------

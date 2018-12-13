@@ -30,7 +30,11 @@ public:
 		double En = 0;
 		VectorXd s = mesh.sW()*mesh.red_s();
 		Matrix3d c;
+		VectorXd& bones = mesh.bones();
 		for(int t=0; t<mesh.T().rows(); t++){
+			if(bones[t]>0.5){
+				continue;
+			}
 			c.coeffRef(0, 0) = s[6*t + 0];
             c.coeffRef(1, 1) = s[6*t + 1];
             c.coeffRef(2, 2) = s[6*t + 2];
@@ -40,8 +44,7 @@ public:
             c.coeffRef(2, 0) = s[6*t + 4];
             c.coeffRef(1, 2) = s[6*t + 5];
             c.coeffRef(2, 1) = s[6*t + 5];
-            Vector3d u;
-            u<<0,1,0;
+            Vector3d u = mesh.Uvecs().row(t);
             En += MuscleElementEnergy(c, u);
 		}
 		return En;
@@ -76,7 +79,11 @@ public:
 		VectorXd forces = VectorXd::Zero(mesh.red_s().size());
 		VectorXd s = mesh.sW()*mesh.red_s();
 		Matrix3d c;
+		VectorXd& bones = mesh.bones();
 		for(int t=0; t<mesh.T().rows(); t++){
+			if(bones[t]>0.5){
+				continue;
+			}
 			c.coeffRef(0, 0) = s[6*t + 0];
             c.coeffRef(1, 1) = s[6*t + 1];
             c.coeffRef(2, 2) = s[6*t + 2];
@@ -86,8 +93,7 @@ public:
             c.coeffRef(2, 0) = s[6*t + 4];
             c.coeffRef(1, 2) = s[6*t + 5];
             c.coeffRef(2, 1) = s[6*t + 5];
-            Vector3d u;
-            u<<0,1,0;
+            Vector3d u = mesh.Uvecs().row(t);
             forces.segment<6>(6*t) += MuscleElementForce(c, u);
         }
         return forces;

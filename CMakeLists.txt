@@ -45,10 +45,10 @@ file(GLOB HEADFILES "*.h")
 #file(GLOB SRCFILES "${ALGLIB_SRC_DIR}/*.cpp")
 file(GLOB EXTERNALS "${SPECTRA_DIR}/*.h" "${SPECTRA_DIR}/MatOp/*.h" "${BFGSB_SRC_DIR}/cppoptlib/*.h" "${BFGSB_SRC_DIR}/cppoptlib/solver/*.h")
 
-#add_executable(${PROJECT_NAME} "main.cpp" ${HEADFILES} ${SRCFILES} ${EXTERNALS})
+add_executable(${PROJECT_NAME} "main.cpp" ${HEADFILES} ${SRCFILES} ${EXTERNALS})
 add_executable(fd "finitedifference.cpp" ${HEADFILES} ${SRCFILES} ${EXTERNALS})
 add_executable(ns "newsolvertest.cpp" ${HEADFILES} ${SRCFILES} ${EXTERNALS})
-#target_link_libraries(${PROJECT_NAME} -lglfw igl::core igl::opengl igl::opengl_glfw -fopenmp ${OpenCV_LIBS})
+target_link_libraries(${PROJECT_NAME} -lglfw igl::core igl::opengl igl::opengl_glfw -fopenmp ${OpenCV_LIBS})
 target_link_libraries(fd -lglfw igl::core igl::opengl igl::opengl_glfw -fopenmp ${OpenCV_LIBS})
 target_link_libraries(ns -lglfw igl::core igl::opengl igl::opengl_glfw -fopenmp ${OpenCV_LIBS})
  

@@ -439,6 +439,7 @@ int checkARAP(Mesh& mesh, Arap& arap){
 	std::cout<<"Energy0: "<<E0<<std::endl;
 	
 	cout<<"Real ARAP Jac"<<endl;
+	arap.minimize(mesh);
 	VectorXd real = arap.Jacobians(mesh);
 	std::cout<<"Energy0: "<<arap.Energy(mesh)<<std::endl;
 	// cout<<mesh.red_s().transpose()<<endl;
@@ -569,9 +570,10 @@ int main(int argc, char *argv[]){
     std::sort (fix.begin(), fix.end());
     std::vector<int> mov = {1,7};
     std::sort (mov.begin(), mov.end());
+    std::vector<int> bones = {};
 
     std::cout<<"-----Mesh-------"<<std::endl;
-    Mesh* mesh = new Mesh(T, V, fix, mov, j_input);
+    Mesh* mesh = new Mesh(T, V, fix, mov, bones, j_input);
 
     std::cout<<"-----ARAP-----"<<std::endl;
     Arap* arap = new Arap(*mesh);
@@ -600,12 +602,13 @@ int main(int argc, char *argv[]){
    	// mesh->red_s()[0] = s[0];
    	// mesh->red_s()[1] = s[1];
    	// mesh->red_s()[2] = s[2];
-   	mesh->red_s()[3] =0.1;
-   	cout<<mesh->red_s().transpose()<<endl;
-    // mesh->setGlobalF(false, true, false);
+    for(int i=0; i<mesh->red_s().size()/6; i++)
+   		mesh->red_s()[6*i+1] -= 0.1;
+   	// cout<<mesh->red_s().transpose()<<endl;
+    mesh->setGlobalF(false, true, false);
 
-    // checkARAP(*mesh, *arap);
+    checkARAP(*mesh, *arap);
 
-    checkElastic(*mesh, *neo);
+    // checkElastic(*mesh, *neo);
 
 }

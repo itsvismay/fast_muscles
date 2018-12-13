@@ -1,6 +1,8 @@
 {
   "mesh_file":"/home/vismay/recode/fast_muscles/data/testbar/bar.1.mesh",
-  "youngs": 6000,
+  "v_file" : "/home/vismay/recode/fast_muscles/data/output/combined_V.dmat",
+  "t_file" : "/home/vismay/recode/fast_muscles/data/output/combined_T.dmat",
+  "youngs": 60000,
   "poissons": 0.45,
   "fibre_mag": 0,
   "number_skinning_handles": 0,

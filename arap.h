@@ -104,24 +104,64 @@ public:
 
 		MatrixXd JacKKT(col1.rows(), col1.rows());
 		JacKKT<<col1, col2, col3;
-		
-		// std::cout<<JacKKT.rows()<<", "<<JacKKT.cols()<<std::endl;
-		// std::cout<<rhs.rows()<<", "<<rhs.cols()<<std::endl;
 
 		Gradients(m);
 
-		// std::ofstream lhs_file("lhs.mat");
-		// if (lhs_file.is_open())
+		// std::ofstream ExxFile("Exx.mat");
+		// if (ExxFile.is_open())
 		// {
-		// lhs_file << JacKKT;
+		// 	ExxFile << aExx;
 		// }
-		// lhs_file.close();
-		// std::ofstream rhs_file("rhs.mat");
-		// if (rhs_file.is_open())
+		// ExxFile.close();
+
+		// std::ofstream ExrFile("Exr.mat");
+		// if (ExrFile.is_open())
 		// {
-		// rhs_file << KKT_constrains;
+		// 	ExrFile << aExr;
 		// }
-		// rhs_file.close();
+		// ExrFile.close();
+
+		// std::ofstream ErrFile("Err.mat");
+		// if (ErrFile.is_open())
+		// {
+		// 	ErrFile << aErr;
+		// }
+		// ErrFile.close();
+
+		// std::ofstream ExsFile("Exs.mat");
+		// if (ExsFile.is_open())
+		// {
+		// 	ExsFile << aExs;
+		// }
+		// ExsFile.close();
+
+		// std::ofstream ErsFile("Ers.mat");
+		// if (ErsFile.is_open())
+		// {
+		// 	ErsFile << aErs;
+		// }
+		// ErsFile.close();
+		
+		// std::ofstream ExFile("Ex.mat");
+		// if (ExFile.is_open())
+		// {
+		// 	ExFile << aEx;
+		// }
+		// ExFile.close();
+
+		// std::ofstream ErFile("Er.mat");
+		// if (ErFile.is_open())
+		// {
+		// 	ErFile << aEr;
+		// }
+		// ErFile.close();
+
+		// std::ofstream EsFile("Es.mat");
+		// if (EsFile.is_open())
+		// {
+		// 	EsFile << aEs;
+		// }
+		// EsFile.close();
 
 
 		MatrixXd results = JacKKT.fullPivLu().solve(KKT_constrains).topRows(rhs.rows());

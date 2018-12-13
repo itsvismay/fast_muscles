@@ -41,6 +41,25 @@ std::vector<int> getMinVerts_Axis_Tolerance(MatrixXd& mV, int dim, double tolera
     }
     return maxV;
 }
+void getMaxTets_Axis_Tolerance(std::vector<int>& ibones, MatrixXd& mV, MatrixXi& mT, double dim, double tolerance = 1-5){
+	auto maxX = mV.col(dim).maxCoeff();
+	for(int i=0; i< mT.rows(); i++){
+		Vector3d centre = (mV.row(mT.row(i)[0])+ mV.row(mT.row(i)[1]) + mV.row(mT.row(i)[2])+ mV.row(mT.row(i)[3]))/4.0;
+		if (fabs(centre[dim] - maxX)< tolerance){
+			ibones.push_back(i);
+		}
+	}
+}
+
+void getMinTets_Axis_Tolerance(std::vector<int>& ibones, MatrixXd& mV, MatrixXi& mT, double dim, double tolerance = 1-5){
+	auto maxX = mV.col(dim).minCoeff();
+	for(int i=0; i< mT.rows(); i++){
+		Vector3d centre = (mV.row(mT.row(i)[0])+ mV.row(mT.row(i)[1]) + mV.row(mT.row(i)[2])+ mV.row(mT.row(i)[3]))/4.0;
+		if (fabs(centre[dim] - maxX)< tolerance){
+			ibones.push_back(i);
+		}
+	}
+}
 
 class Rosenbrock
 {
@@ -180,14 +199,20 @@ int main()
     MatrixXi T;
     MatrixXi F;
     igl::readMESH(j_input["mesh_file"], V, T, F);
+    cout<<"V size: "<<V.rows()<<endl;
+    cout<<"T size: "<<T.rows()<<endl;
+    cout<<"F size: "<<F.rows()<<endl;
     
     std::vector<int> fix = getMaxVerts_Axis_Tolerance(V, 1);
     std::sort (fix.begin(), fix.end());
     std::vector<int> mov = {};//getMinVerts_Axis_Tolerance(V, 1);
     std::sort (mov.begin(), mov.end());
+    std::vector<int> bones = {};
+    getMaxTets_Axis_Tolerance(bones, V, T, 1, 3);
+    getMinTets_Axis_Tolerance(bones, V, T, 1, 3);
 
     std::cout<<"-----Mesh-------"<<std::endl;
-    Mesh* mesh = new Mesh(T, V, fix, mov, j_input);
+    Mesh* mesh = new Mesh(T, V, fix, mov,bones, j_input);
 
     std::cout<<"-----ARAP-----"<<std::endl;
     Arap* arap = new Arap(*mesh);
