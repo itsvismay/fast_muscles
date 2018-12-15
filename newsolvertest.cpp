@@ -140,11 +140,18 @@ public:
 
     double operator()(const VectorXd& x, VectorXd& grad)
     {
-        for(int i=0; i<x.size(); i++){
-            mesh->red_s()[i] = x[i];
-        }
+  		VectorXd reds = mesh->N()*x + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
+	    for(int i=0; i<reds.size(); i++){
+	        mesh->red_s()[i] = reds[i];
+	    }
+
+        // for(int i=0; i<x.size(); i++){
+        //     mesh->red_s()[i] = x[i];
+        // }
         // std::cout<<"updated s"<<std::endl;
         // std::cout<<x.transpose()<<std::endl;
+
+
         mesh->setGlobalF(false, true, false);
         arap->minimize(*mesh);
 
@@ -152,10 +159,12 @@ public:
         double Earap = alpha_arap*arap->Energy(*mesh);
         double fx = Eneo + Earap;
         
-        std::cout<<"neo: "<<Eneo<<", "<<"arap: "<<Earap<<"tot: "<<Eneo+Earap<<std::endl;
-
-        VectorXd pegrad = alpha_neo*elas->PEGradient(*mesh);
-        VectorXd arapgrad = alpha_arap*arap->Jacobians(*mesh);
+        VectorXd pegrad = alpha_neo*mesh->N().transpose()*elas->PEGradient(*mesh);
+        VectorXd arapgrad = alpha_arap*mesh->N().transpose()*arap->Jacobians(*mesh);
+        
+        
+        // VectorXd pegrad = alpha_neo*elas->PEGradient(*mesh);
+        // VectorXd arapgrad = alpha_arap*arap->Jacobians(*mesh);
 
         // VectorXd fake_arap = Full_ARAP_Grad(*mesh, *arap,*elas, fx, 1e-5);
         // if ((arapgrad-fake_arap).norm()>0.001){
@@ -179,6 +188,7 @@ public:
         	grad[i] += pegrad[i];
             // grad[i] = fake[i];
         }
+        std::cout<<Eneo<<", "<<Earap<<", "<<Eneo+Earap<<", "<<grad.norm()<<std::endl;
         // std::cout<<pegrad.head(12).transpose()<<std::endl<<std::endl;
         // std::cout<<arapgrad.head(12).transpose()<<std::endl<<std::endl;
 
@@ -208,8 +218,8 @@ int main()
     std::vector<int> mov = {};//getMinVerts_Axis_Tolerance(V, 1);
     std::sort (mov.begin(), mov.end());
     std::vector<int> bones = {};
-    getMaxTets_Axis_Tolerance(bones, V, T, 1, 3);
-    getMinTets_Axis_Tolerance(bones, V, T, 1, 3);
+    // getMaxTets_Axis_Tolerance(bones, V, T, 1, 3);
+    // getMinTets_Axis_Tolerance(bones, V, T, 1, 3);
 
     std::cout<<"-----Mesh-------"<<std::endl;
     Mesh* mesh = new Mesh(T, V, fix, mov,bones, j_input);
@@ -266,15 +276,23 @@ int main()
 		    }
 
 		    double fx =0;
-		    VectorXd ns = mesh->red_s();
+		    VectorXd ns = mesh->N().transpose()*mesh->red_s();
+		    cout<<"NS"<<endl;
 		    int niter = solver.minimize(f, ns, fx);
-		    for(int i=0; i<ns.size(); i++){
-		        mesh->red_s()[i] = ns[i];
-		    }
-		    mesh->setGlobalF(false, true, false);
+		    VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
 
+		    // VectorXd reds = mesh->red_s();
+		    // cout<<reds.size()<<endl;
+		    // cout<<mesh->T().rows()*6<<endl;
+		    // cout<<mesh->bones().transpose()<<endl;
+		    // int niter = solver.minimize(f, reds, fx);
+		    
+		    for(int i=0; i<reds.size(); i++){
+	            mesh->red_s()[i] = reds[i];
+	        }
+		    mesh->setGlobalF(false, true, false);
 			std::cout<<"new s"<<std::endl;
-			std::cout<<ns.transpose()<<std::endl;
+			std::cout<<reds.transpose()<<std::endl;
 			std::cout<<"niter "<<niter<<std::endl;
         }
         

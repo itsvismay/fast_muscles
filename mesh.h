@@ -33,8 +33,8 @@ protected:
     MatrixXi mT, discT;
 
     //Used in the sim
-    SparseMatrix<double> mMass, mGF, mGR, mGS, mGU, mP, mC;
-    SparseMatrix<double> mA, mFree, mConstrained;
+    SparseMatrix<double> mMass, mGF, mGR, mGS, mGU, mP, mC, m_P;
+    SparseMatrix<double> mA, mFree, mConstrained, mN, mAN;
 
     VectorXi melemType, mr_elem_cluster_map, ms_handles_ind;
     VectorXd mcontx, mdiscx, mx, mx0, mred_s, melemYoungs, melemPoissons, mu, mred_r, mred_x, mred_w;
@@ -118,6 +118,8 @@ public:
         print("step 14");
         setGlobalF(true, true, true);
         print("step 15");
+        setN();
+        print("step 16");
 
     }
 
@@ -461,7 +463,14 @@ public:
         melemYoungs.resize(mT.rows());
         melemPoissons.resize(mT.rows());
         for(int i=0; i<mT.rows(); i++){
-            melemYoungs[i] = youngs; melemPoissons[i] = poissons;
+            if(mbones[i]>0.5){
+                //if bone, give it higher youngs
+                melemYoungs[i] = youngs*100;
+
+            }else{
+                melemYoungs[i] = youngs; 
+            }
+            melemPoissons[i] = poissons;
         }
     }
 
@@ -505,6 +514,45 @@ public:
 
         mC.setFromTriplets(triplets.begin(), triplets.end());
     }
+
+    void setN(){
+        //TODO make this work for reduced skinning
+        int nsh_bones = (int) mbones.sum();
+        mN.resize(mred_s.size(), mred_s.size() - 6*nsh_bones); //#nsh x nsh for muscles (project out bones handles)
+        mN.setZero();
+
+        int j=0;
+        for(int i=0; i<mN.rows()/6; i++){
+            if(mbones[i]>0.5){
+                continue;
+            }
+            mN.coeffRef(6*i+0, 6*j+0) = 1;
+            mN.coeffRef(6*i+1, 6*j+1) = 1;
+            mN.coeffRef(6*i+2, 6*j+2) = 1;
+            mN.coeffRef(6*i+3, 6*j+3) = 1;
+            mN.coeffRef(6*i+4, 6*j+4) = 1;
+            mN.coeffRef(6*i+5, 6*j+5) = 1;
+            j++;
+        }
+
+        mAN.resize(mred_s.size(), 6*nsh_bones); //#nsh x nsh for muscles (project out bones handles)
+        mAN.setZero();
+
+        j=0;
+        for(int i=0; i<mAN.rows()/6; i++){
+            if(mbones[i]<0.5){
+                continue;
+            }
+            mAN.coeffRef(6*i+0, 6*j+0) = 1;
+            mAN.coeffRef(6*i+1, 6*j+1) = 1;
+            mAN.coeffRef(6*i+2, 6*j+2) = 1;
+            mAN.coeffRef(6*i+3, 6*j+3) = 1;
+            mAN.coeffRef(6*i+4, 6*j+4) = 1;
+            mAN.coeffRef(6*i+5, 6*j+5) = 1;
+            j++;
+        }
+
+    }
  
     void setP(){
         mP.resize(12*mT.rows(), 12*mT.rows());
@@ -544,16 +592,37 @@ public:
                 triplets.push_back(Trip(12*i+9+j, 12*i+9+j, weight*p(3,3)/4));
             }
         }   
-
-        // MatrixXd Id3 = MatrixXd::Identity(3,3);
-        // MatrixXd subP = Eigen::kroneckerProduct(p/4.0, Id3);
-        // SparseMatrix<double> Id(mT.rows(), mT.rows());
-        // Id.setIdentity();
-        // mP = Eigen::kroneckerProduct(Id, subP);
-
-        // SparseMatrix<double> newmP;
-        // newmP.resize(12*mT.rows(), 12*mT.rows());
         mP.setFromTriplets(triplets.begin(), triplets.end());
+
+
+
+        m_P.resize(12*mT.rows(), 12*mT.rows());
+        vector<Trip> triplets_;
+        triplets_.reserve(3*16*mT.rows());
+        for(int i=0; i<mT.rows(); i++){
+            for(int j=0; j<3; j++){
+                triplets_.push_back(Trip(12*i+0+j, 12*i+0+j, p(0,0)/4));
+                triplets_.push_back(Trip(12*i+0+j, 12*i+3+j, p(0,1)/4));
+                triplets_.push_back(Trip(12*i+0+j, 12*i+6+j, p(0,2)/4));
+                triplets_.push_back(Trip(12*i+0+j, 12*i+9+j, p(0,3)/4));
+
+                triplets_.push_back(Trip(12*i+3+j, 12*i+0+j, p(1,0)/4));
+                triplets_.push_back(Trip(12*i+3+j, 12*i+3+j, p(1,1)/4));
+                triplets_.push_back(Trip(12*i+3+j, 12*i+6+j, p(1,2)/4));
+                triplets_.push_back(Trip(12*i+3+j, 12*i+9+j, p(1,3)/4));
+
+                triplets_.push_back(Trip(12*i+6+j, 12*i+0+j, p(2,0)/4));
+                triplets_.push_back(Trip(12*i+6+j, 12*i+3+j, p(2,1)/4));
+                triplets_.push_back(Trip(12*i+6+j, 12*i+6+j, p(2,2)/4));
+                triplets_.push_back(Trip(12*i+6+j, 12*i+9+j, p(2,3)/4));
+
+                triplets_.push_back(Trip(12*i+9+j, 12*i+0+j, p(3,0)/4));
+                triplets_.push_back(Trip(12*i+9+j, 12*i+3+j, p(3,1)/4));
+                triplets_.push_back(Trip(12*i+9+j, 12*i+6+j, p(3,2)/4));
+                triplets_.push_back(Trip(12*i+9+j, 12*i+9+j, p(3,3)/4));
+            }
+        }   
+        m_P.setFromTriplets(triplets_.begin(), triplets_.end());
     }
 
     void setA(){
@@ -832,6 +901,8 @@ public:
 
     SparseMatrix<double>& P(){ return mP; }
     SparseMatrix<double>& A(){ return mA; }
+    SparseMatrix<double>& N(){ return mN; }
+    SparseMatrix<double>& AN(){ return mAN; }
     MatrixXd& G(){ return mG; }
     MatrixXd& Uvecs(){ return mUvecs; }
 
@@ -877,7 +948,7 @@ public:
 
     MatrixXd& discontinuousV(){
         VectorXd x = mG*mred_x + mx0;
-        VectorXd dx = xbar();
+        VectorXd dx = mGF*m_P*mA*x;
         VectorXd CAx = mC*mA*x;
         VectorXd newx = dx + CAx;
 

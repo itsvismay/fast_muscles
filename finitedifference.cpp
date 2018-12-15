@@ -524,6 +524,24 @@ VectorXd WikipediaEnergy_grad(Mesh& mesh, Elastic& elas, double E0, double eps){
         mesh.red_s()[i] -= 0.5*eps;
         double Eright = elas.WikipediaEnergy(mesh);
         mesh.red_s()[i] += 0.5*eps;
+        fake[i] = (Eleft - Eright)/(eps);
+    }
+    // mesh.setGlobalF(false, true, false);
+    // std::cout<<"FUll fake: "<<fake.transpose()<<std::endl;
+    return fake;
+}
+
+VectorXd MuscleEnergy_grad(Mesh& mesh, Elastic& elas, double E0, double eps){
+    VectorXd fake = VectorXd::Zero(mesh.red_s().size());
+    cout<<"start E0:"<<E0<<endl;
+    for(int i=0; i<fake.size(); i++){
+        mesh.red_s()[i] += 0.5*eps;
+        double Eleft = elas.MuscleEnergy(mesh);
+        mesh.red_s()[i] -= 0.5*eps;
+        
+        mesh.red_s()[i] -= 0.5*eps;
+        double Eright = elas.MuscleEnergy(mesh);
+        mesh.red_s()[i] += 0.5*eps;
         fake[i] = (Eleft - E0)/(0.5*eps);
     }
     // mesh.setGlobalF(false, true, false);
@@ -544,9 +562,8 @@ int checkElastic(Mesh& mesh, Elastic& elas){
 	cout<<"Fake wikipedia grad"<<endl;
 	VectorXd fake = WikipediaEnergy_grad(mesh, elas, E0, eps);
 	cout<<(fake-real).norm()<<endl;
+	cout<<fake.transpose()<<endl;
 	cout<<"E1 "<<elas.WikipediaEnergy(mesh)<<endl<<endl;
-
-
 
 	///////Muscles
 
@@ -607,8 +624,8 @@ int main(int argc, char *argv[]){
    	// cout<<mesh->red_s().transpose()<<endl;
     mesh->setGlobalF(false, true, false);
 
-    checkARAP(*mesh, *arap);
+    // checkARAP(*mesh, *arap);
 
-    // checkElastic(*mesh, *neo);
+    checkElastic(*mesh, *neo);
 
 }
