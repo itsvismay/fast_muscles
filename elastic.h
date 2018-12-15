@@ -22,25 +22,32 @@ public:
 		
 	}
 
-	double MuscleElementEnergy(const VectorXd& W0, const VectorXd& W1, const VectorXd& W2, const VectorXd& W3, const VectorXd& W4, const VectorXd& W5,  const VectorXd& rs, Vector3d& u){
-		double s0 = W0.dot(rs);
-		double s1 = W1.dot(rs);
-		double s2 = W2.dot(rs);
-		double s3 = W3.dot(rs);
-		double s4 = W4.dot(rs);
-		double s5 = W5.dot(rs);
+	double MuscleElementEnergy(const VectorXd& w1, const VectorXd& w2, const VectorXd& w3, const VectorXd& w4, const VectorXd& w5, const VectorXd& w6,  const VectorXd& rs, Vector3d& u){
+		double s1 = w1.dot(rs);
+		double s2 = w2.dot(rs);
+		double s3 = w3.dot(rs);
+		double s4 = w4.dot(rs);
+		double s5 = w5.dot(rs);
+		double s6 = w6.dot(rs);
+		double u1 = u[0];
+		double u2 = u[1];
+		double u3 = u[2];
 
-		Matrix3d c;
-		c.coeffRef(0, 0) = s0;
-        c.coeffRef(1, 1) = s1;
-        c.coeffRef(2, 2) = s2;
-        c.coeffRef(0, 1) = s3;
-        c.coeffRef(1, 0) = s3;
-        c.coeffRef(0, 2) = s4;
-        c.coeffRef(2, 0) = s4;
-        c.coeffRef(1, 2) = s5;
-        c.coeffRef(2, 1) = s5;
-		return 0.5*muscle_fibre_mag*((c*u).dot(c*u));
+		double W = 0.5*muscle_fibre_mag*(u2*(s6*(s5*u1 + s6*u2 + s3*u3) + s4*(s1*u1 + s4*u2 + s5*u3) + 
+		s2*(s4*u1 + s2*u2 + s6*u3)) + 
+		u1*(s5*(s5*u1 + s6*u2 + s3*u3) + s1*(s1*u1 + s4*u2 + s5*u3) + 
+		s4*(s4*u1 + s2*u2 + s6*u3)) + 
+		u3*(s3*(s5*u1 + s6*u2 + s3*u3) + s5*(s1*u1 + s4*u2 + s5*u3) + 
+		s6*(s4*u1 + s2*u2 + s6*u3)));
+
+		// 0.5*a*(u2*(w6'*rs*(w5'*rs*u1 + w6'*rs*u2 + w3'*rs*u3) + w4'*rs*(w1'*rs*u1 + w4'*rs*u2 + w5'*rs*u3) +
+		// w2'*rs*(w4'*rs*u1 + w2'*rs*u2 + w6'*rs*u3)) +
+		// u1*(w5'*rs*(w5'*rs*u1 + w6'*rs*u2 + w3'*rs*u3) + w1'*rs*(w1'*rs*u1 + w4'*rs*u2 + w5'*rs*u3) + 
+		// w4'*rs*(w4'*rs*u1 + w2'*rs*u2 + w6'*rs*u3)) + 		u3*(w3'*rs*(w5'*rs*u1 + w6'*rs*u2 + w3'*rs*u3) + w5'*rs*(w1'*rs*u1 + w4'*rs*u2 + w5'*rs*u3) + 		
+		// w6'*rs*(w4'*rs*u1 + w2'*rs*u2 + w6'*rs*u3)))
+
+		
+		return W;
 	}
 
 	double MuscleEnergy(Mesh& mesh){
@@ -58,52 +65,64 @@ public:
 		return En;
 	}
 
-	VectorXd MuscleElementForce(Matrix3d& c, Vector3d& u){
-		double s1 = c(0,0);
-		double s2 = c(1,1);
-		double s3 = c(2,2);
-		double s4 = c(0,1);
-		double s5 = c(0,2);
-		double s6 = c(1,2);
-		
-		double u1 = u(0);
-		double u2 = u(1);
-		double u3 = u(2);
-		double a = muscle_fibre_mag;
+	VectorXd MuscleElementForce(const VectorXd& w1, const VectorXd& w2, const VectorXd& w3, const VectorXd& w4, const VectorXd& w5, const VectorXd& w6,  const VectorXd& rs, Vector3d& u){
+		double s1 = w1.dot(rs);
+		double s2 = w2.dot(rs);
+		double s3 = w3.dot(rs);
+		double s4 = w4.dot(rs);
+		double s5 = w5.dot(rs);
+		double s6 = w6.dot(rs);
+		double u1 = u[0];
+		double u2 = u[1];
+		double u3 = u[2];
 
-		VectorXd f_m(6);
-		f_m << 0.5*a*(s4*u1*u2 + s5*u1*u3 + u1*(2*s1*u1 + s4*u2 + s5*u3)),
-		   0.5*a*(s4*u1*u2 + s6*u2*u3 + u2*(s4*u1 + 2*s2*u2 + s6*u3)),
-		   0.5*a*(s5*u1*u3 + s6*u2*u3 + u3*(s5*u1 + s6*u2 + 2*s3*u3)),
-		   0.5*a*((s6*u1 + s5*u2)*u3 + u2*(s1*u1 + s2*u1 + 2*s4*u2 + s5*u3) + 
-		      u1*(2*s4*u1 + s1*u2 + s2*u2 + s6*u3)),
-		   0.5*a*(u1*(2*s5*u1 + s6*u2 + s1*u3 + s3*u3) + u2*(s6*u1 + s4*u3) + 
-		      u3*(s1*u1 + s3*u1 + s4*u2 + 2*s5*u3)),
-		   0.5*a*(u2*(s5*u1 + 2*s6*u2 + s2*u3 + s3*u3) + u1*(s5*u2 + s4*u3) + 
-	      	u3*(s4*u1 + s2*u2 + s3*u2 + 2*s6*u3));
-		return f_m;
+		double a = muscle_fibre_mag;
+		double t_0 = w6.dot(rs);
+		double t_1 = w5.dot(rs);
+		double t_2 = w4.dot(rs);
+		double t_3 = w2.dot(rs);
+		double t_4 = w3.dot(rs);
+		double t_5 = (((u1 * t_1) + (u2 * t_0)) + (u3 * t_4));
+		double t_6 = w1.dot(rs);
+		double t_7 = (((u1 * t_6) + (u2 * t_2)) + (u3 * t_1));
+		double t_8 = (((u1 * t_2) + (u2 * t_3)) + (u3 * t_0));
+		double t_9 = (0.5 * a);
+		double t_10 = rs.dot(w6);
+		double t_11 = (t_9 * (u1 * u2));
+		double t_12 = (t_9 * std::pow(u2 , 2));
+		double t_13 = rs.dot(w4);
+		double t_14 = (t_9 * (u2 * u3));
+		double t_15 = rs.dot(w5);
+		double t_16 = rs.dot(w2);
+		double t_17 = rs.dot(w3);
+		double t_18 = (((u1 * t_15) + (u2 * t_10)) + (u3 * t_17));
+		double t_19 = (t_9 * std::pow(u1 , 2));
+		double t_20 = rs.dot(w1);
+		double t_21 = (t_9 * (u1 * u3));
+		double t_22 = (((u1 * t_20) + (u2 * t_13)) + (u3 * t_15));
+		double t_23 = (t_11 * t_13);
+		double t_24 = (((u1 * t_13) + (u2 * t_16)) + (u3 * t_10));
+		double t_25 = (t_21 * t_15);
+		double t_26 = (t_9 * std::pow(u3 , 2));
+		double t_27 = (t_14 * t_10);
+		// double functionValue = (t_9 * (((u2 * (((t_5 * t_0) + (t_7 * t_2)) + (t_8 * t_3))) + (u1 * (((t_5 * t_1) + (t_7 * t_6)) + (t_8 * t_2)))) + (u3 * (((t_5 * t_4) + (t_7 * t_1)) + (t_8 * t_0)))));
+		VectorXd gradient = (((((((((((((((((((((((((((((((((((((t_11 * t_10) * w5) + ((t_12 * t_10) * w6)) + (t_27 * w3)) + ((t_9 * (u2 * t_18)) * w6)) + (t_23 * w1)) + ((t_12 * t_13) * w4)) + ((t_14 * t_13) * w5)) + ((t_9 * (u2 * t_22)) * w4)) + ((t_11 * t_16) * w4)) + ((t_12 * t_16) * w2)) + ((t_14 * t_16) * w6)) + ((t_9 * (u2 * t_24)) * w2)) + ((t_19 * t_15) * w5)) + ((t_11 * t_15) * w6)) + (t_25 * w3)) + ((t_9 * (u1 * t_18)) * w5)) + ((t_19 * t_20) * w1)) + ((t_11 * t_20) * w4)) + ((t_21 * t_20) * w5)) + ((t_9 * (u1 * t_22)) * w1)) + ((t_19 * t_13) * w4)) + (t_23 * w2)) + ((t_21 * t_13) * w6)) + ((t_9 * (u1 * t_24)) * w4)) + ((t_21 * t_17) * w5)) + ((t_14 * t_17) * w6)) + ((t_26 * t_17) * w3)) + ((t_9 * (u3 * t_18)) * w3)) + (t_25 * w1)) + ((t_14 * t_15) * w4)) + ((t_26 * t_15) * w5)) + ((t_9 * (u3 * t_22)) * w5)) + ((t_21 * t_10) * w4)) + (t_27 * w2)) + ((t_26 * t_10) * w6)) + ((t_9 * (u3 * t_24)) * w6));
+
+		return gradient;
 	}
 
 	VectorXd MuscleForce(Mesh& mesh){
 		VectorXd forces = VectorXd::Zero(mesh.red_s().size());
-		VectorXd s = mesh.sW()*mesh.red_s();
-		Matrix3d c;
+		MatrixXd& sW = mesh.sW();
+		VectorXd rs = mesh.red_s();
 		VectorXd& bones = mesh.bones();
+
 		for(int t=0; t<mesh.T().rows(); t++){
 			if(bones[t]>0.5){
 				continue;
 			}
-			c.coeffRef(0, 0) = s[6*t + 0];
-            c.coeffRef(1, 1) = s[6*t + 1];
-            c.coeffRef(2, 2) = s[6*t + 2];
-            c.coeffRef(0, 1) = s[6*t + 3];
-            c.coeffRef(1, 0) = s[6*t + 3];
-            c.coeffRef(0, 2) = s[6*t + 4];
-            c.coeffRef(2, 0) = s[6*t + 4];
-            c.coeffRef(1, 2) = s[6*t + 5];
-            c.coeffRef(2, 1) = s[6*t + 5];
             Vector3d u = mesh.Uvecs().row(t);
-            forces.segment<6>(6*t) += MuscleElementForce(c, u);
+            forces += MuscleElementForce(sW.row(6*t+0),sW.row(6*t+1),sW.row(6*t+2),sW.row(6*t+3),sW.row(6*t+4),sW.row(6*t+5), rs, u);
         }
         return forces;
 	}

@@ -542,7 +542,7 @@ VectorXd MuscleEnergy_grad(Mesh& mesh, Elastic& elas, double E0, double eps){
         mesh.red_s()[i] -= 0.5*eps;
         double Eright = elas.MuscleEnergy(mesh);
         mesh.red_s()[i] += 0.5*eps;
-        fake[i] = (Eleft - E0)/(0.5*eps);
+        fake[i] = (Eleft - Eright)/(eps);
     }
     // mesh.setGlobalF(false, true, false);
     // std::cout<<"FUll fake: "<<fake.transpose()<<std::endl;
@@ -566,6 +566,19 @@ int checkElastic(Mesh& mesh, Elastic& elas){
 	cout<<"E1 "<<elas.WikipediaEnergy(mesh)<<endl<<endl;
 
 	///////Muscles
+	E0 = elas.MuscleEnergy(mesh);
+	std::cout<<"Energy0: "<<E0<<std::endl;
+	
+	cout<<"Real wikipedia grad"<<endl;
+	real = elas.MuscleForce(mesh);
+	std::cout<<real.transpose()<<std::endl;
+	std::cout<<"Energy0: "<<elas.MuscleEnergy(mesh)<<std::endl;
+
+	cout<<"Fake wikipedia grad"<<endl;
+	fake = MuscleEnergy_grad(mesh, elas, E0, eps);
+	cout<<(fake-real).norm()<<endl;
+	cout<<fake.transpose()<<endl;
+	cout<<"E1 "<<elas.MuscleEnergy(mesh)<<endl<<endl;
 
 
 
