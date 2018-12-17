@@ -215,7 +215,7 @@ int main()
     
     std::vector<int> fix = getMaxVerts_Axis_Tolerance(V, 1);
     std::sort (fix.begin(), fix.end());
-    std::vector<int> mov = {};//getMinVerts_Axis_Tolerance(V, 1);
+    std::vector<int> mov = getMinVerts_Axis_Tolerance(V, 1);
     std::sort (mov.begin(), mov.end());
     std::vector<int> bones = {};
     // getMaxTets_Axis_Tolerance(bones, V, T, 1, 3);
@@ -226,6 +226,9 @@ int main()
 
     std::cout<<"-----ARAP-----"<<std::endl;
     Arap* arap = new Arap(*mesh);
+    Eigen::RowVector3d mid = 0.5*(V.colwise().maxCoeff() + V.colwise().minCoeff());
+    double anim_t = 0.0;
+	double anim_t_dir = 0.03;
 
     std::cout<<"-----Neo-------"<<std::endl;
     Elastic* neo = new Elastic(*mesh);
@@ -250,7 +253,19 @@ int main()
     {   
         if(viewer.core.is_animating)
         {
-            
+            const double r = mid(1)*0.15;
+            double ymov = r+r*cos(igl::PI+0.15*anim_t*2.*igl::PI);
+          	double zmov = r*sin(0.15*anim_t*2.*igl::PI);
+          	anim_t += anim_t_dir;
+          	VectorXd& dx = mesh->dx();
+          	for(int i=0; i<mov.size(); i++){
+		        dx[3*mov[i]+1] += ymov;
+		        dx[3*mov[i]+2] -= zmov;
+		    }
+		    arap->minimize(*mesh);
+          	//Draw continuous mesh
+	        MatrixXd newV = mesh->continuousV();
+	        viewer.data().set_mesh(newV, F);
     	}
         return false;
     };

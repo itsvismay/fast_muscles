@@ -206,8 +206,8 @@ public:
 
 	VectorXd dEdx(Mesh& m){
 		VectorXd PAx = aPA*(m.G()*m.red_x() + m.x0());;
-		VectorXd FPAx0 = m.xbar();
-		VectorXd res = (aPA*m.G()).transpose()*(PAx - FPAx0);
+		VectorXd FPAx0 = m.GF()*aPAx0;
+		VectorXd res = (aPAG).transpose()*(PAx - FPAx0);
 		return res;
 	}
 
@@ -508,10 +508,10 @@ public:
 	}
 
 	void itT(Mesh& m){
-		VectorXd FPAx0 = m.xbar();
+		VectorXd FPAx0 = m.GF()*aPAx0;
 		VectorXd deltaABtx = m.AB().transpose()*m.dx();
-		VectorXd GtAtPtFPAx0 = (m.P()*m.A()*m.G()).transpose()*FPAx0;
-		VectorXd GtAtPtPAx0 = (m.P()*m.A()*m.G()).transpose()*(m.P()*m.A()*m.x0());
+		VectorXd GtAtPtFPAx0 = (aPAG).transpose()*FPAx0;
+		VectorXd GtAtPtPAx0 = (aPAG).transpose()*(aPAx0);
 		VectorXd gb = GtAtPtFPAx0 - GtAtPtPAx0;
 		VectorXd gd(gb.size()+deltaABtx.size());
 		gd<<gb,deltaABtx;

@@ -17,9 +17,7 @@ protected:
 	double rho = 6.4; 
 
 public:
-	Elastic(Mesh& m){
-
-		
+	Elastic(Mesh& m){	
 	}
 
 	double MuscleElementEnergy(const VectorXd& w1, const VectorXd& w2, const VectorXd& w3, const VectorXd& w4, const VectorXd& w5, const VectorXd& w6,  const VectorXd& rs, Vector3d& u){
@@ -259,7 +257,6 @@ public:
 	double Energy(Mesh& m){
 		double Elas =  WikipediaEnergy(m);
 		double Muscle = MuscleEnergy(m);
-		// std::cout<<"	elas: "<<Elas<<", muscle: "<<Muscle<<std::endl;
 		return Elas + Muscle;
 	}
 

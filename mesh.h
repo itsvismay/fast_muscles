@@ -236,14 +236,16 @@ public:
 
         for(int c=0; c<nrc; c++){
             vector<int> notfix = mr_cluster_elem_map[c];
-            SparseMatrix<double> bo(mT.rows(), notfix.size());
-            bo.setZero();
+            // SparseMatrix<double> bo(mT.rows(), notfix.size());
+            // bo.setZero();
+            vector<Trip> bo_trip;
+            bo_trip.reserve(notfix.size());
 
             int i = 0;
             int f = 0;
-            for(int j =0; j<bo.cols(); j++){
+            for(int j =0; j<notfix.size(); j++){
                 if (i==notfix[f]){
-                    bo.coeffRef(i, j) = 1;
+                    bo_trip.push_back(Trip(i, j, 1));
                     f++;
                     i++;
                     continue;
@@ -252,10 +254,28 @@ public:
                 i++;
             }
 
-            SparseMatrix<double> Id12(12,12);
-            Id12.setIdentity();
-            SparseMatrix<double> b = Eigen::kroneckerProduct(bo, Id12);
+            
+            vector<Trip> b_trip;
+            b_trip.reserve(bo_trip.size());  
+            for(int k =0; k<bo_trip.size(); k++){
+                b_trip.push_back(Trip(12*bo_trip[k].row()+0, 12*bo_trip[k].col()+0, bo_trip[k].value()));
+                b_trip.push_back(Trip(12*bo_trip[k].row()+1, 12*bo_trip[k].col()+1, bo_trip[k].value()));
+                b_trip.push_back(Trip(12*bo_trip[k].row()+2, 12*bo_trip[k].col()+2, bo_trip[k].value()));
+                b_trip.push_back(Trip(12*bo_trip[k].row()+3, 12*bo_trip[k].col()+3, bo_trip[k].value()));
+                b_trip.push_back(Trip(12*bo_trip[k].row()+4, 12*bo_trip[k].col()+4, bo_trip[k].value()));
+                b_trip.push_back(Trip(12*bo_trip[k].row()+5, 12*bo_trip[k].col()+5, bo_trip[k].value()));
+                b_trip.push_back(Trip(12*bo_trip[k].row()+6, 12*bo_trip[k].col()+6, bo_trip[k].value()));
+                b_trip.push_back(Trip(12*bo_trip[k].row()+7, 12*bo_trip[k].col()+7, bo_trip[k].value()));
+                b_trip.push_back(Trip(12*bo_trip[k].row()+8, 12*bo_trip[k].col()+8, bo_trip[k].value()));
+                b_trip.push_back(Trip(12*bo_trip[k].row()+9, 12*bo_trip[k].col()+9, bo_trip[k].value()));
+                b_trip.push_back(Trip(12*bo_trip[k].row()+10, 12*bo_trip[k].col()+10, bo_trip[k].value()));
+                b_trip.push_back(Trip(12*bo_trip[k].row()+11, 12*bo_trip[k].col()+11, bo_trip[k].value()));
+            }
+
+            SparseMatrix<double> b(12*mT.rows(), 12*notfix.size());
+            b.setFromTriplets(b_trip.begin(), b_trip.end());
             mRotationBLOCK.push_back(b);
+            
         }
         print("- Rotation Clusters");
     }
@@ -282,12 +302,14 @@ public:
             print("- Skinning Handles");
             return;
         }
+
         VectorXi skinning_elem_cluster_map;
         std::map<int, std::vector<int>> skinning_cluster_elem_map;
         kmeans_rotation_clustering(skinning_elem_cluster_map, nsh);
         for(int i=0; i<mT.rows(); i++){
-            skinning_cluster_elem_map[mr_elem_cluster_map[i]].push_back(i);
+            skinning_cluster_elem_map[skinning_elem_cluster_map[i]].push_back(i);
         }
+
         ms_handles_ind.resize(nsh);
         VectorXd CAx0 = mC*mA*mx0;
         for(int k=0; k<nsh; k++){
@@ -425,6 +447,7 @@ public:
         }
         MatrixXd Centroids;
         kmeans(Data, clusters, 1000, Centroids, idx);
+
     }
 
     void kmeans(const Eigen::MatrixXd& F, const int num_labels, const int num_iter, Eigen::MatrixXd& D, Eigen::VectorXi& labels){ 
@@ -436,13 +459,15 @@ public:
     
         assert(sizeof(float) == 4);
         cv::Mat cv_F(F.rows(), F.cols(), CV_32F);
-        for (int i = 0; i < F.rows(); ++i)
-            for (int j = 0; j < F.cols(); ++j)
+        for (int i = 0; i < F.rows(); ++i){
+            for (int j = 0; j < F.cols(); ++j){
                 cv_F.at<float>(i,j) = F(i,j);
+            }
+        }
 
         cv::Mat cv_labels;
         cv::Mat cv_centers;
-        cv::TermCriteria criteria(CV_TERMCRIT_ITER|CV_TERMCRIT_EPS, 10000, 0.0001);
+        cv::TermCriteria criteria(CV_TERMCRIT_ITER|CV_TERMCRIT_EPS, 10000, 0.01);
         cv::kmeans(cv_F, num_labels, cv_labels, criteria, num_iter, cv::KMEANS_PP_CENTERS, cv_centers);
 
         int num_points = F.rows();
@@ -551,7 +576,6 @@ public:
             mAN.coeffRef(6*i+5, 6*j+5) = 1;
             j++;
         }
-
     }
  
     void setP(){
