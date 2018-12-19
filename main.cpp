@@ -109,7 +109,7 @@ int main(int argc, char *argv[])
         viewer.data().set_mesh(newV, F);
         
         //Draw disc mesh
-        std::cout<<std::endl;
+        // std::cout<<std::endl;
         MatrixXd discV = mesh->discontinuousV();
         MatrixXi discT = mesh->discontinuousT();
         for(int i=0; i<discT.rows(); i++){

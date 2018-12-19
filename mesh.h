@@ -37,7 +37,7 @@ protected:
     SparseMatrix<double> mA, mFree, mConstrained, mN, mAN;
 
     VectorXi melemType, mr_elem_cluster_map, ms_handles_ind;
-    VectorXd mcontx, mdiscx, mx, mx0, mred_s, melemYoungs, melemPoissons, mu, mred_r, mred_x, mred_w;
+    VectorXd mcontx, mx, mx0, mred_s, melemYoungs, melemPoissons, mred_u, mred_r, mred_x, mred_w;
     MatrixXd mR, mG, msW, mUvecs;
     VectorXd mmass_diag, mbones;
 
@@ -74,12 +74,9 @@ public:
 
         mbones.resize(mT.rows());
         mbones.setZero();
-        print(ibones.size());
         for(int i=0; i<ibones.size(); i++){
-            print(ibones[i]);
             mbones[ibones[i]] = 1;
         }
-        print(mbones.transpose());
 
         print("step 2");
         setP();
@@ -98,7 +95,6 @@ public:
         print("step 9");
         setDiscontinuousMeshT();
         print("step 10");
-
         setupModes(num_modes);
         print("step 11");
         setupRotationClusters(nrc);
@@ -106,7 +102,7 @@ public:
         setupSkinningHandles(nsh);
         print("step 13");
 
-        mu.resize(4*mT.rows());
+        mred_u.resize(9*mT.rows());
         mUvecs.resize(mT.rows(), 3);
         mred_x.resize(mG.cols());
         mred_x.setZero();
@@ -137,11 +133,14 @@ public:
         for(int i=0; i<mmass_diag.size(); i++){
             M.coeffRef(i,i) = mmass_diag[i];
         }
+        print("     eig1");
 
         Spectra::SparseCholesky<double> Bop(M);
-        Spectra::SymGEigsSolver<double, Spectra::SMALLEST_MAGN, Spectra::SparseGenMatProd<double>, Spectra::SparseCholesky<double>, Spectra::GEIGS_CHOLESKY>geigs(&Aop, &Bop, nummodes, M.rows());
+        Spectra::SymGEigsSolver<double, Spectra::SMALLEST_MAGN, Spectra::SparseGenMatProd<double>, Spectra::SparseCholesky<double>, Spectra::GEIGS_CHOLESKY>geigs(&Aop, &Bop, nummodes, 5*nummodes);
         geigs.init();
+        print("     eig2");
         int nconv = geigs.compute();
+        print("     eig3");
         VectorXd eigenvalues;
         MatrixXd eigenvectors;
         if(geigs.info() == Spectra::SUCCESSFUL)
@@ -154,6 +153,7 @@ public:
             cout<<"EIG SOLVE FAILED: "<<endl<<geigs.info()<<endl;
             exit(0);
         }
+        print("     eig4");
         // eigenvalues.head(eigenvalues.size() - 3));
         MatrixXd eV = eigenvectors.leftCols(eigenvalues.size() -3);
         print("-EIG SOLVE");
@@ -165,6 +165,7 @@ public:
         HandleModesKKTmat.setZero();
         std::vector<Trip> KTrips = to_triplets(K);
         std::vector<Trip> CTrips = to_triplets(C);
+        print("     eig5");
         for(int i=0; i<CTrips.size(); i++){
             int row = CTrips[i].row();
             int col = CTrips[i].col();
@@ -174,7 +175,7 @@ public:
         }
         KTrips.insert(KTrips.end(),CTrips.begin(), CTrips.end());
         HandleModesKKTmat.setFromTriplets(KTrips.begin(), KTrips.end());
-        
+        print("     eig6");
         SparseMatrix<double>eHconstrains(K.rows()+C.rows(), C.rows());
         eHconstrains.setZero();
         std::vector<Trip> eHTrips;
@@ -185,16 +186,18 @@ public:
         SparseLU<SparseMatrix<double>> solver;
         solver.compute(HandleModesKKTmat);
         SparseMatrix<double> eHsparse = solver.solve(eHconstrains);
+        print("     eig7");
         MatrixXd eH = MatrixXd(eHsparse).topRows(K.rows());
         print("-ModesForHandles");
-        
         //###############QR get orth basis of Modes, eH#######
         MatrixXd eHeV(eH.rows(), eH.cols()+eV.cols());
         eHeV<<eH,eV;
         HouseholderQR<MatrixXd> QR(eHeV);
+        print("     eig8");
         MatrixXd thinQ = MatrixXd::Identity(eHeV.rows(), eHeV.cols());
         //SET Q TO G
-        mG = QR.householderQ()*thinQ;        
+        mG = QR.householderQ()*thinQ; 
+        print("     eig9");       
     }
 
     void setupRotationClusters(int nrc){
@@ -203,6 +206,7 @@ public:
             //unreduced
             nrc = mT.rows();
         }
+        print("here1");
 
         mr_elem_cluster_map.resize(mT.rows());
         if(nrc==mT.rows()){
@@ -211,13 +215,15 @@ public:
                 mr_elem_cluster_map[i] = i;
             }   
         }else{
+            print("before kmeans");
             kmeans_rotation_clustering(mr_elem_cluster_map, nrc); //output from kmeans_rotation_clustering
         }
+        print("after kmenas");
 
         for(int i=0; i<mT.rows(); i++){
             mr_cluster_elem_map[mr_elem_cluster_map[i]].push_back(i);
         }
-
+        print("here3");
         mred_r.resize(9*nrc);
         for(int i=0; i<nrc; i++){
             mred_r[9*i+0] = 1;
@@ -232,7 +238,7 @@ public:
         }
         mred_w.resize(3*nrc);
         mred_w.setZero();
-
+        print("here 4");
 
         for(int c=0; c<nrc; c++){
             vector<int> notfix = mr_cluster_elem_map[c];
@@ -429,12 +435,15 @@ public:
     }
 
     void kmeans_rotation_clustering(VectorXi& idx, int clusters){
-        MatrixXd G = mG.colwise() + mx0;
+        print("     kmeans1");
+        MatrixXd G = mG.array().colwise() + mx0.array();
         // std::cout<<mC.rows()<<", "<<mC.cols()<<std::endl;
         // std::cout<<mA.rows()<<", "<<mA.cols()<<std::endl;
         // std::cout<<G.rows()<<", "<<G.cols()<<std::endl;
         // std::cout<<mT.rows()<<std::endl;
-        Matrix<double, Dynamic, Dynamic, RowMajor> CAG = mC*mA*G;
+        print("     kmeans1.1");
+        MatrixXd CAG = mC*mA*G;
+        print("     kmeans2");
 
         MatrixXd Data = MatrixXd::Zero(mT.rows(), 3*G.cols());
         for(int i=0; i<mT.rows(); i++){
@@ -445,8 +454,10 @@ public:
             point<<r1,r2,r3;
             Data.row(i) = point;
         }
+        print("     kmeans3");
         MatrixXd Centroids;
         kmeans(Data, clusters, 1000, Centroids, idx);
+        print("     kmeans4");
 
     }
 
@@ -798,7 +809,16 @@ public:
                 r<<v[0]*v[0]*(1-c)+c, v[0]*v[1]*(1-c)-s*v[2], v[0]*v[2]*(1-c) +s*v[1],
                     v[0]*v[1]*(1-c)+s*v[2], v[1]*v[1]*(1-c)+c, v[1]*v[2]*(1-c)-s*v[0],
                     v[0]*v[2]*(1-c)-s*v[1], v[1]*v[2]*(1-c) +s*v[0], v[2]*v[2]*(1-c)+c; 
-
+                
+                mred_u[9*t+0] =r(0,0);
+                mred_u[9*t+1] =r(0,1);
+                mred_u[9*t+2] =r(0,2);
+                mred_u[9*t+3] =r(1,0);
+                mred_u[9*t+4] =r(1,1);
+                mred_u[9*t+5] =r(1,2);
+                mred_u[9*t+6] =r(2,0);
+                mred_u[9*t+7] =r(2,1);
+                mred_u[9*t+8] =r(2,2);
                 for(int j=0; j<4; j++){
                     gu_trips.push_back(Trip(3*j+12*t + 0, 3*j+12*t + 0, r(0,0))); 
                     gu_trips.push_back(Trip(3*j+12*t + 0, 3*j+12*t + 1, r(0,1)));
@@ -933,12 +953,14 @@ public:
     SparseMatrix<double>& B(){ return mFree; }
     SparseMatrix<double>& AB(){ return mConstrained; }
     VectorXd& red_r(){ return mred_r; }
+    VectorXd& red_u(){ return mred_u; }
     VectorXd& red_w(){ return mred_w; }
     VectorXd& eYoungs(){ return melemYoungs; }
     VectorXd& ePoissons(){ return melemPoissons; }
     VectorXd& x0(){ return mx0; }
     VectorXd& red_s(){return mred_s; }
     std::map<int, std::vector<int>>& r_cluster_elem_map(){ return mr_cluster_elem_map; }
+    VectorXi& r_elem_cluster_map(){ return mr_elem_cluster_map; }
     VectorXd& bones(){ return mbones; }
     MatrixXd& sW(){ return msW; }
     std::vector<SparseMatrix<double>>& RotBLOCK(){ return mRotationBLOCK; }
@@ -956,11 +978,6 @@ public:
         return;
     }
 
-
-    VectorXd& xbar(){
-        mdiscx = mGF*mP*mA*mx0;
-        return mdiscx;
-    }
 
     MatrixXd continuousV(){
         VectorXd x = mG*mred_x + mx0;

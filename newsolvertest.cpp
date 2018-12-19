@@ -138,7 +138,7 @@ public:
 	    return fake;
 	}
 
-    double operator()(const VectorXd& x, VectorXd& grad)
+    double operator()(const VectorXd& x, VectorXd& grad, bool computeGrad = true)
     {
   		VectorXd reds = mesh->N()*x + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
 	    for(int i=0; i<reds.size(); i++){
@@ -154,43 +154,44 @@ public:
 
         mesh->setGlobalF(false, true, false);
         arap->minimize(*mesh);
-
         double Eneo = alpha_neo*elas->Energy(*mesh);
         double Earap = alpha_arap*arap->Energy(*mesh);
         double fx = Eneo + Earap;
-        
-        VectorXd pegrad = alpha_neo*mesh->N().transpose()*elas->PEGradient(*mesh);
-        VectorXd arapgrad = alpha_arap*mesh->N().transpose()*arap->Jacobians(*mesh);
-        
-        
-        // VectorXd pegrad = alpha_neo*elas->PEGradient(*mesh);
-        // VectorXd arapgrad = alpha_arap*arap->Jacobians(*mesh);
 
-        // VectorXd fake_arap = Full_ARAP_Grad(*mesh, *arap,*elas, fx, 1e-5);
-        // if ((arapgrad-fake_arap).norm()>0.001){
-        // 	std::cout<<"fake arap issues"<<std::endl;
-        // 	std::cout<<arapgrad.transpose()<<std::endl<<std::endl;
-        // 	std::cout<<fake_arap.transpose()<<std::endl<<std::endl;
-        // 	exit(0);
-        // }
+        if(computeGrad){        
+	        VectorXd pegrad = alpha_neo*mesh->N().transpose()*elas->PEGradient(*mesh);
+	        VectorXd arapgrad = alpha_arap*mesh->N().transpose()*arap->Jacobians(*mesh);
+	        
+	        
+	        // VectorXd pegrad = alpha_neo*elas->PEGradient(*mesh);
+	        // VectorXd arapgrad = alpha_arap*arap->Jacobians(*mesh);
 
-        // VectorXd fake = alpha_neo*WikipediaEnergy_grad(*mesh, *elas, 1e-5);
-        // if ((pegrad-fake_neo).norm()>0.001){
-        // 	std::cout<<"fake physics issues"<<std::endl;
-        // 	std::cout<<x.transpose()<<std::endl;
-        // 	std::cout<<arapgrad.transpose()<<std::endl<<std::endl;
-        // 	std::cout<<fake_neo.transpose()<<std::endl<<std::endl;
-        // 	exit(0);
-        // }
+	        // VectorXd fake_arap = Full_ARAP_Grad(*mesh, *arap,*elas, fx, 1e-5);
+	        // if ((arapgrad-fake_arap).norm()>0.001){
+	        // 	std::cout<<"fake arap issues"<<std::endl;
+	        // 	std::cout<<arapgrad.transpose()<<std::endl<<std::endl;
+	        // 	std::cout<<fake_arap.transpose()<<std::endl<<std::endl;
+	        // 	exit(0);
+	        // }
 
-        for(int i=0; i< x.size(); i++){
-            grad[i] = arapgrad[i];
-        	grad[i] += pegrad[i];
-            // grad[i] = fake[i];
+	        // VectorXd fake = alpha_neo*WikipediaEnergy_grad(*mesh, *elas, 1e-5);
+	        // if ((pegrad-fake_neo).norm()>0.001){
+	        // 	std::cout<<"fake physics issues"<<std::endl;
+	        // 	std::cout<<x.transpose()<<std::endl;
+	        // 	std::cout<<arapgrad.transpose()<<std::endl<<std::endl;
+	        // 	std::cout<<fake_neo.transpose()<<std::endl<<std::endl;
+	        // 	exit(0);
+	        // }
+
+	        for(int i=0; i< x.size(); i++){
+	            grad[i] = arapgrad[i];
+	        	grad[i] += pegrad[i];
+	            // grad[i] = fake[i];
+	        }
+	        	std::cout<<Eneo<<", "<<Earap<<", "<<Eneo+Earap<<", "<<grad.norm()<<std::endl;
+	        // std::cout<<pegrad.head(12).transpose()<<std::endl<<std::endl;
+	        // std::cout<<arapgrad.head(12).transpose()<<std::endl<<std::endl;
         }
-        std::cout<<Eneo<<", "<<Earap<<", "<<Eneo+Earap<<", "<<grad.norm()<<std::endl;
-        // std::cout<<pegrad.head(12).transpose()<<std::endl<<std::endl;
-        // std::cout<<arapgrad.head(12).transpose()<<std::endl<<std::endl;
 
 
         return fx;
@@ -215,7 +216,7 @@ int main()
     
     std::vector<int> fix = getMaxVerts_Axis_Tolerance(V, 1);
     std::sort (fix.begin(), fix.end());
-    std::vector<int> mov = getMinVerts_Axis_Tolerance(V, 1);
+    std::vector<int> mov = {};// getMinVerts_Axis_Tolerance(V, 1);
     std::sort (mov.begin(), mov.end());
     std::vector<int> bones = {};
     // getMaxTets_Axis_Tolerance(bones, V, T, 1, 3);
@@ -226,9 +227,7 @@ int main()
 
     std::cout<<"-----ARAP-----"<<std::endl;
     Arap* arap = new Arap(*mesh);
-    Eigen::RowVector3d mid = 0.5*(V.colwise().maxCoeff() + V.colwise().minCoeff());
-    double anim_t = 0.0;
-	double anim_t_dir = 0.03;
+
 
     std::cout<<"-----Neo-------"<<std::endl;
     Elastic* neo = new Elastic(*mesh);
@@ -241,11 +240,9 @@ int main()
     // param.max_iterations = 1000;
     // param.past = 2;
     // param.m = 5;
-    param.linesearch = LBFGSpp::LBFGS_LINESEARCH_BACKTRACKING_WOLFE;
+    param.linesearch = LBFGSpp::LBFGS_LINESEARCH_BACKTRACKING_ARMIJO;
     LBFGSSolver<double> solver(param);
 
-    // mesh->red_s()[3] = -0.134599;
-    mesh->setGlobalF(false, true, false);
 
 	igl::opengl::glfw::Viewer viewer;
     std::cout<<"-----Display-------"<<std::endl;
@@ -253,19 +250,7 @@ int main()
     {   
         if(viewer.core.is_animating)
         {
-            const double r = mid(1)*0.15;
-            double ymov = r+r*cos(igl::PI+0.15*anim_t*2.*igl::PI);
-          	double zmov = r*sin(0.15*anim_t*2.*igl::PI);
-          	anim_t += anim_t_dir;
-          	VectorXd& dx = mesh->dx();
-          	for(int i=0; i<mov.size(); i++){
-		        dx[3*mov[i]+1] += ymov;
-		        dx[3*mov[i]+2] -= zmov;
-		    }
-		    arap->minimize(*mesh);
-          	//Draw continuous mesh
-	        MatrixXd newV = mesh->continuousV();
-	        viewer.data().set_mesh(newV, F);
+
     	}
         return false;
     };
@@ -285,10 +270,10 @@ int main()
         // //----------------
 
         if(key==' '){
-      		VectorXd& dx = mesh->dx();
-		    for(int i=0; i<mov.size(); i++){
-		        dx[3*mov[i]+1] += 5;
-		    }
+      // 		VectorXd& dx = mesh->dx();
+		    // for(int i=0; i<mov.size(); i++){
+		    //     dx[3*mov[i]+1] += 5;
+		    // }
 
 		    double fx =0;
 		    VectorXd ns = mesh->N().transpose()*mesh->red_s();
@@ -306,6 +291,7 @@ int main()
 	            mesh->red_s()[i] = reds[i];
 	        }
 		    mesh->setGlobalF(false, true, false);
+
 			std::cout<<"new s"<<std::endl;
 			std::cout<<reds.transpose()<<std::endl;
 			std::cout<<"niter "<<niter<<std::endl;
