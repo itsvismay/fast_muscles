@@ -261,8 +261,8 @@ MatrixXd Err(Mesh& mesh, Arap& arap, double E0, double eps){
 	}
 	mesh.setGlobalF(true, false, false);
 	std::cout<<"Err"<<std::endl;
-	// std::cout<<fake<<std::endl;
-	// std::cout<<real<<std::endl;
+	std::cout<<fake<<std::endl;
+	std::cout<<real<<std::endl;
 	std::cout<<(fake- real).norm()<<std::endl;
 	return fake;
 }
@@ -437,6 +437,12 @@ int checkARAP(Mesh& mesh, Arap& arap){
 	double E0 = arap.Energy(mesh);
 	cout<<"E0: "<<E0<<endl;
 	Es(mesh, arap,E0, eps);
+	Er(mesh, arap, E0, eps);
+	Ex(mesh, arap, E0, eps);
+	Exr(mesh, arap, E0, eps);
+	Exs(mesh, arap, E0, eps);
+	Err(mesh, arap, E0, eps);
+	Ers(mesh, arap, E0, eps);
 }
 
 VectorXd WikipediaEnergy_grad(Mesh& mesh, Elastic& elas, double E0, double eps){

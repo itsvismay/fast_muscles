@@ -20,7 +20,7 @@ class Arap
 protected:
 	FullPivLU<MatrixXd>  aARAPKKTSolver;
 	VectorXd aPAx0, aUtPAx0, aEr, aEs, aEx, aDEDs, aFPAx0;
-	MatrixXd aExx, aExr, aErr, aExs, aErs, aPAG, aJacKKT, aJacConstrains, aCG;
+	MatrixXd aExx, aExr, aErr, aExs, aErs, aPAG, aJacKKT, aJacConstrains, aCG, aGtAtPtRU, aTEMP1;
 	SparseMatrix<double> aPA;
 
 	std::vector<vector<Trip>> aDS, aDR, aDDR;
@@ -50,7 +50,8 @@ public:
 		aUtPAx0 = m.GU().transpose()*aPAx0;
 		aPAG = m.P()*m.A()*m.G();
 		aPA = m.P()*m.A();
-
+		aGtAtPtRU = MatrixXd::Zero(m.G().cols(), 12*m.T().rows());// aPAG.transpose()*(m.GR()*m.GU());
+		aTEMP1 = MatrixXd::Zero(12*m.T().rows(), aErs.rows());
 		aCG = MatrixXd(m.AB().transpose())*m.G();
 
 		MatrixXd KKTmat = MatrixXd::Zero(aExx.rows()+aCG.rows(), aExx.rows()+aCG.rows());
@@ -292,21 +293,32 @@ public:
 	}
 
 	VectorXd dEdx(Mesh& m){
-		VectorXd PAx = aPA*(m.G()*m.red_x() + m.x0());;
-		constTimeFPAx0(m);
+		VectorXd PAx = aPA*(m.G()*m.red_x() + m.x0());
+		// constTimeFPAx0(m);
 		VectorXd res = (aPAG).transpose()*(PAx - aFPAx0);
 		return res;
 	}
 
 	VectorXd dEdr(Mesh& m){
 		VectorXd PAg = aPA*(m.G()*m.red_x() + m.x0());
-		VectorXd USUtPAx0 = m.GU()*m.GS()*aUtPAx0;
+		// VectorXd USUtPAx0 = m.GU()*m.GS()*aUtPAx0;
+		VectorXd USUtPAx0 = VectorXd::Zero(12*m.T().rows());
+		VectorXd ms = m.sW()*m.red_s();
+		for(int t =0; t<m.T().rows(); t++){
+			Matrix3d u = Map<Matrix3d>(m.red_u().segment<9>(9*t).data()).transpose();
+			Matrix3d s;
+			s<< ms[6*t + 0], ms[6*t + 3], ms[6*t + 4],
+				ms[6*t + 3], ms[6*t + 1], ms[6*t + 5],
+				ms[6*t + 4], ms[6*t + 5], ms[6*t + 2];
+			for(int j=0; j<4; j++){
+				USUtPAx0.segment<3>(12*t+3*j) = u*s*aUtPAx0.segment<3>(12*t+3*j);
+			}
+		}
 
 		aEr.setZero();
 		for(int i=0; i<aEr.size(); i++){
-			auto v = aDR[i];
-			for(int k=0; k<v.size(); k++){
-				aEr[i] += -1*PAg[v[k].row()]*USUtPAx0[v[k].col()]*v[k].value();
+			for(int k=0; k<aDR[i].size(); k++){
+				aEr[i] += -1*PAg[aDR[i][k].row()]*USUtPAx0[aDR[i][k].col()]*aDR[i][k].value();
 			}
 		}
 		return aEr;
@@ -320,6 +332,7 @@ public:
 		VectorXd PAx = aPA*(m.G()*m.red_x() + m.x0());
 		
 		VectorXd UtRtPAx1 = VectorXd::Zero(12*m.T().rows());
+		VectorXd SUtPAx01 = VectorXd::Zero(12*m.T().rows());
 		for(int t =0; t<m.T().rows(); t++){
 			Matrix3d rt = Map<Matrix3d>(m.red_r().segment<9>(9*m.r_elem_cluster_map()[t]).data());
 			Matrix3d ut = Map<Matrix3d>(m.red_u().segment<9>(9*t).data());
@@ -348,14 +361,25 @@ public:
 	}
 
 	MatrixXd& Exr(Mesh& m){
-		VectorXd USUtPAx0 = m.GU()*m.GS()*aUtPAx0;
-		
+		// VectorXd USUtPAx0 = m.GU()*m.GS()*aUtPAx0;
+		VectorXd ms = m.sW()*m.red_s();
+		VectorXd USUtPAx0 = VectorXd::Zero(12*m.T().rows());
+		for(int t =0; t<m.T().rows(); t++){
+			Matrix3d u = Map<Matrix3d>(m.red_u().segment<9>(9*t).data()).transpose();
+			Matrix3d s;
+			s<< ms[6*t + 0], ms[6*t + 3], ms[6*t + 4],
+				ms[6*t + 3], ms[6*t + 1], ms[6*t + 5],
+				ms[6*t + 4], ms[6*t + 5], ms[6*t + 2];
+			for(int j=0; j<4; j++){
+				USUtPAx0.segment<3>(12*t+3*j) = u*s*aUtPAx0.segment<3>(12*t+3*j);
+			}
+		}
+
 		aExr.setZero();
 		for(int i=0; i<aExr.rows(); i++){
 			for(int j=0; j<aExr.cols(); j++){
-				auto v = aDR[j];
-				for(int k=0; k<v.size(); k++){
-					aExr(i,j) += -1*v[k].value()*(aPAG(v[k].row(), i)*USUtPAx0[v[k].col()]);
+				for(int k=0; k<aDR[j].size(); k++){
+					aExr(i,j) += -1*aDR[j][k].value()*(aPAG(aDR[j][k].row(), i)*USUtPAx0[aDR[j][k].col()]);
 				}
 			}
 		}
@@ -364,14 +388,25 @@ public:
 	}
 
 	MatrixXd& Exs(Mesh& m){
-		MatrixXd GtAtPtRU = aPAG.transpose()*(m.GR()*m.GU());
+	
+		for(int z =0; z<m.G().cols(); z++){
+			for(int t = 0; t<m.T().rows(); t++){
+				Matrix3d r = Map<Matrix3d>(m.red_r().segment<9>(9*m.r_elem_cluster_map()[t]).data()).transpose();
+				Matrix3d u = Map<Matrix3d>(m.red_u().segment<9>(9*t).data()).transpose();
+				
+				for(int j=0; j<4; j++){
+					aGtAtPtRU.row(z).segment<3>(12*t+3*j) = aPAG.col(z).segment<3>(12*t+3*j).transpose()*r*u;
+				}
+
+			}
+		}
+
 
 		aExs.setZero();
-		for(int i=0; i<GtAtPtRU.rows(); i++){
+		for(int i=0; i<aGtAtPtRU.rows(); i++){
 			for(int j=0; j<aExs.cols(); j++){
-				std::vector<Trip> v = aDS[j];
-				for(int k=0; k<v.size(); k++){
-					aExs(i,j) += -1*v[k].value()*(GtAtPtRU(i, v[k].row())*aUtPAx0[v[k].col()]);
+				for(int k=0; k<aDS[j].size(); k++){
+					aExs(i,j) += -1*aDS[j][k].value()*(aGtAtPtRU(i, aDS[j][k].row())*aUtPAx0[aDS[j][k].col()]);
 				}
 			}
 		}
@@ -379,9 +414,21 @@ public:
 	}
 
 	MatrixXd& Err(Mesh& m){	
-		VectorXd USUtPAx0 = m.GU()*m.GS()*aUtPAx0;
+		// VectorXd USUtPAx0 = m.GU()*m.GS()*aUtPAx0;
 		VectorXd PAx = aPA*(m.G()*m.red_x() + m.x0());
+		VectorXd ms = m.sW()*m.red_s();
+		VectorXd USUtPAx0 = VectorXd::Zero(12*m.T().rows());
 
+		for(int t =0; t<m.T().rows(); t++){
+			Matrix3d u = Map<Matrix3d>(m.red_u().segment<9>(9*t).data()).transpose();
+			Matrix3d s;
+			s<< ms[6*t + 0], ms[6*t + 3], ms[6*t + 4],
+				ms[6*t + 3], ms[6*t + 1], ms[6*t + 5],
+				ms[6*t + 4], ms[6*t + 5], ms[6*t + 2];
+			for(int j=0; j<4; j++){
+				USUtPAx0.segment<3>(12*t+3*j) = u*s*aUtPAx0.segment<3>(12*t+3*j);
+			}
+		}
 
 		aErr.setZero();
 		for(int i=0; i<aErr.rows()/3; i++){
@@ -422,24 +469,22 @@ public:
 	}
 
 	MatrixXd& Ers(Mesh& m){
-		VectorXd PAg = aPA*(m.G()*m.red_x() + m.x0());;
+		VectorXd PAg = aPAG*m.red_x() + aPAx0;;
 
-		MatrixXd TEMP1 = MatrixXd::Zero(12*m.T().rows(), aErs.rows());
-		for(int i=0; i<TEMP1.rows(); i++){
-			for(int j=0; j<TEMP1.cols(); j++){
-				auto v = aDR[j];
-				for(int k=0; k<v.size(); k++){
-					TEMP1(i,j) += v[k].value()*(-1*m.GU().coeff(v[k].col(), i)*PAg[v[k].row()]);
+		aTEMP1.setZero();
+		for(int i=0; i<aTEMP1.rows(); i++){
+			for(int j=0; j<aTEMP1.cols(); j++){
+				for(int k=0; k<aDR[j].size(); k++){
+					aTEMP1(i,j) += aDR[j][k].value()*(-1*m.GU().coeff(aDR[j][k].col(), i)*PAg[aDR[j][k].row()]);
 				}
 			}
 		}
 
 		aErs.setZero();
 		for(int i=0; i<aErs.cols(); i++){
-			std::vector<Trip> v = aDS[i];
-			for(int j=0; j<TEMP1.cols(); j++){
-				for(int k=0; k<v.size(); k++){
-					aErs(j, i) += v[k].value()*(aUtPAx0[v[k].row()]*TEMP1(v[k].col(), j));
+			for(int j=0; j<aTEMP1.cols(); j++){
+				for(int k=0; k<aDS[i].size(); k++){
+					aErs(j, i) += aDS[i][k].value()*(aUtPAx0[aDS[i][k].row()]*aTEMP1(aDS[i][k].col(), j));
 				}
 			}
 		}
@@ -620,10 +665,10 @@ public:
 		m.red_x(gu);
 	}
 
-	void itR(Mesh& m){
-		VectorXd PAx = aPA*(m.G()*m.red_x() + m.x0());
-		VectorXd USUtPAx0 = m.GU()*m.GS()*aUtPAx0;
+	void itR(Mesh& m, VectorXd& USUtPAx0){
+		VectorXd PAx = aPAG*m.red_x() + aPAx0;
 		VectorXd& mr =m.red_r();
+		// VectorXd USUtPAx0 = m.GU()*m.GS()*aUtPAx0;
 		
 		std::map<int, std::vector<int>>& c_e_map = m.r_cluster_elem_map();
 		for (int i=0; i<mr.size()/9; i++){
@@ -640,11 +685,7 @@ public:
 				eUSUtPAx0.row(4*c+1) = USUtPAx0.segment<3>(12*cluster_elem[c]+3);
 				eUSUtPAx0.row(4*c+2) = USUtPAx0.segment<3>(12*cluster_elem[c]+6);
 				eUSUtPAx0.row(4*c+3) = USUtPAx0.segment<3>(12*cluster_elem[c]+9);
-				
-				// eUSUtPAx0.row(4*c+0) = aUSUtPAx_E[i].segment<3>(12*c+0);
-				// eUSUtPAx0.row(4*c+1) = aUSUtPAx_E[i].segment<3>(12*c+3);
-				// eUSUtPAx0.row(4*c+2) = aUSUtPAx_E[i].segment<3>(12*c+6);
-				// eUSUtPAx0.row(4*c+3) = aUSUtPAx_E[i].segment<3>(12*c+9);
+
 			}
 
 
@@ -666,13 +707,25 @@ public:
 
 	void minimize(Mesh& m){
 		// print("		+ ARAP minimize");
+		VectorXd ms = m.sW()*m.red_s();
+		VectorXd USUtPAx0 = VectorXd::Zero(12*m.T().rows());
+		for(int t =0; t<m.T().rows(); t++){
+			Matrix3d u = Map<Matrix3d>(m.red_u().segment<9>(9*t).data()).transpose();
+			Matrix3d s;
+			s<< ms[6*t + 0], ms[6*t + 3], ms[6*t + 4],
+				ms[6*t + 3], ms[6*t + 1], ms[6*t + 5],
+				ms[6*t + 4], ms[6*t + 5], ms[6*t + 2];
+			for(int j=0; j<4; j++){
+				USUtPAx0.segment<3>(12*t+3*j) = u*s*aUtPAx0.segment<3>(12*t+3*j);
+			}
+		}
 
 		VectorXd Ex0 = dEdx(m);
 		for(int i=0; i< 100; i++){
 			itT(m);
-			itR(m);
+			itR(m, USUtPAx0);
 			constTimeFPAx0(m);
-			m.setGlobalF(true, false, false);
+			// m.setGlobalF(true, false, false);
 
 			VectorXd Ex = dEdx(m);
 		

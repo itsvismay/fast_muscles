@@ -206,7 +206,6 @@ public:
             //unreduced
             nrc = mT.rows();
         }
-        print("here1");
 
         mr_elem_cluster_map.resize(mT.rows());
         if(nrc==mT.rows()){
@@ -215,15 +214,13 @@ public:
                 mr_elem_cluster_map[i] = i;
             }   
         }else{
-            print("before kmeans");
             kmeans_rotation_clustering(mr_elem_cluster_map, nrc); //output from kmeans_rotation_clustering
         }
-        print("after kmenas");
 
         for(int i=0; i<mT.rows(); i++){
             mr_cluster_elem_map[mr_elem_cluster_map[i]].push_back(i);
         }
-        print("here3");
+
         mred_r.resize(9*nrc);
         for(int i=0; i<nrc; i++){
             mred_r[9*i+0] = 1;
