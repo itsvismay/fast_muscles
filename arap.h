@@ -361,25 +361,44 @@ public:
 	}
 
 	MatrixXd& Exr(Mesh& m){
-		// VectorXd USUtPAx0 = m.GU()*m.GS()*aUtPAx0;
+		Matrix3d Jx = cross_prod_mat(1,0,0);
+		Matrix3d Jy = cross_prod_mat(0,1,0);
+		Matrix3d Jz = cross_prod_mat(0,0,1);
+
 		VectorXd ms = m.sW()*m.red_s();
-		VectorXd USUtPAx0 = VectorXd::Zero(12*m.T().rows());
-		for(int t =0; t<m.T().rows(); t++){
+		VectorXd& mred_r = m.red_r();
+		for(int t=0; t<m.T().rows(); t++){
+			//Tet
 			Matrix3d u = Map<Matrix3d>(m.red_u().segment<9>(9*t).data()).transpose();
 			Matrix3d s;
 			s<< ms[6*t + 0], ms[6*t + 3], ms[6*t + 4],
 				ms[6*t + 3], ms[6*t + 1], ms[6*t + 5],
 				ms[6*t + 4], ms[6*t + 5], ms[6*t + 2];
-			for(int j=0; j<4; j++){
-				USUtPAx0.segment<3>(12*t+3*j) = u*s*aUtPAx0.segment<3>(12*t+3*j);
-			}
-		}
+			
+			Matrix3d R0; 
+			R0<< mred_r[9*t+0], mred_r[9*t+1], mred_r[9*t+2],
+				mred_r[9*t+3], mred_r[9*t+4], mred_r[9*t+5],
+				mred_r[9*t+6], mred_r[9*t+7], mred_r[9*t+8];
+			Matrix3d r1 = R0*Jx;
+			Matrix3d r2 = R0*Jy;
+			Matrix3d r3 = R0*Jz;
 
-		aExr.setZero();
-		for(int i=0; i<aExr.rows(); i++){
-			for(int j=0; j<aExr.cols(); j++){
-				for(int k=0; k<aDR[j].size(); k++){
-					aExr(i,j) += -1*aDR[j][k].value()*(aPAG(aDR[j][k].row(), i)*USUtPAx0[aDR[j][k].col()]);
+			for(int e=0; e<4; e++){
+				//Vert on tet
+				for(int a =0; a<3; a++){
+					Matrix3d p1 = -1*aPAG.col(3*m.T().row(t)[e]+a).segment<3>(12*t+0)*(u*s*aUtPAx0.segment<3>(12*t+0)).transpose();
+					Matrix3d p2 = -1*aPAG.col(3*m.T().row(t)[e]+a).segment<3>(12*t+3)*(u*s*aUtPAx0.segment<3>(12*t+3)).transpose();
+					Matrix3d p3 = -1*aPAG.col(3*m.T().row(t)[e]+a).segment<3>(12*t+6)*(u*s*aUtPAx0.segment<3>(12*t+6)).transpose();
+					Matrix3d p4 = -1*aPAG.col(3*m.T().row(t)[e]+a).segment<3>(12*t+9)*(u*s*aUtPAx0.segment<3>(12*t+9)).transpose();
+					
+
+					double Exar1 = p1.cwiseProduct(r1).sum() + p2.cwiseProduct(r1).sum() + p3.cwiseProduct(r1).sum() + p4.cwiseProduct(r1).sum();
+					double Exar2 = p1.cwiseProduct(r2).sum() + p2.cwiseProduct(r2).sum() + p3.cwiseProduct(r2).sum() + p4.cwiseProduct(r2).sum();
+					double Exar3 = p1.cwiseProduct(r3).sum() + p2.cwiseProduct(r3).sum() + p3.cwiseProduct(r3).sum() + p4.cwiseProduct(r3).sum();
+
+					aExr.row(3*m.T().row(t)[e]+a)[3*t+0] = Exar1;
+					aExr.row(3*m.T().row(t)[e]+a)[3*t+1] = Exar2;
+					aExr.row(3*m.T().row(t)[e]+a)[3*t+2] = Exar3;
 				}
 			}
 		}
@@ -387,26 +406,61 @@ public:
 		return aExr;
 	}
 
+	void Exr_max(Mesh& m, MatrixXd& Exrm){
+		// VectorXd USUtPAx0 = m.GU()*m.GS()*aUtPAx0;
+		// VectorXd ms = m.sW()*m.red_s();
+		// VectorXd USUtPAx0 = VectorXd::Zero(12*m.T().rows());
+		// for(int t =0; t<m.T().rows(); t++){
+		// 	Matrix3d u = Map<Matrix3d>(m.red_u().segment<9>(9*t).data()).transpose();
+		// 	Matrix3d s;
+		// 	s<< ms[6*t + 0], ms[6*t + 3], ms[6*t + 4],
+		// 		ms[6*t + 3], ms[6*t + 1], ms[6*t + 5],
+		// 		ms[6*t + 4], ms[6*t + 5], ms[6*t + 2];
+		// 	for(int j=0; j<4; j++){
+		// 		USUtPAx0.segment<3>(12*t+3*j) = u*s*aUtPAx0.segment<3>(12*t+3*j);
+		// 	}
+		// }
+
+		// for(int i=0; i<Exrm.rows(); i++){
+		// 	for(int j=0; j<Exrm.cols(); j++){
+		// 		for(int k=0; k<aDR[j].size(); k++){
+		// 			Exrm(i,j) += -1*aDR[j][k].value()*(aPAG(aDR[j][k].row(), i)*USUtPAx0[aDR[j][k].col()]);
+		// 		}
+		// 	}
+		// }
+	}
+
 	MatrixXd& Exs(Mesh& m){
-	
-		for(int z =0; z<m.G().cols(); z++){
-			for(int t = 0; t<m.T().rows(); t++){
-				Matrix3d r = Map<Matrix3d>(m.red_r().segment<9>(9*m.r_elem_cluster_map()[t]).data()).transpose();
-				Matrix3d u = Map<Matrix3d>(m.red_u().segment<9>(9*t).data()).transpose();
-				
-				for(int j=0; j<4; j++){
-					aGtAtPtRU.row(z).segment<3>(12*t+3*j) = aPAG.col(z).segment<3>(12*t+3*j).transpose()*r*u;
-				}
 
-			}
-		}
+		for(int t =0; t<m.T().rows(); t++){
+			//Tet
+			Matrix3d r = Map<Matrix3d>(m.red_r().segment<9>(9*m.r_elem_cluster_map()[t]).data()).transpose();
+			Matrix3d u = Map<Matrix3d>(m.red_u().segment<9>(9*t).data()).transpose();
+			for(int e=0; e<4; e++){
+				//Vert on tet
+				for(int a=0; a<3; a++){
+					//x, y, or z axis
+					Vector3d GtAtPtRU_row1 = -1*aPAG.col(3*m.T().row(t)[e]+a).segment<3>(12*t+0).transpose()*r*u;
+					Vector3d GtAtPtRU_row2 = -1*aPAG.col(3*m.T().row(t)[e]+a).segment<3>(12*t+3).transpose()*r*u;
+					Vector3d GtAtPtRU_row3 = -1*aPAG.col(3*m.T().row(t)[e]+a).segment<3>(12*t+6).transpose()*r*u;
+					Vector3d GtAtPtRU_row4 = -1*aPAG.col(3*m.T().row(t)[e]+a).segment<3>(12*t+9).transpose()*r*u;
+					Matrix3d p1 = GtAtPtRU_row1*aUtPAx0.segment<3>(12*t+0).transpose();
+					Matrix3d p2 = GtAtPtRU_row2*aUtPAx0.segment<3>(12*t+3).transpose();
+					Matrix3d p3 = GtAtPtRU_row3*aUtPAx0.segment<3>(12*t+6).transpose();
+					Matrix3d p4 = GtAtPtRU_row4*aUtPAx0.segment<3>(12*t+9).transpose();
 
-
-		aExs.setZero();
-		for(int i=0; i<aGtAtPtRU.rows(); i++){
-			for(int j=0; j<aExs.cols(); j++){
-				for(int k=0; k<aDS[j].size(); k++){
-					aExs(i,j) += -1*aDS[j][k].value()*(aGtAtPtRU(i, aDS[j][k].row())*aUtPAx0[aDS[j][k].col()]);
+					double Exas1 = p1(0,0) + p2(0,0) + p3(0,0) + p4(0,0);
+					double Exas2 = p1(1,1) + p2(1,1) + p3(1,1) + p4(1,1);
+					double Exas3 = p1(2,2) + p2(2,2) + p3(2,2) + p4(2,2);
+					double Exas4 = p1(0,1) + p2(0,1) + p3(0,1) + p4(0,1)+ p1(1,0) + p2(1,0) + p3(1,0) + p4(1,0);
+					double Exas5 = p1(0,2) + p2(0,2) + p3(0,2) + p4(0,2)+ p1(2,0) + p2(2,0) + p3(2,0) + p4(2,0);
+					double Exas6 = p1(2,1) + p2(2,1) + p3(2,1) + p4(2,1)+ p1(1,2) + p2(1,2) + p3(1,2) + p4(1,2);
+					aExs.row(3*m.T().row(t)[e]+a)[6*t+0] = Exas1;
+					aExs.row(3*m.T().row(t)[e]+a)[6*t+1] = Exas2;
+					aExs.row(3*m.T().row(t)[e]+a)[6*t+2] = Exas3;
+					aExs.row(3*m.T().row(t)[e]+a)[6*t+3] = Exas4;
+					aExs.row(3*m.T().row(t)[e]+a)[6*t+4] = Exas5;
+					aExs.row(3*m.T().row(t)[e]+a)[6*t+5] = Exas6;
 				}
 			}
 		}

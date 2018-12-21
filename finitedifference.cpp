@@ -235,7 +235,8 @@ MatrixXd Exs(Mesh& mesh, Arap& arap, double E0, double eps){
 	}
 	mesh.setGlobalF(false, true, false);
 	std::cout<<"Exs"<<std::endl;
-	// std::cout<<real<<std::endl;
+	std::cout<<real<<std::endl;
+	std::cout<<fake<<std::endl;
 	std::cout<<(fake- real).norm()<<std::endl;
 	return fake;
 }
@@ -436,13 +437,13 @@ int checkARAP(Mesh& mesh, Arap& arap){
 	double eps = j_input["fd_eps"];
 	double E0 = arap.Energy(mesh);
 	cout<<"E0: "<<E0<<endl;
-	Es(mesh, arap,E0, eps);
-	Er(mesh, arap, E0, eps);
-	Ex(mesh, arap, E0, eps);
-	Exr(mesh, arap, E0, eps);
+	// Es(mesh, arap,E0, eps);
+	// Er(mesh, arap, E0, eps);
+	// Ex(mesh, arap, E0, eps);
+	// Exr(mesh, arap, E0, eps);
 	Exs(mesh, arap, E0, eps);
-	Err(mesh, arap, E0, eps);
-	Ers(mesh, arap, E0, eps);
+	// Err(mesh, arap, E0, eps);
+	// Ers(mesh, arap, E0, eps);
 }
 
 VectorXd WikipediaEnergy_grad(Mesh& mesh, Elastic& elas, double E0, double eps){
@@ -545,8 +546,13 @@ int main(int argc, char *argv[]){
    	// 	mesh->red_s()[6*i+1] -= 0.1;
    	// // cout<<mesh->red_s().transpose()<<endl;
     // mesh->setGlobalF(false, true, false);
-
-    checkARAP(*mesh, *arap);
+    MatrixXd Exr1 = arap->Exr(*mesh);
+    MatrixXd Exr2 = MatrixXd::Zero(mesh->red_x().size(), mesh->red_w().size());
+    arap->Exr_max(*mesh, Exr2);
+    // cout<<Exr2<<endl<<endl;
+    // cout<<Exr1<<endl<<endl;
+    // cout<<Exr1 - Exr2<<endl;
+    // checkARAP(*mesh, *arap);
 
     // checkElastic(*mesh, *neo);
 

@@ -20,6 +20,7 @@ private:
     Elastic* elas;
     double alpha_neo =1;
     double alpha_arap = 1; 
+    
 
 public:
     using typename cppoptlib::BoundedProblem<T>::Scalar;

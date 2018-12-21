@@ -7,10 +7,11 @@ set(SPECTRA_DIR "/home/vismay/recode/spectra-0.6.2/include")
 set(SUITESPARSE_HINT "/home/vismay/recode/SuiteSparse")
 set(BFGSB_SRC_DIR "/home/vismay/recode/CppNumericalSolvers/include")
 set(NEW_BFGSB_SRC_DIR "/home/vismay/recode/LBFGSpp/include")
+set(CMAKE_CXX_FLAGS "-O3")
 
 
 # libigl
-option(LIBIGL_USE_STATIC_LIBRARY "Use libigl as static library" OFF)
+option(LIBIGL_USE_STATIC_LIBRARY "Use libigl as static library" ON)
 option(LIBIGL_WITH_ANTTWEAKBAR      "Use AntTweakBar"    OFF)
 option(LIBIGL_WITH_CGAL             "Use CGAL"           OFF)
 option(LIBIGL_WITH_COMISO           "Use CoMiso"         OFF)
@@ -49,6 +50,6 @@ add_executable(${PROJECT_NAME} "main.cpp" ${HEADFILES} ${SRCFILES} ${EXTERNALS})
 add_executable(fd "finitedifference.cpp" ${HEADFILES} ${SRCFILES} ${EXTERNALS})
 add_executable(ns "newsolvertest.cpp" ${HEADFILES} ${SRCFILES} ${EXTERNALS})
 target_link_libraries(${PROJECT_NAME} -lglfw igl::core igl::opengl igl::opengl_glfw -fopenmp ${OpenCV_LIBS})
-target_link_libraries(fd -lglfw igl::core igl::opengl igl::opengl_glfw -fopenmp ${OpenCV_LIBS})
+target_link_libraries(fd -lglfw igl::core igl::opengl igl::opengl_glfw -fopenmp  ${OpenCV_LIBS})
 target_link_libraries(ns -lglfw igl::core igl::opengl igl::opengl_glfw -fopenmp ${OpenCV_LIBS})
  
