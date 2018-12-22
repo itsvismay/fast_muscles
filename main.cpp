@@ -11,7 +11,6 @@
 #include "mesh.h"
 #include "arap.h"
 #include "elastic.h"
-#include "solver.h"
 
 
 using json = nlohmann::json;
