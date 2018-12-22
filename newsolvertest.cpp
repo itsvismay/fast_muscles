@@ -145,13 +145,6 @@ public:
 	        mesh->red_s()[i] = reds[i];
 	    }
 
-        // for(int i=0; i<x.size(); i++){
-        //     mesh->red_s()[i] = x[i];
-        // }
-        // std::cout<<"updated s"<<std::endl;
-        // std::cout<<x.transpose()<<std::endl;
-
-
         mesh->setGlobalF(false, true, false);
         arap->minimize(*mesh);
         double Eneo = alpha_neo*elas->Energy(*mesh);
@@ -161,7 +154,6 @@ public:
         if(computeGrad){        
 	        VectorXd pegrad = alpha_neo*mesh->N().transpose()*elas->PEGradient(*mesh);
 	        VectorXd arapgrad = alpha_arap*mesh->N().transpose()*arap->Jacobians(*mesh);
-	        
 	        
 	        // VectorXd pegrad = alpha_neo*elas->PEGradient(*mesh);
 	        // VectorXd arapgrad = alpha_arap*arap->Jacobians(*mesh);
@@ -277,8 +269,6 @@ int main()
             for(int i=0; i<mesh->red_s().size()/6; i++){
                 mesh->red_s()[6*i+1] += 0.1;
             }
-            cout<<mesh->red_s()<<endl;
-            mesh->setGlobalF(false, true, false);
             arap->minimize(*mesh);
 		    // double fx =0;
 		    // VectorXd ns = mesh->N().transpose()*mesh->red_s();
