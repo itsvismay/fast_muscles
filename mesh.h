@@ -33,11 +33,12 @@ protected:
     MatrixXi mT, discT;
 
     //Used in the sim
-    SparseMatrix<double> mMass, mGF, mGR, mGS, mGU, mP, mC, m_P;
+    SparseMatrix<double> mMass, mGF, mGR, mGS, mGU, mP, mC, m_P, mPA;
     SparseMatrix<double> mA, mFree, mConstrained, mN, mAN;
 
     VectorXi melemType, mr_elem_cluster_map, ms_handles_ind;
-    VectorXd mcontx, mx, mx0, mred_s, melemYoungs, melemPoissons, mred_u, mred_r, mred_x, mred_w;
+    VectorXd mcontx, mx, mx0, mred_s, melemYoungs, 
+    melemPoissons, mred_u, mred_r, mred_x, mred_w, mPAx0, mFPAx;
     MatrixXd mR, mG, msW, mUvecs;
     VectorXd mmass_diag, mbones;
 
@@ -104,25 +105,31 @@ public:
 
         mred_u.resize(9*mT.rows());
         mUvecs.resize(mT.rows(), 3);
-        mred_x.resize(mG.cols());
+        if(mG.cols()==0){
+            mred_x.resize(3*mV.rows());
+        }else{
+            mred_x.resize(mG.cols());
+        }
         mred_x.setZero();
-        
 
         mGR.resize(12*mT.rows(), 12*mT.rows());
         mGU.resize(12*mT.rows(), 12*mT.rows());
         mGS.resize(12*mT.rows(), 12*mT.rows());
+
         print("step 14");
         setGlobalF(true, true, true);
         print("step 15");
         setN();
         print("step 16");
+        mPA = mP*mA;
+        mPAx0 = mPA*mx0;
+        mFPAx.resize(mPAx0.size());
 
     }
 
     void setupModes(int nummodes){
         if(nummodes==0){
-            //For now, no modes, just use G = Id
-            mG = MatrixXd::Identity(3*mV.rows(), 3*mV.rows());
+            //For now, no modes, just dont use G
             return;
         }
 
@@ -214,7 +221,14 @@ public:
                 mr_elem_cluster_map[i] = i;
             }   
         }else{
-            kmeans_rotation_clustering(mr_elem_cluster_map, nrc); //output from kmeans_rotation_clustering
+
+            if(3*mV.rows()==mred_x.size()){
+                print("Continuous mesh is unreduced. Kmeans won't work.");
+                exit(0);
+            }else{
+                kmeans_rotation_clustering(mr_elem_cluster_map, nrc); //output from kmeans_rotation_clustering
+            }
+
         }
 
         for(int i=0; i<mT.rows(); i++){
@@ -235,51 +249,49 @@ public:
         }
         mred_w.resize(3*nrc);
         mred_w.setZero();
-        print("here 4");
 
-        for(int c=0; c<nrc; c++){
-            vector<int> notfix = mr_cluster_elem_map[c];
-            // SparseMatrix<double> bo(mT.rows(), notfix.size());
-            // bo.setZero();
-            vector<Trip> bo_trip;
-            bo_trip.reserve(notfix.size());
+        // for(int c=0; c<nrc; c++){
+        //     vector<int> notfix = mr_cluster_elem_map[c];
+        //     // SparseMatrix<double> bo(mT.rows(), notfix.size());
+        //     // bo.setZero();
+        //     vector<Trip> bo_trip;
+        //     bo_trip.reserve(notfix.size());
 
-            int i = 0;
-            int f = 0;
-            for(int j =0; j<notfix.size(); j++){
-                if (i==notfix[f]){
-                    bo_trip.push_back(Trip(i, j, 1));
-                    f++;
-                    i++;
-                    continue;
-                }
-                j--;
-                i++;
-            }
+        //     int i = 0;
+        //     int f = 0;
+        //     for(int j =0; j<notfix.size(); j++){
+        //         if (i==notfix[f]){
+        //             bo_trip.push_back(Trip(i, j, 1));
+        //             f++;
+        //             i++;
+        //             continue;
+        //         }
+        //         j--;
+        //         i++;
+        //     }
 
             
-            vector<Trip> b_trip;
-            b_trip.reserve(bo_trip.size());  
-            for(int k =0; k<bo_trip.size(); k++){
-                b_trip.push_back(Trip(12*bo_trip[k].row()+0, 12*bo_trip[k].col()+0, bo_trip[k].value()));
-                b_trip.push_back(Trip(12*bo_trip[k].row()+1, 12*bo_trip[k].col()+1, bo_trip[k].value()));
-                b_trip.push_back(Trip(12*bo_trip[k].row()+2, 12*bo_trip[k].col()+2, bo_trip[k].value()));
-                b_trip.push_back(Trip(12*bo_trip[k].row()+3, 12*bo_trip[k].col()+3, bo_trip[k].value()));
-                b_trip.push_back(Trip(12*bo_trip[k].row()+4, 12*bo_trip[k].col()+4, bo_trip[k].value()));
-                b_trip.push_back(Trip(12*bo_trip[k].row()+5, 12*bo_trip[k].col()+5, bo_trip[k].value()));
-                b_trip.push_back(Trip(12*bo_trip[k].row()+6, 12*bo_trip[k].col()+6, bo_trip[k].value()));
-                b_trip.push_back(Trip(12*bo_trip[k].row()+7, 12*bo_trip[k].col()+7, bo_trip[k].value()));
-                b_trip.push_back(Trip(12*bo_trip[k].row()+8, 12*bo_trip[k].col()+8, bo_trip[k].value()));
-                b_trip.push_back(Trip(12*bo_trip[k].row()+9, 12*bo_trip[k].col()+9, bo_trip[k].value()));
-                b_trip.push_back(Trip(12*bo_trip[k].row()+10, 12*bo_trip[k].col()+10, bo_trip[k].value()));
-                b_trip.push_back(Trip(12*bo_trip[k].row()+11, 12*bo_trip[k].col()+11, bo_trip[k].value()));
-            }
+        //     vector<Trip> b_trip;
+        //     b_trip.reserve(bo_trip.size());  
+        //     for(int k =0; k<bo_trip.size(); k++){
+        //         b_trip.push_back(Trip(12*bo_trip[k].row()+0, 12*bo_trip[k].col()+0, bo_trip[k].value()));
+        //         b_trip.push_back(Trip(12*bo_trip[k].row()+1, 12*bo_trip[k].col()+1, bo_trip[k].value()));
+        //         b_trip.push_back(Trip(12*bo_trip[k].row()+2, 12*bo_trip[k].col()+2, bo_trip[k].value()));
+        //         b_trip.push_back(Trip(12*bo_trip[k].row()+3, 12*bo_trip[k].col()+3, bo_trip[k].value()));
+        //         b_trip.push_back(Trip(12*bo_trip[k].row()+4, 12*bo_trip[k].col()+4, bo_trip[k].value()));
+        //         b_trip.push_back(Trip(12*bo_trip[k].row()+5, 12*bo_trip[k].col()+5, bo_trip[k].value()));
+        //         b_trip.push_back(Trip(12*bo_trip[k].row()+6, 12*bo_trip[k].col()+6, bo_trip[k].value()));
+        //         b_trip.push_back(Trip(12*bo_trip[k].row()+7, 12*bo_trip[k].col()+7, bo_trip[k].value()));
+        //         b_trip.push_back(Trip(12*bo_trip[k].row()+8, 12*bo_trip[k].col()+8, bo_trip[k].value()));
+        //         b_trip.push_back(Trip(12*bo_trip[k].row()+9, 12*bo_trip[k].col()+9, bo_trip[k].value()));
+        //         b_trip.push_back(Trip(12*bo_trip[k].row()+10, 12*bo_trip[k].col()+10, bo_trip[k].value()));
+        //         b_trip.push_back(Trip(12*bo_trip[k].row()+11, 12*bo_trip[k].col()+11, bo_trip[k].value()));
+        //     }
 
-            SparseMatrix<double> b(12*mT.rows(), 12*notfix.size());
-            b.setFromTriplets(b_trip.begin(), b_trip.end());
-            mRotationBLOCK.push_back(b);
-            
-        }
+        //     SparseMatrix<double> b(12*mT.rows(), 12*notfix.size());
+        //     b.setFromTriplets(b_trip.begin(), b_trip.end());
+        //     mRotationBLOCK.push_back(b);
+        // }
         print("- Rotation Clusters");
     }
 
@@ -300,9 +312,7 @@ public:
         }
    
         if(nsh==mT.rows()){
-            msW.resize(6*mT.rows(), 6*mT.rows());
-            msW.setIdentity();
-            print("- Skinning Handles");
+            print("- Unreduced Skinning Handles");
             return;
         }
 
@@ -785,6 +795,24 @@ public:
         }
     }
 
+    void constTimeFPAx0(VectorXd& iFPAx0){
+        iFPAx0.setZero();
+        for(int i=0; i<mT.rows(); i++){
+            Matrix3d r = Map<Matrix3d>(mred_r.segment<9>(9*mr_elem_cluster_map[i]).data()).transpose();
+            Matrix3d u = Map<Matrix3d>(mred_u.segment<9>(9*i).data()).transpose();
+            Matrix3d s;
+            s<< mred_s[6*i + 0], mred_s[6*i + 3], mred_s[6*i + 4],
+                mred_s[6*i + 3], mred_s[6*i + 1], mred_s[6*i + 5],
+                mred_s[6*i + 4], mred_s[6*i + 5], mred_s[6*i + 2];
+
+            Matrix3d rusut = r*u*s*u.transpose();
+            iFPAx0.segment<3>(12*i+0) = rusut*mPAx0.segment<3>(12*i+0);
+            iFPAx0.segment<3>(12*i+3) = rusut*mPAx0.segment<3>(12*i+3);
+            iFPAx0.segment<3>(12*i+6) = rusut*mPAx0.segment<3>(12*i+6);
+            iFPAx0.segment<3>(12*i+9) = rusut*mPAx0.segment<3>(12*i+9);
+        }
+    }
+
     void setGlobalF(bool updateR, bool updateS, bool updateU){
         if(updateU){
             mGU.setZero();
@@ -894,7 +922,13 @@ public:
             vector<Trip> gs_trips;
             gs_trips.reserve(9*4*mT.rows());
 
-            VectorXd ms = msW*mred_s;
+            VectorXd ms;
+            if(6*mT.rows()==mred_s.size()){
+                ms = mred_s;
+            }else{
+                ms = msW*mred_s;
+            }
+
             //iterate through skinning handles
             for(int t = 0; t<mT.rows(); t++){
                 for(int j = 0; j<4; j++){
@@ -959,7 +993,13 @@ public:
     std::map<int, std::vector<int>>& r_cluster_elem_map(){ return mr_cluster_elem_map; }
     VectorXi& r_elem_cluster_map(){ return mr_elem_cluster_map; }
     VectorXd& bones(){ return mbones; }
-    MatrixXd& sW(){ return msW; }
+    MatrixXd& sW(){ 
+        if(mred_s.size()== 6*mT.rows()){
+            print("skinning is unreduced, don't call this function");
+            exit(0);
+        }
+        return msW; 
+    }
     std::vector<SparseMatrix<double>>& RotBLOCK(){ return mRotationBLOCK; }
 
     VectorXd& dx(){ return mx;}
@@ -977,7 +1017,13 @@ public:
 
 
     MatrixXd continuousV(){
-        VectorXd x = mG*mred_x + mx0;
+        VectorXd x;
+        if(3*mV.rows()==mred_x.size()){
+            x = mred_x + mx0;
+        }else{
+            x = mG*mred_x + mx0;
+        }
+
         Eigen::Map<Eigen::MatrixXd> newV(x.data(), mV.cols(), mV.rows());
         return newV.transpose();
     }
@@ -985,10 +1031,35 @@ public:
     MatrixXi& discontinuousT(){ return discT; }
 
     MatrixXd& discontinuousV(){
-        VectorXd x = mG*mred_x + mx0;
-        VectorXd dx = mGF*m_P*mA*x;
+        VectorXd x;
+        VectorXd ms;
+        if(3*mV.rows()==mred_x.size()){
+            x = mred_x+mx0;
+            ms = mred_s;
+        }else{
+            x = mG*mred_x + mx0;
+            ms = msW*mred_s;
+        }
+
+        VectorXd PAx = mPA*x;
+        mFPAx.setZero();
+        for(int i=0; i<mT.rows(); i++){
+            Matrix3d r = Map<Matrix3d>(mred_r.segment<9>(9*mr_elem_cluster_map[i]).data()).transpose();
+            Matrix3d u = Map<Matrix3d>(mred_u.segment<9>(9*i).data()).transpose();
+            Matrix3d s;
+            s<< ms[6*i + 0], ms[6*i + 3], ms[6*i + 4],
+                ms[6*i + 3], ms[6*i + 1], ms[6*i + 5],
+                ms[6*i + 4], ms[6*i + 5], ms[6*i + 2];
+
+            Matrix3d rusut = r*u*s*u.transpose();
+            mFPAx.segment<3>(12*i+0) = rusut*PAx.segment<3>(12*i+0);
+            mFPAx.segment<3>(12*i+3) = rusut*PAx.segment<3>(12*i+3);
+            mFPAx.segment<3>(12*i+6) = rusut*PAx.segment<3>(12*i+6);
+            mFPAx.segment<3>(12*i+9) = rusut*PAx.segment<3>(12*i+9);
+        }
+
         VectorXd CAx = mC*mA*x;
-        VectorXd newx = dx + CAx;
+        VectorXd newx = mFPAx + CAx;
 
         for(int t =0; t<mT.rows(); t++){
             discV(4*t+0, 0) = newx[12*t+0];
@@ -1004,6 +1075,7 @@ public:
             discV(4*t+3, 1) = newx[12*t+10];
             discV(4*t+3, 2) = newx[12*t+11];
         }
+
         return discV;
     }
 

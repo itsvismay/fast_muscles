@@ -208,7 +208,7 @@ int main()
     
     std::vector<int> fix = getMaxVerts_Axis_Tolerance(V, 1);
     std::sort (fix.begin(), fix.end());
-    std::vector<int> mov ={};// getMinVerts_Axis_Tolerance(V, 1);
+    std::vector<int> mov = getMinVerts_Axis_Tolerance(V, 1);
     std::sort (mov.begin(), mov.end());
     std::vector<int> bones = {};
     // getMaxTets_Axis_Tolerance(bones, V, T, 1, 3);
@@ -262,14 +262,20 @@ int main()
         // //----------------
 
         if(key==' '){
-      // 		VectorXd& dx = mesh->dx();
-		    // for(int i=0; i<mov.size(); i++){
-		    //     dx[3*mov[i]+1] -= 3;
-		    // }
-            for(int i=0; i<mesh->red_s().size()/6; i++){
-                mesh->red_s()[6*i+1] += 0.1;
-            }
+      		VectorXd& dx = mesh->dx();
+		    for(int i=0; i<mov.size(); i++){
+		        dx[3*mov[i]+1] -= 3;
+		    }
+            // for(int i=0; i<mesh->red_s().size()/6; i++){
+            //     mesh->red_s()[6*i+1] += 0.1;
+            // }
             arap->minimize(*mesh);
+            cout<<"dx"<<endl;
+            cout<<dx.transpose()<<endl;
+            cout<<"rot"<<endl;
+            cout<<mesh->red_r().transpose()<<endl;
+            cout<<"x"<<endl;
+            cout<<mesh->red_x().transpose()<<endl;
 		    // double fx =0;
 		    // VectorXd ns = mesh->N().transpose()*mesh->red_s();
 		    // cout<<"NS"<<endl;
@@ -298,16 +304,17 @@ int main()
         
         //Draw disc mesh
         std::cout<<std::endl;
-        MatrixXd discV = mesh->discontinuousV();
-        MatrixXi discT = mesh->discontinuousT();
+        MatrixXd& discV = mesh->discontinuousV();
+        MatrixXi& discT = mesh->discontinuousT();
         for(int i=0; i<discT.rows(); i++){
             Vector4i e = discT.row(i);
             // std::cout<<discT.row(i)<<std::endl<<std::endl;
             // std::cout<<discV(Eigen::placeholders::all, discT.row(i))<<std::endl;
-            MatrixXd p0 = discV.row(e[0]);
-            MatrixXd p1 = discV.row(e[1]);
-            MatrixXd p2 = discV.row(e[2]);
-            MatrixXd p3 = discV.row(e[3]);
+            Matrix<double, 1,3> p0 = discV.row(e[0]);
+            Matrix<double, 1,3> p1 = discV.row(e[1]);
+            Matrix<double, 1,3> p2 = discV.row(e[2]);
+            Matrix<double, 1,3> p3 = discV.row(e[3]);
+
             viewer.data().add_edges(p0,p1,Eigen::RowVector3d(1,0,1));
             viewer.data().add_edges(p0,p2,Eigen::RowVector3d(1,0,1));
             viewer.data().add_edges(p0,p3,Eigen::RowVector3d(1,0,1));

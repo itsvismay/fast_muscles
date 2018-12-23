@@ -30,7 +30,12 @@ public:
 		int s_size = m.red_s().size();
 		int t_size = m.T().rows();
 		if(!(6*t_size==s_size && 3*t_size==r_size && z_size==3*m.V().rows())){
-			print("Problem is reduced. Use reduced ARAP");
+			print(t_size);
+			print(m.V().rows());
+			print(s_size);
+			print(r_size);
+			print(z_size);
+			print("ARAP::Arap(Mesh& m) Problem is reduced. Use reduced ARAP");
 			exit(0);
 		}
 
@@ -85,7 +90,7 @@ public:
 
 	double Energy(Mesh& m){
 		VectorXd PAx = aPA*m.red_x() + aPAx0;
-		// constTimeFPAx0(m);
+		// m.constTimeFPAx0(aFPAx0);
 		double En= 0.5*(PAx - aFPAx0).squaredNorm();
 		return En;
 	}
@@ -157,7 +162,7 @@ public:
 		Matrix3d Jx = cross_prod_mat(1,0,0);
 		Matrix3d Jy = cross_prod_mat(0,1,0);
 		Matrix3d Jz = cross_prod_mat(0,0,1);
-		VectorXd ms = m.sW()*m.red_s();
+		VectorXd ms = m.red_s();
 		VectorXd PAg = aPA*m.red_x() + aPAx0;
 		
 		// Exr
@@ -350,7 +355,7 @@ public:
 		Matrix3d Jz = cross_prod_mat(0,0,1);
 
 		VectorXd PAg = aPA*m.red_x() + aPAx0;
-		VectorXd ms = m.sW()*m.red_s();
+		VectorXd ms = m.red_s();
 		for(int t=0; t<m.T().rows(); t++){
 			Matrix3d u = Map<Matrix3d>(m.red_u().segment<9>(9*t).data()).transpose();
 			Matrix3d s;
@@ -413,33 +418,16 @@ public:
 		return 1;
 	}
 
-	void constTimeFPAx0(Mesh& m){
-		VectorXd ms = m.sW()*m.red_s();
-		for(int i=0; i<m.T().rows(); i++){
-			Matrix3d r = Map<Matrix3d>(m.red_r().segment<9>(9*m.r_elem_cluster_map()[i]).data()).transpose();
-			Matrix3d u = Map<Matrix3d>(m.red_u().segment<9>(9*i).data()).transpose();
-			Matrix3d s;
-			s<< ms[6*i + 0], ms[6*i + 3], ms[6*i + 4],
-				ms[6*i + 3], ms[6*i + 1], ms[6*i + 5],
-				ms[6*i + 4], ms[6*i + 5], ms[6*i + 2];
-
-			Matrix3d rusut = r*u*s*u.transpose();
-			aFPAx0.segment<3>(12*i+0) = rusut*aPAx0.segment<3>(12*i+0);
-			aFPAx0.segment<3>(12*i+3) = rusut*aPAx0.segment<3>(12*i+3);
-			aFPAx0.segment<3>(12*i+6) = rusut*aPAx0.segment<3>(12*i+6);
-			aFPAx0.segment<3>(12*i+9) = rusut*aPAx0.segment<3>(12*i+9);
-		}
-	}
 
 	VectorXd dEdx(Mesh& m){
 		VectorXd PAx = aPA*m.red_x() + aPAx0;
-		// constTimeFPAx0(m);
+		// m.constTimeFPAx0(aFPAx0);
 		VectorXd res = (aPA).transpose()*(PAx - aFPAx0);
 		return res;
 	}
 
 	void itT(Mesh& m){
-		constTimeFPAx0(m);
+		m.constTimeFPAx0(aFPAx0);
 		VectorXd deltaABtx = m.AB().transpose()*m.dx();
 		VectorXd GtAtPtFPAx0 = (aPA).transpose()*aFPAx0;
 		VectorXd GtAtPtPAx0 = (aPA).transpose()*(aPAx0);
@@ -448,12 +436,23 @@ public:
 		gd<<gb,deltaABtx;
 		VectorXd gu = aARAPKKTSparseSolver.solve(gd).head(gb.size());
 		m.red_x(gu);
+		// print(aPAx0.transpose());
+		// print("1");
+		// print(aFPAx0.transpose());
+		// print("1");
+		// print(deltaABtx.transpose());
+		// print("1");
+		// print(GtAtPtPAx0.transpose());
+		// print("1");
+		// print(GtAtPtFPAx0.transpose());
+		// print("1");
+		// print(gu.transpose());
+		// exit(0);
 	}
 
 	void itR(Mesh& m, VectorXd& USUtPAx0){
 		VectorXd PAx = aPA*m.red_x() + aPAx0;
 		VectorXd& mr =m.red_r();
-		// VectorXd USUtPAx0 = m.GU()*m.GS()*aUtPAx0;
 		
 		std::map<int, std::vector<int>>& c_e_map = m.r_cluster_elem_map();
 		for (int i=0; i<mr.size()/9; i++){
@@ -492,7 +491,7 @@ public:
 
 	void minimize(Mesh& m){
 		// print("		+ ARAP minimize");
-		VectorXd ms = m.sW()*m.red_s();
+		VectorXd ms = m.red_s();
 		VectorXd USUtPAx0 = VectorXd::Zero(12*m.T().rows());
 		for(int t =0; t<m.T().rows(); t++){
 			Matrix3d u = Map<Matrix3d>(m.red_u().segment<9>(9*t).data()).transpose();
@@ -512,8 +511,8 @@ public:
 
 			VectorXd Ex = dEdx(m);
 		
-			if ((Ex - Ex0).norm()<1e-12){
-				// std::cout<<"		- ARAP minimize "<<i<<std::endl;
+			if ((Ex - Ex0).norm()<1e-8){
+				std::cout<<"		- ARAP minimize "<<i<<std::endl;
 				return;
 			}
 			Ex0 = Ex;
