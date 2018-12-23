@@ -19,6 +19,7 @@ class Arap
 
 protected:
 	SparseLU<SparseMatrix<double>>  aARAPKKTSparseSolver;
+	FullPivLU<MatrixXd>  aARAPKKTSolver;
 	VectorXd aPAx0, aUtPAx0, aEr, aEs, aEx, aDEDs, aFPAx0;
 	SparseMatrix<double> aExx, aExr, aErr, aExs, aErs, aPA, aJacKKT, aJacConstrains, aC;
 	std::vector<Trip> aExx_trips;
@@ -57,10 +58,10 @@ public:
 		aC = m.AB().transpose();
 
 		
+
 		SparseMatrix<double> Exx = (m.P()*m.A()).transpose()*(m.P()*m.A());
 		VectorXd PAx0 = m.P()*m.A()*m.x0();
 		VectorXd UtPAx0 = m.GU().transpose()*PAx0;
-
 		SparseMatrix<double> C = m.AB().transpose();
 		SparseMatrix<double> spKKTmat(Exx.rows()+C.rows(), Exx.rows()+C.rows());
 		spKKTmat.setZero();
@@ -73,14 +74,14 @@ public:
 			int val = CTrips[i].value();
 			ExxTrips.push_back(Trip(row+Exx.rows(), col, val));
 			ExxTrips.push_back(Trip(col, row+Exx.cols(), val));
-
 		}
 		ExxTrips.insert(ExxTrips.end(),CTrips.begin(), CTrips.end());
 		spKKTmat.setFromTriplets(ExxTrips.begin(), ExxTrips.end());
-		
-		
 		aARAPKKTSparseSolver.analyzePattern(spKKTmat);
 		aARAPKKTSparseSolver.factorize(spKKTmat);
+		aARAPKKTSolver.compute(MatrixXd(spKKTmat));
+		
+		
 
 
 		aJacKKT.resize(z_size+r_size+aC.rows(), z_size+r_size+aC.rows());
@@ -434,7 +435,7 @@ public:
 		VectorXd gb = GtAtPtFPAx0 - GtAtPtPAx0;
 		VectorXd gd(gb.size()+deltaABtx.size());
 		gd<<gb,deltaABtx;
-		VectorXd gu = aARAPKKTSparseSolver.solve(gd).head(gb.size());
+		VectorXd gu = aARAPKKTSolver.solve(gd).head(gb.size());
 		m.red_x(gu);
 		// print(aPAx0.transpose());
 		// print("1");

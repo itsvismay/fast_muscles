@@ -146,14 +146,15 @@ public:
 	    }
 
         mesh->setGlobalF(false, true, false);
-        arap->minimize(*mesh);
+        // arap->minimize(*mesh);
+
         double Eneo = alpha_neo*elas->Energy(*mesh);
-        double Earap = alpha_arap*arap->Energy(*mesh);
+        double Earap = 0;//alpha_arap*arap->Energy(*mesh);
         double fx = Eneo + Earap;
 
         if(computeGrad){        
 	        VectorXd pegrad = alpha_neo*mesh->N().transpose()*elas->PEGradient(*mesh);
-	        VectorXd arapgrad = alpha_arap*mesh->N().transpose()*arap->Jacobians(*mesh);
+	        // VectorXd arapgrad = alpha_arap*mesh->N().transpose()*arap->Jacobians(*mesh);
 	        
 	        // VectorXd pegrad = alpha_neo*elas->PEGradient(*mesh);
 	        // VectorXd arapgrad = alpha_arap*arap->Jacobians(*mesh);
@@ -176,8 +177,8 @@ public:
 	        // }
 
 	        for(int i=0; i< x.size(); i++){
-	            grad[i] = arapgrad[i];
-	        	grad[i] += pegrad[i];
+	            // grad[i] = arapgrad[i];
+	        	grad[i] = pegrad[i];
 	            // grad[i] = fake[i];
 	        }
 	        	std::cout<<Eneo<<", "<<Earap<<", "<<Eneo+Earap<<", "<<grad.norm()<<std::endl;
@@ -208,7 +209,7 @@ int main()
     
     std::vector<int> fix = getMaxVerts_Axis_Tolerance(V, 1);
     std::sort (fix.begin(), fix.end());
-    std::vector<int> mov = getMinVerts_Axis_Tolerance(V, 1);
+    std::vector<int> mov = {};//getMinVerts_Axis_Tolerance(V, 1);
     std::sort (mov.begin(), mov.end());
     std::vector<int> bones = {};
     // getMaxTets_Axis_Tolerance(bones, V, T, 1, 3);
@@ -221,19 +222,19 @@ int main()
     Arap* arap = new Arap(*mesh);
 
 
-    // std::cout<<"-----Neo-------"<<std::endl;
-    // Elastic* neo = new Elastic(*mesh);
+    std::cout<<"-----Neo-------"<<std::endl;
+    Elastic* neo = new Elastic(*mesh);
 
-    // std::cout<<"-----Solver-------"<<std::endl;
-    // int DIM = mesh->red_s().size();
-    // Rosenbrock f(DIM, mesh, arap, neo, j_input);
-    // LBFGSParam<double> param;
-    // // param.epsilon = 1e-1;
-    // // param.max_iterations = 1000;
-    // // param.past = 2;
-    // // param.m = 5;
-    // param.linesearch = LBFGSpp::LBFGS_LINESEARCH_BACKTRACKING_ARMIJO;
-    // LBFGSSolver<double> solver(param);
+    std::cout<<"-----Solver-------"<<std::endl;
+    int DIM = mesh->red_s().size();
+    Rosenbrock f(DIM, mesh, arap, neo, j_input);
+    LBFGSParam<double> param;
+    // param.epsilon = 1e-1;
+    // param.max_iterations = 1000;
+    // param.past = 2;
+    // param.m = 5;
+    param.linesearch = LBFGSpp::LBFGS_LINESEARCH_BACKTRACKING_ARMIJO;
+    LBFGSSolver<double> solver(param);
 
 
 	igl::opengl::glfw::Viewer viewer;
@@ -251,50 +252,37 @@ int main()
     {   std::cout<<"Key down, "<<key<<std::endl;
         viewer.data().clear();
         
-        //Doing things
-        // VectorXd& s = mesh->red_s();
-        // for(int i=0; i<s.size()/6; i++){
-        //     s[6*i+1] += 0.1;
-        // }
-        // mesh->setGlobalF(false, true, false);
-        // arap->minimize(*mesh);
-        // std::cout<<arap->Jacobians(*mesh)<<std::endl;
         // //----------------
 
         if(key==' '){
-      		VectorXd& dx = mesh->dx();
-		    for(int i=0; i<mov.size(); i++){
-		        dx[3*mov[i]+1] -= 3;
-		    }
+      // 		VectorXd& dx = mesh->dx();
+		    // for(int i=0; i<mov.size(); i++){
+		    //     dx[3*mov[i]+1] -= 3;
+		    // }
             // for(int i=0; i<mesh->red_s().size()/6; i++){
             //     mesh->red_s()[6*i+1] += 0.1;
             // }
-            arap->minimize(*mesh);
-            cout<<"dx"<<endl;
-            cout<<dx.transpose()<<endl;
-            cout<<"rot"<<endl;
-            cout<<mesh->red_r().transpose()<<endl;
-            cout<<"x"<<endl;
-            cout<<mesh->red_x().transpose()<<endl;
-		    // double fx =0;
+      
+		    double fx =0;
 		    // VectorXd ns = mesh->N().transpose()*mesh->red_s();
 		    // cout<<"NS"<<endl;
 		    // int niter = solver.minimize(f, ns, fx);
 		    // VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
-		    // // VectorXd reds = mesh->red_s();
-		    // // cout<<reds.size()<<endl;
-		    // // cout<<mesh->T().rows()*6<<endl;
-		    // // cout<<mesh->bones().transpose()<<endl;
-		    // // int niter = solver.minimize(f, reds, fx);
+		    VectorXd reds = mesh->red_s();
+		    // cout<<reds.size()<<endl;
+		    // cout<<mesh->T().rows()*6<<endl;
+		    // cout<<mesh->bones().transpose()<<endl;
+		    int niter = solver.minimize(f, reds, fx);
 		    
-		    // for(int i=0; i<reds.size(); i++){
-	     //        mesh->red_s()[i] = reds[i];
-	     //    }
-		    // mesh->setGlobalF(false, true, false);
+		    for(int i=0; i<reds.size(); i++){
+	            mesh->red_s()[i] = reds[i];
+	        }
+		    mesh->setGlobalF(false, true, false);
+            arap->minimize(*mesh);
 
-			// std::cout<<"new s"<<std::endl;
-			// std::cout<<reds.transpose()<<std::endl;
-			// std::cout<<"niter "<<niter<<std::endl;
+			std::cout<<"new s"<<std::endl;
+			std::cout<<reds.transpose()<<std::endl;
+			std::cout<<"niter "<<niter<<std::endl;
         }
         
         //----------------

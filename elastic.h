@@ -15,9 +15,20 @@ class Elastic
 protected:
 	double muscle_fibre_mag = 100000;
 	double rho = 6.4; 
+	VectorXd sW1, sW2, sW3, sW4, sW5, sW6, muscle_forces, elastic_forces;
 
 public:
-	Elastic(Mesh& m){	
+	Elastic(Mesh& m){
+		if(m.T().rows()*6 == m.red_s().size()){
+			sW1 = VectorXd::Zero(m.red_s().size());
+			sW2 = VectorXd::Zero(m.red_s().size());
+			sW3 = VectorXd::Zero(m.red_s().size());
+			sW4 = VectorXd::Zero(m.red_s().size());
+			sW5 = VectorXd::Zero(m.red_s().size());
+			sW6 = VectorXd::Zero(m.red_s().size());
+		}
+		muscle_forces = VectorXd::Zero(m.red_s().size());
+		elastic_forces = VectorXd::Zero(m.red_s().size());
 	}
 
 	double MuscleElementEnergy(const VectorXd& w1, const VectorXd& w2, const VectorXd& w3, const VectorXd& w4, const VectorXd& w5, const VectorXd& w6,  const VectorXd& rs, Vector3d& u){
@@ -37,29 +48,41 @@ public:
 		s4*(s4*u1 + s2*u2 + s6*u3)) + 
 		u3*(s3*(s5*u1 + s6*u2 + s3*u3) + s5*(s1*u1 + s4*u2 + s5*u3) + 
 		s6*(s4*u1 + s2*u2 + s6*u3)));
-
-		// 0.5*a*(u2*(w6'*rs*(w5'*rs*u1 + w6'*rs*u2 + w3'*rs*u3) + w4'*rs*(w1'*rs*u1 + w4'*rs*u2 + w5'*rs*u3) +
-		// w2'*rs*(w4'*rs*u1 + w2'*rs*u2 + w6'*rs*u3)) +
-		// u1*(w5'*rs*(w5'*rs*u1 + w6'*rs*u2 + w3'*rs*u3) + w1'*rs*(w1'*rs*u1 + w4'*rs*u2 + w5'*rs*u3) + 
-		// w4'*rs*(w4'*rs*u1 + w2'*rs*u2 + w6'*rs*u3)) + 		u3*(w3'*rs*(w5'*rs*u1 + w6'*rs*u2 + w3'*rs*u3) + w5'*rs*(w1'*rs*u1 + w4'*rs*u2 + w5'*rs*u3) + 		
-		// w6'*rs*(w4'*rs*u1 + w2'*rs*u2 + w6'*rs*u3)))
-
 		
 		return W;
 	}
 
 	double MuscleEnergy(Mesh& mesh){
 		double En = 0;
-		MatrixXd& sW = mesh.sW();
-		VectorXd rs = mesh.red_s();
+		VectorXd& rs = mesh.red_s();
 		VectorXd& bones = mesh.bones();
+		
 		for(int t=0; t<mesh.T().rows(); t++){
 			if(bones[t]>0.5){
 				continue;
 			}
             Vector3d u = mesh.Uvecs().row(t);
-            En += MuscleElementEnergy(sW.row(6*t+0),sW.row(6*t+1),sW.row(6*t+2),sW.row(6*t+3),sW.row(6*t+4),sW.row(6*t+5), rs, u);
+	        
+
+			if(rs.size()==6*mesh.T().rows()){
+				sW1[6*t+0] += 1;
+				sW2[6*t+1] += 1;
+				sW3[6*t+2] += 1;
+				sW4[6*t+3] += 1;
+				sW5[6*t+4] += 1;
+				sW6[6*t+5] += 1;
+	        	En += MuscleElementEnergy(sW1,sW2,sW3,sW4,sW5,sW6, rs, u);
+	        	sW1[6*t+0] -= 1;
+				sW2[6*t+1] -= 1;
+				sW3[6*t+2] -= 1;
+				sW4[6*t+3] -= 1;
+				sW5[6*t+4] -= 1;
+				sW6[6*t+5] -= 1;
+			}else{
+            	En += MuscleElementEnergy(mesh.sW().row(6*t+0),mesh.sW().row(6*t+1),mesh.sW().row(6*t+2),mesh.sW().row(6*t+3),mesh.sW().row(6*t+4),mesh.sW().row(6*t+5), rs, u);
+			}
 		}
+		
 		return En;
 	}
 
@@ -110,9 +133,8 @@ public:
 	}
 
 	VectorXd MuscleForce(Mesh& mesh){
-		VectorXd forces = VectorXd::Zero(mesh.red_s().size());
-		MatrixXd& sW = mesh.sW();
-		VectorXd rs = mesh.red_s();
+		muscle_forces.setZero();
+		VectorXd& rs = mesh.red_s();
 		VectorXd& bones = mesh.bones();
 
 		for(int t=0; t<mesh.T().rows(); t++){
@@ -120,9 +142,25 @@ public:
 				continue;
 			}
             Vector3d u = mesh.Uvecs().row(t);
-            forces += MuscleElementForce(sW.row(6*t+0),sW.row(6*t+1),sW.row(6*t+2),sW.row(6*t+3),sW.row(6*t+4),sW.row(6*t+5), rs, u);
+            if(rs.size()==6*mesh.T().rows()){
+				sW1[6*t+0] += 1;
+				sW2[6*t+1] += 1;
+				sW3[6*t+2] += 1;
+				sW4[6*t+3] += 1;
+				sW5[6*t+4] += 1;
+				sW6[6*t+5] += 1;
+	        	muscle_forces += MuscleElementForce(sW1,sW2,sW3,sW4,sW5,sW6, rs, u);
+	        	sW1[6*t+0] -= 1;
+				sW2[6*t+1] -= 1;
+				sW3[6*t+2] -= 1;
+				sW4[6*t+3] -= 1;
+				sW5[6*t+4] -= 1;
+				sW6[6*t+5] -= 1;
+			}else{
+            	muscle_forces += MuscleElementForce(mesh.sW().row(6*t+0),mesh.sW().row(6*t+1),mesh.sW().row(6*t+2),mesh.sW().row(6*t+3),mesh.sW().row(6*t+4),mesh.sW().row(6*t+5), rs, u);
+        	}
         }
-        return forces;
+        return muscle_forces;
 	}
 
 	double WikipediaElementEnergy(const VectorXd& w0, const VectorXd& w1, const VectorXd& w2, const VectorXd& w3, const VectorXd& w4, const VectorXd& w5,  const VectorXd& rs, double C1, double D1){
@@ -169,13 +207,28 @@ public:
 		VectorXd& eY = mesh.eYoungs();
 		VectorXd& eP = mesh.ePoissons();
 		VectorXd& bones = mesh.bones();
-		VectorXd rs = mesh.red_s();
-		MatrixXd& sW = mesh.sW();
+		VectorXd& rs = mesh.red_s();
 				
 		for(int t =0; t<mesh.T().rows(); t++){
             double C1 = 0.5*eY[t]/(2.0*(1.0+eP[t]));
             double D1 = 0.5*(eY[t]*eP[t])/((1.0+eP[t])*(1.0-2.0*eP[t]));
-            En += WikipediaElementEnergy(sW.row(6*t+0),sW.row(6*t+1),sW.row(6*t+2),sW.row(6*t+3),sW.row(6*t+4),sW.row(6*t+5), rs, C1, D1);
+            if(rs.size()==6*mesh.T().rows()){
+				sW1[6*t+0] += 1;
+				sW2[6*t+1] += 1;
+				sW3[6*t+2] += 1;
+				sW4[6*t+3] += 1;
+				sW5[6*t+4] += 1;
+				sW6[6*t+5] += 1;
+	        	En += WikipediaElementEnergy(sW1,sW2,sW3,sW4,sW5,sW6, rs, C1, D1);
+	        	sW1[6*t+0] -= 1;
+				sW2[6*t+1] -= 1;
+				sW3[6*t+2] -= 1;
+				sW4[6*t+3] -= 1;
+				sW5[6*t+4] -= 1;
+				sW6[6*t+5] -= 1;
+			}else{
+            	En += WikipediaElementEnergy(mesh.sW().row(6*t+0),mesh.sW().row(6*t+1),mesh.sW().row(6*t+2),mesh.sW().row(6*t+3),mesh.sW().row(6*t+4),mesh.sW().row(6*t+5), rs, C1, D1);
+			}
 		}
 		return En;
 	}
@@ -237,21 +290,36 @@ public:
 	}
 
 	VectorXd WikipediaForce(Mesh& mesh){
-		VectorXd forces = VectorXd::Zero(mesh.red_s().size());		
+		elastic_forces.setZero();
 		VectorXd& eY = mesh.eYoungs();
 		VectorXd& eP = mesh.ePoissons();
 		VectorXd& bones = mesh.bones();
 		VectorXd rs = mesh.red_s();
-		MatrixXd& sW = mesh.sW();
 
 		Matrix3d c;
 		for(int t =0; t<mesh.T().rows(); t++){
             double C1 = 0.5*eY[t]/(2.0*(1.0+eP[t]));
             double D1 = 0.5*(eY[t]*eP[t])/((1.0+eP[t])*(1.0-2.0*eP[t]));
-            forces += WikipediaElementForce(sW.row(6*t+0),sW.row(6*t+1),sW.row(6*t+2),sW.row(6*t+3),sW.row(6*t+4),sW.row(6*t+5), rs, C1, D1);
+            if(rs.size()==6*mesh.T().rows()){
+				sW1[6*t+0] += 1;
+				sW2[6*t+1] += 1;
+				sW3[6*t+2] += 1;
+				sW4[6*t+3] += 1;
+				sW5[6*t+4] += 1;
+				sW6[6*t+5] += 1;
+	        	elastic_forces += WikipediaElementForce(sW1,sW2,sW3,sW4,sW5,sW6, rs, C1, D1);
+	        	sW1[6*t+0] -= 1;
+				sW2[6*t+1] -= 1;
+				sW3[6*t+2] -= 1;
+				sW4[6*t+3] -= 1;
+				sW5[6*t+4] -= 1;
+				sW6[6*t+5] -= 1;
+			}else{
+            	elastic_forces += WikipediaElementForce(mesh.sW().row(6*t+0),mesh.sW().row(6*t+1),mesh.sW().row(6*t+2),mesh.sW().row(6*t+3),mesh.sW().row(6*t+4),mesh.sW().row(6*t+5), rs, C1, D1);
+			}
 		}
 
-		return forces;
+		return elastic_forces;
 	}
 
 	double Energy(Mesh& m){
@@ -261,7 +329,7 @@ public:
 	}
 
 	VectorXd PEGradient(Mesh& m){
-		return WikipediaForce(m)+MuscleForce(m);
+		return WikipediaForce(m)+ MuscleForce(m);
 	}
 
 	template<typename DataType>
