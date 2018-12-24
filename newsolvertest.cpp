@@ -99,7 +99,7 @@ int main()
     int DIM = mesh->red_s().size();
     Rosenbrock f(DIM, mesh, arap, neo, j_input);
     LBFGSParam<double> param;
-    // param.epsilon = 1e-1;
+    param.epsilon = 1e-1;
     // param.max_iterations = 1000;
     // param.past = 2;
     // param.m = 5;

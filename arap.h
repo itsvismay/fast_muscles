@@ -221,10 +221,11 @@ public:
 			jacLUanalyzed =true;
 		}
 		ajacLU.factorize(aJacKKTSparse);
-		SparseMatrix<double> results = ajacLU.solve(aJacConstrainsSparse);
+		
+
 		// print("after LU");
 		// MatrixXd results = aJacKKT.fullPivLu().solve(aJacConstrains).topRows(aExs.rows()+aErs.rows());
-
+		// SparseMatrix<double> results = ajacLU.solve(aJacConstrainsSparse);
 		// SparseMatrix<double> allres = results.topRows(aExx.rows()+aErr.rows());
 		// SparseMatrix<double> dgds = allres.topRows(aExx.rows());
 		// SparseMatrix<double> drds = allres.bottomRows(aErr.rows());
