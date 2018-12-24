@@ -1,18 +1,15 @@
 #include "mesh.h"
 #include "arap.h"
 #include "elastic.h"
+#include "solver.h"
 #include <Eigen/Core>
 #include <iostream>
-#include <LBFGS.h>
 #include <igl/readOFF.h>
 #include <igl/readMESH.h>
 #include <igl/readOBJ.h>
 #include <igl/opengl/glfw/Viewer.h>
 
 using namespace LBFGSpp;
-
-
-
 using json = nlohmann::json;
 using namespace Eigen;
 using namespace std;
@@ -61,135 +58,6 @@ void getMinTets_Axis_Tolerance(std::vector<int>& ibones, MatrixXd& mV, MatrixXi&
 	}
 }
 
-class Rosenbrock
-{
-private:
-    int n;
-    Mesh* mesh;
-    Arap* arap;
-    Elastic* elas;
-    double alpha_arap = 1;
-    double alpha_neo = 1;
-
-public:
-    Rosenbrock(int n_, Mesh* m, Arap* a, Elastic* e, json& j_input) : n(n_) {
-    	mesh = m;
-        arap = a;
-        elas = e;
-        alpha_arap = j_input["alpha_arap"];
-        alpha_neo = j_input["alpha_neo"];
-
-    }
-
-    VectorXd Full_ARAP_Grad(Mesh& mesh, Arap& arap, Elastic& elas, double E0, double eps){
-        VectorXd z = mesh.red_x();
-        VectorXd fake = VectorXd::Zero(mesh.red_s().size());
-        for(int i=0; i<fake.size(); i++){
-            mesh.red_s()[i] += 0.5*eps;
-            mesh.setGlobalF(false, true, false);
-            arap.minimize(mesh);
-            double Eleft = alpha_arap*arap.Energy(mesh);
-            mesh.red_s()[i] -= 0.5*eps;
-            
-            mesh.red_s()[i] -= 0.5*eps;
-            mesh.setGlobalF(false, true, false);
-            arap.minimize(mesh);
-            double Eright = alpha_arap*arap.Energy(mesh);
-            mesh.red_s()[i] += 0.5*eps;
-            fake[i] = (Eleft - Eright)/eps;
-        }
-        mesh.setGlobalF(false, true, false);
-        // std::cout<<"FUll fake: "<<fake.transpose()<<std::endl;
-        return fake;
-    }
-
-    VectorXd Full_NEO_Grad(Mesh& mesh, Arap& arap, Elastic& elas, double E0, double eps){
-        VectorXd fake = VectorXd::Zero(mesh.red_s().size());
-        for(int i=0; i<fake.size(); i++){
-            mesh.red_s()[i] += 0.5*eps;
-            mesh.setGlobalF(false, true, false);
-            double Eleft = alpha_neo*elas.Energy(mesh);
-            mesh.red_s()[i] -= 0.5*eps;
-            
-            mesh.red_s()[i] -= 0.5*eps;
-            mesh.setGlobalF(false, true, false);
-            double Eright = alpha_neo*elas.Energy(mesh);
-            mesh.red_s()[i] += 0.5*eps;
-            fake[i] = (Eleft - Eright)/eps;
-        }
-        mesh.setGlobalF(false, true, false);
-        // std::cout<<"FUll fake: "<<fake.transpose()<<std::endl;
-        return fake;
-    }
-    VectorXd WikipediaEnergy_grad(Mesh& mesh, Elastic& elas, double eps){
-	    VectorXd fake = VectorXd::Zero(mesh.red_s().size());
-	    for(int i=0; i<fake.size(); i++){
-	        mesh.red_s()[i] += 0.5*eps;
-	        double Eleft = elas.WikipediaEnergy(mesh);
-	        mesh.red_s()[i] -= 0.5*eps;
-	        
-	        mesh.red_s()[i] -= 0.5*eps;
-	        double Eright = elas.WikipediaEnergy(mesh);
-	        mesh.red_s()[i] += 0.5*eps;
-	        fake[i] = (Eleft - Eright)/eps;
-	    }
-	    // mesh.setGlobalF(false, true, false);
-	    // std::cout<<"FUll fake: "<<fake.transpose()<<std::endl;
-	    return fake;
-	}
-
-    double operator()(const VectorXd& x, VectorXd& grad, bool computeGrad = true)
-    {
-  		VectorXd reds = mesh->N()*x + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
-	    for(int i=0; i<reds.size(); i++){
-	        mesh->red_s()[i] = reds[i];
-	    }
-
-        mesh->setGlobalF(false, true, false);
-        // arap->minimize(*mesh);
-
-        double Eneo = alpha_neo*elas->Energy(*mesh);
-        double Earap = 0;//alpha_arap*arap->Energy(*mesh);
-        double fx = Eneo + Earap;
-
-        if(computeGrad){        
-	        VectorXd pegrad = alpha_neo*mesh->N().transpose()*elas->PEGradient(*mesh);
-	        // VectorXd arapgrad = alpha_arap*mesh->N().transpose()*arap->Jacobians(*mesh);
-	        
-	        // VectorXd pegrad = alpha_neo*elas->PEGradient(*mesh);
-	        // VectorXd arapgrad = alpha_arap*arap->Jacobians(*mesh);
-
-	        // VectorXd fake_arap = Full_ARAP_Grad(*mesh, *arap,*elas, fx, 1e-5);
-	        // if ((arapgrad-fake_arap).norm()>0.001){
-	        // 	std::cout<<"fake arap issues"<<std::endl;
-	        // 	std::cout<<arapgrad.transpose()<<std::endl<<std::endl;
-	        // 	std::cout<<fake_arap.transpose()<<std::endl<<std::endl;
-	        // 	exit(0);
-	        // }
-
-	        // VectorXd fake = alpha_neo*WikipediaEnergy_grad(*mesh, *elas, 1e-5);
-	        // if ((pegrad-fake_neo).norm()>0.001){
-	        // 	std::cout<<"fake physics issues"<<std::endl;
-	        // 	std::cout<<x.transpose()<<std::endl;
-	        // 	std::cout<<arapgrad.transpose()<<std::endl<<std::endl;
-	        // 	std::cout<<fake_neo.transpose()<<std::endl<<std::endl;
-	        // 	exit(0);
-	        // }
-
-	        for(int i=0; i< x.size(); i++){
-	            // grad[i] = arapgrad[i];
-	        	grad[i] = pegrad[i];
-	            // grad[i] = fake[i];
-	        }
-	        	std::cout<<Eneo<<", "<<Earap<<", "<<Eneo+Earap<<", "<<grad.norm()<<std::endl;
-	        // std::cout<<pegrad.head(12).transpose()<<std::endl<<std::endl;
-	        // std::cout<<arapgrad.head(12).transpose()<<std::endl<<std::endl;
-        }
-
-
-        return fx;
-    }
-};
 
 int main()
 {
@@ -212,15 +80,17 @@ int main()
     std::vector<int> mov = {};//getMinVerts_Axis_Tolerance(V, 1);
     std::sort (mov.begin(), mov.end());
     std::vector<int> bones = {};
-    // getMaxTets_Axis_Tolerance(bones, V, T, 1, 3);
-    // getMinTets_Axis_Tolerance(bones, V, T, 1, 3);
+    getMaxTets_Axis_Tolerance(bones, V, T, 1, 3);
+    getMinTets_Axis_Tolerance(bones, V, T, 1, 3);
 
     std::cout<<"-----Mesh-------"<<std::endl;
-    Mesh* mesh = new Mesh(T, V, fix, mov,bones, j_input);
+    VectorXi muscle1;
+    MatrixXd Uvec;
+    Mesh* mesh = new Mesh(T, V, fix, mov,bones, muscle1, Uvec, j_input);
 
     std::cout<<"-----ARAP-----"<<std::endl;
     Arap* arap = new Arap(*mesh);
-
+    // cout<<arap->Jacobians(*mesh).transpose()<<endl;
 
     std::cout<<"-----Neo-------"<<std::endl;
     Elastic* neo = new Elastic(*mesh);
@@ -255,33 +125,30 @@ int main()
         // //----------------
 
         if(key==' '){
-      // 		VectorXd& dx = mesh->dx();
-		    // for(int i=0; i<mov.size(); i++){
-		    //     dx[3*mov[i]+1] -= 3;
-		    // }
+      		VectorXd& dx = mesh->dx();
+		    for(int i=0; i<mov.size(); i++){
+		        dx[3*mov[i]+1] -= 3;
+		    }
             // for(int i=0; i<mesh->red_s().size()/6; i++){
             //     mesh->red_s()[6*i+1] += 0.1;
             // }
       
 		    double fx =0;
-		    // VectorXd ns = mesh->N().transpose()*mesh->red_s();
+		    VectorXd ns = mesh->N().transpose()*mesh->red_s();
 		    // cout<<"NS"<<endl;
-		    // int niter = solver.minimize(f, ns, fx);
-		    // VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
-		    VectorXd reds = mesh->red_s();
-		    // cout<<reds.size()<<endl;
-		    // cout<<mesh->T().rows()*6<<endl;
-		    // cout<<mesh->bones().transpose()<<endl;
-		    int niter = solver.minimize(f, reds, fx);
+		    int niter = solver.minimize(f, ns, fx);
+		    VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
+	
+    	    // VectorXd reds = mesh->red_s();
+		    // int niter = solver.minimize(f, reds, fx);
 		    
 		    for(int i=0; i<reds.size(); i++){
 	            mesh->red_s()[i] = reds[i];
 	        }
 		    mesh->setGlobalF(false, true, false);
-            arap->minimize(*mesh);
 
-			std::cout<<"new s"<<std::endl;
-			std::cout<<reds.transpose()<<std::endl;
+			// std::cout<<"new s"<<std::endl;
+			// std::cout<<reds.transpose()<<std::endl;
 			std::cout<<"niter "<<niter<<std::endl;
         }
         

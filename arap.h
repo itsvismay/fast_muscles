@@ -19,10 +19,16 @@ class Arap
 
 protected:
 	SparseLU<SparseMatrix<double>>  aARAPKKTSparseSolver;
-	FullPivLU<MatrixXd>  aARAPKKTSolver;
+	SparseLU<SparseMatrix<double>> ajacLU;
+	// FullPivLU<MatrixXd>  aARAPKKTSolver;
 	VectorXd aPAx0, aUtPAx0, aEr, aEs, aEx, aDEDs, aFPAx0;
-	SparseMatrix<double> aExx, aExr, aErr, aExs, aErs, aPA, aJacKKT, aJacConstrains, aC;
-	std::vector<Trip> aExx_trips;
+	SparseMatrix<double> aExx, aExr, aErr, aExs, aErs, aPA, aC;
+	MatrixXd aJacKKT, aJacConstrains;
+	SparseMatrix<double> aJacKKTSparse, aJacConstrainsSparse;
+	std::vector<Trip> aExx_trips, aExr_trips, aErr_trips, aExs_trips, aErs_trips, aC_trips;
+	double jacLUanalyzed = false;
+
+	SparseMatrix<double> adjointP;
 
 public:
 	Arap(Mesh& m){
@@ -41,10 +47,11 @@ public:
 		}
 
 		aFPAx0.resize(12*m.T().rows());
-
+		print("arap 1");
 		aExx = (m.P()*m.A()).transpose()*(m.P()*m.A());
 		aExx_trips = to_triplets(aExx);
-
+		
+		print("arap 2");
 		aErr.resize(r_size, r_size);
 		aExs.resize(z_size, s_size);
 		aErs.resize(r_size, s_size);
@@ -52,53 +59,61 @@ public:
 		aEr.resize(r_size);
 		aEs.resize(s_size);
 
+		print("arap 3");
 		aPAx0 = m.P()*m.A()*m.x0();
 		aUtPAx0 = m.GU().transpose()*aPAx0;
 		aPA = m.P()*m.A();
 		aC = m.AB().transpose();
-
 		
-
+		print("arap 4");
 		SparseMatrix<double> Exx = (m.P()*m.A()).transpose()*(m.P()*m.A());
 		VectorXd PAx0 = m.P()*m.A()*m.x0();
 		VectorXd UtPAx0 = m.GU().transpose()*PAx0;
-		SparseMatrix<double> C = m.AB().transpose();
-		SparseMatrix<double> spKKTmat(Exx.rows()+C.rows(), Exx.rows()+C.rows());
+		SparseMatrix<double> spKKTmat(Exx.rows()+aC.rows(), Exx.rows()+aC.rows());
 		spKKTmat.setZero();
 		std::vector<Trip> ExxTrips = to_triplets(Exx);
-		std::vector<Trip> CTrips = to_triplets(C);
+		aC_trips = to_triplets(aC);
 		std::vector<Trip> CtTrips = to_triplets(m.AB());
-		for(int i=0; i<CTrips.size(); i++){
-			int row = CTrips[i].row();
-			int col = CTrips[i].col();
-			int val = CTrips[i].value();
+		for(int i=0; i<aC_trips.size(); i++){
+			int row = aC_trips[i].row();
+			int col = aC_trips[i].col();
+			int val = aC_trips[i].value();
 			ExxTrips.push_back(Trip(row+Exx.rows(), col, val));
 			ExxTrips.push_back(Trip(col, row+Exx.cols(), val));
 		}
-		ExxTrips.insert(ExxTrips.end(),CTrips.begin(), CTrips.end());
+		ExxTrips.insert(ExxTrips.end(),aC_trips.begin(), aC_trips.end());
 		spKKTmat.setFromTriplets(ExxTrips.begin(), ExxTrips.end());
 		aARAPKKTSparseSolver.analyzePattern(spKKTmat);
 		aARAPKKTSparseSolver.factorize(spKKTmat);
-		aARAPKKTSolver.compute(MatrixXd(spKKTmat));
+		// aARAPKKTSolver.compute(MatrixXd(spKKTmat));
 		
+		print("arap 5");
+		// aJacKKT.resize(z_size+r_size+aC.rows(), z_size+r_size+aC.rows());
+		// aJacConstrains.resize(z_size+r_size+aC.rows() ,s_size);
+		aJacKKTSparse.resize(z_size+r_size+aC.rows(), z_size+r_size+aC.rows());
+		aJacConstrainsSparse.resize(z_size+r_size+aC.rows() ,s_size);
 		
+		print("arap 6");
+		setupAdjointP();
+	}
 
-
-		aJacKKT.resize(z_size+r_size+aC.rows(), z_size+r_size+aC.rows());
-		aJacConstrains.resize(z_size+r_size+aC.rows() ,s_size);
-
+	void setupAdjointP(){
+		adjointP.resize(aExx.rows()+aErr.rows(), aExx.rows()+aErr.rows()+aC.rows());
+		for(int i=0; i<aExx.rows()+aErr.rows(); i++){
+			adjointP.coeffRef(i,i) = 1;
+		}
 	}
 
 	double Energy(Mesh& m){
 		VectorXd PAx = aPA*m.red_x() + aPAx0;
-		// m.constTimeFPAx0(aFPAx0);
+		m.constTimeFPAx0(aFPAx0);
 		double En= 0.5*(PAx - aFPAx0).squaredNorm();
 		return En;
 	}
 
 	double Energy(Mesh& m, VectorXd& z, SparseMatrix<double>& R, SparseMatrix<double>& S, SparseMatrix<double>& U){
-		VectorXd PAx = m.P()*m.A()*(m.G()*z + m.x0());
-		VectorXd FPAx0 = R*U*S*U.transpose()*m.P()*m.A()*m.x0();
+		VectorXd PAx = aPA*z + aPAx0;
+		VectorXd FPAx0 = R*U*S*U.transpose()*aPAx0;
 		return 0.5*(PAx - FPAx0).squaredNorm();
 	}
 
@@ -112,22 +127,88 @@ public:
 		int gg = Gradients(m);
 
 
+		//Dense
 		// aJacKKT.setZero();
 		// aJacConstrains.setZero();
 		// //col1
-		// aJacKKT.block(0,0,aExx.rows(), aExx.cols()) = aExx;
-		// aJacKKT.block(aExx.rows(), 0, aExr.cols(), aExr.rows()) = aExr.transpose();
-		// aJacKKT.block(aExx.rows()+aExr.cols(), 0, aC.rows(), aC.cols()) = aC;
+		// aJacKKT.block(0,0,aExx.rows(), aExx.cols()) = MatrixXd(Exx());
+		// aJacKKT.block(aExx.rows(), 0, aExr.cols(), aExr.rows()) = MatrixXd(Exr()).transpose();
+		// aJacKKT.block(aExx.rows()+aExr.cols(), 0, aC.rows(), aC.cols()) = MatrixXd(aC);
 		// //col2
-		// aJacKKT.block(0,aExx.cols(),aExr.rows(), aExr.cols()) = aExr;
-		// aJacKKT.block(aExr.rows(), aExx.cols(), aErr.rows(), aErr.cols()) = aErr;
-		// // //col3
-		// aJacKKT.block(0, aExx.cols()+aExr.cols(), aC.cols(), aC.rows())= aC.transpose();
+		// aJacKKT.block(0,aExx.cols(),aExr.rows(), aExr.cols()) = MatrixXd(Exr());
+		// aJacKKT.block(aExr.rows(), aExx.cols(), aErr.rows(), aErr.cols()) = MatrixXd(Err());
+		// // // //col3
+		// aJacKKT.block(0, aExx.cols()+aExr.cols(), aC.cols(), aC.rows())= MatrixXd(aC).transpose();
+		// // //rhs
+		// aJacConstrains.block(0,0, aExs.rows(), aExs.cols()) = MatrixXd(Exs());
+		// aJacConstrains.block(aExs.rows(), 0, aErs.rows(), aErs.cols()) = MatrixXd(Ers());
+		// print(aJacKKT - MatrixXd(aJacKKTSparse));
+		// print(aJacConstrains - MatrixXd(aJacConstrainsSparse));
 
-		// //rhs
-		// aJacConstrains.block(0,0, aExs.rows(), aExs.cols()) = aExs;
-		// aJacConstrains.block(aExs.rows(), 0, aErs.rows(), aErs.cols()) = aErs;
-	
+		//Sparseify
+		aJacKKTSparse.setZero();
+		aJacConstrainsSparse.setZero();
+
+		vector<Trip> jac_trips;
+		vector<Trip> cons_trips;
+
+		//col1
+		for(int i=0; i<aExx_trips.size(); i++){
+			int row = aExx_trips[i].row();
+			int col = aExx_trips[i].col();
+			double val = aExx_trips[i].value();
+			jac_trips.push_back(Trip(row, col, val));
+		}
+		for(int i=0; i<aExr_trips.size(); i++){
+			int row = aExr_trips[i].row();
+			int col = aExr_trips[i].col()+aExx.rows();
+			double val = aExr_trips[i].value();
+			jac_trips.push_back(Trip(col, row, val));
+		}
+		for(int i=0; i<aC_trips.size(); i++){
+			int row = aC_trips[i].row()+aExx.rows()+aExr.cols();
+			int col = aC_trips[i].col();
+			double val = aC_trips[i].value();
+			jac_trips.push_back(Trip(row, col, val));
+		}
+
+		//col2
+		for(int i=0; i<aExr_trips.size(); i++){
+			int row = aExr_trips[i].row();
+			int col = aExr_trips[i].col()+aExx.cols();
+			double val = aExr_trips[i].value();
+			jac_trips.push_back(Trip(row, col, val));
+		}
+		for(int i=0; i<aErr_trips.size(); i++){
+			int row = aErr_trips[i].row()+aExr.rows();
+			int col = aErr_trips[i].col()+aExx.cols();
+			double val = aErr_trips[i].value();
+			jac_trips.push_back(Trip(row, col, val));
+		}
+		//col3
+		for(int i=0; i<aC_trips.size(); i++){
+			int row = aC_trips[i].row()+aExx.cols()+aExr.cols();
+			int col = aC_trips[i].col();
+			double val = aC_trips[i].value();
+			jac_trips.push_back(Trip(col, row, val));
+		}
+		aJacKKTSparse.setFromTriplets(jac_trips.begin(), jac_trips.end());
+
+		//rhs col
+		for(int i=0; i<aExs_trips.size(); i++){
+			int row = aExs_trips[i].row();
+			int col = aExs_trips[i].col();
+			double val = aExs_trips[i].value();
+			cons_trips.push_back(Trip(row, col, val));
+		}
+		for(int i=0; i<aErs_trips.size(); i++){
+			int row = aErs_trips[i].row()+aExs.rows();
+			int col = aErs_trips[i].col();
+			double val = aErs_trips[i].value();
+			cons_trips.push_back(Trip(row, col, val));
+		}
+		aJacConstrainsSparse.setFromTriplets(cons_trips.begin(), cons_trips.end());
+		
 		// std::ofstream ExxFile("Exx.mat");
 		// if (ExxFile.is_open())
 		// {
@@ -135,11 +216,25 @@ public:
 		// }
 		// ExxFile.close();
 
-
+		if(!jacLUanalyzed){
+			ajacLU.analyzePattern(aJacKKTSparse);	
+			jacLUanalyzed =true;
+		}
+		ajacLU.factorize(aJacKKTSparse);
+		SparseMatrix<double> results = ajacLU.solve(aJacConstrainsSparse);
+		// print("after LU");
 		// MatrixXd results = aJacKKT.fullPivLu().solve(aJacConstrains).topRows(aExs.rows()+aErs.rows());
-		// MatrixXd dgds = results.topRows(aExx.rows());
-		// MatrixXd drds = results.bottomRows(aErr.rows());
-		// aDEDs = dgds.transpose()*aEx + drds.transpose()*aEr + aEs;
+
+		// SparseMatrix<double> allres = results.topRows(aExx.rows()+aErr.rows());
+		// SparseMatrix<double> dgds = allres.topRows(aExx.rows());
+		// SparseMatrix<double> drds = allres.bottomRows(aErr.rows());
+		// VectorXd aDEDs1 = dgds.transpose()*aEx + drds.transpose()*aEr + aEs;
+
+		VectorXd ExEr(aEx.size()+aEr.size());
+		ExEr<<aEx,aEr;
+		VectorXd PtExEr = adjointP.transpose()*ExEr;
+		VectorXd g = ajacLU.solve(PtExEr);
+		aDEDs = aJacConstrainsSparse.transpose()*g + aEs;
 		return aDEDs;
 	}
 
@@ -150,13 +245,13 @@ public:
 		int t_size = m.T().rows();
 
 		// print("		+Hessians");
-		std::vector<Trip> Exr_trip;
+		aExr_trips.clear();
+		aErr_trips.clear();
+		aExs_trips.clear();
+		aErs_trips.clear();
 		// Exr_trip.reserve(3*t_size*z_size);
-		std::vector<Trip> Err_trip;
 		// Err_trip.reserve(3*3*t_size);
-		std::vector<Trip> Exs_trip;
 		// Exs_trip.reserve();
-		std::vector<Trip> Ers_trip;
 		// Ers_trip.reserve();
 		//Exx is constant
 
@@ -195,9 +290,9 @@ public:
 					double Exar2 = p1.cwiseProduct(r2).sum() + p2.cwiseProduct(r2).sum() + p3.cwiseProduct(r2).sum() + p4.cwiseProduct(r2).sum();
 					double Exar3 = p1.cwiseProduct(r3).sum() + p2.cwiseProduct(r3).sum() + p3.cwiseProduct(r3).sum() + p4.cwiseProduct(r3).sum();
 
-					Exr_trip.push_back(Trip(3*m.T().row(t)[e]+a,3*t+0, Exar1));
-					Exr_trip.push_back(Trip(3*m.T().row(t)[e]+a,3*t+1, Exar2));
-					Exr_trip.push_back(Trip(3*m.T().row(t)[e]+a,3*t+2, Exar3));
+					aExr_trips.push_back(Trip(3*m.T().row(t)[e]+a,3*t+0, Exar1));
+					aExr_trips.push_back(Trip(3*m.T().row(t)[e]+a,3*t+1, Exar2));
+					aExr_trips.push_back(Trip(3*m.T().row(t)[e]+a,3*t+2, Exar3));
 				}
 			}
 		}
@@ -232,17 +327,16 @@ public:
 			double v12 = pr1.cwiseProduct(r6).sum()+pr2.cwiseProduct(r6).sum()+pr3.cwiseProduct(r6).sum()+pr4.cwiseProduct(r6).sum();
 			double v22 = pr1.cwiseProduct(r9).sum()+pr2.cwiseProduct(r9).sum()+pr3.cwiseProduct(r9).sum()+pr4.cwiseProduct(r9).sum();
 			
-			Err_trip.push_back(Trip(3*t+0,3*t+0, v00));
-			Err_trip.push_back(Trip(3*t+0,3*t+1, v01));
-			Err_trip.push_back(Trip(3*t+0,3*t+2, v02));
-			Err_trip.push_back(Trip(3*t+1,3*t+1, v11));
-			Err_trip.push_back(Trip(3*t+1,3*t+2, v12));
-			Err_trip.push_back(Trip(3*t+2,3*t+2, v22));
-			Err_trip.push_back(Trip(3*t+1,3*t+0, v01));
-			Err_trip.push_back(Trip(3*t+2,3*t+0, v02));
-			Err_trip.push_back(Trip(3*t+2,3*t+1, v12));
+			aErr_trips.push_back(Trip(3*t+0,3*t+0, v00));
+			aErr_trips.push_back(Trip(3*t+0,3*t+1, v01));
+			aErr_trips.push_back(Trip(3*t+0,3*t+2, v02));
+			aErr_trips.push_back(Trip(3*t+1,3*t+1, v11));
+			aErr_trips.push_back(Trip(3*t+1,3*t+2, v12));
+			aErr_trips.push_back(Trip(3*t+2,3*t+2, v22));
+			aErr_trips.push_back(Trip(3*t+1,3*t+0, v01));
+			aErr_trips.push_back(Trip(3*t+2,3*t+0, v02));
+			aErr_trips.push_back(Trip(3*t+2,3*t+1, v12));
 		}
-
 
 		//Exs
 		// print("		Exs");
@@ -269,12 +363,12 @@ public:
 					double Exas4 = p1(0,1) + p2(0,1) + p3(0,1) + p4(0,1)+ p1(1,0) + p2(1,0) + p3(1,0) + p4(1,0);
 					double Exas5 = p1(0,2) + p2(0,2) + p3(0,2) + p4(0,2)+ p1(2,0) + p2(2,0) + p3(2,0) + p4(2,0);
 					double Exas6 = p1(2,1) + p2(2,1) + p3(2,1) + p4(2,1)+ p1(1,2) + p2(1,2) + p3(1,2) + p4(1,2);
-					Exs_trip.push_back(Trip(3*m.T().row(t)[e]+a, 6*t+0, Exas1));
-					Exs_trip.push_back(Trip(3*m.T().row(t)[e]+a, 6*t+1, Exas2));
-					Exs_trip.push_back(Trip(3*m.T().row(t)[e]+a, 6*t+2, Exas3));
-					Exs_trip.push_back(Trip(3*m.T().row(t)[e]+a, 6*t+3, Exas4));
-					Exs_trip.push_back(Trip(3*m.T().row(t)[e]+a, 6*t+4, Exas5));
-					Exs_trip.push_back(Trip(3*m.T().row(t)[e]+a, 6*t+5, Exas6));
+					aExs_trips.push_back(Trip(3*m.T().row(t)[e]+a, 6*t+0, Exas1));
+					aExs_trips.push_back(Trip(3*m.T().row(t)[e]+a, 6*t+1, Exas2));
+					aExs_trips.push_back(Trip(3*m.T().row(t)[e]+a, 6*t+2, Exas3));
+					aExs_trips.push_back(Trip(3*m.T().row(t)[e]+a, 6*t+3, Exas4));
+					aExs_trips.push_back(Trip(3*m.T().row(t)[e]+a, 6*t+4, Exas5));
+					aExs_trips.push_back(Trip(3*m.T().row(t)[e]+a, 6*t+5, Exas6));
 				}
 			}
 		}
@@ -320,27 +414,17 @@ public:
 				double Eras5 = p1(0,2) + p2(0,2) + p3(0,2) + p4(0,2)+ p1(2,0) + p2(2,0) + p3(2,0) + p4(2,0);
 				double Eras6 = p1(2,1) + p2(2,1) + p3(2,1) + p4(2,1)+ p1(1,2) + p2(1,2) + p3(1,2) + p4(1,2);
 				
-				Ers_trip.push_back(Trip(3*t+a, 6*t+0, Eras1));
-				Ers_trip.push_back(Trip(3*t+a, 6*t+1, Eras2));
-				Ers_trip.push_back(Trip(3*t+a, 6*t+2, Eras3));
-				Ers_trip.push_back(Trip(3*t+a, 6*t+3, Eras4));
-				Ers_trip.push_back(Trip(3*t+a, 6*t+4, Eras5));
-				Ers_trip.push_back(Trip(3*t+a, 6*t+5, Eras6));
+				aErs_trips.push_back(Trip(3*t+a, 6*t+0, Eras1));
+				aErs_trips.push_back(Trip(3*t+a, 6*t+1, Eras2));
+				aErs_trips.push_back(Trip(3*t+a, 6*t+2, Eras3));
+				aErs_trips.push_back(Trip(3*t+a, 6*t+3, Eras4));
+				aErs_trips.push_back(Trip(3*t+a, 6*t+4, Eras5));
+				aErs_trips.push_back(Trip(3*t+a, 6*t+5, Eras6));
 
 			}	
 		}
 
-		// print("		-Hessians");
-		aExr.setZero();
-		aErr.setZero();
-		aExs.setZero();
-		aErs.setZero();
-		
-		aExr.setFromTriplets(Exr_trip.begin(), Exr_trip.end());
-		aErr.setFromTriplets(Err_trip.begin(), Err_trip.end());
-		aExs.setFromTriplets(Exs_trip.begin(), Exs_trip.end());
-		aErs.setFromTriplets(Ers_trip.begin(), Ers_trip.end());
-
+		// print("		-Hessians");		
 		return 1;
 	}
 
@@ -435,7 +519,7 @@ public:
 		VectorXd gb = GtAtPtFPAx0 - GtAtPtPAx0;
 		VectorXd gd(gb.size()+deltaABtx.size());
 		gd<<gb,deltaABtx;
-		VectorXd gu = aARAPKKTSolver.solve(gd).head(gb.size());
+		VectorXd gu = aARAPKKTSparseSolver.solve(gd).head(gb.size());
 		m.red_x(gu);
 		// print(aPAx0.transpose());
 		// print("1");
@@ -512,15 +596,40 @@ public:
 
 			VectorXd Ex = dEdx(m);
 		
-			if ((Ex - Ex0).norm()<1e-8){
-				std::cout<<"		- ARAP minimize "<<i<<std::endl;
+			if ((Ex - Ex0).norm()<1e-12){
+				// std::cout<<"		- ARAP minimize "<<i<<std::endl;
 				return;
 			}
 			Ex0 = Ex;
 		}
 	}
 
-
+	SparseMatrix<double> Exx(){ 
+		return aExx; 
+	}
+	SparseMatrix<double> Exr(){ 
+		aExr.setZero();
+		aExr.setFromTriplets(aExr_trips.begin(), aExr_trips.end());
+		return aExr; 
+	}
+	SparseMatrix<double> Exs(){
+		aExs.setZero();
+		aExs.setFromTriplets(aExs_trips.begin(), aExs_trips.end()); 
+		return aExs; 
+	}
+	SparseMatrix<double> Ers(){
+		aErs.setZero();
+		aErs.setFromTriplets(aErs_trips.begin(), aErs_trips.end());
+		return aErs; 
+	}
+	SparseMatrix<double> Err(){ 
+		aErr.setZero();
+		aErr.setFromTriplets(aErr_trips.begin(), aErr_trips.end());
+		return aErr; 
+	}
+	VectorXd Er() { return aEr; }
+	VectorXd Es() { return aEs; }
+	VectorXd Ex() { return aEx; }
 
 	std::vector<Eigen::Triplet<double>> to_triplets(Eigen::SparseMatrix<double> & M){
 		std::vector<Eigen::Triplet<double>> v;

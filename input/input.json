@@ -1,4 +1,5 @@
 {
+  "data": "/home/vismay/recode/fast_muscles/data/",
   "mesh_file":"/home/vismay/recode/fast_muscles/data/testbar/bar.1.mesh",
   "v_file" : "/home/vismay/recode/fast_muscles/data/output/combined_V.dmat",
   "t_file" : "/home/vismay/recode/fast_muscles/data/output/combined_T.dmat",
@@ -8,7 +9,7 @@
   "number_skinning_handles": 0,
   "number_rot_clusters": 0,
   "number_modes": 0,
-  "fd_eps": 1e-8,
+  "fd_eps": 1e-5,
   "alpha_arap": 1e4,
   "alpha_neo": 1
 }

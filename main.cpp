@@ -11,6 +11,8 @@
 #include "mesh.h"
 #include "arap.h"
 #include "elastic.h"
+#include "solver.h"
+
 
 
 using json = nlohmann::json;
@@ -32,7 +34,6 @@ std::vector<int> getMaxVerts_Axis_Tolerance(MatrixXd& mV, int dim, double tolera
 
         if(fabs(mV(ii,dim) - maxX) < tolerance) {
             maxV.push_back(ii);
-            std::cout<<ii;
         }
     }
     return maxV;
@@ -61,8 +62,22 @@ int main(int argc, char *argv[])
     MatrixXd V;
     MatrixXi T;
     MatrixXi F;
+    MatrixXd Uvec;
+    VectorXi muscle1;
+    VectorXi bone1;
+    VectorXi bone2;
+
+
+
+
+    std::string datafile = j_input["data"];
     igl::readDMAT(j_input["v_file"], V);
     igl::readDMAT(j_input["t_file"], T);
+    igl::readDMAT(datafile+"output/fiber_directions.dmat", Uvec);
+    igl::readDMAT(datafile+"output/muscle_I.dmat", muscle1);
+    igl::readDMAT(datafile+"output/bone_1_I.dmat", bone1);
+    igl::readDMAT(datafile+"output/bone_2_I.dmat", bone2);
+
     igl::boundary_facets(T, F);
     cout<<"V size: "<<V.rows()<<endl;
     cout<<"T size: "<<T.rows()<<endl;
@@ -71,18 +86,36 @@ int main(int argc, char *argv[])
     std::vector<int> fix = getMaxVerts_Axis_Tolerance(V, 1);
     std::sort (fix.begin(), fix.end());
     std::vector<int> mov = {};//getMinVerts_Axis_Tolerance(V, 1);
-    std::sort (mov.begin(), mov.end());
+    // std::sort (mov.begin(), mov.end());
+    
     std::vector<int> bones = {};
-    // exit(0);
+    for(int i=0; i<bone1.size(); i++){
+        bones.push_back(bone1[i]);
+    }
+    for(int i=0; i<bone2.size(); i++){
+        bones.push_back(bone2[i]);
+    }
 
 
     std::cout<<"-----Mesh-------"<<std::endl;
-    Mesh* mesh = new Mesh(T, V, fix, mov,bones, j_input);
+    Mesh* mesh = new Mesh(T, V, fix, mov,bones, muscle1,Uvec,  j_input);
     
     std::cout<<"-----ARAP-----"<<std::endl;
     Arap* arap = new Arap(*mesh);
+
     std::cout<<"-----Neo-------"<<std::endl;
+    Elastic* neo = new Elastic(*mesh);
+
     std::cout<<"-----Solver-------"<<std::endl;
+    int DIM = mesh->red_s().size();
+    Rosenbrock f(DIM, mesh, arap, neo, j_input);
+    LBFGSParam<double> param;
+    // param.epsilon = 1e-1;
+    // param.max_iterations = 1000;
+    // param.past = 2;
+    // param.m = 5;
+    param.linesearch = LBFGSpp::LBFGS_LINESEARCH_BACKTRACKING_ARMIJO;
+    LBFGSSolver<double> solver(param);
 
 
     std::cout<<"-----Display-------"<<std::endl;
@@ -100,14 +133,16 @@ int main(int argc, char *argv[])
         
 
         if(key==' '){
-            // VectorXd& dx = mesh->dx();
-            // for(int i=0; i<mov.size(); i++){
-            //     dx[3*mov[i]+1] -= 3;
-            // }
-            for(int i=0; i<mesh->red_s().size()/6; i++){
-                mesh->red_s()[6*i+1] += 0.1;
+          double fx =0;
+            VectorXd ns = mesh->N().transpose()*mesh->red_s();
+            cout<<"NS"<<endl;
+            int niter = solver.minimize(f, ns, fx);
+            VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
+            
+            for(int i=0; i<reds.size(); i++){
+                mesh->red_s()[i] = reds[i];
             }
-            arap->minimize(*mesh);
+    
         }
         
         //----------------

@@ -52,7 +52,9 @@ protected:
 public:
     Mesh(){}
 
-    Mesh(MatrixXi& iT, MatrixXd& iV, std::vector<int>& ifix, std::vector<int>& imov, std::vector<int>& ibones, json& j_input){
+    Mesh(MatrixXi& iT, MatrixXd& iV, std::vector<int>& ifix, 
+        std::vector<int>& imov, std::vector<int>& ibones, VectorXi& imuscle,
+        MatrixXd& iUvecs, json& j_input){
         mV = iV;
         mT = iT;
         mfix = ifix;
@@ -105,6 +107,11 @@ public:
 
         mred_u.resize(9*mT.rows());
         mUvecs.resize(mT.rows(), 3);
+        mUvecs.setZero();
+        for(int i=0; i<imuscle.size(); i++){
+            mUvecs.row(imuscle[i]) = iUvecs.row(i);
+        }
+
         if(mG.cols()==0){
             mred_x.resize(3*mV.rows());
         }else{
@@ -822,9 +829,11 @@ public:
             Vector3d a = Vector3d::UnitX();
             for(int t = 0; t<mT.rows(); t++){
                 //TODO: update to be parametrized by input mU
-                Vector3d b = Vector3d::UnitY();
-                mUvecs.row(t) = b;
-
+                Vector3d b = mUvecs.row(t);
+                if(b.norm()==0){
+                    b = Vector3d::UnitY();
+                    mUvecs.row(t) = b;
+                }
                 Vector3d v = a.cross(b);
                 v = v/v.norm();
                 double theta = (a.dot(b))/(a.norm()*b.norm());
@@ -1041,7 +1050,7 @@ public:
             ms = msW*mred_s;
         }
 
-        VectorXd PAx = mPA*x;
+        VectorXd PAx = m_P*mA*x;
         mFPAx.setZero();
         for(int i=0; i<mT.rows(); i++){
             Matrix3d r = Map<Matrix3d>(mred_r.segment<9>(9*mr_elem_cluster_map[i]).data()).transpose();
