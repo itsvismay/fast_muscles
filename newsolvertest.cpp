@@ -7,6 +7,7 @@
 #include <igl/readOFF.h>
 #include <igl/readMESH.h>
 #include <igl/readOBJ.h>
+#include <igl/writeOBJ.h>
 #include <igl/opengl/glfw/Viewer.h>
 
 using namespace LBFGSpp;
@@ -80,8 +81,8 @@ int main()
     std::vector<int> mov = {};//getMinVerts_Axis_Tolerance(V, 1);
     std::sort (mov.begin(), mov.end());
     std::vector<int> bones = {};
-    getMaxTets_Axis_Tolerance(bones, V, T, 1, 3);
-    getMinTets_Axis_Tolerance(bones, V, T, 1, 3);
+    // getMaxTets_Axis_Tolerance(bones, V, T, 1, 3);
+    // getMinTets_Axis_Tolerance(bones, V, T, 1, 3);
 
     std::cout<<"-----Mesh-------"<<std::endl;
     VectorXi muscle1;
@@ -90,7 +91,12 @@ int main()
 
     std::cout<<"-----ARAP-----"<<std::endl;
     Arap* arap = new Arap(*mesh);
-    // cout<<arap->Jacobians(*mesh).transpose()<<endl;
+    // VectorXd fpax0(12*T.rows());
+    // fpax0.setZero();
+    // mesh->constTimeFPAx0(fpax0);
+    // print(fpax0)
+    // mesh->red_s()[1] += -1;
+
 
     std::cout<<"-----Neo-------"<<std::endl;
     Elastic* neo = new Elastic(*mesh);
@@ -99,13 +105,29 @@ int main()
     int DIM = mesh->red_s().size();
     Rosenbrock f(DIM, mesh, arap, neo, j_input);
     LBFGSParam<double> param;
-    param.epsilon = 1e-1;
+    // param.epsilon = 1e-1;
     // param.max_iterations = 1000;
     // param.past = 2;
     // param.m = 5;
     param.linesearch = LBFGSpp::LBFGS_LINESEARCH_BACKTRACKING_ARMIJO;
     LBFGSSolver<double> solver(param);
 
+    // for(int i=0; i<5; i++){
+    //     MatrixXd newV = mesh->continuousV();
+    //     string datafile = j_input["data"];
+    //     igl::writeOBJ(datafile+"test"+to_string(i)+".obj",newV,F);
+        
+    //     double fx =0;
+    //     VectorXd ns = mesh->N().transpose()*mesh->red_s();
+    //     int niter = solver.minimize(f, ns, fx);
+    //     VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
+    //     for(int i=0; i<reds.size(); i++){
+    //         mesh->red_s()[i] = reds[i];
+    //     }
+        
+    //     neo->changeFiberMag(1.5);
+    // }
+    // exit(0);
 
 	igl::opengl::glfw::Viewer viewer;
     std::cout<<"-----Display-------"<<std::endl;
@@ -123,6 +145,10 @@ int main()
         viewer.data().clear();
         
         // //----------------
+        if(key=='A'){
+            cout<<"here"<<endl;
+            neo->changeFiberMag(2);
+        }
 
         if(key==' '){
       		VectorXd& dx = mesh->dx();
@@ -145,7 +171,7 @@ int main()
 		    for(int i=0; i<reds.size(); i++){
 	            mesh->red_s()[i] = reds[i];
 	        }
-		    mesh->setGlobalF(false, true, false);
+		    // mesh->setGlobalF(false, true, false);
 
 			// std::cout<<"new s"<<std::endl;
 			// std::cout<<reds.transpose()<<std::endl;
@@ -195,8 +221,8 @@ int main()
     viewer.core.is_animating = false;
     viewer.data().face_based = true;
     // viewer.data.set_colors(C);
-
     viewer.launch();
+
     return EXIT_SUCCESS;
 
     

@@ -1014,7 +1014,9 @@ public:
     VectorXd& dx(){ return mx;}
     VectorXd& red_x(){ return mred_x; }
     void red_x(VectorXd& ix){ 
-        mred_x = ix;
+        for(int i=0; i<ix.size(); i++){
+            mred_x[i] = ix[i];
+        }
         return; 
     }
 

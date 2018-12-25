@@ -13,7 +13,7 @@ class Elastic
 {
 
 protected:
-	double muscle_fibre_mag = 100000;
+	double muscle_fibre_mag = 10000;
 	double rho = 6.4; 
 	VectorXd sW1, sW2, sW3, sW4, sW5, sW6, muscle_forces, elastic_forces;
 
@@ -86,7 +86,7 @@ public:
 		return En;
 	}
 
-	VectorXd MuscleElementForce(const VectorXd& w1, const VectorXd& w2, const VectorXd& w3, const VectorXd& w4, const VectorXd& w5, const VectorXd& w6,  const VectorXd& rs, Vector3d& u){
+	void MuscleElementForce(VectorXd& force, const VectorXd& w1, const VectorXd& w2, const VectorXd& w3, const VectorXd& w4, const VectorXd& w5, const VectorXd& w6,  const VectorXd& rs, Vector3d& u){
 		double s1 = w1.dot(rs);
 		double s2 = w2.dot(rs);
 		double s3 = w3.dot(rs);
@@ -127,12 +127,12 @@ public:
 		double t_26 = (t_9 * std::pow(u3 , 2));
 		double t_27 = (t_14 * t_10);
 		// double functionValue = (t_9 * (((u2 * (((t_5 * t_0) + (t_7 * t_2)) + (t_8 * t_3))) + (u1 * (((t_5 * t_1) + (t_7 * t_6)) + (t_8 * t_2)))) + (u3 * (((t_5 * t_4) + (t_7 * t_1)) + (t_8 * t_0)))));
-		VectorXd gradient = (((((((((((((((((((((((((((((((((((((t_11 * t_10) * w5) + ((t_12 * t_10) * w6)) + (t_27 * w3)) + ((t_9 * (u2 * t_18)) * w6)) + (t_23 * w1)) + ((t_12 * t_13) * w4)) + ((t_14 * t_13) * w5)) + ((t_9 * (u2 * t_22)) * w4)) + ((t_11 * t_16) * w4)) + ((t_12 * t_16) * w2)) + ((t_14 * t_16) * w6)) + ((t_9 * (u2 * t_24)) * w2)) + ((t_19 * t_15) * w5)) + ((t_11 * t_15) * w6)) + (t_25 * w3)) + ((t_9 * (u1 * t_18)) * w5)) + ((t_19 * t_20) * w1)) + ((t_11 * t_20) * w4)) + ((t_21 * t_20) * w5)) + ((t_9 * (u1 * t_22)) * w1)) + ((t_19 * t_13) * w4)) + (t_23 * w2)) + ((t_21 * t_13) * w6)) + ((t_9 * (u1 * t_24)) * w4)) + ((t_21 * t_17) * w5)) + ((t_14 * t_17) * w6)) + ((t_26 * t_17) * w3)) + ((t_9 * (u3 * t_18)) * w3)) + (t_25 * w1)) + ((t_14 * t_15) * w4)) + ((t_26 * t_15) * w5)) + ((t_9 * (u3 * t_22)) * w5)) + ((t_21 * t_10) * w4)) + (t_27 * w2)) + ((t_26 * t_10) * w6)) + ((t_9 * (u3 * t_24)) * w6));
+		force += (((((((((((((((((((((((((((((((((((((t_11 * t_10) * w5) + ((t_12 * t_10) * w6)) + (t_27 * w3)) + ((t_9 * (u2 * t_18)) * w6)) + (t_23 * w1)) + ((t_12 * t_13) * w4)) + ((t_14 * t_13) * w5)) + ((t_9 * (u2 * t_22)) * w4)) + ((t_11 * t_16) * w4)) + ((t_12 * t_16) * w2)) + ((t_14 * t_16) * w6)) + ((t_9 * (u2 * t_24)) * w2)) + ((t_19 * t_15) * w5)) + ((t_11 * t_15) * w6)) + (t_25 * w3)) + ((t_9 * (u1 * t_18)) * w5)) + ((t_19 * t_20) * w1)) + ((t_11 * t_20) * w4)) + ((t_21 * t_20) * w5)) + ((t_9 * (u1 * t_22)) * w1)) + ((t_19 * t_13) * w4)) + (t_23 * w2)) + ((t_21 * t_13) * w6)) + ((t_9 * (u1 * t_24)) * w4)) + ((t_21 * t_17) * w5)) + ((t_14 * t_17) * w6)) + ((t_26 * t_17) * w3)) + ((t_9 * (u3 * t_18)) * w3)) + (t_25 * w1)) + ((t_14 * t_15) * w4)) + ((t_26 * t_15) * w5)) + ((t_9 * (u3 * t_22)) * w5)) + ((t_21 * t_10) * w4)) + (t_27 * w2)) + ((t_26 * t_10) * w6)) + ((t_9 * (u3 * t_24)) * w6));
 
-		return gradient;
+		return;
 	}
 
-	VectorXd MuscleForce(Mesh& mesh){
+	void MuscleForce(Mesh& mesh){
 		muscle_forces.setZero();
 		VectorXd& rs = mesh.red_s();
 		VectorXd& bones = mesh.bones();
@@ -149,7 +149,7 @@ public:
 				sW4[6*t+3] += 1;
 				sW5[6*t+4] += 1;
 				sW6[6*t+5] += 1;
-	        	muscle_forces += MuscleElementForce(sW1,sW2,sW3,sW4,sW5,sW6, rs, u);
+	        	MuscleElementForce(muscle_forces, sW1,sW2,sW3,sW4,sW5,sW6, rs, u);
 	        	sW1[6*t+0] -= 1;
 				sW2[6*t+1] -= 1;
 				sW3[6*t+2] -= 1;
@@ -157,10 +157,9 @@ public:
 				sW5[6*t+4] -= 1;
 				sW6[6*t+5] -= 1;
 			}else{
-            	muscle_forces += MuscleElementForce(mesh.sW().row(6*t+0),mesh.sW().row(6*t+1),mesh.sW().row(6*t+2),mesh.sW().row(6*t+3),mesh.sW().row(6*t+4),mesh.sW().row(6*t+5), rs, u);
+            	MuscleElementForce(muscle_forces, mesh.sW().row(6*t+0),mesh.sW().row(6*t+1),mesh.sW().row(6*t+2),mesh.sW().row(6*t+3),mesh.sW().row(6*t+4),mesh.sW().row(6*t+5), rs, u);
         	}
         }
-        return muscle_forces;
 	}
 
 	double WikipediaElementEnergy(const VectorXd& w0, const VectorXd& w1, const VectorXd& w2, const VectorXd& w3, const VectorXd& w4, const VectorXd& w5,  const VectorXd& rs, double C1, double D1){
@@ -233,7 +232,7 @@ public:
 		return En;
 	}
 
-	VectorXd WikipediaElementForce(const VectorXd& w0, const VectorXd& w1, const VectorXd& w2, const VectorXd& w3, const VectorXd& w4, const VectorXd& w5,  const VectorXd& rs, double C1, double D1){
+	void WikipediaElementForce(VectorXd& force, const VectorXd& w0, const VectorXd& w1, const VectorXd& w2, const VectorXd& w3, const VectorXd& w4, const VectorXd& w5,  const VectorXd& rs, double C1, double D1){
 		double t_0 = w2.dot(rs);
 		double t_1 = w3.dot(rs);
 		double t_2 = w1.dot(rs);
@@ -284,12 +283,11 @@ public:
 		t_16 = (t_15 * t_9);
 		t_17 = (t_15 * t_11);
 		// functionValue = (D1 * ((((((((t_4 * t_2) * t_0) - 1) - (t_0 * (t_1 * t_1))) - (t_2 * (t_3 * t_3))) + ((2 * t_1) * (t_3 * t_5))) - (t_4 * (t_5 * t_5))) ** 2))
-		gradient += ((((((((((t_13 * t_8) * (t_6 * w0)) + (t_14 * (t_6 * w1))) + (t_14 * (t_8 * w2))) - (((t_13 * t_7) * (t_7 * w2)) + ((t_15 * t_7) * (t_6 * w3)))) - (((t_13 * t_9) * (t_9 * w1)) + (t_16 * (t_8 * w4)))) + (t_16 * (t_11 * w3))) + (t_17 * (t_7 * w4))) + (t_16 * (t_7 * w5))) - (((t_13 * t_11) * (t_11 * w0)) + (t_17 * (t_10 * w5))));
+		force += ((((((((((t_13 * t_8) * (t_6 * w0)) + (t_14 * (t_6 * w1))) + (t_14 * (t_8 * w2))) - (((t_13 * t_7) * (t_7 * w2)) + ((t_15 * t_7) * (t_6 * w3)))) - (((t_13 * t_9) * (t_9 * w1)) + (t_16 * (t_8 * w4)))) + (t_16 * (t_11 * w3))) + (t_17 * (t_7 * w4))) + (t_16 * (t_7 * w5))) - (((t_13 * t_11) * (t_11 * w0)) + (t_17 * (t_10 * w5))));
 		
-		return gradient;
 	}
 
-	VectorXd WikipediaForce(Mesh& mesh){
+	void WikipediaForce(Mesh& mesh){
 		elastic_forces.setZero();
 		VectorXd& eY = mesh.eYoungs();
 		VectorXd& eP = mesh.ePoissons();
@@ -307,7 +305,7 @@ public:
 				sW4[6*t+3] += 1;
 				sW5[6*t+4] += 1;
 				sW6[6*t+5] += 1;
-	        	elastic_forces += WikipediaElementForce(sW1,sW2,sW3,sW4,sW5,sW6, rs, C1, D1);
+	        	WikipediaElementForce(elastic_forces, sW1,sW2,sW3,sW4,sW5,sW6, rs, C1, D1);
 	        	sW1[6*t+0] -= 1;
 				sW2[6*t+1] -= 1;
 				sW3[6*t+2] -= 1;
@@ -315,11 +313,10 @@ public:
 				sW5[6*t+4] -= 1;
 				sW6[6*t+5] -= 1;
 			}else{
-            	elastic_forces += WikipediaElementForce(mesh.sW().row(6*t+0),mesh.sW().row(6*t+1),mesh.sW().row(6*t+2),mesh.sW().row(6*t+3),mesh.sW().row(6*t+4),mesh.sW().row(6*t+5), rs, C1, D1);
+            	WikipediaElementForce(elastic_forces, mesh.sW().row(6*t+0),mesh.sW().row(6*t+1),mesh.sW().row(6*t+2),mesh.sW().row(6*t+3),mesh.sW().row(6*t+4),mesh.sW().row(6*t+5), rs, C1, D1);
 			}
 		}
 
-		return elastic_forces;
 	}
 
 	double Energy(Mesh& m){
@@ -329,7 +326,15 @@ public:
 	}
 
 	VectorXd PEGradient(Mesh& m){
-		return WikipediaForce(m)+ MuscleForce(m);
+		WikipediaForce(m);
+		MuscleForce(m);
+		return muscle_forces+elastic_forces;
+	}
+
+	void changeFiberMag(double multiplier){
+		muscle_fibre_mag *= multiplier;
+		cout<<"muscle fiber mag"<<endl;
+		cout<<muscle_fibre_mag<<endl;
 	}
 
 	template<typename DataType>

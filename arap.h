@@ -111,9 +111,41 @@ public:
 		return En;
 	}
 
-	double Energy(Mesh& m, VectorXd& z, SparseMatrix<double>& R, SparseMatrix<double>& S, SparseMatrix<double>& U){
+	double Energy(Mesh& m, VectorXd& z, VectorXd& redw, VectorXd& redr, VectorXd& reds, VectorXd& redu){
 		VectorXd PAx = aPA*z + aPAx0;
-		VectorXd FPAx0 = R*U*S*U.transpose()*aPAx0;
+		VectorXd FPAx0(PAx.size());
+		for(int i=0; i<m.T().rows(); i++){
+            Matrix3d ri = Map<Matrix3d>(m.red_r().segment<9>(9*i).data()).transpose();
+            Matrix3d r;
+            Vector3d w;
+            w<<redw(3*i+0),redw(3*i+1),redw(3*i+2);
+            double wlen = w.norm();
+            if (wlen>1e-9){
+                double wX = w(0);
+                double wY = w(1);
+                double wZ = w(2);
+                Matrix3d cross;
+                cross<<0, -wZ, wY,
+                        wZ, 0, -wX,
+                        -wY, wX, 0;
+                Matrix3d Rot = cross.exp();
+                r = ri*Rot;
+            }else{
+                r = ri;
+            }
+            
+            Matrix3d u = Map<Matrix3d>(redu.segment<9>(9*i).data()).transpose();
+            Matrix3d s;
+            s<< reds[6*i + 0], reds[6*i + 3], reds[6*i + 4],
+                reds[6*i + 3], reds[6*i + 1], reds[6*i + 5],
+                reds[6*i + 4], reds[6*i + 5], reds[6*i + 2];
+
+            Matrix3d rusut = r*u*s*u.transpose();
+            FPAx0.segment<3>(12*i+0) = rusut*aPAx0.segment<3>(12*i+0);
+            FPAx0.segment<3>(12*i+3) = rusut*aPAx0.segment<3>(12*i+3);
+            FPAx0.segment<3>(12*i+6) = rusut*aPAx0.segment<3>(12*i+6);
+            FPAx0.segment<3>(12*i+9) = rusut*aPAx0.segment<3>(12*i+9);
+        }
 		return 0.5*(PAx - FPAx0).squaredNorm();
 	}
 
@@ -216,11 +248,16 @@ public:
 		// }
 		// ExxFile.close();
 
+		// print("before LU");
 		if(!jacLUanalyzed){
 			ajacLU.analyzePattern(aJacKKTSparse);	
 			jacLUanalyzed =true;
 		}
 		ajacLU.factorize(aJacKKTSparse);
+		if(ajacLU.info() == Eigen::NumericalIssue){
+            cout<<"Possibly using a non- pos def matrix in the LLT method"<<endl;
+            exit(0);
+        }
 		
 
 		// print("after LU");
@@ -229,7 +266,7 @@ public:
 		// SparseMatrix<double> allres = results.topRows(aExx.rows()+aErr.rows());
 		// SparseMatrix<double> dgds = allres.topRows(aExx.rows());
 		// SparseMatrix<double> drds = allres.bottomRows(aErr.rows());
-		// VectorXd aDEDs1 = dgds.transpose()*aEx + drds.transpose()*aEr + aEs;
+		// aDEDs = dgds.transpose()*aEx + drds.transpose()*aEr + aEs;
 
 		VectorXd ExEr(aEx.size()+aEr.size());
 		ExEr<<aEx,aEr;
@@ -507,33 +544,41 @@ public:
 
 	VectorXd dEdx(Mesh& m){
 		VectorXd PAx = aPA*m.red_x() + aPAx0;
-		// m.constTimeFPAx0(aFPAx0);
+		m.constTimeFPAx0(aFPAx0);
 		VectorXd res = (aPA).transpose()*(PAx - aFPAx0);
 		return res;
 	}
 
-	void itT(Mesh& m){
+	bool itT(Mesh& m){
 		m.constTimeFPAx0(aFPAx0);
 		VectorXd deltaABtx = m.AB().transpose()*m.dx();
-		VectorXd GtAtPtFPAx0 = (aPA).transpose()*aFPAx0;
-		VectorXd GtAtPtPAx0 = (aPA).transpose()*(aPAx0);
-		VectorXd gb = GtAtPtFPAx0 - GtAtPtPAx0;
+		VectorXd AtPtFPAx0 = (aPA).transpose()*aFPAx0;
+		VectorXd AtPtPAx0 = (aPA).transpose()*(aPAx0);
+		VectorXd gb = AtPtFPAx0 - AtPtPAx0;
 		VectorXd gd(gb.size()+deltaABtx.size());
 		gd<<gb,deltaABtx;
-		VectorXd gu = aARAPKKTSparseSolver.solve(gd).head(gb.size());
+		VectorXd result = aARAPKKTSparseSolver.solve(gd);
+		VectorXd gu = result.head(gb.size());
 		m.red_x(gu);
+		VectorXd lambda = result.tail(deltaABtx.size());
+		print("q--------");
+		print(lambda.transpose());
+		print((m.AB().transpose()*gu).transpose());
+		print(dEdx(m).transpose());
 		// print(aPAx0.transpose());
-		// print("1");
+		// print("q");
 		// print(aFPAx0.transpose());
-		// print("1");
 		// print(deltaABtx.transpose());
-		// print("1");
-		// print(GtAtPtPAx0.transpose());
-		// print("1");
-		// print(GtAtPtFPAx0.transpose());
-		// print("1");
+		// print("q");
+		// print(AtPtPAx0.transpose());
+		// print("q");
+		// print(AtPtFPAx0.transpose());
+		// print("q");
 		// print(gu.transpose());
-		// exit(0);
+		// print("q");
+		// print((m.AB().transpose()*gu).transpose());
+		exit(0);
+
 	}
 
 	void itR(Mesh& m, VectorXd& USUtPAx0){
@@ -576,7 +621,7 @@ public:
 	}
 
 	void minimize(Mesh& m){
-		// print("		+ ARAP minimize");
+		// print("	+ ARAP minimize");
 		VectorXd ms = m.red_s();
 		VectorXd USUtPAx0 = VectorXd::Zero(12*m.T().rows());
 		for(int t =0; t<m.T().rows(); t++){
@@ -590,19 +635,61 @@ public:
 			}
 		}
 
-		VectorXd Ex0 = dEdx(m);
-		for(int i=0; i< 100; i++){
-			itT(m);
+		double previous5ItE = Energy(m);
+		double oldE = Energy(m);
+		// VectorXd E0 = m.B().transpose()*dEdx(m);
+		for(int i=1; i< 10000; i++){
+			bool converged = itT(m);
 			itR(m, USUtPAx0);
-
-			VectorXd Ex = dEdx(m);
-		
-			if ((Ex - Ex0).norm()<1e-12){
-				// std::cout<<"		- ARAP minimize "<<i<<std::endl;
-				return;
+			double newE = Energy(m);
+			if((newE - oldE)>1e-8){
+				print("Arap::minimize() error. ARAP should monotonically decrease.");
+				print(i);
+				print(oldE);
+				print(newE);
+				exit(0);
 			}
-			Ex0 = Ex;
+			oldE = newE;
+			// if (i%5==0){
+			// 	if(fabs(newE - previous5ItE)<1e-12){
+			// 		if(i>1000){
+			// 			// print(m.red_s().transpose());
+			// 			// exit(0);
+			// 		}
+			// 		// std::cout<<"		- ARAP minimize "<<i<<", "<<(newE - previous5ItE)<<std::endl;
+			// 		return;
+			// 	}
+			// 	previous5ItE = newE;
+			// }
+			
+			// VectorXd Ex = m.B().transpose()*dEdx(m);
+			// if((Ex - E0).norm()<1e-7){
+			// 	std::cout<<"		- ARAP minimize "<<i<<", "<<(Ex - E0).norm()<<std::endl;
+			// 	return;
+			// }
+			// E0 = Ex;
 		}
+		// VectorXd Ex = dEdx(m);
+		// print("WHy is it not converging?");
+		// print("redx\n");
+		// print(m.red_x().transpose());
+		// print("1\n");
+		// VectorXd PAx = aPA*m.red_x() + aPAx0;
+		// print((m.AB().transpose()*PAx).transpose());
+		// print("2\n");
+		// print((m.AB().transpose()*aFPAx0).transpose());
+		// print("3\n");
+		// VectorXd res = (aPA).transpose()*(PAx - aFPAx0);
+		// // print(((aPA).transpose()*(aPA*m.red_x() + aPAx0)).transpose());
+		// print("4\n");
+		// print(((aPA).transpose()*(aFPAx0)).transpose());
+		// print("5\n");
+		// print(Ex.transpose());
+		// print("6\n");
+		// print((m.AB().transpose()*Ex).transpose());
+		// print(m.red_s());		
+		// std::cout<<"		- ARAP never converged "<<Energy(m)-previous5ItE<<std::endl;
+		// exit(0);
 	}
 
 	SparseMatrix<double> Exx(){ 
