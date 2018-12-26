@@ -330,9 +330,9 @@ public:
 	        mesh->red_s()[i] = reds[i];
 	    }
         double Eneo = alpha_neo*elas->Energy(*mesh);
-        if(Eneo>1e30){
-            return Eneo;
-        }
+        // if(Eneo>1e30){
+        //     return Eneo;
+        // }
 
         arap->minimize(*mesh);
         double Earap = alpha_arap*arap->Energy(*mesh);
@@ -341,12 +341,9 @@ public:
         if(computeGrad){        
 	        VectorXd pegrad = alpha_neo*mesh->N().transpose()*elas->PEGradient(*mesh);
 	        VectorXd arapgrad = alpha_arap*mesh->N().transpose()*arap->Jacobians(*mesh);
-	        
-	        // VectorXd pegrad = alpha_neo*elas->PEGradient(*mesh);
-	        // VectorXd arapgrad = alpha_arap*arap->Jacobians(*mesh);
-
+	   
 	        // VectorXd fake_arap = mesh->N().transpose()*Full_ARAP_Grad(*mesh, *arap,*elas, fx, eps);
-	        // if ((arapgrad-fake_arap).norm()>1){
+	        // if ((arapgrad-fake_arap).norm()>10){
          //        // mesh->setGlobalF(true, true, false);
          //        double E0 = arap->Energy(*mesh);
 	        // 	std::cout<<"fake arap issues"<<std::endl;
@@ -413,7 +410,8 @@ public:
 	            // grad[i] = fake[i];
 	        }
 	        std::cout<<Eneo<<", "<<Earap<<", "<<Eneo+Earap<<", "<<pegrad.norm()<<", "<<arapgrad.norm()<<std::endl;
-	        // std::cout<<x.transpose()<<endl;
+	        cout<<pegrad.transpose()<<endl<<endl;
+            // std::cout<<grad.transpose()<<endl<<endl;
             // std::cout<<pegrad.head(12).transpose()<<std::endl<<std::endl;
 	        // std::cout<<arapgrad.head(12).transpose()<<std::endl<<std::endl;
         }

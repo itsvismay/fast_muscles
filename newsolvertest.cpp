@@ -159,15 +159,15 @@ int main()
             //     mesh->red_s()[6*i+1] += 0.1;
             // }
       
-		    double fx =0;
-		    VectorXd ns = mesh->N().transpose()*mesh->red_s();
-		    // cout<<"NS"<<endl;
-		    int niter = solver.minimize(f, ns, fx);
-		    VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
+            // double fx =0;
+            // VectorXd ns = mesh->N().transpose()*mesh->red_s();
+            // int niter = solver.minimize(f, ns, fx);
+            // VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
 	
-    	    // VectorXd reds = mesh->red_s();
-		    // int niter = solver.minimize(f, reds, fx);
-		    
+            double fx =0;
+            VectorXd reds = mesh->red_s();
+            int niter = solver.minimize(f, reds, fx);
+
 		    for(int i=0; i<reds.size(); i++){
 	            mesh->red_s()[i] = reds[i];
 	        }

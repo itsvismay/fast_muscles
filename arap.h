@@ -560,16 +560,16 @@ public:
 		VectorXd result = aARAPKKTSparseSolver.solve(gd);
 		VectorXd gu = result.head(gb.size());
 		m.red_x(gu);
-		VectorXd lambda = result.tail(deltaABtx.size());
-		print("q--------");
-		print(lambda.transpose());
-		print((m.AB().transpose()*gu).transpose());
-		print(dEdx(m).transpose());
-		// print(aPAx0.transpose());
+		// VectorXd lambda = result.tail(deltaABtx.size());
+		// print("first order optimality");
+		// cout<<(aC*dEdx(m) + lambda).norm()<<", ";
+		// print(lambda.transpose());
 		// print("q");
+		// print((m.AB().transpose()*gu).transpose());
+		// print("q");
+		// print(aPAx0.transpose());
 		// print(aFPAx0.transpose());
 		// print(deltaABtx.transpose());
-		// print("q");
 		// print(AtPtPAx0.transpose());
 		// print("q");
 		// print(AtPtFPAx0.transpose());
@@ -577,7 +577,7 @@ public:
 		// print(gu.transpose());
 		// print("q");
 		// print((m.AB().transpose()*gu).transpose());
-		exit(0);
+		return false;
 
 	}
 
@@ -650,24 +650,29 @@ public:
 				exit(0);
 			}
 			oldE = newE;
-			// if (i%5==0){
-			// 	if(fabs(newE - previous5ItE)<1e-12){
-			// 		if(i>1000){
-			// 			// print(m.red_s().transpose());
-			// 			// exit(0);
-			// 		}
-			// 		// std::cout<<"		- ARAP minimize "<<i<<", "<<(newE - previous5ItE)<<std::endl;
-			// 		return;
-			// 	}
-			// 	previous5ItE = newE;
+			// if(converged){
+			// 	std::cout<<"		- ARAP minimize "<<i<<", "<<std::endl;
+			// 	break;
 			// }
+			if (i%5==0){
+				if(fabs(newE - previous5ItE)<1e-12){
+					if(i>1000){
+						// print(m.red_s().transpose());
+						// exit(0);
+					}
+					// std::cout<<"		- ARAP minimize "<<i<<", "<<(newE - previous5ItE)<<std::endl;
+					return;
+				}
+				previous5ItE = newE;
+			}
 			
 			// VectorXd Ex = m.B().transpose()*dEdx(m);
-			// if((Ex - E0).norm()<1e-7){
+			// if((Ex - E0).norm()<1e-8){
 			// 	std::cout<<"		- ARAP minimize "<<i<<", "<<(Ex - E0).norm()<<std::endl;
 			// 	return;
 			// }
 			// E0 = Ex;
+
 		}
 		// VectorXd Ex = dEdx(m);
 		// print("WHy is it not converging?");
