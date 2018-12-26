@@ -334,7 +334,7 @@ public:
         //     return Eneo;
         // }
 
-        arap->minimize(*mesh);
+        int arap_iters = arap->minimize(*mesh);
         double Earap = alpha_arap*arap->Energy(*mesh);
         double fx = Eneo + Earap;
 
@@ -409,8 +409,8 @@ public:
                 grad[i] += arapgrad[i];
 	            // grad[i] = fake[i];
 	        }
-	        std::cout<<Eneo<<", "<<Earap<<", "<<Eneo+Earap<<", "<<pegrad.norm()<<", "<<arapgrad.norm()<<std::endl;
-	        cout<<pegrad.transpose()<<endl<<endl;
+	        std::cout<<"BFGS: "<<Eneo<<", "<<Earap<<", "<<pegrad.norm()<<", "<<arapgrad.norm()<<","<<grad.norm()<<std::endl;
+	        // cout<<pegrad.transpose()<<endl<<endl;
             // std::cout<<grad.transpose()<<endl<<endl;
             // std::cout<<pegrad.head(12).transpose()<<std::endl<<std::endl;
 	        // std::cout<<arapgrad.head(12).transpose()<<std::endl<<std::endl;

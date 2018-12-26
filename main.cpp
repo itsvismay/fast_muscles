@@ -110,13 +110,30 @@ int main(int argc, char *argv[])
     int DIM = mesh->red_s().size();
     Rosenbrock f(DIM, mesh, arap, neo, j_input);
     LBFGSParam<double> param;
-    // param.epsilon = 1e-1;
+    param.epsilon = 1e-1;
     // param.max_iterations = 1000;
     // param.past = 2;
     // param.m = 5;
     param.linesearch = LBFGSpp::LBFGS_LINESEARCH_BACKTRACKING_ARMIJO;
     LBFGSSolver<double> solver(param);
 
+    for(int i=0; i<5; i++){
+        MatrixXd newV = mesh->continuousV();
+        string datafile = j_input["data"];
+        igl::writeOBJ(datafile+"bigmuscle"+to_string(i)+".obj",newV,F);
+        
+        double fx =0;
+        VectorXd ns = mesh->N().transpose()*mesh->red_s();
+        int niter = solver.minimize(f, ns, fx);
+        cout<<"End BFGS"<<", "<<niter<<endl;
+        VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
+        for(int i=0; i<reds.size(); i++){
+            mesh->red_s()[i] = reds[i];
+        }
+        
+        neo->changeFiberMag(1.5);
+    }
+    exit(0);
 
     std::cout<<"-----Display-------"<<std::endl;
     igl::opengl::glfw::Viewer viewer;

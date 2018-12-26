@@ -105,7 +105,7 @@ int main()
     int DIM = mesh->red_s().size();
     Rosenbrock f(DIM, mesh, arap, neo, j_input);
     LBFGSParam<double> param;
-    // param.epsilon = 1e-1;
+    param.epsilon = 1e-1;
     // param.max_iterations = 1000;
     // param.past = 2;
     // param.m = 5;
@@ -120,6 +120,7 @@ int main()
     //     double fx =0;
     //     VectorXd ns = mesh->N().transpose()*mesh->red_s();
     //     int niter = solver.minimize(f, ns, fx);
+    //     cout<<"End BFGS"<<", "<<niter<<endl;
     //     VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
     //     for(int i=0; i<reds.size(); i++){
     //         mesh->red_s()[i] = reds[i];

@@ -106,7 +106,7 @@ public:
 
 	double Energy(Mesh& m){
 		VectorXd PAx = aPA*m.red_x() + aPAx0;
-		m.constTimeFPAx0(aFPAx0);
+		// m.constTimeFPAx0(aFPAx0);
 		double En= 0.5*(PAx - aFPAx0).squaredNorm();
 		return En;
 	}
@@ -544,13 +544,12 @@ public:
 
 	VectorXd dEdx(Mesh& m){
 		VectorXd PAx = aPA*m.red_x() + aPAx0;
-		m.constTimeFPAx0(aFPAx0);
+		// m.constTimeFPAx0(aFPAx0);
 		VectorXd res = (aPA).transpose()*(PAx - aFPAx0);
 		return res;
 	}
 
 	bool itT(Mesh& m){
-		m.constTimeFPAx0(aFPAx0);
 		VectorXd deltaABtx = m.AB().transpose()*m.dx();
 		VectorXd AtPtFPAx0 = (aPA).transpose()*aFPAx0;
 		VectorXd AtPtPAx0 = (aPA).transpose()*(aPAx0);
@@ -586,10 +585,10 @@ public:
 		VectorXd& mr =m.red_r();
 		
 		std::map<int, std::vector<int>>& c_e_map = m.r_cluster_elem_map();
+		Matrix<double, 4, 3> ePAx;//(4*cluster_elem.size(),3);
+		Matrix<double, 4, 3> eUSUtPAx0;//(4*cluster_elem.size(),3);
 		for (int i=0; i<mr.size()/9; i++){
 			std::vector<int> cluster_elem = c_e_map[i];
-			MatrixXd ePAx(4*cluster_elem.size(),3);
-			MatrixXd eUSUtPAx0(4*cluster_elem.size(),3);
 			for(int c=0; c<cluster_elem.size(); c++){
 				ePAx.row(4*c+0) = PAx.segment<3>(12*cluster_elem[c]);
 				ePAx.row(4*c+1) = PAx.segment<3>(12*cluster_elem[c]+3);
@@ -620,7 +619,7 @@ public:
 		}
 	}
 
-	void minimize(Mesh& m){
+	int minimize(Mesh& m){
 		// print("	+ ARAP minimize");
 		VectorXd ms = m.red_s();
 		VectorXd USUtPAx0 = VectorXd::Zero(12*m.T().rows());
@@ -634,14 +633,16 @@ public:
 				USUtPAx0.segment<3>(12*t+3*j) = u*s*aUtPAx0.segment<3>(12*t+3*j);
 			}
 		}
-
+		m.constTimeFPAx0(aFPAx0);
 		double previous5ItE = Energy(m);
 		double oldE = Energy(m);
 		// VectorXd E0 = m.B().transpose()*dEdx(m);
-		for(int i=1; i< 10000; i++){
+		for(int i=1; i< 1000; i++){
 			bool converged = itT(m);
 			itR(m, USUtPAx0);
+			m.constTimeFPAx0(aFPAx0);
 			double newE = Energy(m);
+			cout<<i<<",";
 			if((newE - oldE)>1e-8){
 				print("Arap::minimize() error. ARAP should monotonically decrease.");
 				print(i);
@@ -655,13 +656,13 @@ public:
 			// 	break;
 			// }
 			if (i%5==0){
-				if(fabs(newE - previous5ItE)<1e-12){
+				if(fabs(newE - previous5ItE)<1e-10){
 					if(i>1000){
 						// print(m.red_s().transpose());
 						// exit(0);
 					}
-					// std::cout<<"		- ARAP minimize "<<i<<", "<<(newE - previous5ItE)<<std::endl;
-					return;
+					std::cout<<"		- ARAP minimize "<<i<<", "<<(newE - previous5ItE)<<std::endl;
+					return i;
 				}
 				previous5ItE = newE;
 			}
@@ -669,10 +670,9 @@ public:
 			// VectorXd Ex = m.B().transpose()*dEdx(m);
 			// if((Ex - E0).norm()<1e-8){
 			// 	std::cout<<"		- ARAP minimize "<<i<<", "<<(Ex - E0).norm()<<std::endl;
-			// 	return;
+			// 	return i;
 			// }
 			// E0 = Ex;
-
 		}
 		// VectorXd Ex = dEdx(m);
 		// print("WHy is it not converging?");
@@ -693,8 +693,9 @@ public:
 		// print("6\n");
 		// print((m.AB().transpose()*Ex).transpose());
 		// print(m.red_s());		
-		// std::cout<<"		- ARAP never converged "<<Energy(m)-previous5ItE<<std::endl;
+		std::cout<<"		- ARAP never converged "<<Energy(m)-previous5ItE<<std::endl;
 		// exit(0);
+		return 1000;
 	}
 
 	SparseMatrix<double> Exx(){ 
