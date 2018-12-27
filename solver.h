@@ -407,13 +407,10 @@ public:
 	        for(int i=0; i< x.size(); i++){
 	        	grad[i] = pegrad[i];
                 grad[i] += arapgrad[i];
-	            // grad[i] = fake[i];
 	        }
+
 	        std::cout<<"BFGS: "<<Eneo<<", "<<Earap<<", "<<pegrad.norm()<<", "<<arapgrad.norm()<<","<<grad.norm()<<std::endl;
-	        // cout<<pegrad.transpose()<<endl<<endl;
-            // std::cout<<grad.transpose()<<endl<<endl;
-            // std::cout<<pegrad.head(12).transpose()<<std::endl<<std::endl;
-	        // std::cout<<arapgrad.head(12).transpose()<<std::endl<<std::endl;
+	    
         }
 
 
