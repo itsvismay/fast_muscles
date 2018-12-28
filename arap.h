@@ -469,6 +469,7 @@ public:
 	int Gradients(Mesh& m){
 		// print("			+ Gradients");
 		// print("		Ex");
+		m.constTimeFPAx0(aFPAx0);
 		aEx = dEdx(m);
 		
 		// print("		Er");
@@ -544,7 +545,6 @@ public:
 
 	VectorXd dEdx(Mesh& m){
 		VectorXd PAx = aPA*m.red_x() + aPAx0;
-		// m.constTimeFPAx0(aFPAx0);
 		VectorXd res = (aPA).transpose()*(PAx - aFPAx0);
 		return res;
 	}
@@ -724,6 +724,8 @@ public:
 	VectorXd Er() { return aEr; }
 	VectorXd Es() { return aEs; }
 	VectorXd Ex() { return aEx; }
+
+	VectorXd& FPAx0() { return aFPAx0; }
 
 	std::vector<Eigen::Triplet<double>> to_triplets(Eigen::SparseMatrix<double> & M){
 		std::vector<Eigen::Triplet<double>> v;
