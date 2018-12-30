@@ -33,7 +33,7 @@ protected:
     MatrixXi mT, discT;
 
     //Used in the sim
-    SparseMatrix<double> mMass, mGF, mGR, mGS, mGU, mP, mC, m_P, mPA;
+    SparseMatrix<double> mMass, mGF, mGR, mGS, mGU, mP, mC, m_P, mPA, mWr, mWw;
     SparseMatrix<double> mA, mFree, mConstrained, mN, mAN;
 
     VectorXi melemType, mr_elem_cluster_map, ms_handles_ind;
@@ -126,13 +126,15 @@ public:
         mGS.resize(12*mT.rows(), 12*mT.rows());
 
         print("step 14");
-        setGlobalF(true, true, true);
+        setGlobalF(false, false, true);
         print("step 15");
         setN();
         print("step 16");
         mPA = mP*mA;
         mPAx0 = mPA*mx0;
         mFPAx.resize(mPAx0.size());
+
+        setupWrWw();
 
     }
 
@@ -155,7 +157,7 @@ public:
             M.coeffRef(i,i) = mmass_diag[i];
         }
         print("     eig1");
-
+        print(nummodes);
         Spectra::SparseCholesky<double> Bop(M);
         Spectra::SymGEigsSolver<double, Spectra::SMALLEST_MAGN, Spectra::SparseGenMatProd<double>, Spectra::SparseCholesky<double>, Spectra::GEIGS_CHOLESKY>geigs(&Aop, &Bop, nummodes, 5*nummodes);
         geigs.init();
@@ -373,7 +375,6 @@ public:
             ms_handles_ind[k] = minind;
         }
         msW = bbw_strain_skinning_matrix(ms_handles_ind);
-        print(msW);
         print("- Skinning Handles");
     }
 
@@ -509,7 +510,7 @@ public:
 
         cv::Mat cv_labels;
         cv::Mat cv_centers;
-        cv::TermCriteria criteria(CV_TERMCRIT_ITER|CV_TERMCRIT_EPS, 10000, 0.01);
+        cv::TermCriteria criteria(CV_TERMCRIT_ITER|CV_TERMCRIT_EPS, 1000, 0.01);
         cv::kmeans(cv_F, num_labels, cv_labels, criteria, num_iter, cv::KMEANS_PP_CENTERS, cv_centers);
 
         int num_points = F.rows();
@@ -819,21 +820,86 @@ public:
         }
     }
 
+    void setupWrWw(){
+        std::vector<Trip> wr_trips;
+        std::vector<Trip> ww_trips;
+
+        std::map<int, std::vector<int>>& c_e_map = mr_cluster_elem_map;
+        for (int i=0; i<mred_r.size()/9; i++){
+            std::vector<int> cluster_elem = c_e_map[i];
+            for(int e=0; e<cluster_elem.size(); e++){
+                wr_trips.push_back(Trip(9*cluster_elem[e]+0, 9*i+0, 1));
+                wr_trips.push_back(Trip(9*cluster_elem[e]+1, 9*i+1, 1));
+                wr_trips.push_back(Trip(9*cluster_elem[e]+2, 9*i+2, 1));
+                wr_trips.push_back(Trip(9*cluster_elem[e]+3, 9*i+3, 1));
+                wr_trips.push_back(Trip(9*cluster_elem[e]+4, 9*i+4, 1));
+                wr_trips.push_back(Trip(9*cluster_elem[e]+5, 9*i+5, 1));
+                wr_trips.push_back(Trip(9*cluster_elem[e]+6, 9*i+6, 1));
+                wr_trips.push_back(Trip(9*cluster_elem[e]+7, 9*i+7, 1));
+                wr_trips.push_back(Trip(9*cluster_elem[e]+8, 9*i+8, 1));
+                
+                ww_trips.push_back(Trip(3*cluster_elem[e]+0, 3*i+0, 1));
+                ww_trips.push_back(Trip(3*cluster_elem[e]+1, 3*i+1, 1));
+                ww_trips.push_back(Trip(3*cluster_elem[e]+2, 3*i+2, 1));
+            
+            }
+
+        }
+
+        mWr.resize( 9*mT.rows(), mred_r.size());
+        mWr.setFromTriplets(wr_trips.begin(), wr_trips.end());
+
+        mWw.resize( 3*mT.rows(), mred_w.size());
+        mWw.setFromTriplets(ww_trips.begin(), ww_trips.end());
+    }
+
     void constTimeFPAx0(VectorXd& iFPAx0){
         iFPAx0.setZero();
-        for(int i=0; i<mT.rows(); i++){
-            Matrix3d r = Map<Matrix3d>(mred_r.segment<9>(9*mr_elem_cluster_map[i]).data()).transpose();
-            Matrix3d u = Map<Matrix3d>(mred_u.segment<9>(9*i).data()).transpose();
-            Matrix3d s;
-            s<< mred_s[6*i + 0], mred_s[6*i + 3], mred_s[6*i + 4],
-                mred_s[6*i + 3], mred_s[6*i + 1], mred_s[6*i + 5],
-                mred_s[6*i + 4], mred_s[6*i + 5], mred_s[6*i + 2];
+        if(reduced==true){
+            //TODO make this more efficient
+            VectorXd ms;
+            if(6*mT.rows()==mred_s.size()){
+                ms = mred_s;
+            }else{
+                ms = msW*mred_s;
+            }
+            VectorXd mr;
+            if(9*mT.rows()==mred_r.size()){
+                mr = mred_r;
+            }else{
+                mr = mWr*mred_r;
+            }
+            for(int i=0; i<mT.rows(); i++){
+                Matrix3d r = Map<Matrix3d>(mr.segment<9>(9*mr_elem_cluster_map[i]).data()).transpose();
+                Matrix3d u = Map<Matrix3d>(mred_u.segment<9>(9*i).data()).transpose();
+                Matrix3d s;
+                s<< ms[6*i + 0], ms[6*i + 3], ms[6*i + 4],
+                    ms[6*i + 3], ms[6*i + 1], ms[6*i + 5],
+                    ms[6*i + 4], ms[6*i + 5], ms[6*i + 2];
 
-            Matrix3d rusut = r*u*s*u.transpose();
-            iFPAx0.segment<3>(12*i+0) = rusut*mPAx0.segment<3>(12*i+0);
-            iFPAx0.segment<3>(12*i+3) = rusut*mPAx0.segment<3>(12*i+3);
-            iFPAx0.segment<3>(12*i+6) = rusut*mPAx0.segment<3>(12*i+6);
-            iFPAx0.segment<3>(12*i+9) = rusut*mPAx0.segment<3>(12*i+9);
+                Matrix3d rusut = r*u*s*u.transpose();
+                iFPAx0.segment<3>(12*i+0) = rusut*mPAx0.segment<3>(12*i+0);
+                iFPAx0.segment<3>(12*i+3) = rusut*mPAx0.segment<3>(12*i+3);
+                iFPAx0.segment<3>(12*i+6) = rusut*mPAx0.segment<3>(12*i+6);
+                iFPAx0.segment<3>(12*i+9) = rusut*mPAx0.segment<3>(12*i+9);
+            }
+
+
+        }else{
+            for(int i=0; i<mT.rows(); i++){
+                Matrix3d r = Map<Matrix3d>(mred_r.segment<9>(9*mr_elem_cluster_map[i]).data()).transpose();
+                Matrix3d u = Map<Matrix3d>(mred_u.segment<9>(9*i).data()).transpose();
+                Matrix3d s;
+                s<< mred_s[6*i + 0], mred_s[6*i + 3], mred_s[6*i + 4],
+                    mred_s[6*i + 3], mred_s[6*i + 1], mred_s[6*i + 5],
+                    mred_s[6*i + 4], mred_s[6*i + 5], mred_s[6*i + 2];
+
+                Matrix3d rusut = r*u*s*u.transpose();
+                iFPAx0.segment<3>(12*i+0) = rusut*mPAx0.segment<3>(12*i+0);
+                iFPAx0.segment<3>(12*i+3) = rusut*mPAx0.segment<3>(12*i+3);
+                iFPAx0.segment<3>(12*i+6) = rusut*mPAx0.segment<3>(12*i+6);
+                iFPAx0.segment<3>(12*i+9) = rusut*mPAx0.segment<3>(12*i+9);
+            }
         }
     }
 

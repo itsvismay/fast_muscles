@@ -160,25 +160,22 @@ MatrixXd Exr(Mesh& mesh, Reduced_Arap& arap, double E0, double eps){
 		for(int j=0; j<fake.cols(); j++){
 			mesh.red_w()[j] += eps;
 			z[i] += eps;
-			// mesh.setGlobalF(true, false, false);
 			double Eij = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
 			mesh.red_w()[j] -= eps;
 			z[i] -= eps;
 
 			mesh.red_w()[j] += eps;
-			// mesh.setGlobalF(true, false, false);
 			double Ei = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
 			mesh.red_w()[j] -= eps;
 
 			z[i] += eps;
-			// mesh.setGlobalF(true, false, false);
 			double Ej = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
 			z[i] -= eps;
-
+			// cout<<Eij<<", "<<Ei<<", "<<Ej<<", "<<E0<<endl;
 			fake(i,j) = ((Eij - Ei - Ej + E0)/(eps*eps));
 		}
+			// exit(0);
 	}
-	// mesh.setGlobalF(true, false, false);
 	return fake;
 }
 //-----------------------
@@ -291,110 +288,40 @@ int checkRedARAP(Mesh& mesh, Reduced_Arap& arap){
     
     cout<<"Er"<<endl;
     VectorXd fakeEr = Er(mesh, arap, E0, eps);
-    cout<<fakeEr.transpose()<<endl;
-    cout<<arap.Er().transpose()<<endl;
     cout<<(arap.Er().transpose()-fakeEr.transpose()).norm()<<endl<<endl;
     
     cout<<"Es"<<endl;
 	VectorXd fakeEs = Es(mesh, arap,E0, eps);
-	cout<<fakeEs.transpose()<<endl;
-    cout<<arap.Es().transpose()<<endl;
-    cout<<(arap.Es().transpose() - fakeEs.transpose()).norm()<<endl<<endl;
+	cout<<(arap.Es().transpose() - fakeEs.transpose()).norm()<<endl<<endl;
 
     arap.Hessians(mesh);
+    cout<<"Err"<<endl;
+    MatrixXd fakeErr = Err(mesh, arap, E0, eps);
+    cout<<(fakeErr-arap.constTimeErr(mesh)).norm()<<endl;
+    cout<<endl;
+   
 	MatrixXd fakeExx = Exx(mesh, arap, E0, eps);
-    cout<<"Exx"<<endl;
-    cout<<(fakeExx-MatrixXd(arap.Exx())).norm()<<endl<<endl;
-    cout<<endl<<endl;
+	cout<<"Exx"<<endl;
+	cout<<(fakeExx-MatrixXd(arap.Exx())).norm()<<endl<<endl;
+	cout<<endl<<endl;
 
     MatrixXd fakeExr = Exr(mesh, arap, E0, eps);
     cout<<"Exr"<<endl;
-    cout<<(fakeExr-MatrixXd(arap.Exr())).norm()<<endl<<endl;
+    cout<<(fakeExr-arap.constTimeExr(mesh)).norm()<<endl<<endl;
     cout<<endl<<endl;
 
     cout<<"Exs"<<endl;
     MatrixXd fakeExs = Exs(mesh, arap, E0, eps);
-    cout<<(fakeExs-MatrixXd(arap.Exs())).norm()<<endl<<endl;
-    cout<<endl;
-
-    cout<<"Err"<<endl;
-    MatrixXd fakeErr = Err(mesh, arap, E0, eps);
-    cout<<(fakeErr-MatrixXd(arap.Err())).norm()<<endl<<endl;
+    cout<<(fakeExs-arap.Exs()).norm()<<endl<<endl;
     cout<<endl;
 
     cout<<"Ers"<<endl;
     MatrixXd fakeErs = Ers(mesh, arap, E0, eps);
-    cout<<(fakeErs-MatrixXd(arap.Ers())).norm()<<endl<<endl;
+    cout<<fakeErs<<endl<<endl;
+    cout<<arap.Ers()<<endl;
+    cout<<(fakeErs-arap.Ers()).norm()<<endl<<endl;
     cout<<endl;
 }
-
-// VectorXd WikipediaEnergy_grad(Mesh& mesh, Elastic& elas, double E0, double eps){
-//     VectorXd fake = VectorXd::Zero(mesh.red_s().size());
-//     cout<<"start E0:"<<E0<<endl;
-//     for(int i=0; i<fake.size(); i++){
-//         mesh.red_s()[i] += 0.5*eps;
-//         double Eleft = elas.WikipediaEnergy(mesh);
-//         mesh.red_s()[i] -= 0.5*eps;
-        
-//         mesh.red_s()[i] -= 0.5*eps;
-//         double Eright = elas.WikipediaEnergy(mesh);
-//         mesh.red_s()[i] += 0.5*eps;
-//         fake[i] = (Eleft - Eright)/(eps);
-//     }
-    // mesh.setGlobalF(false, true, false);
-//     // std::cout<<"FUll fake: "<<fake.transpose()<<std::endl;
-//     return fake;
-// }
-
-// VectorXd MuscleEnergy_grad(Mesh& mesh, Elastic& elas, double E0, double eps){
-//     VectorXd fake = VectorXd::Zero(mesh.red_s().size());
-//     cout<<"start E0:"<<E0<<endl;
-//     for(int i=0; i<fake.size(); i++){
-//         mesh.red_s()[i] += 0.5*eps;
-//         double Eleft = elas.MuscleEnergy(mesh);
-//         mesh.red_s()[i] -= 0.5*eps;
-        
-//         mesh.red_s()[i] -= 0.5*eps;
-//         double Eright = elas.MuscleEnergy(mesh);
-//         mesh.red_s()[i] += 0.5*eps;
-//         fake[i] = (Eleft - Eright)/(eps);
-//     }
-    // mesh.setGlobalF(false, true, false);
-//     // std::cout<<"FUll fake: "<<fake.transpose()<<std::endl;
-//     return fake;
-// }
-
-// int checkElastic(Mesh& mesh, Elastic& elas){
-// 	double eps = j_input["fd_eps"];
-// 	double E0 = elas.WikipediaEnergy(mesh);
-// 	std::cout<<"Energy0: "<<E0<<std::endl;
-	
-// 	cout<<"Real wikipedia grad"<<endl;
-// 	VectorXd real = elas.WikipediaForce(mesh);
-// 	std::cout<<real.transpose()<<std::endl;
-// 	std::cout<<"Energy0: "<<elas.WikipediaEnergy(mesh)<<std::endl;
-
-// 	cout<<"Fake wikipedia grad"<<endl;
-// 	VectorXd fake = WikipediaEnergy_grad(mesh, elas, E0, eps);
-// 	cout<<(fake-real).norm()<<endl;
-// 	cout<<fake.transpose()<<endl;
-// 	cout<<"E1 "<<elas.WikipediaEnergy(mesh)<<endl<<endl;
-
-// 	///////Muscles
-// 	E0 = elas.MuscleEnergy(mesh);
-// 	std::cout<<"Energy0: "<<E0<<std::endl;
-	
-// 	cout<<"Real wikipedia grad"<<endl;
-// 	real = elas.MuscleForce(mesh);
-// 	std::cout<<real.transpose()<<std::endl;
-// 	std::cout<<"Energy0: "<<elas.MuscleEnergy(mesh)<<std::endl;
-
-// 	cout<<"Fake wikipedia grad"<<endl;
-// 	fake = MuscleEnergy_grad(mesh, elas, E0, eps);
-// 	cout<<(fake-real).norm()<<endl;
-// 	cout<<fake.transpose()<<endl;
-// 	cout<<"E1 "<<elas.MuscleEnergy(mesh)<<endl<<endl;
-// }
 
 int main(int argc, char *argv[]){
     std::cout<<"-----Configs-------"<<std::endl;

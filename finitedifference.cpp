@@ -292,6 +292,7 @@ int checkARAP(Mesh& mesh, Arap& arap){
     arap.Gradients(mesh);
     cout<<"Ex"<<endl;
     VectorXd fakeEx = Ex(mesh, arap, E0, eps);
+    cout<<fakeEx<<endl;
     cout<<(arap.Ex().transpose()-fakeEx.transpose()).norm()<<endl<<endl;
     
     cout<<"Er"<<endl;
@@ -314,6 +315,7 @@ int checkARAP(Mesh& mesh, Arap& arap){
 
     MatrixXd fakeExr = Exr(mesh, arap, E0, eps);
     cout<<"Exr"<<endl;
+    cout<<arap.Exr()<<endl;
     cout<<(fakeExr-MatrixXd(arap.Exr())).norm()<<endl<<endl;
     cout<<endl<<endl;
 
