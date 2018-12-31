@@ -8,7 +8,7 @@
   "fibre_mag": 0,
   "reduced": true,
   "number_skinning_handles": 0,
-  "number_rot_clusters": 3,
+  "number_rot_clusters": 0,
   "number_modes": 0,
   "fd_eps": 1e-5,
   "alpha_arap": 1e4,

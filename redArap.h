@@ -33,6 +33,7 @@ protected:
 	std::vector<MatrixXd> aConstErTerms;
 	std::vector<MatrixXd> aErsTermsPAx0U;
 	std::vector<std::vector<MatrixXd>> aErsTermsPAGU;
+	MatrixXd aUtPAx0DS;
 
 	SparseMatrix<double> adjointP, a_Wr, a_Ww;
 
@@ -82,6 +83,7 @@ public:
 		print("rarap 7");
 		setupWrWw(m);
 		setupFastErTerms(m);
+		setupFastUtPAx0DSTerm(m);
 		setupFastErsTerms(m);
 
 		// setupFastItRTerms(m);
@@ -410,29 +412,14 @@ public:
 	}
 
 	void setupFastErsTerms(Mesh& m){
-		VectorXd PAg = aPAG*m.red_x() + aPAx0;
-		MatrixXd TEMP1 = MatrixXd::Zero(12*m.T().rows(), aErs.rows());
-		for(int i=0; i<TEMP1.rows(); i++){
-			for(int j=0; j<TEMP1.cols(); j++){
-				auto v = aDR[j];
-				for(int k=0; k<v.size(); k++){
-					TEMP1(i,j) += v[k].value()*(-1*m.GU().coeff(v[k].col(), i)*PAg[v[k].row()]);
-				}
-			}
-		}
-		print(TEMP1.transpose());
-		print("");
-
-		Matrix3d Jx = cross_prod_mat(1,0,0);
-		Matrix3d Jy = cross_prod_mat(0,1,0);
-		Matrix3d Jz = cross_prod_mat(0,0,1);
-		
+		print("old Ers");
+		print(Ers(m));
+		print("\n");
 
 		std::map<int, std::vector<int>>& c_e_map = m.r_cluster_elem_map();
 		for(int i=0; i<m.red_w().size()/3; i++){
 			std::vector<int> cluster_elem = c_e_map[i];			
 			MatrixXd PAx0U = MatrixXd::Zero(12*cluster_elem.size(), 9);
-
 
 			SparseMatrix<double>& B = m.RotBLOCK()[i];
 			MatrixXd BPAG = B.transpose()*aPAG;
@@ -483,6 +470,13 @@ public:
 			aErsTermsPAGU.push_back(PAGzU);
 		}
 
+
+
+
+
+		Matrix3d Jx = cross_prod_mat(1,0,0);
+		Matrix3d Jy = cross_prod_mat(0,1,0);
+		Matrix3d Jz = cross_prod_mat(0,0,1);
 		for(int i=0; i<m.red_w().size()/3; i++){
 			SparseMatrix<double>& B = m.RotBLOCK()[i];
 			VectorXd mred_r = m.red_r();
@@ -508,11 +502,83 @@ public:
 				aTEMP1.col(3*i+0) += B*(-aErsTermsPAGU[i][v]*r3vec);
 			}
 		}
-		print(aTEMP1.transpose());
+		print(aTEMP1.transpose()*aUtPAx0DS);
+
 		exit(0);
 	}
 
 	void setupFastErsTermsCheat(Mesh& m){
+	}
+
+	void setupFastUtPAx0DSTerm(Mesh& m){
+		aUtPAx0DS = MatrixXd::Zero(aUtPAx0.size(), m.red_s().size());
+		for(int s=0; s<m.red_s().size()/6; s++){
+			VectorXd sWx = m.sW().col(6*s+0);
+			VectorXd sWy = m.sW().col(6*s+1);
+			VectorXd sWz = m.sW().col(6*s+2);
+			VectorXd sW01 = m.sW().col(6*s+3);
+			VectorXd sW02 = m.sW().col(6*s+4);
+			VectorXd sW12 = m.sW().col(6*s+5);
+
+			VectorXd diag_x = VectorXd::Zero(12*m.T().rows());
+			VectorXd diag_y = VectorXd::Zero(12*m.T().rows());
+			VectorXd diag_z = VectorXd::Zero(12*m.T().rows());
+			VectorXd diag_1 = VectorXd::Zero(12*m.T().rows());
+			VectorXd diag_2 = VectorXd::Zero(12*m.T().rows());
+			VectorXd diag_3 = VectorXd::Zero(12*m.T().rows());
+			for(int i=0; i<m.T().rows(); i++){
+				diag_x[12*i+0] = sWx[6*i];
+				diag_x[12*i+3] = sWx[6*i];
+				diag_x[12*i+6] = sWx[6*i];
+				diag_x[12*i+9] = sWx[6*i];
+
+				diag_y[12*i+0+1] = sWy[6*i+1];
+				diag_y[12*i+3+1] = sWy[6*i+1];
+				diag_y[12*i+6+1] = sWy[6*i+1];
+				diag_y[12*i+9+1] = sWy[6*i+1];
+
+				diag_z[12*i+0+2] = sWz[6*i+2];
+				diag_z[12*i+3+2] = sWz[6*i+2];
+				diag_z[12*i+6+2] = sWz[6*i+2];
+				diag_z[12*i+9+2] = sWz[6*i+2];
+
+				diag_1[12*i+0] = sW01[6*i+3];
+				diag_1[12*i+3] = sW01[6*i+3];
+				diag_1[12*i+6] = sW01[6*i+3];
+				diag_1[12*i+9] = sW01[6*i+3];
+
+				diag_2[12*i+0+1] = sW02[6*i+4];
+				diag_2[12*i+3+1] = sW02[6*i+4];
+				diag_2[12*i+6+1] = sW02[6*i+4];
+				diag_2[12*i+9+1] = sW02[6*i+4];
+
+				diag_3[12*i+0] = sW12[6*i+5];
+				diag_3[12*i+3] = sW12[6*i+5];
+				diag_3[12*i+6] = sW12[6*i+5];
+				diag_3[12*i+9] = sW12[6*i+5];
+			}
+
+			print(diag_x.transpose());
+			print(diag_y.transpose());
+			print(diag_z.transpose());
+			print(diag_1.transpose());
+			print(diag_2.transpose());
+			print(diag_3.transpose());
+
+			aUtPAx0DS.col(6*s+0) += aUtPAx0.cwiseProduct(diag_x);
+			aUtPAx0DS.col(6*s+1) += aUtPAx0.cwiseProduct(diag_y);
+			aUtPAx0DS.col(6*s+2) += aUtPAx0.cwiseProduct(diag_z);
+			
+			aUtPAx0DS.col(6*s+3).tail(aUtPAx0.size()-1) += aUtPAx0.head(aUtPAx0.size()-1).cwiseProduct(diag_1.head(aUtPAx0.size()-1));
+			aUtPAx0DS.col(6*s+3).head(aUtPAx0.size()-1) += aUtPAx0.tail(aUtPAx0.size()-1).cwiseProduct(diag_1.head(aUtPAx0.size()-1));
+
+			aUtPAx0DS.col(6*s+4).tail(aUtPAx0.size()-2) += aUtPAx0.head(aUtPAx0.size()-2).cwiseProduct(diag_3.head(aUtPAx0.size()-2)); 
+			aUtPAx0DS.col(6*s+4).head(aUtPAx0.size()-2) += aUtPAx0.tail(aUtPAx0.size()-2).cwiseProduct(diag_3.head(aUtPAx0.size()-2));
+
+			aUtPAx0DS.col(6*s+5).tail(aUtPAx0.size()-1) += aUtPAx0.head(aUtPAx0.size()-1).cwiseProduct(diag_2.head(aUtPAx0.size()-1));
+			aUtPAx0DS.col(6*s+5).head(aUtPAx0.size()-1) += aUtPAx0.tail(aUtPAx0.size()-1).cwiseProduct(diag_2.head(aUtPAx0.size()-1));
+			
+		}
 
 	}
 
@@ -757,7 +823,6 @@ public:
 				}
 			}
 		}
-		print(TEMP1);
 
 		aErs.setZero();
 		for(int i=0; i<aErs.cols(); i++){
@@ -768,7 +833,7 @@ public:
 				}
 			}
 		}
-		return TEMP1;
+		return aErs;
 
 	}
 
