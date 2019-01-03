@@ -1,7 +1,9 @@
 #include "mesh.h"
 #include "arap.h"
+#include "redArap.h"
 #include "elastic.h"
 #include "solver.h"
+#include "redSolver.h"
 #include <Eigen/Core>
 #include <iostream>
 #include <igl/readOFF.h>
@@ -90,12 +92,9 @@ int main()
     Mesh* mesh = new Mesh(T, V, fix, mov,bones, muscle1, Uvec, j_input);
 
     std::cout<<"-----ARAP-----"<<std::endl;
-    Arap* arap = new Arap(*mesh);
-    // VectorXd fpax0(12*T.rows());
-    // fpax0.setZero();
-    // mesh->constTimeFPAx0(fpax0);
-    // print(fpax0)
-    // mesh->red_s()[1] += -1;
+    // Arap* arap = new Arap(*mesh);
+    Reduced_Arap* arap = new Reduced_Arap(*mesh);
+  
 
 
     std::cout<<"-----Neo-------"<<std::endl;
@@ -103,7 +102,9 @@ int main()
 
     std::cout<<"-----Solver-------"<<std::endl;
     int DIM = mesh->red_s().size();
-    Rosenbrock f(DIM, mesh, arap, neo, j_input);
+    RedSolver f(DIM, mesh, arap, neo, j_input);
+    // Rosenbrock f(DIM, mesh, arap, neo, j_input);
+  
     LBFGSParam<double> param;
     param.epsilon = 1e-1;
     // param.max_iterations = 1000;
@@ -156,10 +157,11 @@ int main()
 		    for(int i=0; i<mov.size(); i++){
 		        dx[3*mov[i]+1] -= 3;
 		    }
+       
             // for(int i=0; i<mesh->red_s().size()/6; i++){
             //     mesh->red_s()[6*i+1] += 0.1;
             // }
-      
+
             // double fx =0;
             // VectorXd ns = mesh->N().transpose()*mesh->red_s();
             // int niter = solver.minimize(f, ns, fx);
@@ -168,14 +170,9 @@ int main()
             double fx =0;
             VectorXd reds = mesh->red_s();
             int niter = solver.minimize(f, reds, fx);
-
 		    for(int i=0; i<reds.size(); i++){
 	            mesh->red_s()[i] = reds[i];
 	        }
-		    // mesh->setGlobalF(false, true, false);
-
-			// std::cout<<"new s"<<std::endl;
-			// std::cout<<reds.transpose()<<std::endl;
 			std::cout<<"niter "<<niter<<std::endl;
         }
         

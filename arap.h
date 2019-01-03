@@ -298,7 +298,7 @@ public:
 		Matrix3d Jz = cross_prod_mat(0,0,1);
 		VectorXd ms = m.red_s();
 		VectorXd PAg = aPA*m.red_x() + aPAx0;
-		
+
 		// Exr
 		// print("		Exr");
 		for(int t=0; t<m.T().rows(); t++){
@@ -352,7 +352,6 @@ public:
 			Matrix3d r6 = r0*0.5*(Jy*Jz + Jz*Jy);
 			Matrix3d r9 = r0*0.5*(Jz*Jz + Jz*Jz);
 
-			
 			Matrix3d pr1 = -PAg.segment<3>(12*t+0)*(u*s*aUtPAx0.segment<3>(12*t+0)).transpose();
 			Matrix3d pr2 = -PAg.segment<3>(12*t+3)*(u*s*aUtPAx0.segment<3>(12*t+3)).transpose();
 			Matrix3d pr3 = -PAg.segment<3>(12*t+6)*(u*s*aUtPAx0.segment<3>(12*t+6)).transpose();
@@ -375,7 +374,7 @@ public:
 			aErr_trips.push_back(Trip(3*t+2,3*t+0, v02));
 			aErr_trips.push_back(Trip(3*t+2,3*t+1, v12));
 		}
-
+	
 		//Exs
 		// print("		Exs");
 		for(int t =0; t<m.T().rows(); t++){
@@ -633,6 +632,7 @@ public:
 				USUtPAx0.segment<3>(12*t+3*j) = u*s*aUtPAx0.segment<3>(12*t+3*j);
 			}
 		}
+
 		m.constTimeFPAx0(aFPAx0);
 		double previous5ItE = Energy(m);
 		double oldE = Energy(m);
@@ -643,7 +643,7 @@ public:
 			m.constTimeFPAx0(aFPAx0);
 			double newE = Energy(m);
 			cout<<i<<",";
-			if((newE - oldE)>1e-8){
+			if((newE - oldE)>1e-8 && i>1){
 				print("Arap::minimize() error. ARAP should monotonically decrease.");
 				print(i);
 				print(oldE);

@@ -242,7 +242,13 @@ public:
                 print("Continuous mesh is unreduced. Kmeans won't work.");
                 exit(0);
             }else{
-                kmeans_rotation_clustering(mr_elem_cluster_map, nrc); //output from kmeans_rotation_clustering
+                if(nrc==mT.rows()){
+                    for(int i=0; i<mT.rows(); i++){
+                       mr_elem_cluster_map[i] = i;
+                    }  
+                }else{
+                    kmeans_rotation_clustering(mr_elem_cluster_map, nrc); //output from kmeans_rotation_clustering
+                }
             }
 
         }
@@ -914,7 +920,7 @@ public:
                 //TODO: update to be parametrized by input mU
                 Vector3d b = mUvecs.row(t);
                 if(b.norm()==0){
-                    b = Vector3d::UnitY();
+                    b = Vector3d(1,2,3);//Vector3d::UnitY();
                     mUvecs.row(t) = b;
                 }
                 Vector3d v = a.cross(b);
