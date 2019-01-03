@@ -920,7 +920,7 @@ public:
                 //TODO: update to be parametrized by input mU
                 Vector3d b = mUvecs.row(t);
                 if(b.norm()==0){
-                    b = Vector3d(1,2,3);//Vector3d::UnitY();
+                    b = Vector3d::UnitY();
                     mUvecs.row(t) = b;
                 }
                 Vector3d v = a.cross(b);

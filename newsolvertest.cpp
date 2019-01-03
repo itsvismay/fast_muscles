@@ -133,6 +133,9 @@ int main()
 
 	igl::opengl::glfw::Viewer viewer;
     std::cout<<"-----Display-------"<<std::endl;
+    MatrixXd Colors = MatrixXd::Random(100,3); // 3x3 Matrix filled with random numbers between (-1,1)
+    Colors = (Colors + MatrixXd::Constant(100,3,1.))*(1-1e-6)/2.; // add 1 to the matrix to have values between 0 and 2; multiply with range/2
+    Colors = (Colors + MatrixXd::Constant(100,3,1e-6)); //set LO as the lower bound (offset)
     viewer.callback_pre_draw = [&](igl::opengl::glfw::Viewer & viewer)
     {   
         if(viewer.core.is_animating)
@@ -158,28 +161,29 @@ int main()
 		        dx[3*mov[i]+1] -= 3;
 		    }
        
-            // for(int i=0; i<mesh->red_s().size()/6; i++){
-            //     mesh->red_s()[6*i+1] += 0.1;
-            // }
-
+            for(int i=0; i<mesh->red_s().size()/6; i++){
+                mesh->red_s()[6*i+1] += 0.1;
+                mesh->red_s()[6*i+0] += 0.1;
+            }
+            arap->minimize(*mesh);
             // double fx =0;
             // VectorXd ns = mesh->N().transpose()*mesh->red_s();
             // int niter = solver.minimize(f, ns, fx);
             // VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
 	
-            double fx =0;
-            VectorXd reds = mesh->red_s();
-            int niter = solver.minimize(f, reds, fx);
-		    for(int i=0; i<reds.size(); i++){
-	            mesh->red_s()[i] = reds[i];
-	        }
-			std::cout<<"niter "<<niter<<std::endl;
+            // double fx =0;
+            // VectorXd reds = mesh->red_s();
+            // int niter = solver.minimize(f, reds, fx);
+            // for(int i=0; i<reds.size(); i++){
+            // mesh->red_s()[i] = reds[i];
+            // }
+            // std::cout<<"niter "<<niter<<std::endl;
         }
         
         //----------------
         //Draw continuous mesh
         MatrixXd newV = mesh->continuousV();
-        viewer.data().set_mesh(newV, F);
+        // viewer.data().set_mesh(newV, F);
         
         //Draw disc mesh
         std::cout<<std::endl;
@@ -208,12 +212,20 @@ int main()
         for(int i=0; i<mov.size(); i++){
             viewer.data().add_points(newV.row(mov[i]),Eigen::RowVector3d(0,1,0));
         }
-        // viewer.data().set_colors(Colors);
-        
+        for(int c=0; c<mesh->red_w().size()/3; c++){
+            std::vector<int> cluster_elem = mesh->r_cluster_elem_map()[c];
+            for(int e=0; e<cluster_elem.size(); e++){
+                viewer.data().add_points(newV.row(mesh->T().row(cluster_elem[e])[0]), Colors.row(c));
+                viewer.data().add_points(newV.row(mesh->T().row(cluster_elem[e])[1]), Colors.row(c));
+                viewer.data().add_points(newV.row(mesh->T().row(cluster_elem[e])[2]), Colors.row(c));
+                viewer.data().add_points(newV.row(mesh->T().row(cluster_elem[e])[3]), Colors.row(c));
+            }
+        }
+
         return false;
     };
 
-	viewer.data().set_mesh(V,F);
+	// viewer.data().set_mesh(V,F);
     viewer.data().show_lines = true;
     viewer.data().invert_normals = true;
     viewer.core.is_animating = false;

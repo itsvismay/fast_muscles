@@ -66,6 +66,7 @@ int main(int argc, char *argv[])
     VectorXi muscle1;
     VectorXi bone1;
     VectorXi bone2;
+    VectorXi joint1;
 
 
 
@@ -73,10 +74,11 @@ int main(int argc, char *argv[])
     std::string datafile = j_input["data"];
     igl::readDMAT(j_input["v_file"], V);
     igl::readDMAT(j_input["t_file"], T);
-    igl::readDMAT(datafile+"output/fiber_directions.dmat", Uvec);
-    igl::readDMAT(datafile+"output/muscle_I.dmat", muscle1);
-    igl::readDMAT(datafile+"output/bone_1_I.dmat", bone1);
-    igl::readDMAT(datafile+"output/bone_2_I.dmat", bone2);
+    igl::readDMAT(datafile+"simple_joint/generated_files/combined_fiber_directions.dmat", Uvec);
+    igl::readDMAT(datafile+"simple_joint/generated_files/muscle_muscle_indices.dmat", muscle1);
+    igl::readDMAT(datafile+"simple_joint/generated_files/top_bone_bone_indices.dmat", bone1);
+    igl::readDMAT(datafile+"simple_joint/generated_files/bottom_bone_bone_indices.dmat", bone2);
+    igl::readDMAT(datafile+"simple_joint/generated_files/joint_indices.dmat", joint1);
 
     igl::boundary_facets(T, F);
     cout<<"V size: "<<V.rows()<<endl;
@@ -84,7 +86,11 @@ int main(int argc, char *argv[])
     cout<<"F size: "<<F.rows()<<endl;
     
     std::vector<int> fix = getMaxVerts_Axis_Tolerance(V, 1);
+    std::vector<int> fix2 = getMaxVerts_Axis_Tolerance(V, 0, 0.5);
+    fix.insert(fix.end(), fix2.begin(), fix2.end());
     std::sort (fix.begin(), fix.end());
+    
+
     std::vector<int> mov = {};//getMinVerts_Axis_Tolerance(V, 1);
     // std::sort (mov.begin(), mov.end());
     
@@ -95,6 +101,9 @@ int main(int argc, char *argv[])
     for(int i=0; i<bone2.size(); i++){
         bones.push_back(bone2[i]);
     }
+    // for(int i=0; i<joint1.size(); i++){
+    //     bones.push_back(joint1[i]);
+    // }
 
 
     std::cout<<"-----Mesh-------"<<std::endl;
@@ -120,7 +129,7 @@ int main(int argc, char *argv[])
     for(int i=0; i<5; i++){
         MatrixXd newV = mesh->continuousV();
         string datafile = j_input["data"];
-        igl::writeOBJ(datafile+"bigmuscle"+to_string(i)+".obj",newV,F);
+        igl::writeOBJ(datafile+"simple_joint"+to_string(i)+".obj",newV,F);
         
         double fx =0;
         VectorXd ns = mesh->N().transpose()*mesh->red_s();
@@ -188,13 +197,13 @@ int main(int argc, char *argv[])
         //     viewer.data().add_edges(p2,p3,Eigen::RowVector3d(1,0,1));
         // }
 
-        // //Draw fixed and moving points
-        // for(int i=0; i<fix.size(); i++){
-        //     viewer.data().add_points(mesh->V().row(fix[i]),Eigen::RowVector3d(1,0,0));
-        // }
-        // for(int i=0; i<mov.size(); i++){
-        //     viewer.data().add_points(newV.row(mov[i]),Eigen::RowVector3d(0,1,0));
-        // }
+        //Draw fixed and moving points
+        for(int i=0; i<fix.size(); i++){
+            viewer.data().add_points(mesh->V().row(fix[i]),Eigen::RowVector3d(1,0,0));
+        }
+        for(int i=0; i<mov.size(); i++){
+            viewer.data().add_points(newV.row(mov[i]),Eigen::RowVector3d(0,1,0));
+        }
         // // viewer.data().set_colors(Colors);
         
         return false;
