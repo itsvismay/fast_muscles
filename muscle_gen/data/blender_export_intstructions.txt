@@ -1,0 +1,3 @@
+Export objs from blender with Y up, -Z forward
+
+Uncheck everything else but "Selection Only" and "Triangulate faces"

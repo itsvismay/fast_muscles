@@ -18,6 +18,10 @@
 	},
 
 	"joints": {
-		
+		"joint1": {
+			"type": "hinge",
+			"location_obj": "joint1.obj",
+			"bones": ["top_bone", "bottom_bone"]
+		}
 	}
 }

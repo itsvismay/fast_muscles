@@ -21,36 +21,39 @@
 #include <igl/signed_distance.h>
 #include <igl/slice.h>
 #include <igl/unique.h>
-#include <igl/writeDMAT.h>
 
 #include <nlohmann/json.hpp>
 
 #include "lf_utils.h"
 
 #include "MeshTypes.h"
+#include "Body.h"
 #include "viewer.h"
 
 using namespace muscle_gen;
 using namespace Eigen;
 using json = nlohmann::json;
 
+using string = std::string;
+using std::map;
+
 struct Args {
 	bool load_existing_tets = false;
-	std::string config_path;
-}
+	string body_dir;
+};
 
-Args parse_args(int argc, char *argv) {
+Args parse_args(int argc, char *argv[]) {
 	Args args;
 
 	if(argc != 2 && argc != 3) {
-		std::cout << "Usage: ./muscle_gen <config>.json [optional] --load_existing_tets " << std::endl;
+		std::cout << "Usage: ./muscle_gen <body_dir> [optional] --load_existing_tets " << std::endl;
 		exit(0);
 	}
 	
-	args.config_path = argv[1];
+	args.body_dir = argv[1];
 
 	if(argc >= 3) {
-		if(std::string(argv[2]) == "--load_existing_tets") {
+		if(string(argv[2]) == "--load_existing_tets") {
 			args.load_existing_tets = true;
 		}
 	}
@@ -58,179 +61,323 @@ Args parse_args(int argc, char *argv) {
 	return args;
 }
 
-int main(int argc, char *argv[])
-{
-	Args args = parse_args(argc, argv);
-	
 
-	std::string output_dir = argv[1];
-	std::vector<std::string> paths = {argv[2], argv[3], argv[4]};
-	std::vector<std::string> names;
-	std::vector<Mesh> meshes;
+json read_config(const string &body_dir) {
+	string config_path = lf::path::join(body_dir, "config.json");
+	std::ifstream json_ifstream(config_path);
 
-	// Load the meshes
-	for(const auto &path : paths) {
-		std::string name = lf::path::base_name(path, false);
-		Mesh mesh;
-		igl::readOBJ(path, mesh.V, mesh.F);
-		meshes.push_back(mesh);
-		names.push_back(name);
+	json config;
+	json_ifstream >> config;
+	return config;
+}
+
+
+Mesh load_mesh(const string &obj_path) {
+	Mesh mesh;
+	igl::readOBJ(obj_path, mesh.V, mesh.F);
+	return mesh;
+}
+
+
+void read_surfs(const json &config, const string &surf_dir, map<string, Mesh> &bone_surfs, map<string, Mesh> &muscle_surfs) {	
+	for (auto& el : config["muscles"].items()) {
+		string surf_path = lf::path::join(surf_dir, el.value()["surface_obj"]);
+		muscle_surfs[el.key()] = load_mesh(surf_path);
 	}
 
-	// Combine them into one mesh
+	for (auto& el : config["bones"].items()) {
+		string surf_path = lf::path::join(surf_dir, el.value()["surface_obj"]);
+		bone_surfs[el.key()] = load_mesh(surf_path);
+	}
+}
+
+
+Mesh combine_surfs(map<string, Mesh> &bone_surfs, map<string, Mesh> &muscle_surfs) {
 	Mesh combined;
 	std::vector<MatrixXd> Vs;
 	std::vector<MatrixXi> Fs;
-	for(const auto &mesh : meshes) {
-		Vs.push_back(mesh.V);
-		Fs.push_back(mesh.F);
+	for (const auto &el : muscle_surfs) {
+		Vs.push_back(el.second.V);
+		Fs.push_back(el.second.F);
+	}
+	for (const auto &el : bone_surfs) {
+		Vs.push_back(el.second.V);
+		Fs.push_back(el.second.F);
 	}
 	igl::combine(Vs, Fs, combined.V, combined.F);
+	return combined;
+}
 
-	// Tetrahedralize it
+
+TetMesh tetrahedralize_mesh(const Mesh &surf_mesh) {
 	TetMesh combined_tet_mesh;
-	if(load_existing_tets) {
-		igl::readDMAT((output_dir + "/combined_T.dmat"), combined_tet_mesh.T);
-		igl::readDMAT((output_dir + "/combined_V.dmat"), combined_tet_mesh.V);
-	} else {
-		tetwild::Args tetwild_args;
-		tetwild::tetrahedralization(combined.V, combined.F, combined_tet_mesh.V, combined_tet_mesh.T, combined_tet_mesh.A, tetwild_args);
+	tetwild::Args tetwild_args;
+
+	VectorXd A;
+	tetwild::tetrahedralization(surf_mesh.V, surf_mesh.F, combined_tet_mesh.V, combined_tet_mesh.T, A, tetwild_args);
+
+	return combined_tet_mesh;
+}
+
+
+TetMesh load_body_tet_mesh(const string &body_dir) {
+	string tets_dir = lf::path::join(body_dir, "generated_files/");
+	string T_path = lf::path::join(tets_dir, "combined_T.dmat");
+	string V_path = lf::path::join(tets_dir, "combined_V.dmat");
+
+	TetMesh tet_mesh;
+	std::cout << "Reading " << T_path << std::endl;
+	std::cout << "Reading " << V_path << std::endl;
+	igl::readDMAT(T_path, tet_mesh.T);
+	igl::readDMAT(V_path, tet_mesh.V);	
+
+	return tet_mesh;
+}
+
+
+void compute_indices(
+	const TetMesh &tet_mesh,
+	const map<string, Mesh> &bone_surfs,
+	const map<string, Mesh> &muscle_surfs,
+	map<string, std::vector<int>> &bone_indices,
+	map<string, std::vector<int>> &muscle_indices)
+{
+	Eigen::MatrixXd tet_centers;
+	igl::barycenter(tet_mesh.V, tet_mesh.T, tet_centers);
+
+	map<string, VectorXd> bone_dists;
+	map<string, VectorXd> muscle_dists;
+	for(const auto &el : bone_surfs) {
+		VectorXd S; VectorXi I; MatrixXd C, N;
+		igl::signed_distance(tet_centers, el.second.V, el.second.F, igl::SignedDistanceType::SIGNED_DISTANCE_TYPE_WINDING_NUMBER, S, I, C, N);
+		bone_dists[el.first] = S;
+	}
+	for(const auto &el : muscle_surfs) {
+		VectorXd S; VectorXi I; MatrixXd C, N;
+		igl::signed_distance(tet_centers, el.second.V, el.second.F, igl::SignedDistanceType::SIGNED_DISTANCE_TYPE_WINDING_NUMBER, S, I, C, N);
+		muscle_dists[el.first] = S;
 	}
 
-	// Now determine which tets are which
-	Eigen::MatrixXd centers;
-	igl::barycenter(combined_tet_mesh.V,combined_tet_mesh.T,centers);
-
-	// For each mesh, compute the signed distances from the barycenter of each tet
-	std::vector<VectorXd> distances_per_mesh;
-	for(const auto &mesh : meshes) {
-		VectorXd S;
-		VectorXi I;
-		MatrixXd C, N;
-		igl::signed_distance(centers, mesh.V, mesh.F, igl::SignedDistanceType::SIGNED_DISTANCE_TYPE_WINDING_NUMBER, S, I, C, N);
-		distances_per_mesh.push_back(S);
-	}
 
 	// For each tet, find the first mesh (in listed order) that contains its center
-	std::vector<std::vector<int>> tet_indices_per_mesh(meshes.size(), std::vector<int>());
-	for(int i = 0; i < combined_tet_mesh.T.rows(); i++) {
-		for(int j = 0; j < meshes.size(); j++) {
-			const double dist_to_mesh_j = distances_per_mesh[j](i);
-			if(dist_to_mesh_j <= 0) {
-				tet_indices_per_mesh[j].push_back(i);
+	for(int i = 0; i < tet_mesh.T.rows(); i++) {
+		bool found_bone = false;
+		// bones
+		for(const auto &el : bone_dists) {
+			const VectorXd &dists = el.second;
+			if(dists(i) <= 0.0) {
+				bone_indices[el.first].push_back(i);
+				found_bone = true;
 				break;
 			}
 		}
-	}
-	
-	// Split into separate meshes for debugging
-	std::vector<TetMesh> tet_meshes;
-	for(const auto &tet_indices : tet_indices_per_mesh) {
-		MatrixXi T(tet_indices.size(), 4);
-		for(int i = 0; i < tet_indices.size(); i++) {
-			T.row(i) = combined_tet_mesh.T.row(tet_indices[i]);
-		}
-		TetMesh tet_mesh;
-		tet_mesh.T = T;
-		tet_mesh.V = combined_tet_mesh.V; // TODO shouldn't really store duplicates
-		tet_meshes.push_back(tet_mesh);
-	}
-
-
-	// Do the poisson solve to get fiber directions
-	// Identify boundary verts
-	std::vector<Mesh> bone_surface_meshes = {meshes[0], meshes[1]}; // TODO need better way of specifying this
-	TetMesh muscle_mesh_temp = tet_meshes[2];
-	TetMesh muscle_mesh;
-	MatrixXi temp;
-	igl::remove_unreferenced(muscle_mesh_temp.V, muscle_mesh_temp.T, muscle_mesh.V, muscle_mesh.T, temp);
-	VectorXi muscle_verts_I;
-	igl::unique(muscle_mesh.T, muscle_verts_I); // TODO need better way of specifying which mesh to do this on
-	// VectorXd muscle_verts_V;
-	// igl::slice(combined_tet_mesh.V, muscle_verts_I, 1, muscle_verts_V);
-
-	// Boundary conditions
-	std::vector<VectorXd> muscle_to_bone_dists;
-	for(const auto &mesh : bone_surface_meshes) {
-		VectorXd S;
-		VectorXi I;
-		MatrixXd C, N;
-		igl::signed_distance(muscle_mesh.V, mesh.V, mesh.F, igl::SignedDistanceType::SIGNED_DISTANCE_TYPE_WINDING_NUMBER, S, I, C, N);
-		muscle_to_bone_dists.push_back(S);
-	}
-
-	std::vector<int> boundary_vert_Is;
-	const double tolerance = 1e-5; // TODO what's a good tolerance?
-	for(int i = 0; i < muscle_verts_I.size(); i++) {
-		const int muscle_vert_index = muscle_verts_I[i];
-		for(const auto &muscle_to_bone_dist : muscle_to_bone_dists) {
-			if(std::abs(muscle_to_bone_dist[muscle_vert_index]) <= tolerance) {
-				boundary_vert_Is.push_back(muscle_vert_index);
-				break;
+		// muscles
+		if(!found_bone) {
+			for(const auto &el : muscle_dists) {
+				const VectorXd &dists = el.second;
+				if(dists(i) <= 0.0) {
+					muscle_indices[el.first].push_back(i);
+					break;
+				}
 			}
 		}
 	}
-
-	VectorXi b;
-	igl::list_to_matrix(boundary_vert_Is, b);
-	// MatrixXd bc = RowVector3d(0.0, 1.0, 0.0).replicate(b.size(), 1); // TODO How do I specify boundary direction better? Get the normal?
-	VectorXd bc(b.size(), 1);
-
-	int top_vert_i, bottom_vert_i;
-	Mesh muscle_surface_mesh = meshes[2]; // TODO need a better way
-	muscle_surface_mesh.V.col(1).maxCoeff(&top_vert_i);
-	muscle_surface_mesh.V.col(1).minCoeff(&bottom_vert_i);
-
-	VectorXd top_vert = muscle_surface_mesh.V.row(top_vert_i);
-	VectorXd bottom_vert = muscle_surface_mesh.V.row(bottom_vert_i);
-	for(int i = 0; i < b.size(); i++) {
-		VectorXd v = muscle_mesh.V.row(b(i));
-		VectorXd top_to_v = v - top_vert;
-		VectorXd bottom_to_v = v - bottom_vert;
-		if(top_to_v.norm() > bottom_to_v.norm()) {
-			bc(i) = 1.0;
-		} else {
-			bc(i) = -1.0;
-		}
-	}
-
-	MatrixXd W;
-	igl::harmonic(muscle_mesh.V, muscle_mesh.T, b, bc, 2, W);
-
-	SparseMatrix<double> G;
-	igl::grad(muscle_mesh.V, muscle_mesh.T, G);
-
-	MatrixXd fiber_directions = Map<const MatrixXd>((G*W).eval().data(), muscle_mesh.T.rows(), 3);
-	fiber_directions.rowwise().normalize();
-
-	double fiber_scale = 0.1;
-	std::vector<MatrixXd> fiber_edges(2);
-	MatrixXd muscle_centers;
-	igl::barycenter(muscle_mesh.V, muscle_mesh.T, muscle_centers);
-	fiber_edges[0] = muscle_centers;
-	fiber_edges[1] = muscle_centers +  fiber_directions * fiber_scale;
-
-	// Map them back to the combined mesh
-	MatrixXd combined_fiber_directions = MatrixXd::Zero(combined_tet_mesh.T.rows(), 3);
-	const std::vector<int> &muscle_to_combined_indices = tet_indices_per_mesh[2]; // TODO improve this
-	for(int i = 0; i < fiber_directions.rows(); i++) {
-		combined_fiber_directions.row(muscle_to_combined_indices[i]) = fiber_directions.row(i);
-	}
-
-
-	//Save to disk
-	//json config; // TODO
-
-	igl::writeDMAT((output_dir + "/combined_T.dmat"), combined_tet_mesh.T, false);
-	igl::writeDMAT((output_dir + "/combined_V.dmat"), combined_tet_mesh.V, false);
-	igl::writeDMAT((output_dir + "/fiber_directions.dmat"), combined_fiber_directions, false);
-	for (int i = 0; i < meshes.size(); ++i) {
-		VectorXi indices;
-		igl::list_to_matrix(tet_indices_per_mesh[i], indices);
-		igl::writeDMAT((output_dir + "/" + names[i] + "_I.dmat"), indices, false);
-	}
-
-
-	// Launch viewer with simple menu
-	launch_viewer(tet_meshes, fiber_edges);
 }
+
+
+void split_tet_meshes(
+	const TetMesh &tet_mesh,
+	const map<string, std::vector<int>> &bone_indices,
+	const map<string, std::vector<int>> &muscle_indices,
+	std::map<string, TetMesh> &split_tet_meshes)
+{
+	auto both_indices = {bone_indices, muscle_indices};
+	for(const auto &indices_map : both_indices) {
+		for(const auto &el : indices_map) {
+			TetMesh temp_tet_mesh;
+			const std::vector<int> &indices = el.second;
+			temp_tet_mesh.T.resize(indices.size(), 4);
+			for(int i = 0; i < indices.size(); i++) {
+				temp_tet_mesh.T.row(i) = tet_mesh.T.row(indices[i]);	
+			}
+			temp_tet_mesh.V = tet_mesh.V;
+
+			TetMesh split_tet_mesh;
+			MatrixXi temp;
+			igl::remove_unreferenced(temp_tet_mesh.V, temp_tet_mesh.T, split_tet_mesh.V, split_tet_mesh.T, temp);
+			split_tet_meshes[el.first] = split_tet_mesh;
+		}
+	}
+}
+
+
+void compute_muscle_fibers(const Body &body, MatrixXd &combined_fiber_directions) {
+
+	// For each muscle
+	// 	Identify attachment points
+	// 	set boundary conditions
+	// 	Do harmonic solve
+	// 	Gradient
+	// 	Store fiber directions
+	
+	for(const auto &el : body.muscle_indices) {
+		const auto &muscle_name = el.first;
+		const TetMesh &muscle_tet_mesh = body.split_tet_meshes.at(muscle_name);
+
+		// Need to compute boundary conditions for harmonic solve
+		VectorXi boundary_verts;
+		VectorXd boundary_vals;
+		
+		VectorXi muscle_verts_I;
+		igl::unique(muscle_tet_mesh.T, muscle_verts_I);
+
+		// Get distance of all muscle verts to all the bones
+		std::vector<VectorXd> muscle_to_bone_dists;
+		for(const auto &bone_surf_el : body.bone_surfs) {
+			VectorXd S;
+			VectorXi I;
+			MatrixXd C, N;
+			igl::signed_distance(muscle_tet_mesh.V, bone_surf_el.second.V, bone_surf_el.second.F, igl::SignedDistanceType::SIGNED_DISTANCE_TYPE_WINDING_NUMBER, S, I, C, N);
+			muscle_to_bone_dists.push_back(S);
+		}
+
+		// Keep all the verts touching a bone and assign a boundary value
+		std::vector<int> boundary_verts_vec;
+		std::vector<double> boundary_vals_vec;
+		const double tolerance = 1e-6; 
+		int first_bone = -1; //dirty hack to make everything but the first bone found a heat sink
+		for(int i = 0; i < muscle_verts_I.size(); i++) {
+			const int muscle_vert_index = muscle_verts_I[i];
+			for(const auto &muscle_to_bone_dist : muscle_to_bone_dists) {
+				if(std::abs(muscle_to_bone_dist[muscle_vert_index]) <= tolerance) {
+					boundary_verts_vec.push_back(muscle_vert_index);
+
+					// TODO - This is a horrible assumption
+					// It will always work in the case of one muscle attached to two bones.
+					// If there is one muscle attached to three bones, it may break depending on order.
+					if(first_bone == -1) { first_bone = i; }
+					if(i == first_bone) {
+						boundary_vals_vec.push_back(-1.0);
+					} else {
+						boundary_vals_vec.push_back(1.0);
+					}
+
+					break;
+				}
+			}
+		}
+		igl::list_to_matrix(boundary_verts_vec, boundary_verts);
+		igl::list_to_matrix(boundary_vals_vec, boundary_vals);
+
+
+		// Now do the harmonic solve and compute the gradient
+		MatrixXd W;
+		igl::harmonic(muscle_tet_mesh.V, muscle_tet_mesh.T, boundary_verts, boundary_vals, 1, W);
+
+		SparseMatrix<double> G;
+		igl::grad(muscle_tet_mesh.V, muscle_tet_mesh.T, G);
+
+		MatrixXd fiber_directions = Map<const MatrixXd>((G*W).eval().data(), muscle_tet_mesh.T.rows(), 3);
+		fiber_directions.rowwise().normalize();
+
+		// Map them back to the combined mesh
+		combined_fiber_directions = MatrixXd::Zero(body.tet_mesh.T.rows(), 3);
+		for(int i = 0; i < fiber_directions.rows(); i++) {
+			combined_fiber_directions.row(el.second[i]) = fiber_directions.row(i);
+		}
+	}
+
+}
+
+
+void add_joints(const json &config, const string &obj_dir, Body &body) {
+	for (auto& el : config["joints"].items()) {
+		string name = el.key();
+		const auto &joint = el.value();
+		string type = joint["type"];
+		string obj_name = joint["location_obj"];
+
+
+		std::vector<string> bones = joint["bones"];
+		string obj_path = lf::path::join(obj_dir, joint["location_obj"]);
+		Mesh joint_mesh = load_mesh(obj_path);
+		const int n_verts_in_joint = joint_mesh.V.rows();
+
+		// TODO For hinges only
+		const int nV = body.tet_mesh.V.rows();
+		const int nT = body.tet_mesh.T.rows();
+		body.tet_mesh.V.conservativeResize(nV + n_verts_in_joint, 3);
+		body.tet_mesh.T.conservativeResize(nT + 2, 4);
+		body.combined_fiber_directions.conservativeResize(nT + 2, 3);
+		
+		for(int i = 0; i < n_verts_in_joint; i++) {
+			body.tet_mesh.V.row(nV + i) = joint_mesh.V.row(i);
+		}
+
+		if(type == "hinge") {
+			for(int i = 0; i < 2; i++) { // for n tets
+				body.bone_indices[bones[i]].push_back(nT + i);
+
+				const string cur_bone = bones[i];
+				auto &cur_bone_indices = body.bone_indices[cur_bone];
+				RowVector4i to_attach_tet = body.tet_mesh.T.row(cur_bone_indices[0]);
+				const int new_tet_i = nT + i;
+				body.tet_mesh.T.row(new_tet_i) = RowVector4i(nV, nV+1, to_attach_tet(0), to_attach_tet(1));
+				body.combined_fiber_directions.row(new_tet_i) = RowVector3d(0.0, 0.0, 0.0);
+				body.joint_indices.push_back(new_tet_i);
+			}
+		} else {
+			std::cout << "ERROR NOT IMPLEMENTED" << std::endl;
+			exit(1);
+		}
+		
+	}
+}
+
+void generate_body_from_config(const string &body_dir, bool load_existing_tets, Body &body) {
+	json config = read_config(body_dir);
+	string obj_dir = lf::path::join(body_dir, "objs/");
+
+	read_surfs(config, obj_dir, body.bone_surfs, body.muscle_surfs);
+	string surf_dir = lf::path::join(body_dir, "objs/");
+
+
+	body.surf_mesh = combine_surfs(body.bone_surfs, body.muscle_surfs);
+
+	if(load_existing_tets) {
+		body.tet_mesh = load_body_tet_mesh(body_dir);
+	} else {
+		body.tet_mesh = tetrahedralize_mesh(body.surf_mesh);
+	}
+
+	compute_indices(body.tet_mesh, body.bone_surfs, body.muscle_surfs, body.bone_indices, body.muscle_indices);
+	split_tet_meshes(body.tet_mesh, body.bone_indices, body.muscle_indices, body.split_tet_meshes);
+	compute_muscle_fibers(body, body.combined_fiber_directions);
+
+	if(!load_existing_tets) {
+		add_joints(config, obj_dir, body);
+	}
+}
+
+
+int main(int argc, char *argv[])
+{
+	Args args = parse_args(argc, argv);
+	string output_dir = lf::path::join(args.body_dir, "generated_files/");
+
+	Body body;
+	generate_body_from_config(args.body_dir, args.load_existing_tets, body);
+
+	body.write(output_dir);
+
+
+	map<string, TetMesh> temp_tet_mesh;
+	temp_tet_mesh["asdasd"] = body.tet_mesh;
+	body.split_tet_meshes = temp_tet_mesh;
+	launch_viewer(body);
+
+	return 0;
+}
+
+
+

@@ -9,10 +9,10 @@ namespace muscle_gen {
 		Eigen::MatrixXi F;
 	};
 
+
 	struct TetMesh {
 		Eigen::MatrixXd V;
 		Eigen::MatrixXi T;
-		Eigen::VectorXd A; // Max dihedral angles..
 	};
 }
 

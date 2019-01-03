@@ -3,7 +3,11 @@
 
 #include <Eigen/Core>
 
+#include <igl/barycenter.h>
+
 #include "MeshTypes.h"
+
+#include <map>
 
 using namespace muscle_gen;
 using namespace Eigen;
@@ -52,30 +56,42 @@ namespace muscle_gen {
 		return false;
 	}
 
-	void launch_viewer(const std::vector<TetMesh> &tet_meshes, const std::vector<MatrixXd> &fiber_edges) {
+	void launch_viewer(const Body &body) {
 		igl::opengl::glfw::Viewer viewer;
 		igl::opengl::glfw::imgui::ImGuiMenu menu;
 		viewer.plugins.push_back(&menu);
 		float cutaway_offset = 0.5f;
 
-		std::vector<int> mesh_indices;
-		for(const auto &tet_mesh : tet_meshes) {
+
+		double fiber_scale = 0.1;
+		std::vector<Eigen::MatrixXd> fiber_edges(2);
+		MatrixXd muscle_centers;
+		igl::barycenter(body.tet_mesh.V, body.tet_mesh.T, muscle_centers);
+		fiber_edges[0] = muscle_centers;
+		fiber_edges[1] = muscle_centers +  body.combined_fiber_directions * fiber_scale;
+
+
+		std::map<std::string, int> mesh_indices;
+		for(const auto &tet_mesh_el : body.split_tet_meshes) {
 			const int mesh_index = viewer.append_mesh();
-			mesh_indices.push_back(mesh_index);
-			update_cutaway(viewer, tet_mesh, cutaway_offset, mesh_index);
+			mesh_indices[tet_mesh_el.first] = mesh_index;
+			update_cutaway(viewer, tet_mesh_el.second, cutaway_offset, mesh_index);
 		}
 		
 		menu.callback_draw_viewer_menu = [&]()
 		{
 			if(ImGui::InputFloat("Cutaway Plane", &cutaway_offset, 0.1f, 1.0f, 1)) {
-				for(int i = 0; i < tet_meshes.size(); i++) {
-					update_cutaway(viewer, tet_meshes[i], cutaway_offset, mesh_indices[i]);
+				for(const auto &tet_mesh_el : body.split_tet_meshes) {
+					update_cutaway(viewer, tet_mesh_el.second, cutaway_offset, mesh_indices[tet_mesh_el.first]);
 				}
 			}
 		};
 
-		viewer.data().add_edges(fiber_edges[0], fiber_edges[1], RowVector3d(1.0, 0.0, 0.0));
 
+		if(fiber_edges.size() > 0) {
+			viewer.data().add_edges(fiber_edges[0], fiber_edges[1], RowVector3d(1.0, 0.0, 0.0));
+		}
+		
 		viewer.launch();
 	}
 
