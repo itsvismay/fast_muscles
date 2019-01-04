@@ -74,10 +74,10 @@ VectorXd Ex(Mesh& mesh, Reduced_Arap& arap, double E0, double eps){
 	#pragma omp parallel for
 	for(int i=0; i<fake.size(); i++){
 		z[i] += 0.5*eps;
-		double Eleft = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+		double Eleft = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
 		z[i] -= 0.5*eps;
 		z[i] -= 0.5*eps;
-		double Eright = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+		double Eright = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
 		z[i] += 0.5*eps;
 		fake[i] = (Eleft - Eright)/eps;
 	}
@@ -92,11 +92,11 @@ VectorXd Er(Mesh& mesh, Reduced_Arap& arap, double E0, double eps){
 	for(int i=0; i<fake.size(); i++){
 		mesh.red_w()[i] += 0.5*eps;
 		// mesh.setGlobalF(true, false, false);
-		double Eleft = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+		double Eleft = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
 		mesh.red_w()[i] -= 0.5*eps;
 		mesh.red_w()[i] -= 0.5*eps;
 		// mesh.setGlobalF(true, false, false);
-		double Eright = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+		double Eright = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
 		mesh.red_w()[i] += 0.5*eps;
 		fake[i] = (Eleft - Eright)/(eps);
 	}
@@ -110,11 +110,11 @@ VectorXd Es(Mesh& mesh, Reduced_Arap& arap, double E0, double eps){
 	VectorXd fake = VectorXd::Zero(mesh.red_s().size());
 	for(int i=0; i<fake.size(); i++){
 		mesh.red_s()[i] += 0.5*eps;
-		double Eleft = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+		double Eleft = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s());
 		mesh.red_s()[i] -= 0.5*eps;
 		
 		mesh.red_s()[i] -= 0.5*eps;
-		double Eright = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+		double Eright = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s());
 		mesh.red_s()[i] += 0.5*eps;
 		fake[i] = (Eleft - Eright)/eps;
 	}
@@ -130,16 +130,16 @@ MatrixXd Exx(Mesh& mesh, Reduced_Arap& arap, double E0, double eps){
 		for(int j=0; j<fake.cols(); j++){
 			z[i] += eps;
 			z[j] += eps;
-			double Eij = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+			double Eij = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
 			z[i] -= eps;
 			z[j] -= eps;
 
 			z[i] += eps;
-			double Ei = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+			double Ei = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
 			z[i] -= eps;
 
 			z[j] += eps;
-			double Ej = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+			double Ej = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
 			z[j] -= eps;
 
 			fake(i,j) = ((Eij - Ei - Ej + E0)/(eps*eps));
@@ -159,16 +159,16 @@ MatrixXd Exr(Mesh& mesh, Reduced_Arap& arap, double E0, double eps){
 		for(int j=0; j<fake.cols(); j++){
 			mesh.red_w()[j] += eps;
 			z[i] += eps;
-			double Eij = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+			double Eij = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
 			mesh.red_w()[j] -= eps;
 			z[i] -= eps;
 
 			mesh.red_w()[j] += eps;
-			double Ei = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+			double Ei = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
 			mesh.red_w()[j] -= eps;
 
 			z[i] += eps;
-			double Ej = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+			double Ej = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
 			z[i] -= eps;
 			// cout<<Eij<<", "<<Ei<<", "<<Ej<<", "<<E0<<endl;
 			fake(i,j) = ((Eij - Ei - Ej + E0)/(eps*eps));
@@ -189,18 +189,18 @@ MatrixXd Exs(Mesh& mesh, Reduced_Arap& arap, double E0, double eps){
 			mesh.red_s()[j] += eps;
 			z[i] += eps;
 			// mesh.setGlobalF(false, true, false);
-			double Eij = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+			double Eij = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
 			mesh.red_s()[j] -= eps;
 			z[i] -= eps;
 
 			mesh.red_s()[j] += eps;
 			// mesh.setGlobalF(false, true, false);
-			double Ei = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+			double Ei = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
 			mesh.red_s()[j] -= eps;
 
 			z[i] += eps;
 			// mesh.setGlobalF(false, true, false);
-			double Ej = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+			double Ej = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
 			z[i] -= eps;
 
 			fake(i,j) = ((Eij - Ei - Ej + E0)/(eps*eps));
@@ -220,18 +220,18 @@ MatrixXd Err(Mesh& mesh, Reduced_Arap& arap, double E0, double eps){
 			mesh.red_w()[j] += eps;
             mesh.red_w()[i] += eps;
             // mesh.setGlobalF(true, false, false);
-            double Eij = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+            double Eij = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s());
             mesh.red_w()[j] -= eps;
             mesh.red_w()[i] -= eps;
 
             mesh.red_w()[j] += eps;
             // mesh.setGlobalF(true, false, false);
-            double Ei = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+            double Ei = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s());
             mesh.red_w()[j] -= eps;
 
             mesh.red_w()[i] += eps;
             // mesh.setGlobalF(true, false, false);
-            double Ej = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+            double Ej = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s());
             mesh.red_w()[i] -= eps;
 
             fake(i,j) = ((Eij - Ei - Ej + E0)/(eps*eps));
@@ -251,16 +251,16 @@ MatrixXd Ers(Mesh& mesh, Reduced_Arap& arap, double E0, double eps){
 		for(int j=0; j<fake.cols(); j++){
 			mesh.red_w()[i] += eps;
 			mesh.red_s()[j] += eps;
-			double Eij = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+			double Eij = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s());
 			mesh.red_s()[j] -= eps;
 			mesh.red_w()[i] -= eps;
 
 			mesh.red_w()[i] += eps;
-			double Ei = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+			double Ei = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s());
 			mesh.red_w()[i] -= eps;
 
 			mesh.red_s()[j] += eps;
-			double Ej = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+			double Ej = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s());
 			mesh.red_s()[j] -= eps;
 
 			fake(i,j) = ((Eij - Ei - Ej + E0)/(eps*eps));
@@ -285,7 +285,7 @@ MatrixXd Ers(Mesh& mesh, Reduced_Arap& arap, double E0, double eps){
 
 int checkRedARAP(Mesh& mesh, Reduced_Arap& arap){
 	double eps = j_input["fd_eps"];
-	double E0 = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+	double E0 = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s());
 	cout<<"E0: "<<E0<<endl;
 	arap.setupRedSparseDRdr(mesh);
 	arap.setupRedSparseDDRdrdr(mesh);

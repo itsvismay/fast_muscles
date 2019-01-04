@@ -56,10 +56,10 @@ public:
         #pragma omp parallel for
         for(int i=0; i<fake.size(); i++){
             z[i] += 0.5*eps;
-            double Eleft = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+            double Eleft = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
             z[i] -= 0.5*eps;
             z[i] -= 0.5*eps;
-            double Eright = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+            double Eright = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
             z[i] += 0.5*eps;
             fake[i] = (Eleft - Eright)/eps;
         }
@@ -74,11 +74,11 @@ public:
         for(int i=0; i<fake.size(); i++){
             mesh.red_w()[i] += 0.5*eps;
             // mesh.setGlobalF(true, false, false);
-            double Eleft = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+            double Eleft = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
             mesh.red_w()[i] -= 0.5*eps;
             mesh.red_w()[i] -= 0.5*eps;
             // mesh.setGlobalF(true, false, false);
-            double Eright = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+            double Eright = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
             mesh.red_w()[i] += 0.5*eps;
             fake[i] = (Eleft - Eright)/(eps);
         }
@@ -94,12 +94,12 @@ public:
         for(int i=0; i<fake.size(); i++){
             mesh.red_s()[i] += 0.5*eps;
             // mesh.setGlobalF(false, true, false);
-            double Eleft = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+            double Eleft = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
             mesh.red_s()[i] -= 0.5*eps;
             
             mesh.red_s()[i] -= 0.5*eps;
             // mesh.setGlobalF(false, true, false);
-            double Eright = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+            double Eright = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
             mesh.red_s()[i] += 0.5*eps;
             fake[i] = (Eleft - Eright)/eps;
         }
@@ -116,16 +116,16 @@ public:
             for(int j=0; j<fake.cols(); j++){
                 z[i] += eps;
                 z[j] += eps;
-                double Eij = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+                double Eij = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
                 z[i] -= eps;
                 z[j] -= eps;
 
                 z[i] += eps;
-                double Ei = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+                double Ei = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
                 z[i] -= eps;
 
                 z[j] += eps;
-                double Ej = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+                double Ej = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
                 z[j] -= eps;
 
                 fake(i,j) = ((Eij - Ei - Ej + E0)/(eps*eps));
@@ -147,18 +147,18 @@ public:
                 mesh.red_w()[j] += eps;
                 z[i] += eps;
                 // mesh.setGlobalF(true, false, false);
-                double Eij = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+                double Eij = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
                 mesh.red_w()[j] -= eps;
                 z[i] -= eps;
 
                 mesh.red_w()[j] += eps;
                 // mesh.setGlobalF(true, false, false);
-                double Ei = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+                double Ei = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
                 mesh.red_w()[j] -= eps;
 
                 z[i] += eps;
                 // mesh.setGlobalF(true, false, false);
-                double Ej = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+                double Ej = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
                 z[i] -= eps;
 
                 fake(i,j) = ((Eij - Ei - Ej + E0)/(eps*eps));
@@ -179,18 +179,18 @@ public:
                 mesh.red_s()[j] += eps;
                 z[i] += eps;
                 // mesh.setGlobalF(false, true, false);
-                double Eij = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+                double Eij = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
                 mesh.red_s()[j] -= eps;
                 z[i] -= eps;
 
                 mesh.red_s()[j] += eps;
                 // mesh.setGlobalF(false, true, false);
-                double Ei = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+                double Ei = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
                 mesh.red_s()[j] -= eps;
 
                 z[i] += eps;
                 // mesh.setGlobalF(false, true, false);
-                double Ej = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+                double Ej = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
                 z[i] -= eps;
 
                 fake(i,j) = ((Eij - Ei - Ej + E0)/(eps*eps));
@@ -210,18 +210,18 @@ public:
                 mesh.red_w()[j] += eps;
                 mesh.red_w()[i] += eps;
                 // mesh.setGlobalF(true, false, false);
-                double Eij = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+                double Eij = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s());
                 mesh.red_w()[j] -= eps;
                 mesh.red_w()[i] -= eps;
 
                 mesh.red_w()[j] += eps;
                 // mesh.setGlobalF(true, false, false);
-                double Ei = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+                double Ei = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s());
                 mesh.red_w()[j] -= eps;
 
                 mesh.red_w()[i] += eps;
                 // mesh.setGlobalF(true, false, false);
-                double Ej = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+                double Ej = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s());
                 mesh.red_w()[i] -= eps;
 
                 fake(i,j) = ((Eij - Ei - Ej + E0)/(eps*eps));
@@ -242,18 +242,18 @@ public:
                 mesh.red_w()[i] += eps;
                 mesh.red_s()[j] += eps;
                 // mesh.setGlobalF(true, true, false);
-                double Eij = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+                double Eij = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s());
                 mesh.red_s()[j] -= eps;
                 mesh.red_w()[i] -= eps;
 
                 mesh.red_w()[i] += eps;
                 // mesh.setGlobalF(true, true, false);
-                double Ei = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+                double Ei = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s());
                 mesh.red_w()[i] -= eps;
 
                 mesh.red_s()[j] += eps;
                 // mesh.setGlobalF(true, true, false);
-                double Ej = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+                double Ej = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s());
                 mesh.red_s()[j] -= eps;
 
                 fake(i,j) = ((Eij - Ei - Ej + E0)/(eps*eps));

@@ -38,7 +38,7 @@ protected:
 
     VectorXi melemType, mr_elem_cluster_map, ms_handles_ind;
     VectorXd mcontx, mx, mx0, mred_s, melemYoungs, 
-    melemPoissons, mred_u, mred_r, mred_x, mred_w, mPAx0, mFPAx;
+    melemPoissons, mred_r, mred_x, mred_w, mPAx0, mFPAx;
     MatrixXd mR, mG, msW, mUvecs;
     VectorXd mmass_diag, mbones;
 
@@ -107,7 +107,6 @@ public:
         setupSkinningHandles(nsh);
         print("step 13");
 
-        mred_u.resize(9*mT.rows());
         mUvecs.resize(mT.rows(), 3);
         mUvecs.setZero();
         for(int i=0; i<imuscle.size(); i++){
@@ -878,44 +877,40 @@ public:
 
             for(int i=0; i<mT.rows(); i++){
                 Matrix3d r = Map<Matrix3d>(mred_r.segment<9>(9*mr_elem_cluster_map[i]).data()).transpose();
-                Matrix3d u = Matrix3d::Identity();//Map<Matrix3d>(mred_u.segment<9>(9*i).data()).transpose();
                 Matrix3d s;
                 s<< ms[6*i + 0], ms[6*i + 3], ms[6*i + 4],
                     ms[6*i + 3], ms[6*i + 1], ms[6*i + 5],
                     ms[6*i + 4], ms[6*i + 5], ms[6*i + 2];
 
-                Matrix3d rusut = r*u*s*u.transpose();
-                iFPAx0.segment<3>(12*i+0) = rusut*mPAx0.segment<3>(12*i+0);
-                iFPAx0.segment<3>(12*i+3) = rusut*mPAx0.segment<3>(12*i+3);
-                iFPAx0.segment<3>(12*i+6) = rusut*mPAx0.segment<3>(12*i+6);
-                iFPAx0.segment<3>(12*i+9) = rusut*mPAx0.segment<3>(12*i+9);
+                Matrix3d rs = r*s;
+                iFPAx0.segment<3>(12*i+0) = rs*mPAx0.segment<3>(12*i+0);
+                iFPAx0.segment<3>(12*i+3) = rs*mPAx0.segment<3>(12*i+3);
+                iFPAx0.segment<3>(12*i+6) = rs*mPAx0.segment<3>(12*i+6);
+                iFPAx0.segment<3>(12*i+9) = rs*mPAx0.segment<3>(12*i+9);
             }
 
 
         }else{
             for(int i=0; i<mT.rows(); i++){
                 Matrix3d r = Map<Matrix3d>(mred_r.segment<9>(9*mr_elem_cluster_map[i]).data()).transpose();
-                Matrix3d u = Matrix3d::Identity();//Map<Matrix3d>(mred_u.segment<9>(9*i).data()).transpose();
                 Matrix3d s;
                 s<< mred_s[6*i + 0], mred_s[6*i + 3], mred_s[6*i + 4],
                     mred_s[6*i + 3], mred_s[6*i + 1], mred_s[6*i + 5],
                     mred_s[6*i + 4], mred_s[6*i + 5], mred_s[6*i + 2];
 
-                Matrix3d rusut = r*u*s*u.transpose();
-                iFPAx0.segment<3>(12*i+0) = rusut*mPAx0.segment<3>(12*i+0);
-                iFPAx0.segment<3>(12*i+3) = rusut*mPAx0.segment<3>(12*i+3);
-                iFPAx0.segment<3>(12*i+6) = rusut*mPAx0.segment<3>(12*i+6);
-                iFPAx0.segment<3>(12*i+9) = rusut*mPAx0.segment<3>(12*i+9);
+                Matrix3d rs = r*s;
+                iFPAx0.segment<3>(12*i+0) = rs*mPAx0.segment<3>(12*i+0);
+                iFPAx0.segment<3>(12*i+3) = rs*mPAx0.segment<3>(12*i+3);
+                iFPAx0.segment<3>(12*i+6) = rs*mPAx0.segment<3>(12*i+6);
+                iFPAx0.segment<3>(12*i+9) = rs*mPAx0.segment<3>(12*i+9);
             }
         }
     }
 
     void setGlobalF(bool updateR, bool updateS, bool updateU){
         if(updateU){
-            mGU.setZero();
-            vector<Trip> gu_trips;
-            gu_trips.reserve(9*4*mT.rows());
-
+            mGU.setIdentity();
+            
             Vector3d a = Vector3d::UnitX();
             for(int t = 0; t<mT.rows(); t++){
                 //TODO: update to be parametrized by input mU
@@ -924,38 +919,7 @@ public:
                     b = Vector3d::UnitY();
                     mUvecs.row(t) = b;
                 }
-                Vector3d v = a.cross(b);
-                v = v/v.norm();
-                double theta = (a.dot(b))/(a.norm()*b.norm());
-                double s = sin(theta);
-                double c = cos(theta);
-                Matrix3d r;
-                r<<v[0]*v[0]*(1-c)+c, v[0]*v[1]*(1-c)-s*v[2], v[0]*v[2]*(1-c) +s*v[1],
-                    v[0]*v[1]*(1-c)+s*v[2], v[1]*v[1]*(1-c)+c, v[1]*v[2]*(1-c)-s*v[0],
-                    v[0]*v[2]*(1-c)-s*v[1], v[1]*v[2]*(1-c) +s*v[0], v[2]*v[2]*(1-c)+c; 
-                
-                mred_u[9*t+0] =r(0,0);
-                mred_u[9*t+1] =r(0,1);
-                mred_u[9*t+2] =r(0,2);
-                mred_u[9*t+3] =r(1,0);
-                mred_u[9*t+4] =r(1,1);
-                mred_u[9*t+5] =r(1,2);
-                mred_u[9*t+6] =r(2,0);
-                mred_u[9*t+7] =r(2,1);
-                mred_u[9*t+8] =r(2,2);
-                for(int j=0; j<4; j++){
-                    gu_trips.push_back(Trip(3*j+12*t + 0, 3*j+12*t + 0, r(0,0))); 
-                    gu_trips.push_back(Trip(3*j+12*t + 0, 3*j+12*t + 1, r(0,1)));
-                    gu_trips.push_back(Trip(3*j+12*t + 0, 3*j+12*t + 2, r(0,2))); 
-                    gu_trips.push_back(Trip(3*j+12*t + 1, 3*j+12*t + 0, r(1,0)));
-                    gu_trips.push_back(Trip(3*j+12*t + 1, 3*j+12*t + 1, r(1,1)));
-                    gu_trips.push_back(Trip(3*j+12*t + 1, 3*j+12*t + 2, r(1,2)));
-                    gu_trips.push_back(Trip(3*j+12*t + 2, 3*j+12*t + 0, r(2,0)));
-                    gu_trips.push_back(Trip(3*j+12*t + 2, 3*j+12*t + 1, r(2,1)));
-                    gu_trips.push_back(Trip(3*j+12*t + 2, 3*j+12*t + 2, r(2,2)));
-                }
             }
-            mGU.setFromTriplets(gu_trips.begin(), gu_trips.end());    
         }
 
         if(updateR){
@@ -1083,7 +1047,6 @@ public:
     SparseMatrix<double>& B(){ return mFree; }
     SparseMatrix<double>& AB(){ return mConstrained; }
     VectorXd& red_r(){ return mred_r; }
-    VectorXd& red_u(){ return mred_u; }
     VectorXd& red_w(){ return mred_w; }
     VectorXd& eYoungs(){ return melemYoungs; }
     VectorXd& ePoissons(){ return melemPoissons; }
@@ -1146,17 +1109,16 @@ public:
         mFPAx.setZero();
         for(int i=0; i<mT.rows(); i++){
             Matrix3d r = Map<Matrix3d>(mred_r.segment<9>(9*mr_elem_cluster_map[i]).data()).transpose();
-            Matrix3d u = Map<Matrix3d>(mred_u.segment<9>(9*i).data()).transpose();
             Matrix3d s;
             s<< ms[6*i + 0], ms[6*i + 3], ms[6*i + 4],
                 ms[6*i + 3], ms[6*i + 1], ms[6*i + 5],
                 ms[6*i + 4], ms[6*i + 5], ms[6*i + 2];
 
-            Matrix3d rusut = r*u*s*u.transpose();
-            mFPAx.segment<3>(12*i+0) = rusut*PAx.segment<3>(12*i+0);
-            mFPAx.segment<3>(12*i+3) = rusut*PAx.segment<3>(12*i+3);
-            mFPAx.segment<3>(12*i+6) = rusut*PAx.segment<3>(12*i+6);
-            mFPAx.segment<3>(12*i+9) = rusut*PAx.segment<3>(12*i+9);
+            Matrix3d rs = r*s;
+            mFPAx.segment<3>(12*i+0) = rs*PAx.segment<3>(12*i+0);
+            mFPAx.segment<3>(12*i+3) = rs*PAx.segment<3>(12*i+3);
+            mFPAx.segment<3>(12*i+6) = rs*PAx.segment<3>(12*i+6);
+            mFPAx.segment<3>(12*i+9) = rs*PAx.segment<3>(12*i+9);
         }
 
         VectorXd CAx = mC*mA*x;
