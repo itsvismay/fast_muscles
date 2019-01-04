@@ -161,29 +161,29 @@ int main()
 		        dx[3*mov[i]+1] -= 3;
 		    }
        
-            for(int i=0; i<mesh->red_s().size()/6; i++){
-                mesh->red_s()[6*i+1] += 0.1;
-                mesh->red_s()[6*i+0] += 0.1;
-            }
-            arap->minimize(*mesh);
+            // for(int i=0; i<mesh->red_s().size()/6; i++){
+            //     mesh->red_s()[6*i+1] += 0.1;
+            //     mesh->red_s()[6*i+0] += 0.1;
+            // }
+            // arap->minimize(*mesh);
             // double fx =0;
             // VectorXd ns = mesh->N().transpose()*mesh->red_s();
             // int niter = solver.minimize(f, ns, fx);
             // VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
 	
-            // double fx =0;
-            // VectorXd reds = mesh->red_s();
-            // int niter = solver.minimize(f, reds, fx);
-            // for(int i=0; i<reds.size(); i++){
-            // mesh->red_s()[i] = reds[i];
-            // }
-            // std::cout<<"niter "<<niter<<std::endl;
+            double fx =0;
+            VectorXd reds = mesh->red_s();
+            int niter = solver.minimize(f, reds, fx);
+            for(int i=0; i<reds.size(); i++){
+                mesh->red_s()[i] = reds[i];
+            }
+            std::cout<<"niter "<<niter<<std::endl;
         }
         
         //----------------
         //Draw continuous mesh
         MatrixXd newV = mesh->continuousV();
-        // viewer.data().set_mesh(newV, F);
+        viewer.data().set_mesh(newV, F);
         
         //Draw disc mesh
         std::cout<<std::endl;

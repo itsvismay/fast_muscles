@@ -875,8 +875,9 @@ public:
             }else{
                 mr = mWr*mred_r;
             }
+
             for(int i=0; i<mT.rows(); i++){
-                Matrix3d r = Map<Matrix3d>(mr.segment<9>(9*mr_elem_cluster_map[i]).data()).transpose();
+                Matrix3d r = Map<Matrix3d>(mred_r.segment<9>(9*mr_elem_cluster_map[i]).data()).transpose();
                 Matrix3d u = Map<Matrix3d>(mred_u.segment<9>(9*i).data()).transpose();
                 Matrix3d s;
                 s<< ms[6*i + 0], ms[6*i + 3], ms[6*i + 4],

@@ -140,7 +140,7 @@ int main(int argc, char *argv[])
             mesh->red_s()[i] = reds[i];
         }
         
-        neo->changeFiberMag(2);
+        neo->changeFiberMag(5);
     }
     exit(0);
 
