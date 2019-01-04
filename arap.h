@@ -61,14 +61,14 @@ public:
 
 		print("arap 3");
 		aPAx0 = m.P()*m.A()*m.x0();
-		aUtPAx0 = m.GU().transpose()*aPAx0;
+		aUtPAx0 = aPAx0;
 		aPA = m.P()*m.A();
 		aC = m.AB().transpose();
 		
 		print("arap 4");
 		SparseMatrix<double> Exx = (m.P()*m.A()).transpose()*(m.P()*m.A());
 		VectorXd PAx0 = m.P()*m.A()*m.x0();
-		VectorXd UtPAx0 = m.GU().transpose()*PAx0;
+		VectorXd UtPAx0 = PAx0;
 		SparseMatrix<double> spKKTmat(Exx.rows()+aC.rows(), Exx.rows()+aC.rows());
 		spKKTmat.setZero();
 		std::vector<Trip> ExxTrips = to_triplets(Exx);
@@ -303,7 +303,7 @@ public:
 		// print("		Exr");
 		for(int t=0; t<m.T().rows(); t++){
 			//Tet
-			Matrix3d u = Map<Matrix3d>(m.red_u().segment<9>(9*t).data()).transpose();
+			Matrix3d u = Matrix3d::Identity();//Map<Matrix3d>(m.red_u().segment<9>(9*t).data()).transpose();
 			Matrix3d s;
 			s<< ms[6*t + 0], ms[6*t + 3], ms[6*t + 4],
 				ms[6*t + 3], ms[6*t + 1], ms[6*t + 5],
@@ -338,7 +338,7 @@ public:
 		//Err
 		// print("		Err");
 		for(int t=0; t<m.T().rows(); t++){
-			Matrix3d u = Map<Matrix3d>(m.red_u().segment<9>(9*t).data()).transpose();
+			Matrix3d u = Matrix3d::Identity();//Map<Matrix3d>(m.red_u().segment<9>(9*t).data()).transpose();
 			Matrix3d s;
 			s<< ms[6*t + 0], ms[6*t + 3], ms[6*t + 4],
 				ms[6*t + 3], ms[6*t + 1], ms[6*t + 5],
@@ -380,7 +380,7 @@ public:
 		for(int t =0; t<m.T().rows(); t++){
 			//Tet
 			Matrix3d r = Map<Matrix3d>(m.red_r().segment<9>(9*m.r_elem_cluster_map()[t]).data()).transpose();
-			Matrix3d u = Map<Matrix3d>(m.red_u().segment<9>(9*t).data()).transpose();
+			Matrix3d u = Matrix3d::Identity();//Map<Matrix3d>(m.red_u().segment<9>(9*t).data()).transpose();
 			for(int e=0; e<4; e++){
 				//Vert on tet
 				for(int a=0; a<3; a++){
@@ -414,7 +414,7 @@ public:
 		// print("		Ers");
 		for(int t=0; t<m.T().rows(); t++){
 			//Tet
-			Matrix3d u = Map<Matrix3d>(m.red_u().segment<9>(9*t).data()).transpose();
+			Matrix3d u = Matrix3d::Identity();//Map<Matrix3d>(m.red_u().segment<9>(9*t).data()).transpose();
 			Matrix3d r0= Map<Matrix3d>(m.red_r().segment<9>(9*t).data()).transpose();
 			Matrix3d r1 = r0*Jx;
 			Matrix3d r2 = r0*Jy;
@@ -480,7 +480,7 @@ public:
 		VectorXd PAg = aPA*m.red_x() + aPAx0;
 		VectorXd ms = m.red_s();
 		for(int t=0; t<m.T().rows(); t++){
-			Matrix3d u = Map<Matrix3d>(m.red_u().segment<9>(9*t).data()).transpose();
+			Matrix3d u = Matrix3d::Identity();//Map<Matrix3d>(m.red_u().segment<9>(9*t).data()).transpose();
 			Matrix3d s;
 			s<< ms[6*t + 0], ms[6*t + 3], ms[6*t + 4],
 				ms[6*t + 3], ms[6*t + 1], ms[6*t + 5],
@@ -510,7 +510,7 @@ public:
 		aEs.setZero();
 		for(int t=0; t<m.T().rows(); t++){
 			Matrix3d rt = Map<Matrix3d>(m.red_r().segment<9>(9*m.r_elem_cluster_map()[t]).data());
-			Matrix3d ut = Map<Matrix3d>(m.red_u().segment<9>(9*t).data());
+			Matrix3d ut = Matrix3d::Identity();//Map<Matrix3d>(m.red_u().segment<9>(9*t).data());
 			Matrix3d s;
 			s<< ms[6*t + 0], ms[6*t + 3], ms[6*t + 4],
 				ms[6*t + 3], ms[6*t + 1], ms[6*t + 5],
@@ -623,7 +623,7 @@ public:
 		VectorXd ms = m.red_s();
 		VectorXd USUtPAx0 = VectorXd::Zero(12*m.T().rows());
 		for(int t =0; t<m.T().rows(); t++){
-			Matrix3d u = Map<Matrix3d>(m.red_u().segment<9>(9*t).data()).transpose();
+			Matrix3d u = Matrix3d::Identity();//Map<Matrix3d>(m.red_u().segment<9>(9*t).data()).transpose();
 			Matrix3d s;
 			s<< ms[6*t + 0], ms[6*t + 3], ms[6*t + 4],
 				ms[6*t + 3], ms[6*t + 1], ms[6*t + 5],

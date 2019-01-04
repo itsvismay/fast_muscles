@@ -93,7 +93,7 @@ int main()
 
     std::cout<<"-----ARAP-----"<<std::endl;
     // Arap* arap = new Arap(*mesh);
-    Reduced_Arap* arap = new Reduced_Arap(*mesh);
+    Arap* arap = new Arap(*mesh);
   
 
 
@@ -102,8 +102,8 @@ int main()
 
     std::cout<<"-----Solver-------"<<std::endl;
     int DIM = mesh->red_s().size();
-    RedSolver f(DIM, mesh, arap, neo, j_input);
-    // Rosenbrock f(DIM, mesh, arap, neo, j_input);
+    // RedSolver f(DIM, mesh, arap, neo, j_input);
+    Rosenbrock f(DIM, mesh, arap, neo, j_input);
   
     LBFGSParam<double> param;
     param.epsilon = 1e-1;
@@ -212,15 +212,15 @@ int main()
         for(int i=0; i<mov.size(); i++){
             viewer.data().add_points(newV.row(mov[i]),Eigen::RowVector3d(0,1,0));
         }
-        for(int c=0; c<mesh->red_w().size()/3; c++){
-            std::vector<int> cluster_elem = mesh->r_cluster_elem_map()[c];
-            for(int e=0; e<cluster_elem.size(); e++){
-                viewer.data().add_points(newV.row(mesh->T().row(cluster_elem[e])[0]), Colors.row(c));
-                viewer.data().add_points(newV.row(mesh->T().row(cluster_elem[e])[1]), Colors.row(c));
-                viewer.data().add_points(newV.row(mesh->T().row(cluster_elem[e])[2]), Colors.row(c));
-                viewer.data().add_points(newV.row(mesh->T().row(cluster_elem[e])[3]), Colors.row(c));
-            }
-        }
+        // for(int c=0; c<mesh->red_w().size()/3; c++){
+        //     std::vector<int> cluster_elem = mesh->r_cluster_elem_map()[c];
+        //     for(int e=0; e<cluster_elem.size(); e++){
+        //         viewer.data().add_points(newV.row(mesh->T().row(cluster_elem[e])[0]), Colors.row(c));
+        //         viewer.data().add_points(newV.row(mesh->T().row(cluster_elem[e])[1]), Colors.row(c));
+        //         viewer.data().add_points(newV.row(mesh->T().row(cluster_elem[e])[2]), Colors.row(c));
+        //         viewer.data().add_points(newV.row(mesh->T().row(cluster_elem[e])[3]), Colors.row(c));
+        //     }
+        // }
 
         return false;
     };

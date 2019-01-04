@@ -72,13 +72,19 @@ int main(int argc, char *argv[])
 
 
     std::string datafile = j_input["data"];
-    igl::readDMAT(j_input["v_file"], V);
-    igl::readDMAT(j_input["t_file"], T);
+    igl::readDMAT(datafile+"simple_joint/generated_files/tet_mesh_V.dmat", V);
+    igl::readDMAT(datafile+"simple_joint/generated_files/tet_mesh_T.dmat", T);
     igl::readDMAT(datafile+"simple_joint/generated_files/combined_fiber_directions.dmat", Uvec);
     igl::readDMAT(datafile+"simple_joint/generated_files/muscle_muscle_indices.dmat", muscle1);
     igl::readDMAT(datafile+"simple_joint/generated_files/top_bone_bone_indices.dmat", bone1);
     igl::readDMAT(datafile+"simple_joint/generated_files/bottom_bone_bone_indices.dmat", bone2);
     igl::readDMAT(datafile+"simple_joint/generated_files/joint_indices.dmat", joint1);
+    // igl::readDMAT(datafile+"output/combined_V.dmat", V);
+    // igl::readDMAT(datafile+"output/combined_T.dmat", T);
+    // igl::readDMAT(datafile+"output/fiber_directions.dmat", Uvec);
+    // igl::readDMAT(datafile+"output/muscle_I.dmat", muscle1);
+    // igl::readDMAT(datafile+"output/bone_1_I.dmat", bone1);
+    // igl::readDMAT(datafile+"output/bone_2_I.dmat", bone2);
 
     igl::boundary_facets(T, F);
     cout<<"V size: "<<V.rows()<<endl;
@@ -101,9 +107,6 @@ int main(int argc, char *argv[])
     for(int i=0; i<bone2.size(); i++){
         bones.push_back(bone2[i]);
     }
-    // for(int i=0; i<joint1.size(); i++){
-    //     bones.push_back(joint1[i]);
-    // }
 
 
     std::cout<<"-----Mesh-------"<<std::endl;
@@ -126,7 +129,7 @@ int main(int argc, char *argv[])
     param.linesearch = LBFGSpp::LBFGS_LINESEARCH_BACKTRACKING_ARMIJO;
     LBFGSSolver<double> solver(param);
 
-    for(int i=0; i<5; i++){
+    for(int i=0; i<10; i++){
         MatrixXd newV = mesh->continuousV();
         string datafile = j_input["data"];
         igl::writeOBJ(datafile+"simple_joint"+to_string(i)+".obj",newV,F);
@@ -140,7 +143,7 @@ int main(int argc, char *argv[])
             mesh->red_s()[i] = reds[i];
         }
         
-        neo->changeFiberMag(5);
+        neo->changeFiberMag(2);
     }
     exit(0);
 
@@ -156,7 +159,11 @@ int main(int argc, char *argv[])
     viewer.callback_key_down = [&](igl::opengl::glfw::Viewer & viewer, unsigned char key, int modifiers){   
         std::cout<<"Key down, "<<key<<std::endl;
         viewer.data().clear();
-        
+        if(key=='A'){
+            cout<<"here"<<endl;
+            neo->changeFiberMag(2);
+        }
+
 
         if(key==' '){
           double fx =0;
