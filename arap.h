@@ -238,7 +238,9 @@ public:
 			cons_trips.push_back(Trip(row, col, val));
 		}
 		aJacConstrainsSparse.setFromTriplets(cons_trips.begin(), cons_trips.end());
-		
+		print(aJacKKTSparse);
+		print(aJacConstrainsSparse);
+		exit(0);
 		// std::ofstream ExxFile("Exx.mat");
 		// if (ExxFile.is_open())
 		// {
@@ -432,7 +434,7 @@ public:
 				innerContraction.row(3*2+a)=inner3;
 				innerContraction.row(3*3+a)=inner4;
 			}
-	
+
 			for(int a =0; a<3; a++){
 				Matrix3d p1 = innerContraction.col(a).segment<3>(0)*aPAx0.segment<3>(12*t+0).transpose();
 				Matrix3d p2 = innerContraction.col(a).segment<3>(3)*aPAx0.segment<3>(12*t+3).transpose();

@@ -325,15 +325,17 @@ int checkARAP(Mesh& mesh, Arap& arap){
 
     cout<<"Err"<<endl;
     MatrixXd fakeErr = Err(mesh, arap, E0, eps);
+    cout<<arap.Err()<<endl;
     cout<<(fakeErr-MatrixXd(arap.Err())).norm()<<endl<<endl;
     cout<<endl;
 
     cout<<"Ers"<<endl;
     MatrixXd fakeErs = Ers(mesh, arap, E0, eps);
-    cout<<fakeErs<<endl<<endl;
     cout<<arap.Ers()<<endl;
     cout<<(fakeErs-MatrixXd(arap.Ers())).norm()<<endl<<endl;
     cout<<endl;
+    
+    arap.Jacobians(mesh);
 }
 
 // VectorXd WikipediaEnergy_grad(Mesh& mesh, Elastic& elas, double E0, double eps){

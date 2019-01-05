@@ -306,6 +306,7 @@ int checkRedARAP(Mesh& mesh, Reduced_Arap& arap){
     arap.Hessians(mesh);
     cout<<"Err"<<endl;
     MatrixXd fakeErr = Err(mesh, arap, E0, eps);
+    cout<<arap.Err()<<endl;
     cout<<(fakeErr-arap.Err()).norm()<<endl;
     cout<<endl;
    
@@ -316,18 +317,22 @@ int checkRedARAP(Mesh& mesh, Reduced_Arap& arap){
 
     MatrixXd fakeExr = Exr(mesh, arap, E0, eps);
     cout<<"Exr"<<endl;
-    cout<<(fakeExr-arap.constTimeExr(mesh)).norm()<<endl<<endl;
+    cout<<arap.Exr()<<endl;
+    cout<<(fakeExr-arap.Exr()).norm()<<endl<<endl;
     cout<<endl<<endl;
 
- //    cout<<"Exs"<<endl;
- //    MatrixXd fakeExs = Exs(mesh, arap, E0, eps);
- //    cout<<(fakeExs-arap.Exs()).norm()<<endl<<endl;
- //    cout<<endl;
+    cout<<"Exs"<<endl;
+    MatrixXd fakeExs = Exs(mesh, arap, E0, eps);
+    cout<<(fakeExs-arap.Exs()).norm()<<endl<<endl;
+    cout<<endl;
 
- //    cout<<"Ers"<<endl;
- //    MatrixXd fakeErs = Ers(mesh, arap, E0, eps);
- //    cout<<(fakeErs-arap.Ers()).norm()<<endl<<endl;
- //    cout<<endl;
+    cout<<"Ers"<<endl;
+    MatrixXd fakeErs = Ers(mesh, arap, E0, eps);
+    cout<<arap.Ers()<<endl;
+    cout<<(fakeErs-arap.Ers()).norm()<<endl<<endl;
+    cout<<endl;
+    
+    arap.Jacobians(mesh);
 }
 
 int main(int argc, char *argv[]){
