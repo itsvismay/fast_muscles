@@ -6,7 +6,7 @@
   "youngs": 60000,
   "poissons": 0.45,
   "fibre_mag": 0,
-  "reduced": false,
+  "reduced": true,
   "number_skinning_handles": 0,
   "number_rot_clusters": 0,
   "number_modes": 0,

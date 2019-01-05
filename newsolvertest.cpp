@@ -93,7 +93,7 @@ int main()
 
     std::cout<<"-----ARAP-----"<<std::endl;
     // Arap* arap = new Arap(*mesh);
-    Arap* arap = new Arap(*mesh);
+    Reduced_Arap* arap = new Reduced_Arap(*mesh);
   
 
 
@@ -102,8 +102,8 @@ int main()
 
     std::cout<<"-----Solver-------"<<std::endl;
     int DIM = mesh->red_s().size();
-    // RedSolver f(DIM, mesh, arap, neo, j_input);
-    Rosenbrock f(DIM, mesh, arap, neo, j_input);
+    RedSolver f(DIM, mesh, arap, neo, j_input);
+    // Rosenbrock f(DIM, mesh, arap, neo, j_input);
   
     LBFGSParam<double> param;
     param.epsilon = 1e-1;
