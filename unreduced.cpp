@@ -69,7 +69,11 @@ int main()
     std::ifstream i("../input/input.json");
     i >> j_input;
 
-    
+    if(j_input["reduced"]){
+        std::cout<<"Use Reduced code"<<endl;
+        exit(0);
+    }
+
     MatrixXd V;
     MatrixXi T;
     MatrixXi F;
@@ -90,20 +94,18 @@ int main()
     VectorXi muscle1;
     MatrixXd Uvec;
     Mesh* mesh = new Mesh(T, V, fix, mov,bones, muscle1, Uvec, j_input);
-
-    std::cout<<"-----ARAP-----"<<std::endl;
-    // Arap* arap = new Arap(*mesh);
-    Reduced_Arap* arap = new Reduced_Arap(*mesh);
-  
-
-
     std::cout<<"-----Neo-------"<<std::endl;
     Elastic* neo = new Elastic(*mesh);
 
+    std::cout<<"-----ARAP-----"<<std::endl;
+    Arap* arap = new Arap(*mesh);
+  
     std::cout<<"-----Solver-------"<<std::endl;
     int DIM = mesh->red_s().size();
-    RedSolver f(DIM, mesh, arap, neo, j_input);
-    // Rosenbrock f(DIM, mesh, arap, neo, j_input);
+    Rosenbrock f(DIM, mesh, arap, neo, j_input);
+
+  
+
   
     LBFGSParam<double> param;
     param.epsilon = 1e-1;
@@ -225,7 +227,7 @@ int main()
         return false;
     };
 
-	// viewer.data().set_mesh(V,F);
+	viewer.data().set_mesh(V,F);
     viewer.data().show_lines = true;
     viewer.data().invert_normals = true;
     viewer.core.is_animating = false;

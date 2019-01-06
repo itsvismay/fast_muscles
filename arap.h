@@ -238,9 +238,6 @@ public:
 			cons_trips.push_back(Trip(row, col, val));
 		}
 		aJacConstrainsSparse.setFromTriplets(cons_trips.begin(), cons_trips.end());
-		print(aJacKKTSparse);
-		print(aJacConstrainsSparse);
-		exit(0);
 		// std::ofstream ExxFile("Exx.mat");
 		// if (ExxFile.is_open())
 		// {
@@ -273,6 +270,7 @@ public:
 		VectorXd PtExEr = adjointP.transpose()*ExEr;
 		VectorXd g = ajacLU.solve(PtExEr);
 		aDEDs = aJacConstrainsSparse.transpose()*g + aEs;
+
 		return aDEDs;
 	}
 
@@ -636,7 +634,7 @@ public:
 			itR(m, USUtPAx0);
 			m.constTimeFPAx0(aFPAx0);
 			double newE = Energy(m);
-			cout<<i<<",";
+			// cout<<i<<",";
 			if((newE - oldE)>1e-8 && i>1){
 				print("Arap::minimize() error. ARAP should monotonically decrease.");
 				print(i);
@@ -650,12 +648,8 @@ public:
 			// 	break;
 			// }
 			if (i%5==0){
-				if(fabs(newE - previous5ItE)<1e-10){
-					if(i>1000){
-						// print(m.red_s().transpose());
-						// exit(0);
-					}
-					std::cout<<"		- ARAP minimize "<<i<<", "<<(newE - previous5ItE)<<std::endl;
+				if(fabs(newE - previous5ItE)<1e-12){
+					// std::cout<<"		- ARAP minimize "<<i<<", "<<(newE - previous5ItE)<<std::endl;
 					return i;
 				}
 				previous5ItE = newE;
@@ -687,7 +681,7 @@ public:
 		// print("6\n");
 		// print((m.AB().transpose()*Ex).transpose());
 		// print(m.red_s());		
-		std::cout<<"		- ARAP never converged "<<Energy(m)-previous5ItE<<std::endl;
+		// std::cout<<"		- ARAP never converged "<<Energy(m)-previous5ItE<<std::endl;
 		// exit(0);
 		return 1000;
 	}

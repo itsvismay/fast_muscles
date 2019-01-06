@@ -127,7 +127,6 @@ public:
                 z[j] += eps;
                 double Ej = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
                 z[j] -= eps;
-
                 fake(i,j) = ((Eij - Ei - Ej + E0)/(eps*eps));
             }
         }
@@ -266,7 +265,6 @@ public:
     //-----------------------
 
     VectorXd Full_ARAP_Grad(Mesh& mesh, Reduced_Arap& arap, Elastic& elas, double E0, double eps){
-        VectorXd z = mesh.red_x();
         VectorXd fake = VectorXd::Zero(mesh.red_s().size());
         for(int i=0; i<fake.size(); i++){
             mesh.red_s()[i] += 0.5*eps;
@@ -282,6 +280,7 @@ public:
             mesh.red_s()[i] += 0.5*eps;
             fake[i] = (Eleft - Eright)/eps;
         }
+        arap.minimize(mesh);
         // mesh.setGlobalF(false, true, false);
         // std::cout<<"FUll fake: "<<fake.transpose()<<std::endl;
         return fake;
@@ -308,81 +307,81 @@ public:
     double operator()(const VectorXd& x, VectorXd& grad, bool computeGrad = true)
     {
   		VectorXd reds = mesh->N()*x + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
-	    for(int i=0; i<reds.size(); i++){
-	        mesh->red_s()[i] = reds[i];
-	    }
+        for(int i=0; i<reds.size(); i++){
+            mesh->red_s()[i] = reds[i];
+        }
         double Eneo = alpha_neo*elas->Energy(*mesh);
 
-        int arap_iters = arap->minimize(*mesh);
+        arap->minimize(*mesh);
         double Earap = alpha_arap*arap->Energy(*mesh);
         double fx = Eneo + Earap;
 
-        if(computeGrad){        
-	        VectorXd pegrad = alpha_neo*mesh->N().transpose()*elas->PEGradient(*mesh);
-	        VectorXd arapgrad = alpha_arap*mesh->N().transpose()*arap->Jacobians(*mesh);
+        if(computeGrad){
+            VectorXd pegrad = alpha_neo*mesh->N().transpose()*elas->PEGradient(*mesh);
+            VectorXd arapgrad = alpha_arap*mesh->N().transpose()*arap->Jacobians(*mesh);
+            std::cout<<Eneo<<", "<<Earap<<", "<<Eneo+Earap<<", "<<pegrad.norm()<<", "<<arapgrad.norm()<<std::endl;
+          
+            // VectorXd fake_arap = mesh->N().transpose()*Full_ARAP_Grad(*mesh, *arap,*elas, fx, eps);
+            // if ((arapgrad-fake_arap).norm()>10){
+            //     double E0 = arap->Energy(*mesh);
+               
+            //     std::cout<<"fake arap issues"<<std::endl;
+            //     std::cout<<arapgrad.transpose()<<std::endl<<std::endl;
+            //     std::cout<<fake_arap.transpose()<<std::endl<<std::endl;
+            //     cout<<"s"<<endl;
+            //     std::cout<<x.transpose()<<endl<<endl;
+            //     cout<<"r"<<endl;
+            //     cout<<mesh->red_r().transpose()<<endl<<endl;
+            //     cout<<"x"<<endl;
+            //     cout<<mesh->red_x().transpose()<<endl<<endl;
+            //     cout<<"-------------------------------------"<<endl;
+            //     cout<<"Ex"<<endl;
+            //     VectorXd fakeEx = Ex(*mesh, *arap, E0, eps);
+            //     cout<<(arap->Ex().transpose()-fakeEx.transpose()).norm()<<endl<<endl;
 
-            VectorXd fake_arap = mesh->N().transpose()*Full_ARAP_Grad(*mesh, *arap,*elas, fx, eps);
-            if ((arapgrad-fake_arap).norm()>10){
+            //     cout<<"Er"<<endl;
+            //     VectorXd fakeEr = Er(*mesh, *arap, E0, eps);
+            //     cout<<(arap->Er().transpose()-fakeEr.transpose()).norm()<<endl<<endl;
 
-                double E0 = arap->Energy(*mesh);
-                std::cout<<"fake arap issues"<<std::endl;
-                std::cout<<arapgrad.transpose()<<std::endl<<std::endl;
-                std::cout<<fake_arap.transpose()<<std::endl<<std::endl;
-                cout<<"s"<<endl;
-                std::cout<<x.transpose()<<endl<<endl;
-                cout<<"r"<<endl;
-                cout<<mesh->red_r().transpose()<<endl<<endl;
-                cout<<"x"<<endl;
-                cout<<mesh->red_x().transpose()<<endl<<endl;
-                cout<<"-------------------------------------"<<endl;
-                cout<<"Ex"<<endl;
-                VectorXd fakeEx = Ex(*mesh, *arap, E0, eps);
-                cout<<(arap->Ex().transpose()-fakeEx.transpose()).norm()<<endl<<endl;
+            //     cout<<"Es"<<endl;
+            //     VectorXd fakeEs = Es(*mesh, *arap,E0, eps);
+            //     cout<<arap->Es().transpose()<<endl;
+            //     cout<<(arap->Es().transpose() - fakeEs.transpose()).norm()<<endl<<endl;
+                
 
-                cout<<"Er"<<endl;
-                VectorXd fakeEr = Er(*mesh, *arap, E0, eps);
-                cout<<(arap->Er().transpose()-fakeEr.transpose()).norm()<<endl<<endl;
+            //     cout<<"Exx"<<endl;
+            //     MatrixXd fakeExx = Exx(*mesh, *arap, E0, eps);
+            //     cout<<(fakeExx-arap->Exx()).norm()<<endl<<endl;
+            //     cout<<endl<<endl;
 
-                cout<<"Es"<<endl;
-                VectorXd fakeEs = Es(*mesh, *arap,E0, eps);
-                cout<<(arap->Es().transpose() - fakeEs.transpose()).norm()<<endl<<endl;
+            //     MatrixXd fakeExr = Exr(*mesh, *arap, E0, eps);
+            //     cout<<"Exr"<<endl;
+            //     cout<<(fakeExr-MatrixXd(arap->Exr())).norm()<<endl<<endl;
+            //     cout<<endl<<endl;
 
-                MatrixXd fakeExx = Exx(*mesh, *arap, E0, eps);
-                cout<<"Exx"<<endl;
-                cout<<fakeExx<<endl<<endl;
-                cout<<arap->Exx()<<endl;
-                cout<<(fakeExx-arap->Exx()).norm()<<endl<<endl;
-                cout<<endl<<endl;
+            //     cout<<"Exs"<<endl;
+            //     MatrixXd fakeExs = Exs(*mesh, *arap, E0, eps);
+            //     cout<<(fakeExs-MatrixXd(arap->Exs())).norm()<<endl<<endl;
+            //     cout<<endl;
 
-                MatrixXd fakeExr = Exr(*mesh, *arap, E0, eps);
-                cout<<"Exr"<<endl;
-                cout<<(fakeExr-MatrixXd(arap->Exr())).norm()<<endl<<endl;
-                cout<<endl<<endl;
+            //     cout<<"Err"<<endl;
+            //     MatrixXd fakeErr = Err(*mesh, *arap, E0, eps);
+            //     cout<<(fakeErr-MatrixXd(arap->Err())).norm()<<endl<<endl;
+            //     cout<<endl;
 
-                cout<<"Exs"<<endl;
-                MatrixXd fakeExs = Exs(*mesh, *arap, E0, eps);
-                cout<<(fakeExs-MatrixXd(arap->Exs())).norm()<<endl<<endl;
-                cout<<endl;
+            //     cout<<"Ers"<<endl;
+            //     MatrixXd fakeErs = Ers(*mesh, *arap, E0, eps);
+            //     cout<<(fakeErs-MatrixXd(arap->Ers())).norm()<<endl<<endl;
+            //     cout<<endl;
+            //     exit(0);
+            // }  
 
-                cout<<"Err"<<endl;
-                MatrixXd fakeErr = Err(*mesh, *arap, E0, eps);
-                cout<<(fakeErr-MatrixXd(arap->Err())).norm()<<endl<<endl;
-                cout<<endl;
-
-                cout<<"Ers"<<endl;
-                MatrixXd fakeErs = Ers(*mesh, *arap, E0, eps);
-                cout<<(fakeErs-MatrixXd(arap->Ers())).norm()<<endl<<endl;
-                cout<<endl;
-                exit(0);
-            }  
-
-	        for(int i=0; i< x.size(); i++){
-	        	grad[i] = pegrad[i];
+            for(int i=0; i< x.size(); i++){
+                grad[i] = pegrad[i];
                 grad[i] += arapgrad[i];
-	        }
+            }
 
-	        std::cout<<"BFGS: "<<Eneo<<", "<<Earap<<", "<<pegrad.norm()<<", "<<arapgrad.norm()<<","<<grad.norm()<<std::endl;
-	    
+	       // cout<<arapgrad.transpose()<<endl;
         }
 
 

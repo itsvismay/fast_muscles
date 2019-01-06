@@ -9,9 +9,9 @@
 
 
 #include "mesh.h"
-#include "arap.h"
+#include "redArap.h"
 #include "elastic.h"
-#include "solver.h"
+#include "redSolver.h"
 
 
 
@@ -72,19 +72,19 @@ int main(int argc, char *argv[])
 
 
     std::string datafile = j_input["data"];
-    igl::readDMAT(datafile+"simple_joint/generated_files/tet_mesh_V.dmat", V);
-    igl::readDMAT(datafile+"simple_joint/generated_files/tet_mesh_T.dmat", T);
-    igl::readDMAT(datafile+"simple_joint/generated_files/combined_fiber_directions.dmat", Uvec);
-    igl::readDMAT(datafile+"simple_joint/generated_files/muscle_muscle_indices.dmat", muscle1);
-    igl::readDMAT(datafile+"simple_joint/generated_files/top_bone_bone_indices.dmat", bone1);
-    igl::readDMAT(datafile+"simple_joint/generated_files/bottom_bone_bone_indices.dmat", bone2);
-    igl::readDMAT(datafile+"simple_joint/generated_files/joint_indices.dmat", joint1);
-    // igl::readDMAT(datafile+"output/combined_V.dmat", V);
-    // igl::readDMAT(datafile+"output/combined_T.dmat", T);
-    // igl::readDMAT(datafile+"output/fiber_directions.dmat", Uvec);
-    // igl::readDMAT(datafile+"output/muscle_I.dmat", muscle1);
-    // igl::readDMAT(datafile+"output/bone_1_I.dmat", bone1);
-    // igl::readDMAT(datafile+"output/bone_2_I.dmat", bone2);
+    // igl::readDMAT(datafile+"simple_joint/generated_files/tet_mesh_V.dmat", V);
+    // igl::readDMAT(datafile+"simple_joint/generated_files/tet_mesh_T.dmat", T);
+    // igl::readDMAT(datafile+"simple_joint/generated_files/combined_fiber_directions.dmat", Uvec);
+    // igl::readDMAT(datafile+"simple_joint/generated_files/muscle_muscle_indices.dmat", muscle1);
+    // igl::readDMAT(datafile+"simple_joint/generated_files/top_bone_bone_indices.dmat", bone1);
+    // igl::readDMAT(datafile+"simple_joint/generated_files/bottom_bone_bone_indices.dmat", bone2);
+    // igl::readDMAT(datafile+"simple_joint/generated_files/joint_indices.dmat", joint1);
+    igl::readDMAT(datafile+"output/combined_V.dmat", V);
+    igl::readDMAT(datafile+"output/combined_T.dmat", T);
+    igl::readDMAT(datafile+"output/fiber_directions.dmat", Uvec);
+    igl::readDMAT(datafile+"output/muscle_I.dmat", muscle1);
+    igl::readDMAT(datafile+"output/bone_1_I.dmat", bone1);
+    igl::readDMAT(datafile+"output/bone_2_I.dmat", bone2);
 
     igl::boundary_facets(T, F);
     cout<<"V size: "<<V.rows()<<endl;
@@ -113,14 +113,14 @@ int main(int argc, char *argv[])
     Mesh* mesh = new Mesh(T, V, fix, mov,bones, muscle1,Uvec,  j_input);
     
     std::cout<<"-----ARAP-----"<<std::endl;
-    Arap* arap = new Arap(*mesh);
+    Reduced_Arap* arap = new Reduced_Arap(*mesh);
 
     std::cout<<"-----Neo-------"<<std::endl;
     Elastic* neo = new Elastic(*mesh);
 
     std::cout<<"-----Solver-------"<<std::endl;
     int DIM = mesh->red_s().size();
-    Rosenbrock f(DIM, mesh, arap, neo, j_input);
+    RedSolver f(DIM, mesh, arap, neo, j_input);
     LBFGSParam<double> param;
     param.epsilon = 1e-1;
     // param.max_iterations = 1000;
@@ -129,26 +129,29 @@ int main(int argc, char *argv[])
     param.linesearch = LBFGSpp::LBFGS_LINESEARCH_BACKTRACKING_ARMIJO;
     LBFGSSolver<double> solver(param);
 
-    for(int i=0; i<10; i++){
-        MatrixXd newV = mesh->continuousV();
-        string datafile = j_input["data"];
-        igl::writeOBJ(datafile+"simple_joint"+to_string(i)+".obj",newV,F);
+    // for(int i=0; i<6; i++){
+    //     MatrixXd newV = mesh->continuousV();
+    //     string datafile = j_input["data"];
+    //     igl::writeOBJ(datafile+"simple_joint"+to_string(i)+".obj",newV,F);
         
-        double fx =0;
-        VectorXd ns = mesh->N().transpose()*mesh->red_s();
-        int niter = solver.minimize(f, ns, fx);
-        cout<<"End BFGS"<<", "<<niter<<endl;
-        VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
-        for(int i=0; i<reds.size(); i++){
-            mesh->red_s()[i] = reds[i];
-        }
+    //     double fx =0;
+    //     VectorXd ns = mesh->N().transpose()*mesh->red_s();
+    //     int niter = solver.minimize(f, ns, fx);
+    //     cout<<"End BFGS"<<", "<<niter<<endl;
+    //     VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
+    //     for(int i=0; i<reds.size(); i++){
+    //         mesh->red_s()[i] = reds[i];
+    //     }
         
-        neo->changeFiberMag(2);
-    }
-    exit(0);
+    //     neo->changeFiberMag(2);
+    // }
+    // exit(0);
 
     std::cout<<"-----Display-------"<<std::endl;
     igl::opengl::glfw::Viewer viewer;
+    MatrixXd Colors = MatrixXd::Random(100,3); // 3x3 Matrix filled with random numbers between (-1,1)
+    Colors = (Colors + MatrixXd::Constant(100,3,1.))*(1-1e-6)/2.; // add 1 to the matrix to have values between 0 and 2; multiply with range/2
+    Colors = (Colors + MatrixXd::Constant(100,3,1e-6)); //set LO as the lower bound (offset)
     viewer.callback_pre_draw = [&](igl::opengl::glfw::Viewer & viewer){   
         if(viewer.core.is_animating){
             
@@ -211,7 +214,17 @@ int main(int argc, char *argv[])
         for(int i=0; i<mov.size(); i++){
             viewer.data().add_points(newV.row(mov[i]),Eigen::RowVector3d(0,1,0));
         }
-        // // viewer.data().set_colors(Colors);
+        
+        for(int c=0; c<mesh->red_w().size()/3; c++){
+            std::vector<int> cluster_elem = mesh->r_cluster_elem_map()[c];
+            for(int e=0; e<cluster_elem.size(); e++){
+                viewer.data().add_points(newV.row(mesh->T().row(cluster_elem[e])[0]), Colors.row(c));
+                viewer.data().add_points(newV.row(mesh->T().row(cluster_elem[e])[1]), Colors.row(c));
+                viewer.data().add_points(newV.row(mesh->T().row(cluster_elem[e])[2]), Colors.row(c));
+                viewer.data().add_points(newV.row(mesh->T().row(cluster_elem[e])[3]), Colors.row(c));
+            }
+        }
+
         
         return false;
     };

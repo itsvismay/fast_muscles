@@ -144,7 +144,8 @@ public:
         }
         if(nummodes==0){
             //reduced, but no modes
-            mG = MatrixXd::Identity(3*mV.rows(), 3*mV.rows());
+            print("reduced, but no modes?");
+            //mG = MatrixXd::Identity(3*mV.rows(), 3*mV.rows());
             return;
         }
 
@@ -334,8 +335,10 @@ public:
             mred_s[6*i+5] = 0;
         }
    
-        if(nsh==mT.rows() && reduced==false){
+        if(nsh==mT.rows()){
             print("- Unreduced Skinning Handles");
+            print("Code should be sparseified");
+            print("not setting sW matrix");
             return;
         }
 
@@ -472,29 +475,35 @@ public:
     }
 
     void kmeans_rotation_clustering(VectorXi& idx, int clusters){
-        print("     kmeans1");
-        MatrixXd G = mG.array().colwise() + mx0.array();
-        // std::cout<<mC.rows()<<", "<<mC.cols()<<std::endl;
-        // std::cout<<mA.rows()<<", "<<mA.cols()<<std::endl;
-        // std::cout<<G.rows()<<", "<<G.cols()<<std::endl;
-        // std::cout<<mT.rows()<<std::endl;
-        print("     kmeans1.1");
-        MatrixXd CAG = mC*mA*G;
-        print("     kmeans2");
-
-        MatrixXd Data = MatrixXd::Zero(mT.rows(), 3*G.cols());
-        for(int i=0; i<mT.rows(); i++){
-            RowVectorXd r1 = CAG.row(12*i);
-            RowVectorXd r2 = CAG.row(12*i+1);
-            RowVectorXd r3 = CAG.row(12*i+2);
-            RowVectorXd point(3*G.cols());
-            point<<r1,r2,r3;
-            Data.row(i) = point;
-        }
-        print("     kmeans3");
         MatrixXd Centroids;
-        kmeans(Data, clusters, 1000, Centroids, idx);
-        print("     kmeans4");
+        if(mG.cols()!=0){
+            print("     kmeans1 reduced");
+            MatrixXd G = mG.array().colwise() + mx0.array();
+            MatrixXd CAG = mC*mA*G;
+            print("     kmeans2 reduced");
+            MatrixXd Data = MatrixXd::Zero(mT.rows(), 3*G.cols());
+            for(int i=0; i<mT.rows(); i++){
+                RowVectorXd r1 = CAG.row(12*i);
+                RowVectorXd r2 = CAG.row(12*i+1);
+                RowVectorXd r3 = CAG.row(12*i+2);
+                RowVectorXd point(3*G.cols());
+                point<<r1,r2,r3;
+                Data.row(i) = point;
+            }
+            print("     kmeans3 reduced");
+            kmeans(Data, clusters, 1000, Centroids, idx);
+            print("     kmeans4 reduced");
+            return;
+        }else{
+            print("     kmeans1 un");
+            print("     kmeans2 un");
+            print("     kmeans3 un");
+            kmeans(mV, clusters, 1000, Centroids, idx);
+            print("     kmeans4 un");
+            return;
+        }
+
+        print("     kmeans1unreduced");
 
     }
 

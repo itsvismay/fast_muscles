@@ -320,6 +320,7 @@ int checkARAP(Mesh& mesh, Arap& arap){
 
     cout<<"Exs"<<endl;
     MatrixXd fakeExs = Exs(mesh, arap, E0, eps);
+    cout<<MatrixXd(arap.Exs())<<endl;
     cout<<(fakeExs-MatrixXd(arap.Exs())).norm()<<endl<<endl;
     cout<<endl;
 
@@ -334,7 +335,7 @@ int checkARAP(Mesh& mesh, Arap& arap){
     cout<<arap.Ers()<<endl;
     cout<<(fakeErs-MatrixXd(arap.Ers())).norm()<<endl<<endl;
     cout<<endl;
-    
+
     arap.Jacobians(mesh);
 }
 
