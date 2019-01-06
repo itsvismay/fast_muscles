@@ -332,7 +332,6 @@ int checkARAP(Mesh& mesh, Arap& arap){
 
     cout<<"Ers"<<endl;
     MatrixXd fakeErs = Ers(mesh, arap, E0, eps);
-    cout<<arap.Ers()<<endl;
     cout<<(fakeErs-MatrixXd(arap.Ers())).norm()<<endl<<endl;
     cout<<endl;
 

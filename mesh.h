@@ -113,7 +113,7 @@ public:
             mUvecs.row(imuscle[i]) = iUvecs.row(i);
         }
 
-        if(mG.cols()==0 && reduced==false){
+        if(mG.cols()==0){
             mred_x.resize(3*mV.rows());
         }else{
             mred_x.resize(mG.cols());
@@ -1091,7 +1091,7 @@ public:
 
     MatrixXd continuousV(){
         VectorXd x;
-        if(3*mV.rows()==mred_x.size() && reduced==false){
+        if(3*mV.rows()==mred_x.size()){
             x = mred_x + mx0;
         }else{
             x = mG*mred_x + mx0;
@@ -1106,7 +1106,7 @@ public:
     MatrixXd& discontinuousV(){
         VectorXd x;
         VectorXd ms;
-        if(3*mV.rows()==mred_x.size() && reduced==false){
+        if(3*mV.rows()==mred_x.size()){
             x = mred_x+mx0;
             ms = mred_s;
         }else{

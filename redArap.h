@@ -39,6 +39,8 @@ protected:
 	std::vector<VectorXd> aConstErTerms3;
 	std::vector<MatrixXd> aErsTermsPAx0U;
 	std::vector<std::vector<MatrixXd>> aErsTermsPAGU;
+	std::vector<SparseMatrix<double>> aErsTermsPAx0Usparse;
+	std::vector<std::vector<SparseMatrix<double>>> aErsTermsPAGUsparse;
 	SparseMatrix<double> aPAx0DS;
 	std::vector<Trip> aExx_trips, aExs_trips, aC_trips;
 	double jacLUanalyzed = false;
@@ -407,95 +409,183 @@ public:
 	}
 
 	void setupFastErsTerms(Mesh& m){
+		m.red_x()[0] = 0.1;
+
 		std::map<int, std::vector<int>>& c_e_map = m.r_cluster_elem_map();
 		Matrix3d Id3 = Matrix3d::Identity();
 		for(int i=0; i<m.red_w().size()/3; i++){
 			std::vector<int> cluster_elem = c_e_map[i];			
-			MatrixXd PAx0U = MatrixXd::Zero(12*cluster_elem.size(), 9);
+			SparseMatrix<double> spPAx0I(12*cluster_elem.size(), 9);
 
 			SparseMatrix<double>& B = m.RotBLOCK()[i];
 			SparseMatrix<double> BPAG = -1*B.transpose()*aPAG;//TODO
 			VectorXd BPAx0 = -1*B.transpose()*aPAx0;//TODO
-			SparseMatrix<double> BUtPAx0DS = B.transpose()*aPAx0DS;
+			SparseMatrix<double> BPAx0DS = B.transpose()*aPAx0DS;
 
+			std::vector<Trip> PAx0Trips;
 			for(int e=0; e<cluster_elem.size(); e++){
-				Matrix3d outer10 = BPAx0.segment<3>(12*e+0)*Id3.col(0).transpose();
-				Matrix3d outer20 = BPAx0.segment<3>(12*e+3)*Id3.col(0).transpose();
-				Matrix3d outer30 = BPAx0.segment<3>(12*e+6)*Id3.col(0).transpose();
-				Matrix3d outer40 = BPAx0.segment<3>(12*e+9)*Id3.col(0).transpose();
-
-				Matrix3d outer11 = BPAx0.segment<3>(12*e+0)*Id3.col(1).transpose();
-				Matrix3d outer21 = BPAx0.segment<3>(12*e+3)*Id3.col(1).transpose();
-				Matrix3d outer31 = BPAx0.segment<3>(12*e+6)*Id3.col(1).transpose();
-				Matrix3d outer41 = BPAx0.segment<3>(12*e+9)*Id3.col(1).transpose();
-
-				Matrix3d outer12 = BPAx0.segment<3>(12*e+0)*Id3.col(2).transpose();
-				Matrix3d outer22 = BPAx0.segment<3>(12*e+3)*Id3.col(2).transpose();
-				Matrix3d outer32 = BPAx0.segment<3>(12*e+6)*Id3.col(2).transpose();
-				Matrix3d outer42 = BPAx0.segment<3>(12*e+9)*Id3.col(2).transpose();
-
-
-
-				PAx0U.row(12*e+0) = Map<Vector9d>(outer10.transpose().data());
-				PAx0U.row(12*e+1) = Map<Vector9d>(outer11.transpose().data());
-				PAx0U.row(12*e+2) = Map<Vector9d>(outer12.transpose().data());
-
-				PAx0U.row(12*e+3) = Map<Vector9d>(outer20.transpose().data());
-				PAx0U.row(12*e+4) = Map<Vector9d>(outer21.transpose().data());
-				PAx0U.row(12*e+5) = Map<Vector9d>(outer22.transpose().data());
-
-				PAx0U.row(12*e+6) = Map<Vector9d>(outer30.transpose().data());
-				PAx0U.row(12*e+7) = Map<Vector9d>(outer31.transpose().data());
-				PAx0U.row(12*e+8) = Map<Vector9d>(outer32.transpose().data());
-
-				PAx0U.row(12*e+9) = Map<Vector9d>(outer40.transpose().data());
-				PAx0U.row(12*e+10) = Map<Vector9d>(outer41.transpose().data());
-				PAx0U.row(12*e+11) = Map<Vector9d>(outer42.transpose().data());				
+				for(int j=0; j<4; j++){
+					PAx0Trips.push_back(Trip(12*e+3*j+0, 0, BPAx0[12*e+3*j+0]));
+					PAx0Trips.push_back(Trip(12*e+3*j+0, 1, BPAx0[12*e+3*j+1]));
+					PAx0Trips.push_back(Trip(12*e+3*j+0, 2, BPAx0[12*e+3*j+2]));
+					PAx0Trips.push_back(Trip(12*e+3*j+1, 3, BPAx0[12*e+3*j+0]));
+					PAx0Trips.push_back(Trip(12*e+3*j+1, 4, BPAx0[12*e+3*j+1]));
+					PAx0Trips.push_back(Trip(12*e+3*j+1, 5, BPAx0[12*e+3*j+2]));
+					PAx0Trips.push_back(Trip(12*e+3*j+2, 6, BPAx0[12*e+3*j+0]));
+					PAx0Trips.push_back(Trip(12*e+3*j+2, 7, BPAx0[12*e+3*j+1]));
+					PAx0Trips.push_back(Trip(12*e+3*j+2, 8, BPAx0[12*e+3*j+2]));
+				}			
 			}
+			spPAx0I.setFromTriplets(PAx0Trips.begin(), PAx0Trips.end());
+			aErsTermsPAx0Usparse.push_back(BPAx0DS.transpose()*spPAx0I);
 
-			std::vector<MatrixXd> UtPAx0DST_PAGzU;
-			for(int v=0; v<aPAG.cols(); v++){
-				MatrixXd PAGvzU = MatrixXd::Zero(12*cluster_elem.size(), 9);
-				for(int e=0; e<cluster_elem.size(); e++){					
-					Matrix3d outer10 = BPAG.col(v).segment<3>(12*e+0)*Id3.col(0).transpose();
-					Matrix3d outer20 = BPAG.col(v).segment<3>(12*e+3)*Id3.col(0).transpose();
-					Matrix3d outer30 = BPAG.col(v).segment<3>(12*e+6)*Id3.col(0).transpose();
-					Matrix3d outer40 = BPAG.col(v).segment<3>(12*e+9)*Id3.col(0).transpose();
+			// std::vector<SparseMatrix<double>> UtPAx0DST_PAGzU;
+			// for(int v=0; v<aPAG.cols(); v++){
+			// 	SparseMatrix<double> spPAGvzI(12*cluster_elem.size(), 9);
+			// 	std::vector<Trip> PAGvzTrip;
+			// 	for(int e=0; e<cluster_elem.size(); e++){
+			// 		for(int j=0; j<4; j++){
+			// 			PAGvzTrip.push_back(Trip(12*e+3*j+0, 0, BPAG.coeff(12*e+3*j+0, v)));
+			// 			PAGvzTrip.push_back(Trip(12*e+3*j+0, 1, BPAG.coeff(12*e+3*j+1, v)));
+			// 			PAGvzTrip.push_back(Trip(12*e+3*j+0, 2, BPAG.coeff(12*e+3*j+2, v)));
+			// 			PAGvzTrip.push_back(Trip(12*e+3*j+1, 3, BPAG.coeff(12*e+3*j+0, v)));
+			// 			PAGvzTrip.push_back(Trip(12*e+3*j+1, 4, BPAG.coeff(12*e+3*j+1, v)));
+			// 			PAGvzTrip.push_back(Trip(12*e+3*j+1, 5, BPAG.coeff(12*e+3*j+2, v)));
+			// 			PAGvzTrip.push_back(Trip(12*e+3*j+2, 6, BPAG.coeff(12*e+3*j+0, v)));
+			// 			PAGvzTrip.push_back(Trip(12*e+3*j+2, 7, BPAG.coeff(12*e+3*j+1, v)));
+			// 			PAGvzTrip.push_back(Trip(12*e+3*j+2, 8, BPAG.coeff(12*e+3*j+2, v)));
+			// 		}
+			// 	}
+			// 	spPAGvzI.setFromTriplets(PAGvzTrip.begin(), PAGvzTrip.end());
+			// 	UtPAx0DST_PAGzU.push_back(BPAx0DS.transpose()*spPAGvzI);
+			// }
+			// aErsTermsPAGUsparse.push_back(UtPAx0DST_PAGzU);
 
-					Matrix3d outer11 = BPAG.col(v).segment<3>(12*e+0)*Id3.col(1).transpose();
-					Matrix3d outer21 = BPAG.col(v).segment<3>(12*e+3)*Id3.col(1).transpose();
-					Matrix3d outer31 = BPAG.col(v).segment<3>(12*e+6)*Id3.col(1).transpose();
-					Matrix3d outer41 = BPAG.col(v).segment<3>(12*e+9)*Id3.col(1).transpose();
-
-					Matrix3d outer12 = BPAG.col(v).segment<3>(12*e+0)*Id3.col(2).transpose();
-					Matrix3d outer22 = BPAG.col(v).segment<3>(12*e+3)*Id3.col(2).transpose();
-					Matrix3d outer32 = BPAG.col(v).segment<3>(12*e+6)*Id3.col(2).transpose();
-					Matrix3d outer42 = BPAG.col(v).segment<3>(12*e+9)*Id3.col(2).transpose();
-
-
-					PAGvzU.row(12*e+0) = Map<Vector9d>(outer10.transpose().data());
-					PAGvzU.row(12*e+1) = Map<Vector9d>(outer11.transpose().data());
-					PAGvzU.row(12*e+2) = Map<Vector9d>(outer12.transpose().data());
-
-					PAGvzU.row(12*e+3) = Map<Vector9d>(outer20.transpose().data());
-					PAGvzU.row(12*e+4) = Map<Vector9d>(outer21.transpose().data());
-					PAGvzU.row(12*e+5) = Map<Vector9d>(outer22.transpose().data());
-
-					PAGvzU.row(12*e+6) = Map<Vector9d>(outer30.transpose().data());
-					PAGvzU.row(12*e+7) = Map<Vector9d>(outer31.transpose().data());
-					PAGvzU.row(12*e+8) = Map<Vector9d>(outer32.transpose().data());
-
-					PAGvzU.row(12*e+9) = Map<Vector9d>(outer40.transpose().data());
-					PAGvzU.row(12*e+10) = Map<Vector9d>(outer41.transpose().data());
-					PAGvzU.row(12*e+11) = Map<Vector9d>(outer42.transpose().data());	
+			std::vector<SparseMatrix<double>> UtPAx0DST_PAGzU;
+			for(int c=0; c<9; c++){
+				SparseMatrix<double> spPAGvzI(12*cluster_elem.size(), aPAG.cols());
+				std::vector<Trip> PAGvzTrip;
+				for(int e=0; e<cluster_elem.size(); e++){
+					for(int v=0; v<aPAG.cols(); v++){
+						for(int j=0; j<4; j++){
+							PAGvzTrip.push_back(Trip(12*e+3*j+(c/3), v, BPAG.coeff(12*e+3*j+(c%3), v)));
+						}
+					}
+					spPAGvzI.setFromTriplets(PAGvzTrip.begin(), PAGvzTrip.end());
+					UtPAx0DST_PAGzU.push_back(BPAx0DS.transpose()*spPAGvzI);
 				}
-				UtPAx0DST_PAGzU.push_back(BUtPAx0DS.transpose()*PAGvzU);
+				aErsTermsPAGUsparse.push_back(UtPAx0DST_PAGzU);
+
 			}
-			aErsTermsPAx0U.push_back(BUtPAx0DS.transpose()*PAx0U);
+		}
+
+		// for(int i=0; i<m.red_w().size()/3; i++){
+		// 	std::vector<int> cluster_elem = c_e_map[i];			
+		// 	MatrixXd PAx0U = MatrixXd::Zero(12*cluster_elem.size(), 9);
+
+		// 	SparseMatrix<double>& B = m.RotBLOCK()[i];
+		// 	SparseMatrix<double> BPAG = -1*B.transpose()*aPAG;//TODO
+		// 	VectorXd BPAx0 = -1*B.transpose()*aPAx0;//TODO
+		// 	SparseMatrix<double> BUtPAx0DS = B.transpose()*aPAx0DS;
+
+		// 	for(int e=0; e<cluster_elem.size(); e++){
+		// 		Matrix3d outer10 = BPAx0.segment<3>(12*e+0)*Id3.col(0).transpose();
+		// 		Matrix3d outer20 = BPAx0.segment<3>(12*e+3)*Id3.col(0).transpose();
+		// 		Matrix3d outer30 = BPAx0.segment<3>(12*e+6)*Id3.col(0).transpose();
+		// 		Matrix3d outer40 = BPAx0.segment<3>(12*e+9)*Id3.col(0).transpose();
+
+		// 		Matrix3d outer11 = BPAx0.segment<3>(12*e+0)*Id3.col(1).transpose();
+		// 		Matrix3d outer21 = BPAx0.segment<3>(12*e+3)*Id3.col(1).transpose();
+		// 		Matrix3d outer31 = BPAx0.segment<3>(12*e+6)*Id3.col(1).transpose();
+		// 		Matrix3d outer41 = BPAx0.segment<3>(12*e+9)*Id3.col(1).transpose();
+
+		// 		Matrix3d outer12 = BPAx0.segment<3>(12*e+0)*Id3.col(2).transpose();
+		// 		Matrix3d outer22 = BPAx0.segment<3>(12*e+3)*Id3.col(2).transpose();
+		// 		Matrix3d outer32 = BPAx0.segment<3>(12*e+6)*Id3.col(2).transpose();
+		// 		Matrix3d outer42 = BPAx0.segment<3>(12*e+9)*Id3.col(2).transpose();
+
+
+
+		// 		PAx0U.row(12*e+0) = Map<Vector9d>(outer10.transpose().data());
+		// 		PAx0U.row(12*e+1) = Map<Vector9d>(outer11.transpose().data());
+		// 		PAx0U.row(12*e+2) = Map<Vector9d>(outer12.transpose().data());
+
+		// 		PAx0U.row(12*e+3) = Map<Vector9d>(outer20.transpose().data());
+		// 		PAx0U.row(12*e+4) = Map<Vector9d>(outer21.transpose().data());
+		// 		PAx0U.row(12*e+5) = Map<Vector9d>(outer22.transpose().data());
+
+		// 		PAx0U.row(12*e+6) = Map<Vector9d>(outer30.transpose().data());
+		// 		PAx0U.row(12*e+7) = Map<Vector9d>(outer31.transpose().data());
+		// 		PAx0U.row(12*e+8) = Map<Vector9d>(outer32.transpose().data());
+
+		// 		PAx0U.row(12*e+9) = Map<Vector9d>(outer40.transpose().data());
+		// 		PAx0U.row(12*e+10) = Map<Vector9d>(outer41.transpose().data());
+		// 		PAx0U.row(12*e+11) = Map<Vector9d>(outer42.transpose().data());				
+		// 	}
+
+		// 	std::vector<MatrixXd> UtPAx0DST_PAGzU;
+		// 	for(int v=0; v<aPAG.cols(); v++){
+		// 		MatrixXd PAGvzU = MatrixXd::Zero(12*cluster_elem.size(), 9);
+		// 		for(int e=0; e<cluster_elem.size(); e++){					
+		// 			Matrix3d outer10 = BPAG.col(v).segment<3>(12*e+0)*Id3.col(0).transpose();
+		// 			Matrix3d outer20 = BPAG.col(v).segment<3>(12*e+3)*Id3.col(0).transpose();
+		// 			Matrix3d outer30 = BPAG.col(v).segment<3>(12*e+6)*Id3.col(0).transpose();
+		// 			Matrix3d outer40 = BPAG.col(v).segment<3>(12*e+9)*Id3.col(0).transpose();
+
+		// 			Matrix3d outer11 = BPAG.col(v).segment<3>(12*e+0)*Id3.col(1).transpose();
+		// 			Matrix3d outer21 = BPAG.col(v).segment<3>(12*e+3)*Id3.col(1).transpose();
+		// 			Matrix3d outer31 = BPAG.col(v).segment<3>(12*e+6)*Id3.col(1).transpose();
+		// 			Matrix3d outer41 = BPAG.col(v).segment<3>(12*e+9)*Id3.col(1).transpose();
+
+		// 			Matrix3d outer12 = BPAG.col(v).segment<3>(12*e+0)*Id3.col(2).transpose();
+		// 			Matrix3d outer22 = BPAG.col(v).segment<3>(12*e+3)*Id3.col(2).transpose();
+		// 			Matrix3d outer32 = BPAG.col(v).segment<3>(12*e+6)*Id3.col(2).transpose();
+		// 			Matrix3d outer42 = BPAG.col(v).segment<3>(12*e+9)*Id3.col(2).transpose();
+
+
+		// 			PAGvzU.row(12*e+0) = Map<Vector9d>(outer10.transpose().data());
+		// 			PAGvzU.row(12*e+1) = Map<Vector9d>(outer11.transpose().data());
+		// 			PAGvzU.row(12*e+2) = Map<Vector9d>(outer12.transpose().data());
+
+		// 			PAGvzU.row(12*e+3) = Map<Vector9d>(outer20.transpose().data());
+		// 			PAGvzU.row(12*e+4) = Map<Vector9d>(outer21.transpose().data());
+		// 			PAGvzU.row(12*e+5) = Map<Vector9d>(outer22.transpose().data());
+
+		// 			PAGvzU.row(12*e+6) = Map<Vector9d>(outer30.transpose().data());
+		// 			PAGvzU.row(12*e+7) = Map<Vector9d>(outer31.transpose().data());
+		// 			PAGvzU.row(12*e+8) = Map<Vector9d>(outer32.transpose().data());
+
+		// 			PAGvzU.row(12*e+9) = Map<Vector9d>(outer40.transpose().data());
+		// 			PAGvzU.row(12*e+10) = Map<Vector9d>(outer41.transpose().data());
+		// 			PAGvzU.row(12*e+11) = Map<Vector9d>(outer42.transpose().data());	
+		// 		}
+		// 		UtPAx0DST_PAGzU.push_back(BUtPAx0DS.transpose()*PAGvzU);
+		// 	}
+		// 	aErsTermsPAx0U.push_back(BUtPAx0DS.transpose()*PAx0U);
 
 			
-			aErsTermsPAGU.push_back(UtPAx0DST_PAGzU);
-		}
+		// 	aErsTermsPAGU.push_back(UtPAx0DST_PAGzU);
+		// }
+
+		// for(int i=0; i<m.red_w().size(); i++){
+		// 	Vector9d r1vec = Map<Vector9d>((asingDR[i].transpose()).data());
+		// 	aErs.row(i) = aErsTermsPAx0U[i/3]*r1vec;
+		// 	for(int v=0; v<aPAG.cols(); v++){
+		// 		aErs.row(i) += m.red_x()[v]*aErsTermsPAGU[i/3][v]*r1vec;
+		// 	}
+		// }
+		// print(aErs);
+
+		// for(int i=0; i<m.red_w().size(); i++){
+		// 	Vector9d r1vec = Map<Vector9d>((asingDR[i].transpose()).data());
+		// 	aErs.row(i) = aErsTermsPAx0Usparse[i/3]*r1vec;
+		// 	// for(int v=0; v<aPAG.cols(); v++){
+		// 	// 	aErs.row(i) += m.red_x()[v]*aErsTermsPAGU[i/3][v]*r1vec;
+		// 	// }
+		// }
+		// print(aErs);
+
+		// exit(0);
 	}
 
 	void setupFastPAx0DSTerm(Mesh& m){
@@ -848,12 +938,24 @@ public:
 
 	MatrixXd& constTimeErs(Mesh& m){
 		// print("new");
+		// for(int i=0; i<m.red_w().size(); i++){
+		// 	Vector9d r1vec = Map<Vector9d>((asingDR[i].transpose()).data());
+		// 	aErs.row(i) = aErsTermsPAx0Usparse[i/3]*r1vec;
+		// 	for(int v=0; v<aPAG.cols(); v++){
+		// 		aErs.row(i) += m.red_x()[v]*aErsTermsPAGUsparse[i/3][v]*r1vec;
+		// 	}
+		// }
+
 		for(int i=0; i<m.red_w().size(); i++){
 			Vector9d r1vec = Map<Vector9d>((asingDR[i].transpose()).data());
-			aErs.row(i) = aErsTermsPAx0U[i/3]*r1vec;
-			for(int v=0; v<aPAG.cols(); v++){
-				aErs.row(i) += m.red_x()[v]*aErsTermsPAGU[i/3][v]*r1vec;
+			aErs.row(i) = aErsTermsPAx0Usparse[i/3]*r1vec;
+
+			MatrixXd TEMP(aErsTermsPAGU[i/3][0].rows(), 9);
+			for(int c =0; c<9; c++){
+				TEMP.col(c) =(aErsTermsPAGUsparse[i/3][c]*m.red_x());
 			}
+			aErs.row(i) += TEMP*r1vec;
+			
 		}
 
 		// print(aErs);
@@ -925,55 +1027,52 @@ public:
 	}
 
 	int Gradients(Mesh& m){
+		
 		// print("			+ Gradients");
-
+		// print("		Ex");
 		m.constTimeFPAx0(aFPAx0);
 		aEx = dEdx(m);
 		
 		// print("		Er");
-		aEr = constTimeEr(m);
+		aEr.setZero();
+		Matrix3d Jx = cross_prod_mat(1,0,0);
+		Matrix3d Jy = cross_prod_mat(0,1,0);
+		Matrix3d Jz = cross_prod_mat(0,0,1);
+
+		VectorXd PAg = aPAG*m.red_x() + aPAx0;
+		VectorXd ms = m.red_s();
+		VectorXd mr = a_Wr*m.red_r();
+
+		for(int t=0; t<m.T().rows(); t++){
+			Matrix3d s;
+			s<< ms[6*t + 0], ms[6*t + 3], ms[6*t + 4],
+				ms[6*t + 3], ms[6*t + 1], ms[6*t + 5],
+				ms[6*t + 4], ms[6*t + 5], ms[6*t + 2];
+
+			Matrix3d r0= Map<Matrix3d>(mr.segment<9>(9*t).data()).transpose();
+			Matrix3d r1 = r0*Jx;
+			Matrix3d r2 = r0*Jy;
+			Matrix3d r3 = r0*Jz;
+
+			Matrix3d p1 = -PAg.segment<3>(12*t+0)*(s*aPAx0.segment<3>(12*t+0)).transpose();
+			Matrix3d p2 = -PAg.segment<3>(12*t+3)*(s*aPAx0.segment<3>(12*t+3)).transpose();
+			Matrix3d p3 = -PAg.segment<3>(12*t+6)*(s*aPAx0.segment<3>(12*t+6)).transpose();
+			Matrix3d p4 = -PAg.segment<3>(12*t+9)*(s*aPAx0.segment<3>(12*t+9)).transpose();
+
+			double Er1 = p1.cwiseProduct(r1).sum() + p2.cwiseProduct(r1).sum() + p3.cwiseProduct(r1).sum() + p4.cwiseProduct(r1).sum();
+			double Er2 = p1.cwiseProduct(r2).sum() + p2.cwiseProduct(r2).sum() + p3.cwiseProduct(r2).sum() + p4.cwiseProduct(r2).sum();
+			double Er3 = p1.cwiseProduct(r3).sum() + p2.cwiseProduct(r3).sum() + p3.cwiseProduct(r3).sum() + p4.cwiseProduct(r3).sum();
+
+			aEr[3*t+0] = Er1;
+			aEr[3*t+1] = Er2;
+			aEr[3*t+2] = Er3;
+
+		}
 		
 		// print("		Es");
-		aEs = dEds(m);
-
-		// print("			- Gradients");
-		return 1;
-	}
-
-	VectorXd dEds(Mesh& m){
-		// VectorXd ms = m.sW()*m.red_s();
-		// VectorXd PAx = aPAG*m.red_x() + aPAx0;
-		// VectorXd UtRtPAx1 = VectorXd::Zero(12*m.T().rows());
-		// VectorXd SUtPAx01 = VectorXd::Zero(12*m.T().rows());
-		// for(int t =0; t<m.T().rows(); t++){
-		// 	Matrix3d rt = Map<Matrix3d>(m.red_r().segment<9>(9*m.r_elem_cluster_map()[t]).data());
-		// 	Matrix3d ut = Map<Matrix3d>(m.red_u().segment<9>(9*t).data());
-		// 	Matrix3d s;
-		// 	s<< ms[6*t + 0], ms[6*t + 3], ms[6*t + 4],
-		// 		ms[6*t + 3], ms[6*t + 1], ms[6*t + 5],
-		// 		ms[6*t + 4], ms[6*t + 5], ms[6*t + 2];
-
-		// 	for(int j=0; j<4; j++){
-		// 		Vector3d p = PAx.segment<3>(12*t+3*j);
-		// 		UtRtPAx1.segment<3>(12*t+3*j) = ut*rt*p;
-		// 		SUtPAx01.segment<3>(12*t+3*j) = s*aUtPAx0.segment<3>(12*t+3*j);
-		// 	}
-		// }
-	
-		// aEs.setZero();
-		// for(int i=0; i<aEs.size(); i++){
-		// 	std::vector<Trip> v = aDS[i];
-		// 	for(int k=0; k<aDS[i].size(); k++){
-		// 		int t= v[k].row()/12;
-		// 		aEs[i] -= (UtRtPAx1[v[k].row()])*aUtPAx0[v[k].col()]*v[k].value();
-		// 		aEs[i] += SUtPAx01[v[k].row()]*aUtPAx0[v[k].col()]*v[k].value();
-		// 	}
-		// }
-		VectorXd PAg = aPAG*m.red_x() + aPAx0;
-		VectorXd& ms = m.red_s();
 		aEs.setZero();
 		for(int t=0; t<m.T().rows(); t++){
-			Matrix3d rt = Map<Matrix3d>(m.red_r().segment<9>(9*m.r_elem_cluster_map()[t]).data());
+			Matrix3d rt = Map<Matrix3d>(mr.segment<9>(9*t).data());
 			Matrix3d s;
 			s<< ms[6*t + 0], ms[6*t + 3], ms[6*t + 4],
 				ms[6*t + 3], ms[6*t + 1], ms[6*t + 5],
@@ -998,24 +1097,13 @@ public:
 			aEs[6*t+5] = Es6;
 
 		}
-		return aEs;
+		
+
+		// print("			- Gradients");
+		return 1;
+
 	}
 
-	VectorXd& constTimeEr(Mesh& m){
-		VectorXd BPAg = VectorXd::Zero(aPAx0.size());
-		for(int i=0; i<m.red_w().size()/3; i++){
-			VectorXd BUSUtPAx0 = aConstErTerms12[2*i+0]*m.red_s();
-			VectorXd BPAGz = aConstErTerms12[2*i+1]*m.red_x();
-			VectorXd BPAx0 = aConstErTerms3[i];
-			
-			aEr[3*i+0] = (BPAGz + BPAx0).transpose()*(aredDR[3*i+0]*BUSUtPAx0);
-			aEr[3*i+1] = (BPAGz + BPAx0).transpose()*(aredDR[3*i+1]*BUSUtPAx0);
-			aEr[3*i+2] = (BPAGz + BPAx0).transpose()*(aredDR[3*i+0]*BUSUtPAx0);
-
-		}
-
-		return aEr;
-	}
 
 	VectorXd dEdx(Mesh& m){
 		VectorXd PAx = aPAG*m.red_x() + aPAx0;
