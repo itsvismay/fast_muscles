@@ -35,7 +35,7 @@ protected:
 
 	std::vector<MatrixXd> aConstItRTerms;
 	std::vector<VectorXd> aUSUtPAx_E;
-	std::vector<MatrixXd> aConstErTerms12;
+	std::vector<SparseMatrix<double>> aConstErTerms12;
 	std::vector<VectorXd> aConstErTerms3;
 	std::vector<MatrixXd> aErsTermsPAx0U;
 	std::vector<std::vector<MatrixXd>> aErsTermsPAGU;
@@ -351,28 +351,20 @@ public:
 	}
 
 	void setupFastErTerms(Mesh& m){
+		print("Er1");
 		vector<Trip> MPAx0_trips;
 		for(int t=0; t<m.T().rows(); ++t){
 			Vector12d x = aPAx0.segment<12>(12*t);
 			for(int j=0; j<4; j++){
 				MPAx0_trips.push_back(Trip(12*t+3*j+0, 6*t+0, x[3*j+0]));
-				MPAx0_trips.push_back(Trip(12*t+3*j+0, 6*t+1, 0));
-				MPAx0_trips.push_back(Trip(12*t+3*j+0, 6*t+2, 0));
 				MPAx0_trips.push_back(Trip(12*t+3*j+0, 6*t+3, x[3*j+1]));
 				MPAx0_trips.push_back(Trip(12*t+3*j+0, 6*t+4, x[3*j+2]));
-				MPAx0_trips.push_back(Trip(12*t+3*j+0, 6*t+5, 0));
 
-				MPAx0_trips.push_back(Trip(12*t+3*j+1, 6*t+0, 0));
 				MPAx0_trips.push_back(Trip(12*t+3*j+1, 6*t+1, x[3*j+1]));
-				MPAx0_trips.push_back(Trip(12*t+3*j+1, 6*t+2, 0));
 				MPAx0_trips.push_back(Trip(12*t+3*j+1, 6*t+3, x[3*j+0]));
-				MPAx0_trips.push_back(Trip(12*t+3*j+1, 6*t+4, 0));
 				MPAx0_trips.push_back(Trip(12*t+3*j+1, 6*t+5, x[3*j+2]));
 
-				MPAx0_trips.push_back(Trip(12*t+3*j+2, 6*t+0, 0));
-				MPAx0_trips.push_back(Trip(12*t+3*j+2, 6*t+1, 0));
 				MPAx0_trips.push_back(Trip(12*t+3*j+2, 6*t+2, x[3*j+2]));
-				MPAx0_trips.push_back(Trip(12*t+3*j+2, 6*t+3, 0));
 				MPAx0_trips.push_back(Trip(12*t+3*j+2, 6*t+4, x[3*j+0]));
 				MPAx0_trips.push_back(Trip(12*t+3*j+2, 6*t+5, x[3*j+1]));
 			}
@@ -383,15 +375,15 @@ public:
 		//TODO: MatrixXd MUUtPAx0sW = MUUtPAx0*m.sW();
 		SparseMatrix<double> MPAx0sW = MPAx0;
 
-
+		print("Er2");
 		
 		for(int r=0; r<m.red_w().size()/3; ++r){
 			SparseMatrix<double>& B = m.RotBLOCK()[r];
 			SparseMatrix<double> BMUtPAx0sW = B.transpose()*MPAx0sW;//TODO dense
 			SparseMatrix<double> BPAG = -1*B.transpose()*aPAG;//TODO make dense
 			VectorXd BPAx0 = -1*B.transpose()*aPAx0;
-			aConstErTerms12.push_back(MatrixXd(BMUtPAx0sW));
-			aConstErTerms12.push_back(MatrixXd(BPAG));
+			aConstErTerms12.push_back(BMUtPAx0sW);
+			aConstErTerms12.push_back(BPAG);
 			aConstErTerms3.push_back(BPAx0);
 		}
 	}
