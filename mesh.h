@@ -496,9 +496,14 @@ public:
             return;
         }else{
             print("     kmeans1 un");
+            VectorXd CAx0 = mC*mA*mx0;
             print("     kmeans2 un");
+            MatrixXd Data = MatrixXd::Zero(mT.rows(), 3);
+            for(int i=0; i<mT.rows(); i++){
+                Data.row(i) = RowVector3d(CAx0[12*i+0],CAx0[12*i+1],CAx0[12*i+2]);
+            }
             print("     kmeans3 un");
-            kmeans(mV, clusters, 1000, Centroids, idx);
+            kmeans(Data, clusters, 1000, Centroids, idx);
             print("     kmeans4 un");
             return;
         }

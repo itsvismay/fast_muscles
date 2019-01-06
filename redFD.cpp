@@ -287,8 +287,6 @@ int checkRedARAP(Mesh& mesh, Reduced_Arap& arap){
 	double eps = j_input["fd_eps"];
 	double E0 = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s());
 	cout<<"E0: "<<E0<<endl;
-	arap.setupRedSparseDRdr(mesh);
-	arap.setupRedSparseDDRdrdr(mesh);
 
     arap.Gradients(mesh);
     cout<<"Ex"<<endl;
@@ -405,9 +403,8 @@ int main(int argc, char *argv[]){
     // for(int i=0; i<x.size(); i++){
     // 	mesh->red_x()[i] = x[i];
     // }
-    cout<<"here1"<<endl;
     redarap->minimize(*mesh);
-    cout<<"here2"<<endl;
+
     checkRedARAP(*mesh, *redarap);
     // checkElastic(*mesh, *neo);
 

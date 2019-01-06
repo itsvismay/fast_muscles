@@ -92,8 +92,8 @@ int main(int argc, char *argv[])
     cout<<"F size: "<<F.rows()<<endl;
     
     std::vector<int> fix = getMaxVerts_Axis_Tolerance(V, 1);
-    std::vector<int> fix2 = getMaxVerts_Axis_Tolerance(V, 0, 0.5);
-    fix.insert(fix.end(), fix2.begin(), fix2.end());
+    // std::vector<int> fix2 = getMaxVerts_Axis_Tolerance(V, 0, 0.5);
+    // fix.insert(fix.end(), fix2.begin(), fix2.end());
     std::sort (fix.begin(), fix.end());
     
 

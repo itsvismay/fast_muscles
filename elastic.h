@@ -27,7 +27,7 @@ public:
 			sW5 = VectorXd::Zero(m.red_s().size());
 			sW6 = VectorXd::Zero(m.red_s().size());
 		}
-		cout<<"here0"<<endl;
+
 		muscle_forces = VectorXd::Zero(m.red_s().size());
 		elastic_forces = VectorXd::Zero(m.red_s().size());
 	}
