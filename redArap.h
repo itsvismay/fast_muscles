@@ -111,10 +111,13 @@ public:
 		setupRedSparseDRdr(m);
 		setupRedSparseDDRdrdr(m);
 
-		print("rarap 7");
+		print("pre-processing");
 		setupWrWw(m);
+		print("Er");
 		setupFastErTerms(m);
+		print("PAx0DS");
 		setupFastPAx0DSTerm(m);
+		print("Ers");
 		setupFastErsTerms(m);
 
 		// setupFastItRTerms(m);
