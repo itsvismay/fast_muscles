@@ -1,5 +1,5 @@
 {
-  "data": "/home/vismay/recode/fast_muscles/data/",
+  "data": "/u6/b/vismay/Muscles/fast_muscles/data/",
   "mesh_file":"/home/vismay/recode/fast_muscles/data/testbar/bar.1.mesh",
   "v_file" : "/home/vismay/recode/fast_muscles/data/simple_joint/generated_files/tet_mesh_V.dmat",
   "t_file" : "/home/vismay/recode/fast_muscles/data/simple_joint/generated_files/tet_mesh_T.dmat",

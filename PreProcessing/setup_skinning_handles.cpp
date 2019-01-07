@@ -6,6 +6,7 @@
 #include <igl/boundary_conditions.h>
 #include <igl/lbs_matrix.h>
 #include <igl/bbw.h>
+#include <igl/normalize_row_sums.h>
 #include <unsupported/Eigen/KroneckerProduct>
 
 using namespace Eigen;

@@ -1,7 +1,6 @@
 #ifndef MESH 
 #define MESH
 
-#include <Eigen/CholmodSupport>
 #include <unsupported/Eigen/KroneckerProduct>
 #include <json.hpp>
 #include <unsupported/Eigen/MatrixFunctions>
