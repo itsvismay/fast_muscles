@@ -69,7 +69,11 @@ int main()
     std::ifstream i("../input/input.json");
     i >> j_input;
 
-    
+    if(j_input["reduced"]){
+        std::cout<<"Use Reduced code"<<endl;
+        exit(0);
+    }
+
     MatrixXd V;
     MatrixXi T;
     MatrixXi F;
@@ -82,7 +86,7 @@ int main()
     std::sort (fix.begin(), fix.end());
     std::vector<int> mov = {};//getMinVerts_Axis_Tolerance(V, 1);
     std::sort (mov.begin(), mov.end());
-    std::vector<int> bones = {};
+    std::vector<VectorXi> bones = {};
     // getMaxTets_Axis_Tolerance(bones, V, T, 1, 3);
     // getMinTets_Axis_Tolerance(bones, V, T, 1, 3);
 
@@ -90,20 +94,18 @@ int main()
     VectorXi muscle1;
     MatrixXd Uvec;
     Mesh* mesh = new Mesh(T, V, fix, mov,bones, muscle1, Uvec, j_input);
-
-    std::cout<<"-----ARAP-----"<<std::endl;
-    // Arap* arap = new Arap(*mesh);
-    Reduced_Arap* arap = new Reduced_Arap(*mesh);
-  
-
-
     std::cout<<"-----Neo-------"<<std::endl;
     Elastic* neo = new Elastic(*mesh);
 
+    std::cout<<"-----ARAP-----"<<std::endl;
+    Arap* arap = new Arap(*mesh);
+  
     std::cout<<"-----Solver-------"<<std::endl;
     int DIM = mesh->red_s().size();
-    RedSolver f(DIM, mesh, arap, neo, j_input);
-    // Rosenbrock f(DIM, mesh, arap, neo, j_input);
+    Rosenbrock f(DIM, mesh, arap, neo, j_input, true);
+
+  
+
   
     LBFGSParam<double> param;
     param.epsilon = 1e-1;
@@ -212,20 +214,20 @@ int main()
         for(int i=0; i<mov.size(); i++){
             viewer.data().add_points(newV.row(mov[i]),Eigen::RowVector3d(0,1,0));
         }
-        for(int c=0; c<mesh->red_w().size()/3; c++){
-            std::vector<int> cluster_elem = mesh->r_cluster_elem_map()[c];
-            for(int e=0; e<cluster_elem.size(); e++){
-                viewer.data().add_points(newV.row(mesh->T().row(cluster_elem[e])[0]), Colors.row(c));
-                viewer.data().add_points(newV.row(mesh->T().row(cluster_elem[e])[1]), Colors.row(c));
-                viewer.data().add_points(newV.row(mesh->T().row(cluster_elem[e])[2]), Colors.row(c));
-                viewer.data().add_points(newV.row(mesh->T().row(cluster_elem[e])[3]), Colors.row(c));
-            }
-        }
+        // for(int c=0; c<mesh->red_w().size()/3; c++){
+        //     std::vector<int> cluster_elem = mesh->r_cluster_elem_map()[c];
+        //     for(int e=0; e<cluster_elem.size(); e++){
+        //         viewer.data().add_points(newV.row(mesh->T().row(cluster_elem[e])[0]), Colors.row(c));
+        //         viewer.data().add_points(newV.row(mesh->T().row(cluster_elem[e])[1]), Colors.row(c));
+        //         viewer.data().add_points(newV.row(mesh->T().row(cluster_elem[e])[2]), Colors.row(c));
+        //         viewer.data().add_points(newV.row(mesh->T().row(cluster_elem[e])[3]), Colors.row(c));
+        //     }
+        // }
 
         return false;
     };
 
-	// viewer.data().set_mesh(V,F);
+	viewer.data().set_mesh(V,F);
     viewer.data().show_lines = true;
     viewer.data().invert_normals = true;
     viewer.core.is_animating = false;

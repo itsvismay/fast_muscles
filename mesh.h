@@ -3,17 +3,13 @@
 
 #include <Eigen/CholmodSupport>
 #include <unsupported/Eigen/KroneckerProduct>
-#include <MatOp/SparseGenMatProd.h>
-#include <MatOp/SparseCholesky.h>
-#include <SymGEigsSolver.h>
-#include <GenEigsSolver.h>
-#include <opencv2/opencv.hpp>
-#include <opencv2/core/eigen.hpp>
-#include <igl/boundary_conditions.h>
-#include <igl/lbs_matrix.h>
-#include <igl/bbw.h>
 #include <json.hpp>
 #include <unsupported/Eigen/MatrixFunctions>
+#include <iostream>
+#include "PreProcessing/to_triplets.h"
+#include "PreProcessing/setup_modes.h"
+#include "PreProcessing/setup_rotation_cluster.h"
+#include "PreProcessing/setup_skinning_handles.h"
 
 
 
@@ -38,7 +34,7 @@ protected:
 
     VectorXi melemType, mr_elem_cluster_map, ms_handles_ind;
     VectorXd mcontx, mx, mx0, mred_s, melemYoungs, 
-    melemPoissons, mred_u, mred_r, mred_x, mred_w, mPAx0, mFPAx;
+    melemPoissons, mred_r, mred_x, mred_w, mPAx0, mFPAx;
     MatrixXd mR, mG, msW, mUvecs;
     VectorXd mmass_diag, mbones;
 
@@ -54,7 +50,7 @@ public:
     Mesh(){}
 
     Mesh(MatrixXi& iT, MatrixXd& iV, std::vector<int>& ifix, 
-        std::vector<int>& imov, std::vector<int>& ibones, VectorXi& imuscle,
+        std::vector<int>& imov, std::vector<VectorXi>& ibones, VectorXi& imuscle,
         MatrixXd& iUvecs, json& j_input){
         mV = iV;
         mT = iT;
@@ -79,8 +75,10 @@ public:
 
         mbones.resize(mT.rows());
         mbones.setZero();
-        for(int i=0; i<ibones.size(); i++){
-            mbones[ibones[i]] = 1;
+        for(int b=0; b<ibones.size(); b++){
+            for(int i=0; i<ibones[b].size(); i++){
+                mbones[ibones[b][i]] = 1;
+            }
         }
 
         print("step 2");
@@ -90,7 +88,7 @@ public:
         print("step 4");
         setC();
         print("step 5");
-        setMassMatrix();
+        //setMassMatrix();
         print("step 6");
         setVertexWiseMassDiag();
         print("step 7");
@@ -99,22 +97,24 @@ public:
         setElemWiseYoungsPoissons(youngs, poissons);
         print("step 9");
         setDiscontinuousMeshT();
-        print("step 10");
-        setupModes(num_modes);
-        print("step 11");
-        setupRotationClusters(nrc);
-        print("step 12");
-        setupSkinningHandles(nsh);
-        print("step 13");
 
-        mred_u.resize(9*mT.rows());
+        print("step 10");
+        setup_modes(num_modes, reduced, mP, mA, mConstrained, mV, mmass_diag, mG);
+
+        print("step 11");
+        setup_rotation_cluster(nrc, reduced, mT, mV, ibones, imuscle, mred_x, mred_r, mred_w, mC, mA, mG, mx0, mRotationBLOCK, mr_cluster_elem_map, mr_elem_cluster_map);
+        
+        print("step 12");
+        setup_skinning_handles(nsh, reduced, mT, mV, ibones, imuscle, mC, mA, mG, mx0, ms_handles_ind, mred_s, msW);
+
+        print("step 13");
         mUvecs.resize(mT.rows(), 3);
         mUvecs.setZero();
         for(int i=0; i<imuscle.size(); i++){
             mUvecs.row(imuscle[i]) = iUvecs.row(i);
         }
 
-        if(mG.cols()==0 && reduced==false){
+        if(mG.cols()==0){
             mred_x.resize(3*mV.rows());
         }else{
             mred_x.resize(mG.cols());
@@ -135,403 +135,8 @@ public:
         mFPAx.resize(mPAx0.size());
 
         setupWrWw();
-
     }
 
-    void setupModes(int nummodes){
-        if(nummodes==0 && reduced==false){
-            //Unreduced just dont use G
-            return;
-        }
-        if(nummodes==0){
-            //reduced, but no modes
-            mG = MatrixXd::Identity(3*mV.rows(), 3*mV.rows());
-            return;
-        }
-
-        print("+EIG SOLVE");
-        SparseMatrix<double> K = (mP*mA).transpose()*mP*mA;
-        Spectra::SparseGenMatProd<double> Aop(K);
-        SparseMatrix<double> M(3*mV.rows(), 3*mV.rows());
-        for(int i=0; i<mmass_diag.size(); i++){
-            M.coeffRef(i,i) = mmass_diag[i];
-        }
-        print("     eig1");
-        print(nummodes);
-        Spectra::SparseCholesky<double> Bop(M);
-        Spectra::SymGEigsSolver<double, Spectra::SMALLEST_MAGN, Spectra::SparseGenMatProd<double>, Spectra::SparseCholesky<double>, Spectra::GEIGS_CHOLESKY>geigs(&Aop, &Bop, nummodes, 5*nummodes);
-        geigs.init();
-        print("     eig2");
-        int nconv = geigs.compute();
-        print("     eig3");
-        VectorXd eigenvalues;
-        MatrixXd eigenvectors;
-        if(geigs.info() == Spectra::SUCCESSFUL)
-        {
-            eigenvalues = geigs.eigenvalues();
-            eigenvectors = geigs.eigenvectors();
-        }
-        else
-        {
-            cout<<"EIG SOLVE FAILED: "<<endl<<geigs.info()<<endl;
-            exit(0);
-        }
-        print("     eig4");
-        // eigenvalues.head(eigenvalues.size() - 3));
-        MatrixXd eV = eigenvectors.leftCols(eigenvalues.size() -3);
-        print("-EIG SOLVE");
-
-        //############handle modes KKT solve#####
-        print("+ModesForHandles");
-        SparseMatrix<double> C = mConstrained.transpose();
-        SparseMatrix<double> HandleModesKKTmat(K.rows()+C.rows(), K.rows()+C.rows());
-        HandleModesKKTmat.setZero();
-        std::vector<Trip> KTrips = to_triplets(K);
-        std::vector<Trip> CTrips = to_triplets(C);
-        print("     eig5");
-        for(int i=0; i<CTrips.size(); i++){
-            int row = CTrips[i].row();
-            int col = CTrips[i].col();
-            int val = CTrips[i].value();
-            KTrips.push_back(Trip(row+K.rows(), col, val));
-            KTrips.push_back(Trip(col, row+K.cols(), val));
-        }
-        KTrips.insert(KTrips.end(),CTrips.begin(), CTrips.end());
-        HandleModesKKTmat.setFromTriplets(KTrips.begin(), KTrips.end());
-        print("     eig6");
-        SparseMatrix<double>eHconstrains(K.rows()+C.rows(), C.rows());
-        eHconstrains.setZero();
-        std::vector<Trip> eHTrips;
-        for(int i=0; i<C.rows(); i++){
-            eHTrips.push_back(Trip(i+K.rows(), i, 1));
-        }
-        eHconstrains.setFromTriplets(eHTrips.begin(), eHTrips.end());
-        SparseLU<SparseMatrix<double>> solver;
-        solver.compute(HandleModesKKTmat);
-        SparseMatrix<double> eHsparse = solver.solve(eHconstrains);
-        print("     eig7");
-        MatrixXd eH = MatrixXd(eHsparse).topRows(K.rows());
-        print("-ModesForHandles");
-        //###############QR get orth basis of Modes, eH#######
-        MatrixXd eHeV(eH.rows(), eH.cols()+eV.cols());
-        eHeV<<eH,eV;
-        HouseholderQR<MatrixXd> QR(eHeV);
-        print("     eig8");
-        MatrixXd thinQ = MatrixXd::Identity(eHeV.rows(), eHeV.cols());
-        //SET Q TO G
-        mG = QR.householderQ()*thinQ; 
-        print("     eig9");       
-    }
-
-    void setupRotationClusters(int nrc){
-        print("+ Rotation Clusters");
-        if(nrc==0){
-            //unreduced
-            nrc = mT.rows();
-        }
-
-        mr_elem_cluster_map.resize(mT.rows());
-        if(nrc==mT.rows() && reduced==false){
-            //unreduced
-            for(int i=0; i<mT.rows(); i++){
-                mr_elem_cluster_map[i] = i;
-            }   
-        }else{
-
-            if(3*mV.rows()==mred_x.size() && reduced==false){
-                print("Continuous mesh is unreduced. Kmeans won't work.");
-                exit(0);
-            }else{
-                if(nrc==mT.rows()){
-                    for(int i=0; i<mT.rows(); i++){
-                       mr_elem_cluster_map[i] = i;
-                    }  
-                }else{
-                    kmeans_rotation_clustering(mr_elem_cluster_map, nrc); //output from kmeans_rotation_clustering
-                }
-            }
-
-        }
-
-        for(int i=0; i<mT.rows(); i++){
-            mr_cluster_elem_map[mr_elem_cluster_map[i]].push_back(i);
-        }
-
-        mred_r.resize(9*nrc);
-        for(int i=0; i<nrc; i++){
-            mred_r[9*i+0] = 1;
-            mred_r[9*i+1] = 0;
-            mred_r[9*i+2] = 0;
-            mred_r[9*i+3] = 0;
-            mred_r[9*i+4] = 1;
-            mred_r[9*i+5] = 0;
-            mred_r[9*i+6] = 0;
-            mred_r[9*i+7] = 0;
-            mred_r[9*i+8] = 1;
-        }
-        mred_w.resize(3*nrc);
-        mred_w.setZero();
-
-        if(reduced){
-            for(int c=0; c<nrc; c++){
-                vector<int> notfix = mr_cluster_elem_map[c];
-                // SparseMatrix<double> bo(mT.rows(), notfix.size());
-                // bo.setZero();
-                vector<Trip> bo_trip;
-                bo_trip.reserve(notfix.size());
-
-                int i = 0;
-                int f = 0;
-                for(int j =0; j<notfix.size(); j++){
-                    if (i==notfix[f]){
-                        bo_trip.push_back(Trip(i, j, 1));
-                        f++;
-                        i++;
-                        continue;
-                    }
-                    j--;
-                    i++;
-                }
-
-                
-                vector<Trip> b_trip;
-                b_trip.reserve(bo_trip.size());  
-                for(int k =0; k<bo_trip.size(); k++){
-                    b_trip.push_back(Trip(12*bo_trip[k].row()+0, 12*bo_trip[k].col()+0, bo_trip[k].value()));
-                    b_trip.push_back(Trip(12*bo_trip[k].row()+1, 12*bo_trip[k].col()+1, bo_trip[k].value()));
-                    b_trip.push_back(Trip(12*bo_trip[k].row()+2, 12*bo_trip[k].col()+2, bo_trip[k].value()));
-                    b_trip.push_back(Trip(12*bo_trip[k].row()+3, 12*bo_trip[k].col()+3, bo_trip[k].value()));
-                    b_trip.push_back(Trip(12*bo_trip[k].row()+4, 12*bo_trip[k].col()+4, bo_trip[k].value()));
-                    b_trip.push_back(Trip(12*bo_trip[k].row()+5, 12*bo_trip[k].col()+5, bo_trip[k].value()));
-                    b_trip.push_back(Trip(12*bo_trip[k].row()+6, 12*bo_trip[k].col()+6, bo_trip[k].value()));
-                    b_trip.push_back(Trip(12*bo_trip[k].row()+7, 12*bo_trip[k].col()+7, bo_trip[k].value()));
-                    b_trip.push_back(Trip(12*bo_trip[k].row()+8, 12*bo_trip[k].col()+8, bo_trip[k].value()));
-                    b_trip.push_back(Trip(12*bo_trip[k].row()+9, 12*bo_trip[k].col()+9, bo_trip[k].value()));
-                    b_trip.push_back(Trip(12*bo_trip[k].row()+10, 12*bo_trip[k].col()+10, bo_trip[k].value()));
-                    b_trip.push_back(Trip(12*bo_trip[k].row()+11, 12*bo_trip[k].col()+11, bo_trip[k].value()));
-                }
-
-                SparseMatrix<double> b(12*mT.rows(), 12*notfix.size());
-                b.setFromTriplets(b_trip.begin(), b_trip.end());
-                mRotationBLOCK.push_back(b);
-            }
-        }
-        print("- Rotation Clusters");
-    }
-
-    void setupSkinningHandles(int nsh){
-        print("+ Skinning Handles");
-        if(nsh==0){
-            nsh = mT.rows();
-        }
-
-        mred_s.resize(6*nsh);
-        for(int i=0; i<nsh; i++){
-            mred_s[6*i+0] = 1; 
-            mred_s[6*i+1] = 1; 
-            mred_s[6*i+2] = 1; 
-            mred_s[6*i+3] = 0; 
-            mred_s[6*i+4] = 0; 
-            mred_s[6*i+5] = 0;
-        }
-   
-        if(nsh==mT.rows() && reduced==false){
-            print("- Unreduced Skinning Handles");
-            return;
-        }
-
-        VectorXi skinning_elem_cluster_map;
-        std::map<int, std::vector<int>> skinning_cluster_elem_map;
-        if(nsh==mT.rows()){
-            skinning_elem_cluster_map.resize(mT.rows());
-            for(int i=0; i<mT.rows(); i++){
-                skinning_elem_cluster_map[i] = i;
-            }
-        }else{
-            kmeans_rotation_clustering(skinning_elem_cluster_map, nsh);
-        }
-        for(int i=0; i<mT.rows(); i++){
-            skinning_cluster_elem_map[skinning_elem_cluster_map[i]].push_back(i);
-        }
-
-        ms_handles_ind.resize(nsh);
-        VectorXd CAx0 = mC*mA*mx0;
-        for(int k=0; k<nsh; k++){
-            vector<int> els = skinning_cluster_elem_map[k];
-            VectorXd centx = VectorXd::Zero(els.size());
-            VectorXd centy = VectorXd::Zero(els.size());
-            VectorXd centz = VectorXd::Zero(els.size());
-            Vector3d avg_cent;
-
-            for(int i=0; i<els.size(); i++){
-                centx[i] = CAx0[12*els[i]];
-                centy[i] = CAx0[12*els[i]+1];
-                centz[i] = CAx0[12*els[i]+2];
-            }
-            avg_cent<<centx.sum()/centx.size(), centy.sum()/centy.size(),centz.sum()/centz.size();
-            int minind = els[0];
-            double mindist = (avg_cent - Vector3d(centx[0],centy[0],centz[0])).norm();
-            for(int i=1; i<els.size(); i++){
-                double dist = (avg_cent - Vector3d(centx[i], centy[i], centz[i])).norm();
-                if(dist<mindist){
-                    mindist = dist;
-                    minind = els[i];
-                }
-            }
-            ms_handles_ind[k] = minind;
-        }
-        msW = bbw_strain_skinning_matrix(ms_handles_ind);
-        print("- Skinning Handles");
-    }
-
-    MatrixXd bbw_strain_skinning_matrix(VectorXi& handles){
-        std::set<int> unique_vertex_handles;
-        std::set<int>::iterator it;
-        for(int i=0; i<handles.size(); i++){
-            unique_vertex_handles.insert(mT(handles[i], 0));
-            unique_vertex_handles.insert(mT(handles[i], 1));
-            unique_vertex_handles.insert(mT(handles[i], 2));
-            unique_vertex_handles.insert(mT(handles[i], 3));
-        }
-
-        int i=0;
-        it = unique_vertex_handles.end();
-        VectorXi map_verts_to_unique_verts = VectorXi::Zero(*(--it)+1).array() -1;
-        for (it=unique_vertex_handles.begin(); it!=unique_vertex_handles.end(); ++it){
-            map_verts_to_unique_verts[*it] = i;
-            i++;
-        }
-
-        MatrixXi vert_to_tet = MatrixXi::Zero(handles.size(), 4);
-        i=0;
-        for(i=0; i<handles.size(); i++){
-            vert_to_tet.row(i)[0] = map_verts_to_unique_verts[mT.row(handles[i])[0]];
-            vert_to_tet.row(i)[1] = map_verts_to_unique_verts[mT.row(handles[i])[1]];
-            vert_to_tet.row(i)[2] = map_verts_to_unique_verts[mT.row(handles[i])[2]];
-            vert_to_tet.row(i)[3] = map_verts_to_unique_verts[mT.row(handles[i])[3]];
-        }
-        
-        MatrixXd C = MatrixXd::Zero(unique_vertex_handles.size(), 3);
-        VectorXi P = VectorXi::Zero(unique_vertex_handles.size());
-        i=0;
-        for (it=unique_vertex_handles.begin(); it!=unique_vertex_handles.end(); ++it){
-            C.row(i) = mV.row(*it);
-            P(i) = i;
-            i++;
-        }
-
-        // List of boundary indices (aka fixed value indices into VV)
-        VectorXi b;
-        // List of boundary conditions of each weight function
-        MatrixXd bc;
-        igl::boundary_conditions(mV, mT, C, P, MatrixXi(), MatrixXi(), b, bc);
-        // compute BBW weights matrix
-        igl::BBWData bbw_data;
-        // only a few iterations for sake of demo
-        bbw_data.active_set_params.max_iter = 8;
-        bbw_data.verbosity = 2;
-        
-        MatrixXd W, M;
-        if(!igl::bbw(mV, mT, b, bc, bbw_data, W))
-        {
-            print("EXIT: Error here");
-            exit(0);
-            return MatrixXd();
-        }
-
-        // Normalize weights to sum to one
-        igl::normalize_row_sums(W,W);
-        // precompute linear blend skinning matrix
-        igl::lbs_matrix(mV,W,M);
-
-        MatrixXd tW = MatrixXd::Zero(mT.rows(), handles.size());
-        for(int t =0; t<mT.rows(); t++){
-            VectorXi e = mT.row(t);
-            for(int h=0; h<handles.size(); h++){
-                if(t==handles[h]){
-                    tW.row(t) *= 0;
-                    tW(t,h) = 1;
-                    break;
-                }
-                double p0 = 0;
-                double p1 = 0;
-                double p2 = 0;
-                double p3 = 0;
-                for(int j=0; j<vert_to_tet.cols(); ++j){
-                    p0 += W(e[0], vert_to_tet(h, j));
-                    p1 += W(e[1], vert_to_tet(h, j));
-                    p2 += W(e[2], vert_to_tet(h, j));
-                    p3 += W(e[3], vert_to_tet(h, j));
-                }
-                tW(t, h) = (p0+p1+p2+p3)/4;  
-            }
-        }
-        igl::normalize_row_sums(tW, tW);
-
-        MatrixXd Id6 = MatrixXd::Identity(6, 6);
-        return Eigen::kroneckerProduct(tW, Id6);
-    }
-
-    void kmeans_rotation_clustering(VectorXi& idx, int clusters){
-        print("     kmeans1");
-        MatrixXd G = mG.array().colwise() + mx0.array();
-        // std::cout<<mC.rows()<<", "<<mC.cols()<<std::endl;
-        // std::cout<<mA.rows()<<", "<<mA.cols()<<std::endl;
-        // std::cout<<G.rows()<<", "<<G.cols()<<std::endl;
-        // std::cout<<mT.rows()<<std::endl;
-        print("     kmeans1.1");
-        MatrixXd CAG = mC*mA*G;
-        print("     kmeans2");
-
-        MatrixXd Data = MatrixXd::Zero(mT.rows(), 3*G.cols());
-        for(int i=0; i<mT.rows(); i++){
-            RowVectorXd r1 = CAG.row(12*i);
-            RowVectorXd r2 = CAG.row(12*i+1);
-            RowVectorXd r3 = CAG.row(12*i+2);
-            RowVectorXd point(3*G.cols());
-            point<<r1,r2,r3;
-            Data.row(i) = point;
-        }
-        print("     kmeans3");
-        MatrixXd Centroids;
-        kmeans(Data, clusters, 1000, Centroids, idx);
-        print("     kmeans4");
-
-    }
-
-    void kmeans(const Eigen::MatrixXd& F, const int num_labels, const int num_iter, Eigen::MatrixXd& D, Eigen::VectorXi& labels){ 
-        // const Eigen::MatrixXd& F, //data. Every column is a feature
-        // const int num_labels, // number of clusters
-        // const int num_iter, // number of iterations
-        // Eigen::MatrixXd& D, // dictionary of clusters (every column is a cluster)
-        // Eigen::VectorXi& labels){ // map D to F.
-    
-        assert(sizeof(float) == 4);
-        cv::Mat cv_F(F.rows(), F.cols(), CV_32F);
-        for (int i = 0; i < F.rows(); ++i){
-            for (int j = 0; j < F.cols(); ++j){
-                cv_F.at<float>(i,j) = F(i,j);
-            }
-        }
-
-        cv::Mat cv_labels;
-        cv::Mat cv_centers;
-        cv::TermCriteria criteria(CV_TERMCRIT_ITER|CV_TERMCRIT_EPS, 1000, 0.01);
-        cv::kmeans(cv_F, num_labels, cv_labels, criteria, num_iter, cv::KMEANS_PP_CENTERS, cv_centers);
-
-        int num_points = F.rows();
-        int num_features = F.cols();
-        // D.resize(num_features, num_labels);
-
-        // for (int i=0; i<cv_centers.rows; ++i)
-        //     for (int j=0; j<cv_centers.cols; ++j)
-        //         D(j,i) = cv_centers.at<float>(i,j);
-
-        labels.resize(num_points);
-        for (int i=0; i<labels.rows(); ++i){
-            labels(i) = cv_labels.at<int>(i,0);
-        }
-    }
 
     void setElemWiseYoungsPoissons(double youngs, double poissons){
         melemYoungs.resize(mT.rows());
@@ -716,38 +321,6 @@ public:
         mA.setFromTriplets(triplets.begin(), triplets.end());
     }
 
-    void setMassMatrix(){
-        mMass.resize(12*mT.rows(), 12*mT.rows());
-        vector<Trip> triplets;
-        triplets.reserve(2*12*mT.rows());
-
-        for(int i=0; i<mT.rows(); i++){
-            double undef_vol = get_volume(
-                    mV.row(mT.row(i)[0]), 
-                    mV.row(mT.row(i)[1]), 
-                    mV.row(mT.row(i)[2]), 
-                    mV.row(mT.row(i)[3]));
-            
-            triplets.push_back(Trip(12*i + 0 , 12*i + 0 , undef_vol/4.0));
-            triplets.push_back(Trip(12*i + 1 , 12*i + 1 , undef_vol/4.0));
-            triplets.push_back(Trip(12*i + 2 , 12*i + 2 , undef_vol/4.0));
-
-            triplets.push_back(Trip(12*i + 3 , 12*i + 3 , undef_vol/4.0));
-            triplets.push_back(Trip(12*i + 4 , 12*i + 4 , undef_vol/4.0));
-            triplets.push_back(Trip(12*i + 5 , 12*i + 5 , undef_vol/4.0));
-
-            triplets.push_back(Trip(12*i + 6 , 12*i + 6 , undef_vol/4.0));
-            triplets.push_back(Trip(12*i + 7 , 12*i + 7 , undef_vol/4.0));
-            triplets.push_back(Trip(12*i + 8 , 12*i + 8 , undef_vol/4.0));
-
-            triplets.push_back(Trip(12*i + 9 , 12*i + 9 , undef_vol/4.0));
-            triplets.push_back(Trip(12*i + 10, 12*i + 10, undef_vol/4.0));
-            triplets.push_back(Trip(12*i + 11, 12*i + 11, undef_vol/4.0));
-        }
-        // mMass.resize(12*mT.rows(), 12*mT.row());
-        mMass.setFromTriplets(triplets.begin(), triplets.end());
-    }
-
     void setVertexWiseMassDiag(){
         mmass_diag.resize(3*mV.rows());
         mmass_diag.setZero();
@@ -878,44 +451,40 @@ public:
 
             for(int i=0; i<mT.rows(); i++){
                 Matrix3d r = Map<Matrix3d>(mred_r.segment<9>(9*mr_elem_cluster_map[i]).data()).transpose();
-                Matrix3d u = Map<Matrix3d>(mred_u.segment<9>(9*i).data()).transpose();
                 Matrix3d s;
                 s<< ms[6*i + 0], ms[6*i + 3], ms[6*i + 4],
                     ms[6*i + 3], ms[6*i + 1], ms[6*i + 5],
                     ms[6*i + 4], ms[6*i + 5], ms[6*i + 2];
 
-                Matrix3d rusut = r*u*s*u.transpose();
-                iFPAx0.segment<3>(12*i+0) = rusut*mPAx0.segment<3>(12*i+0);
-                iFPAx0.segment<3>(12*i+3) = rusut*mPAx0.segment<3>(12*i+3);
-                iFPAx0.segment<3>(12*i+6) = rusut*mPAx0.segment<3>(12*i+6);
-                iFPAx0.segment<3>(12*i+9) = rusut*mPAx0.segment<3>(12*i+9);
+                Matrix3d rs = r*s;
+                iFPAx0.segment<3>(12*i+0) = rs*mPAx0.segment<3>(12*i+0);
+                iFPAx0.segment<3>(12*i+3) = rs*mPAx0.segment<3>(12*i+3);
+                iFPAx0.segment<3>(12*i+6) = rs*mPAx0.segment<3>(12*i+6);
+                iFPAx0.segment<3>(12*i+9) = rs*mPAx0.segment<3>(12*i+9);
             }
 
 
         }else{
             for(int i=0; i<mT.rows(); i++){
                 Matrix3d r = Map<Matrix3d>(mred_r.segment<9>(9*mr_elem_cluster_map[i]).data()).transpose();
-                Matrix3d u = Map<Matrix3d>(mred_u.segment<9>(9*i).data()).transpose();
                 Matrix3d s;
                 s<< mred_s[6*i + 0], mred_s[6*i + 3], mred_s[6*i + 4],
                     mred_s[6*i + 3], mred_s[6*i + 1], mred_s[6*i + 5],
                     mred_s[6*i + 4], mred_s[6*i + 5], mred_s[6*i + 2];
 
-                Matrix3d rusut = r*u*s*u.transpose();
-                iFPAx0.segment<3>(12*i+0) = rusut*mPAx0.segment<3>(12*i+0);
-                iFPAx0.segment<3>(12*i+3) = rusut*mPAx0.segment<3>(12*i+3);
-                iFPAx0.segment<3>(12*i+6) = rusut*mPAx0.segment<3>(12*i+6);
-                iFPAx0.segment<3>(12*i+9) = rusut*mPAx0.segment<3>(12*i+9);
+                Matrix3d rs = r*s;
+                iFPAx0.segment<3>(12*i+0) = rs*mPAx0.segment<3>(12*i+0);
+                iFPAx0.segment<3>(12*i+3) = rs*mPAx0.segment<3>(12*i+3);
+                iFPAx0.segment<3>(12*i+6) = rs*mPAx0.segment<3>(12*i+6);
+                iFPAx0.segment<3>(12*i+9) = rs*mPAx0.segment<3>(12*i+9);
             }
         }
     }
 
     void setGlobalF(bool updateR, bool updateS, bool updateU){
         if(updateU){
-            mGU.setZero();
-            vector<Trip> gu_trips;
-            gu_trips.reserve(9*4*mT.rows());
-
+            mGU.setIdentity();
+            
             Vector3d a = Vector3d::UnitX();
             for(int t = 0; t<mT.rows(); t++){
                 //TODO: update to be parametrized by input mU
@@ -924,136 +493,97 @@ public:
                     b = Vector3d::UnitY();
                     mUvecs.row(t) = b;
                 }
-                Vector3d v = a.cross(b);
-                v = v/v.norm();
-                double theta = (a.dot(b))/(a.norm()*b.norm());
-                double s = sin(theta);
-                double c = cos(theta);
-                Matrix3d r;
-                r<<v[0]*v[0]*(1-c)+c, v[0]*v[1]*(1-c)-s*v[2], v[0]*v[2]*(1-c) +s*v[1],
-                    v[0]*v[1]*(1-c)+s*v[2], v[1]*v[1]*(1-c)+c, v[1]*v[2]*(1-c)-s*v[0],
-                    v[0]*v[2]*(1-c)-s*v[1], v[1]*v[2]*(1-c) +s*v[0], v[2]*v[2]*(1-c)+c; 
-                
-                mred_u[9*t+0] =r(0,0);
-                mred_u[9*t+1] =r(0,1);
-                mred_u[9*t+2] =r(0,2);
-                mred_u[9*t+3] =r(1,0);
-                mred_u[9*t+4] =r(1,1);
-                mred_u[9*t+5] =r(1,2);
-                mred_u[9*t+6] =r(2,0);
-                mred_u[9*t+7] =r(2,1);
-                mred_u[9*t+8] =r(2,2);
-                for(int j=0; j<4; j++){
-                    gu_trips.push_back(Trip(3*j+12*t + 0, 3*j+12*t + 0, r(0,0))); 
-                    gu_trips.push_back(Trip(3*j+12*t + 0, 3*j+12*t + 1, r(0,1)));
-                    gu_trips.push_back(Trip(3*j+12*t + 0, 3*j+12*t + 2, r(0,2))); 
-                    gu_trips.push_back(Trip(3*j+12*t + 1, 3*j+12*t + 0, r(1,0)));
-                    gu_trips.push_back(Trip(3*j+12*t + 1, 3*j+12*t + 1, r(1,1)));
-                    gu_trips.push_back(Trip(3*j+12*t + 1, 3*j+12*t + 2, r(1,2)));
-                    gu_trips.push_back(Trip(3*j+12*t + 2, 3*j+12*t + 0, r(2,0)));
-                    gu_trips.push_back(Trip(3*j+12*t + 2, 3*j+12*t + 1, r(2,1)));
-                    gu_trips.push_back(Trip(3*j+12*t + 2, 3*j+12*t + 2, r(2,2)));
-                }
             }
-            mGU.setFromTriplets(gu_trips.begin(), gu_trips.end());    
         }
 
-        if(updateR){
-            mGR.setZero();
-            //iterate through rotation clusters
-            Matrix3d ri = Matrix3d::Zero();
-            Matrix3d r;
-            vector<Trip> gr_trips;
-            gr_trips.reserve(9*4*mT.rows());
+        // if(updateR){
+        //     mGR.setZero();
+        //     //iterate through rotation clusters
+        //     Matrix3d ri = Matrix3d::Zero();
+        //     Matrix3d r;
+        //     vector<Trip> gr_trips;
+        //     gr_trips.reserve(9*4*mT.rows());
 
-            for (int t=0; t<mred_r.size()/9; t++){
-                //dont use the RotBLOCK matrix like I did in python. 
-                //Insert manually into elements within
-                //the rotation cluster
-                ri(0,0) = mred_r[9*t+0];
-                ri(0,1) = mred_r[9*t+1];
-                ri(0,2) = mred_r[9*t+2];
-                ri(1,0) = mred_r[9*t+3];
-                ri(1,1) = mred_r[9*t+4];
-                ri(1,2) = mred_r[9*t+5];
-                ri(2,0) = mred_r[9*t+6];
-                ri(2,1) = mred_r[9*t+7];
-                ri(2,2) = mred_r[9*t+8];
+        //     for (int t=0; t<mred_r.size()/9; t++){
+        //         //dont use the RotBLOCK matrix like I did in python. 
+        //         //Insert manually into elements within
+        //         //the rotation cluster
+        //         ri(0,0) = mred_r[9*t+0];
+        //         ri(0,1) = mred_r[9*t+1];
+        //         ri(0,2) = mred_r[9*t+2];
+        //         ri(1,0) = mred_r[9*t+3];
+        //         ri(1,1) = mred_r[9*t+4];
+        //         ri(1,2) = mred_r[9*t+5];
+        //         ri(2,0) = mred_r[9*t+6];
+        //         ri(2,1) = mred_r[9*t+7];
+        //         ri(2,2) = mred_r[9*t+8];
 
-                // % Rodrigues formula %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                Vector3d w;
-                w<<mred_w(3*t+0),mred_w(3*t+1),mred_w(3*t+2);
-                double wlen = w.norm();
-                if (wlen>1e-9){
-                    double wX = w(0);
-                    double wY = w(1);
-                    double wZ = w(2);
-                    Matrix3d cross;
-                    cross<<0, -wZ, wY,
-                            wZ, 0, -wX,
-                            -wY, wX, 0;
-                    Matrix3d Rot = cross.exp();
-                    r = ri*Rot;
-                }else{
-                    r = ri;
-                }
-                // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        //         // % Rodrigues formula %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        //         Vector3d w;
+        //         w<<mred_w(3*t+0),mred_w(3*t+1),mred_w(3*t+2);
+        //         double wlen = w.norm();
+        //         if (wlen>1e-9){
+        //             double wX = w(0);
+        //             double wY = w(1);
+        //             double wZ = w(2);
+        //             Matrix3d cross;
+        //             cross<<0, -wZ, wY,
+        //                     wZ, 0, -wX,
+        //                     -wY, wX, 0;
+        //             Matrix3d Rot = cross.exp();
+        //             r = ri*Rot;
+        //         }else{
+        //             r = ri;
+        //         }
+        //         // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-                for(int c=0; c<mr_cluster_elem_map[t].size(); c++){
-                    for(int j=0; j<4; j++){
-                        gr_trips.push_back(Trip(3*j+12*mr_cluster_elem_map[t][c] + 0, 3*j+12*mr_cluster_elem_map[t][c] + 0, r(0 ,0)));
-                        gr_trips.push_back(Trip(3*j+12*mr_cluster_elem_map[t][c] + 0, 3*j+12*mr_cluster_elem_map[t][c] + 1, r(0 ,1)));
-                        gr_trips.push_back(Trip(3*j+12*mr_cluster_elem_map[t][c] + 0, 3*j+12*mr_cluster_elem_map[t][c] + 2, r(0 ,2)));
-                        gr_trips.push_back(Trip(3*j+12*mr_cluster_elem_map[t][c] + 1, 3*j+12*mr_cluster_elem_map[t][c] + 0, r(1 ,0)));
-                        gr_trips.push_back(Trip(3*j+12*mr_cluster_elem_map[t][c] + 1, 3*j+12*mr_cluster_elem_map[t][c] + 1, r(1 ,1)));
-                        gr_trips.push_back(Trip(3*j+12*mr_cluster_elem_map[t][c] + 1, 3*j+12*mr_cluster_elem_map[t][c] + 2, r(1 ,2)));
-                        gr_trips.push_back(Trip(3*j+12*mr_cluster_elem_map[t][c] + 2, 3*j+12*mr_cluster_elem_map[t][c] + 0, r(2 ,0)));
-                        gr_trips.push_back(Trip(3*j+12*mr_cluster_elem_map[t][c] + 2, 3*j+12*mr_cluster_elem_map[t][c] + 1, r(2 ,1)));
-                        gr_trips.push_back(Trip(3*j+12*mr_cluster_elem_map[t][c] + 2, 3*j+12*mr_cluster_elem_map[t][c] + 2, r(2 ,2)));
-                    }
-                }
-            }
-            mGR.setFromTriplets(gr_trips.begin(), gr_trips.end());
-        }
+        //         for(int c=0; c<mr_cluster_elem_map[t].size(); c++){
+        //             for(int j=0; j<4; j++){
+        //                 gr_trips.push_back(Trip(3*j+12*mr_cluster_elem_map[t][c] + 0, 3*j+12*mr_cluster_elem_map[t][c] + 0, r(0 ,0)));
+        //                 gr_trips.push_back(Trip(3*j+12*mr_cluster_elem_map[t][c] + 0, 3*j+12*mr_cluster_elem_map[t][c] + 1, r(0 ,1)));
+        //                 gr_trips.push_back(Trip(3*j+12*mr_cluster_elem_map[t][c] + 0, 3*j+12*mr_cluster_elem_map[t][c] + 2, r(0 ,2)));
+        //                 gr_trips.push_back(Trip(3*j+12*mr_cluster_elem_map[t][c] + 1, 3*j+12*mr_cluster_elem_map[t][c] + 0, r(1 ,0)));
+        //                 gr_trips.push_back(Trip(3*j+12*mr_cluster_elem_map[t][c] + 1, 3*j+12*mr_cluster_elem_map[t][c] + 1, r(1 ,1)));
+        //                 gr_trips.push_back(Trip(3*j+12*mr_cluster_elem_map[t][c] + 1, 3*j+12*mr_cluster_elem_map[t][c] + 2, r(1 ,2)));
+        //                 gr_trips.push_back(Trip(3*j+12*mr_cluster_elem_map[t][c] + 2, 3*j+12*mr_cluster_elem_map[t][c] + 0, r(2 ,0)));
+        //                 gr_trips.push_back(Trip(3*j+12*mr_cluster_elem_map[t][c] + 2, 3*j+12*mr_cluster_elem_map[t][c] + 1, r(2 ,1)));
+        //                 gr_trips.push_back(Trip(3*j+12*mr_cluster_elem_map[t][c] + 2, 3*j+12*mr_cluster_elem_map[t][c] + 2, r(2 ,2)));
+        //             }
+        //         }
+        //     }
+        //     mGR.setFromTriplets(gr_trips.begin(), gr_trips.end());
+        // }
 
-        if(updateS){
-            mGS.setZero();
-            vector<Trip> gs_trips;
-            gs_trips.reserve(9*4*mT.rows());
+        // if(updateS){
+        //     mGS.setZero();
+        //     vector<Trip> gs_trips;
+        //     gs_trips.reserve(9*4*mT.rows());
 
-            VectorXd ms;
-            if(6*mT.rows()==mred_s.size()){
-                ms = mred_s;
-            }else{
-                ms = msW*mred_s;
-            }
+        //     VectorXd ms;
+        //     if(6*mT.rows()==mred_s.size()){
+        //         ms = mred_s;
+        //     }else{
+        //         ms = msW*mred_s;
+        //     }
 
-            //iterate through skinning handles
-            for(int t = 0; t<mT.rows(); t++){
-                for(int j = 0; j<4; j++){
-                    gs_trips.push_back(Trip(3*j+12*t + 0, 3*j+12*t + 0, ms[6*t + 0]));
-                    gs_trips.push_back(Trip(3*j+12*t + 0, 3*j+12*t + 1, ms[6*t + 3]));
-                    gs_trips.push_back(Trip(3*j+12*t + 0, 3*j+12*t + 2, ms[6*t + 4]));
-                    gs_trips.push_back(Trip(3*j+12*t + 1, 3*j+12*t + 0, ms[6*t + 3]));
-                    gs_trips.push_back(Trip(3*j+12*t + 1, 3*j+12*t + 1, ms[6*t + 1]));
-                    gs_trips.push_back(Trip(3*j+12*t + 1, 3*j+12*t + 2, ms[6*t + 5]));
-                    gs_trips.push_back(Trip(3*j+12*t + 2, 3*j+12*t + 0, ms[6*t + 4]));
-                    gs_trips.push_back(Trip(3*j+12*t + 2, 3*j+12*t + 1, ms[6*t + 5]));
-                    gs_trips.push_back(Trip(3*j+12*t + 2, 3*j+12*t + 2, ms[6*t + 2]));
-                }
-            }
-            mGS.setFromTriplets(gs_trips.begin(), gs_trips.end());
-        }
+        //     //iterate through skinning handles
+        //     for(int t = 0; t<mT.rows(); t++){
+        //         for(int j = 0; j<4; j++){
+        //             gs_trips.push_back(Trip(3*j+12*t + 0, 3*j+12*t + 0, ms[6*t + 0]));
+        //             gs_trips.push_back(Trip(3*j+12*t + 0, 3*j+12*t + 1, ms[6*t + 3]));
+        //             gs_trips.push_back(Trip(3*j+12*t + 0, 3*j+12*t + 2, ms[6*t + 4]));
+        //             gs_trips.push_back(Trip(3*j+12*t + 1, 3*j+12*t + 0, ms[6*t + 3]));
+        //             gs_trips.push_back(Trip(3*j+12*t + 1, 3*j+12*t + 1, ms[6*t + 1]));
+        //             gs_trips.push_back(Trip(3*j+12*t + 1, 3*j+12*t + 2, ms[6*t + 5]));
+        //             gs_trips.push_back(Trip(3*j+12*t + 2, 3*j+12*t + 0, ms[6*t + 4]));
+        //             gs_trips.push_back(Trip(3*j+12*t + 2, 3*j+12*t + 1, ms[6*t + 5]));
+        //             gs_trips.push_back(Trip(3*j+12*t + 2, 3*j+12*t + 2, ms[6*t + 2]));
+        //         }
+        //     }
+        //     mGS.setFromTriplets(gs_trips.begin(), gs_trips.end());
+        // }
 
-        mGF = mGR*mGU*mGS*mGU.transpose();
-    }
-
-    std::vector<Eigen::Triplet<double>> to_triplets(Eigen::SparseMatrix<double> & M){
-        std::vector<Eigen::Triplet<double>> v;
-        for(int i = 0; i < M.outerSize(); i++)
-            for(typename Eigen::SparseMatrix<double>::InnerIterator it(M,i); it; ++it)
-                v.emplace_back(it.row(),it.col(),it.value());
-        return v;
+        // mGF = mGR*mGU*mGS*mGU.transpose();
     }
 
     double get_volume(Vector3d p1, Vector3d p2, Vector3d p3, Vector3d p4){
@@ -1068,10 +598,10 @@ public:
 
     MatrixXd& V(){ return mV; }
     MatrixXi& T(){ return mT; }
-    SparseMatrix<double>& GR(){ return mGR; }
-    SparseMatrix<double>& GS(){ return mGS; }
-    SparseMatrix<double>& GU(){ return mGU; }
-    SparseMatrix<double>& GF(){ return mGF; }
+    // SparseMatrix<double>& GR(){ return mGR; }
+    // SparseMatrix<double>& GS(){ return mGS; }
+    // SparseMatrix<double>& GU(){ return mGU; }
+    // SparseMatrix<double>& GF(){ return mGF; }
 
     SparseMatrix<double>& P(){ return mP; }
     SparseMatrix<double>& A(){ return mA; }
@@ -1083,7 +613,6 @@ public:
     SparseMatrix<double>& B(){ return mFree; }
     SparseMatrix<double>& AB(){ return mConstrained; }
     VectorXd& red_r(){ return mred_r; }
-    VectorXd& red_u(){ return mred_u; }
     VectorXd& red_w(){ return mred_w; }
     VectorXd& eYoungs(){ return melemYoungs; }
     VectorXd& ePoissons(){ return melemPoissons; }
@@ -1119,7 +648,7 @@ public:
 
     MatrixXd continuousV(){
         VectorXd x;
-        if(3*mV.rows()==mred_x.size() && reduced==false){
+        if(3*mV.rows()==mred_x.size()){
             x = mred_x + mx0;
         }else{
             x = mG*mred_x + mx0;
@@ -1134,7 +663,7 @@ public:
     MatrixXd& discontinuousV(){
         VectorXd x;
         VectorXd ms;
-        if(3*mV.rows()==mred_x.size() && reduced==false){
+        if(3*mV.rows()==mred_x.size()){
             x = mred_x+mx0;
             ms = mred_s;
         }else{
@@ -1146,17 +675,16 @@ public:
         mFPAx.setZero();
         for(int i=0; i<mT.rows(); i++){
             Matrix3d r = Map<Matrix3d>(mred_r.segment<9>(9*mr_elem_cluster_map[i]).data()).transpose();
-            Matrix3d u = Map<Matrix3d>(mred_u.segment<9>(9*i).data()).transpose();
             Matrix3d s;
             s<< ms[6*i + 0], ms[6*i + 3], ms[6*i + 4],
                 ms[6*i + 3], ms[6*i + 1], ms[6*i + 5],
                 ms[6*i + 4], ms[6*i + 5], ms[6*i + 2];
 
-            Matrix3d rusut = r*u*s*u.transpose();
-            mFPAx.segment<3>(12*i+0) = rusut*PAx.segment<3>(12*i+0);
-            mFPAx.segment<3>(12*i+3) = rusut*PAx.segment<3>(12*i+3);
-            mFPAx.segment<3>(12*i+6) = rusut*PAx.segment<3>(12*i+6);
-            mFPAx.segment<3>(12*i+9) = rusut*PAx.segment<3>(12*i+9);
+            Matrix3d rs = r*s;
+            mFPAx.segment<3>(12*i+0) = rs*PAx.segment<3>(12*i+0);
+            mFPAx.segment<3>(12*i+3) = rs*PAx.segment<3>(12*i+3);
+            mFPAx.segment<3>(12*i+6) = rs*PAx.segment<3>(12*i+6);
+            mFPAx.segment<3>(12*i+9) = rs*PAx.segment<3>(12*i+9);
         }
 
         VectorXd CAx = mC*mA*x;

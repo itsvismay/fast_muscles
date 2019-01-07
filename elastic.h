@@ -13,7 +13,7 @@ class Elastic
 {
 
 protected:
-	double muscle_fibre_mag = 60000;
+	double muscle_fibre_mag = 10000;
 	double rho = 6.4; 
 	VectorXd sW1, sW2, sW3, sW4, sW5, sW6, muscle_forces, elastic_forces;
 
@@ -27,6 +27,7 @@ public:
 			sW5 = VectorXd::Zero(m.red_s().size());
 			sW6 = VectorXd::Zero(m.red_s().size());
 		}
+
 		muscle_forces = VectorXd::Zero(m.red_s().size());
 		elastic_forces = VectorXd::Zero(m.red_s().size());
 	}

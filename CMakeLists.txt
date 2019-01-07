@@ -43,15 +43,18 @@ include_directories(${OpenCV_INCLUDE_DIRS})
 
 # Add your project files
 file(GLOB HEADFILES "*.h")
-#file(GLOB SRCFILES "${ALGLIB_SRC_DIR}/*.cpp")
+file(GLOB HEADFILES "PreProcessing/*.h")
+file(GLOB SRCFILES "PreProcessing/*.cpp")
 file(GLOB EXTERNALS "${SPECTRA_DIR}/*.h" "${SPECTRA_DIR}/MatOp/*.h" "${BFGSB_SRC_DIR}/cppoptlib/*.h" "${BFGSB_SRC_DIR}/cppoptlib/solver/*.h")
 
 add_executable(${PROJECT_NAME} "main.cpp" ${HEADFILES} ${SRCFILES} ${EXTERNALS})
 add_executable(fd "finitedifference.cpp" ${HEADFILES} ${SRCFILES} ${EXTERNALS})
-add_executable(ns "newsolvertest.cpp" ${HEADFILES} ${SRCFILES} ${EXTERNALS})
+add_executable(reduced "reduced.cpp" ${HEADFILES} ${SRCFILES} ${EXTERNALS})
+add_executable(unreduced "unreduced.cpp" ${HEADFILES} ${SRCFILES} ${EXTERNALS})
 add_executable(redfd "redFD.cpp" ${HEADFILES} ${SRCFILES} ${EXTERNALS})
 target_link_libraries(${PROJECT_NAME} -lglfw igl::core igl::opengl igl::opengl_glfw -fopenmp ${OpenCV_LIBS})
 target_link_libraries(fd -lglfw igl::core igl::opengl igl::opengl_glfw -fopenmp  ${OpenCV_LIBS})
-target_link_libraries(ns -lglfw igl::core igl::opengl igl::opengl_glfw -fopenmp ${OpenCV_LIBS})
+target_link_libraries(unreduced -lglfw igl::core igl::opengl igl::opengl_glfw -fopenmp ${OpenCV_LIBS})
+target_link_libraries(reduced -lglfw igl::core igl::opengl igl::opengl_glfw -fopenmp ${OpenCV_LIBS})
 target_link_libraries(redfd -lglfw igl::core igl::opengl igl::opengl_glfw -fopenmp ${OpenCV_LIBS})
  

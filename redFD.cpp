@@ -74,10 +74,10 @@ VectorXd Ex(Mesh& mesh, Reduced_Arap& arap, double E0, double eps){
 	#pragma omp parallel for
 	for(int i=0; i<fake.size(); i++){
 		z[i] += 0.5*eps;
-		double Eleft = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+		double Eleft = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
 		z[i] -= 0.5*eps;
 		z[i] -= 0.5*eps;
-		double Eright = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+		double Eright = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
 		z[i] += 0.5*eps;
 		fake[i] = (Eleft - Eright)/eps;
 	}
@@ -92,11 +92,11 @@ VectorXd Er(Mesh& mesh, Reduced_Arap& arap, double E0, double eps){
 	for(int i=0; i<fake.size(); i++){
 		mesh.red_w()[i] += 0.5*eps;
 		// mesh.setGlobalF(true, false, false);
-		double Eleft = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+		double Eleft = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
 		mesh.red_w()[i] -= 0.5*eps;
 		mesh.red_w()[i] -= 0.5*eps;
 		// mesh.setGlobalF(true, false, false);
-		double Eright = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+		double Eright = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
 		mesh.red_w()[i] += 0.5*eps;
 		fake[i] = (Eleft - Eright)/(eps);
 	}
@@ -110,11 +110,11 @@ VectorXd Es(Mesh& mesh, Reduced_Arap& arap, double E0, double eps){
 	VectorXd fake = VectorXd::Zero(mesh.red_s().size());
 	for(int i=0; i<fake.size(); i++){
 		mesh.red_s()[i] += 0.5*eps;
-		double Eleft = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+		double Eleft = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s());
 		mesh.red_s()[i] -= 0.5*eps;
 		
 		mesh.red_s()[i] -= 0.5*eps;
-		double Eright = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+		double Eright = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s());
 		mesh.red_s()[i] += 0.5*eps;
 		fake[i] = (Eleft - Eright)/eps;
 	}
@@ -130,16 +130,16 @@ MatrixXd Exx(Mesh& mesh, Reduced_Arap& arap, double E0, double eps){
 		for(int j=0; j<fake.cols(); j++){
 			z[i] += eps;
 			z[j] += eps;
-			double Eij = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+			double Eij = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
 			z[i] -= eps;
 			z[j] -= eps;
 
 			z[i] += eps;
-			double Ei = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+			double Ei = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
 			z[i] -= eps;
 
 			z[j] += eps;
-			double Ej = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+			double Ej = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
 			z[j] -= eps;
 
 			fake(i,j) = ((Eij - Ei - Ej + E0)/(eps*eps));
@@ -159,16 +159,16 @@ MatrixXd Exr(Mesh& mesh, Reduced_Arap& arap, double E0, double eps){
 		for(int j=0; j<fake.cols(); j++){
 			mesh.red_w()[j] += eps;
 			z[i] += eps;
-			double Eij = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+			double Eij = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
 			mesh.red_w()[j] -= eps;
 			z[i] -= eps;
 
 			mesh.red_w()[j] += eps;
-			double Ei = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+			double Ei = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
 			mesh.red_w()[j] -= eps;
 
 			z[i] += eps;
-			double Ej = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+			double Ej = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
 			z[i] -= eps;
 			// cout<<Eij<<", "<<Ei<<", "<<Ej<<", "<<E0<<endl;
 			fake(i,j) = ((Eij - Ei - Ej + E0)/(eps*eps));
@@ -189,18 +189,18 @@ MatrixXd Exs(Mesh& mesh, Reduced_Arap& arap, double E0, double eps){
 			mesh.red_s()[j] += eps;
 			z[i] += eps;
 			// mesh.setGlobalF(false, true, false);
-			double Eij = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+			double Eij = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
 			mesh.red_s()[j] -= eps;
 			z[i] -= eps;
 
 			mesh.red_s()[j] += eps;
 			// mesh.setGlobalF(false, true, false);
-			double Ei = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+			double Ei = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
 			mesh.red_s()[j] -= eps;
 
 			z[i] += eps;
 			// mesh.setGlobalF(false, true, false);
-			double Ej = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+			double Ej = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
 			z[i] -= eps;
 
 			fake(i,j) = ((Eij - Ei - Ej + E0)/(eps*eps));
@@ -220,18 +220,18 @@ MatrixXd Err(Mesh& mesh, Reduced_Arap& arap, double E0, double eps){
 			mesh.red_w()[j] += eps;
             mesh.red_w()[i] += eps;
             // mesh.setGlobalF(true, false, false);
-            double Eij = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+            double Eij = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s());
             mesh.red_w()[j] -= eps;
             mesh.red_w()[i] -= eps;
 
             mesh.red_w()[j] += eps;
             // mesh.setGlobalF(true, false, false);
-            double Ei = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+            double Ei = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s());
             mesh.red_w()[j] -= eps;
 
             mesh.red_w()[i] += eps;
             // mesh.setGlobalF(true, false, false);
-            double Ej = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+            double Ej = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s());
             mesh.red_w()[i] -= eps;
 
             fake(i,j) = ((Eij - Ei - Ej + E0)/(eps*eps));
@@ -251,16 +251,16 @@ MatrixXd Ers(Mesh& mesh, Reduced_Arap& arap, double E0, double eps){
 		for(int j=0; j<fake.cols(); j++){
 			mesh.red_w()[i] += eps;
 			mesh.red_s()[j] += eps;
-			double Eij = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+			double Eij = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s());
 			mesh.red_s()[j] -= eps;
 			mesh.red_w()[i] -= eps;
 
 			mesh.red_w()[i] += eps;
-			double Ei = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+			double Ei = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s());
 			mesh.red_w()[i] -= eps;
 
 			mesh.red_s()[j] += eps;
-			double Ej = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+			double Ej = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s());
 			mesh.red_s()[j] -= eps;
 
 			fake(i,j) = ((Eij - Ei - Ej + E0)/(eps*eps));
@@ -285,10 +285,8 @@ MatrixXd Ers(Mesh& mesh, Reduced_Arap& arap, double E0, double eps){
 
 int checkRedARAP(Mesh& mesh, Reduced_Arap& arap){
 	double eps = j_input["fd_eps"];
-	double E0 = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s(), mesh.red_u());
+	double E0 = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s());
 	cout<<"E0: "<<E0<<endl;
-	arap.setupRedSparseDRdr(mesh);
-	arap.setupRedSparseDDRdrdr(mesh);
 
     arap.Gradients(mesh);
     cout<<"Ex"<<endl;
@@ -297,6 +295,8 @@ int checkRedARAP(Mesh& mesh, Reduced_Arap& arap){
     
     cout<<"Er"<<endl;
     VectorXd fakeEr = Er(mesh, arap, E0, eps);
+    cout<<fakeEr.transpose()<<endl;
+    cout<<arap.Er().transpose()<<endl;
     cout<<(arap.Er().transpose()-fakeEr.transpose()).norm()<<endl<<endl;
     
     cout<<"Es"<<endl;
@@ -306,6 +306,7 @@ int checkRedARAP(Mesh& mesh, Reduced_Arap& arap){
     arap.Hessians(mesh);
     cout<<"Err"<<endl;
     MatrixXd fakeErr = Err(mesh, arap, E0, eps);
+    cout<<arap.Err()<<endl;
     cout<<(fakeErr-arap.Err()).norm()<<endl;
     cout<<endl;
    
@@ -316,18 +317,24 @@ int checkRedARAP(Mesh& mesh, Reduced_Arap& arap){
 
     MatrixXd fakeExr = Exr(mesh, arap, E0, eps);
     cout<<"Exr"<<endl;
-    cout<<(fakeExr-arap.constTimeExr(mesh)).norm()<<endl<<endl;
+    cout<<arap.Exr()<<endl;
+    cout<<(fakeExr-arap.Exr()).norm()<<endl<<endl;
     cout<<endl<<endl;
 
     cout<<"Exs"<<endl;
     MatrixXd fakeExs = Exs(mesh, arap, E0, eps);
+    cout<<arap.Exs()<<endl;
     cout<<(fakeExs-arap.Exs()).norm()<<endl<<endl;
     cout<<endl;
 
     cout<<"Ers"<<endl;
     MatrixXd fakeErs = Ers(mesh, arap, E0, eps);
+    cout<<arap.Ers()<<endl<<endl;
+    cout<<fakeErs<<endl;
     cout<<(fakeErs-arap.Ers()).norm()<<endl<<endl;
     cout<<endl;
+
+    arap.Jacobians(mesh);
 }
 
 int main(int argc, char *argv[]){
@@ -346,7 +353,7 @@ int main(int argc, char *argv[]){
     std::sort (fix.begin(), fix.end());
     std::vector<int> mov = {1,7};
     std::sort (mov.begin(), mov.end());
-    std::vector<int> bones = {};
+    std::vector<VectorXi> bones = {};
 
     std::cout<<"-----Mesh-------"<<std::endl;
     VectorXi muscle1;
@@ -359,43 +366,45 @@ int main(int argc, char *argv[]){
     std::cout<<"-----Neo-------"<<std::endl;
     Elastic* neo = new Elastic(*mesh);
 
-    // std::vector<double> s = {1.02964,     0.877578,
-    //       1.02964, -8.11786e-10,
-    //         2.28826e-11,  1.01396e-09,      1.02964,
-    //              0.877578,      1.02964 , -1.66318e-09, 
-    //               1.02164e-11, -1.02721e-10,      1.02964,
-    //                    0.877578,      1.02964, -1.35768e-09,
-    //                      1.30983e-10,  2.67604e-09,
-    //  1.02964 ,    0.877578    ,  1.02964 ,-2.09268e-09 , 
-    //  6.54942e-11,  2.42438e-09,      1.02964,     0.877578,
-    //        1.02964,   3.6373e-10,  1.80095e-10, -8.03432e-11,
-    //   1.02964,     0.877578,      1.02964 , 8.49187e-10,
-    //     2.51311e-10,  3.18955e-10};
+    cout<<"Done with init, setting values for s, r, x"<<endl;
+    std::vector<double> s = {1.22027,    0.495075 ,     1.1781 , 0.00974582 ,
+    	0.000871698 , 0.00620995 ,     1.2249 ,   0.467115  ,   1.21814 ,-0.00114247 ,
+    	  0.0016028,  -0.0318313 ,    1.16293,    0.514761 ,    1.16153, -0.00925684,
+    	  0.0640231, -0.00245551,     1.16368 ,   0.549197,     1.16291,  -0.0314069,
+    	  0.0661537,  -0.0237411 ,    1.21513 ,   0.478347 ,    1.22011 ,  0.0469281,
+    	  -0.00796292,   0.0371727 ,    1.17835 ,   0.494537 ,    1.22059,   -0.012968,
+    	   -0.00408742 ,  0.0147056};
 
-    // std::vector<double> r = {0.99957,   0.0292967 ,-0.00158559,
-    //   -0.0293113,    0.999519 , -0.0100828,  0.00128944 ,  0.0101249,    0.999948 ,
-    //      0.999677,   0.0253299, -0.00203604,  -0.0253488 ,
-    //     0.99963, -0.00987051,  0.00178527,  0.00991893 ,   0.999949};
+    // std::vector<double> r = {   0.996916 ,  0.0784517 , 0.00175743 , -0.0784445 ,   0.996911,
+    //  -0.00381348, -0.00205117,  0.00366386 ,   0.999991 ,   0.994617 ,  0.0994266 ,  0.0291812 ,
+    //    -0.100029 ,   0.994784 ,  0.0199547 ,  -0.027045,  -0.0227662,    0.999375,    0.99933 ,
+    //    0.036391, -0.00378501 , -0.0364939 ,   0.998819,  -0.0320736,  0.00261334 ,  0.0321903 ,
+    //     0.999478,    0.999679,   0.0252053,  -0.0024076,  -0.0252473,    0.999494,  -0.0193542,
+    //      0.00191855,   0.0194088 ,    0.99981 ,   0.998806 ,  0.0460166 ,  0.0164289 , -0.0453156 ,
+    //         0.998141 , -0.0407561 ,
+    //  -0.0182739  ,  0.039963 ,   0.999034,    0.999572,   0.0291523,  0.00242857 ,  -0.028946 ,   0.997658 , -0.0619663 ,-0.00422935 ,  0.0618695 ,   0.998075, 999949};
 
-    // std::vector<double> x = { -0.394831 ,     2.29085,   -0.0674824 ,
-    //    -0.386983 ,     2.34076 ,   -0.209718,  -9.8391e-17,
-    //     -5.24752e-16 ,  3.2797e-17  ,          0  ,          0  ,
-    //               0 ,-1.90823e-16 ,
-    // 	-3.39287e-16, -2.81781e-17, -1.81941e-16, -5.13116e-16 , 5.35026e-17,    -0.534805    ,  2.51089 ,   -0.259069 ,   -0.542944 ,     2.45913 ,   -0.111564};
+    // std::vector<double> x = { 0.499787 ,    9.54507  ,  0.488427  ,   0.35146  ,
+    // 10.0335,   -0.944859  ,         0   ,        0  ,         0  ,         0   ,        0 ,
+    //  0, 4.09929e-16,          -0 ,         -0    ,       0       ,    0     ,      0    ,
+    //  -1.01585  ,   10.2377,   -0.687974  , -0.836396   ,  10.3988  ,  0.715365};
     
-    // for(int i=0; i<s.size(); i++){
-    // 	mesh->red_s()[i] = s[i];
-    // }
+    cout<<s.size()<<", "<<mesh->red_s().size()<<endl;
+    for(int i=0; i<s.size(); i++){
+    	mesh->red_s()[i] = s[i];
+    }
 
+    // cout<<r.size()<<", "<<mesh->red_r().size()<<endl;
     // for(int i=0; i<r.size(); i++){
     // 	mesh->red_r()[i] = r[i];
     // }
 
+    // cout<<x.size()<<", "<<mesh->red_x().size()<<endl;
     // for(int i=0; i<x.size(); i++){
     // 	mesh->red_x()[i] = x[i];
     // }
-    // redarap->minimize(*mesh);
-    
+    redarap->minimize(*mesh);
+
     checkRedARAP(*mesh, *redarap);
     // checkElastic(*mesh, *neo);
 
