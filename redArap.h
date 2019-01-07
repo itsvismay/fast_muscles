@@ -774,7 +774,7 @@ public:
 			}
 
 
-			Matrix3d F = ePAx.transpose()*eUSUtPAx0;
+			Matrix3d F = aePAx[i].transpose()*aeUSUtPAx0[i];
 			Matrix3d ri,ti,ui,vi;
      		Vector3d _;
       		igl::polar_svd(F,ri,ti,ui,_,vi);

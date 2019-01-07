@@ -18,14 +18,16 @@ private:
     double alpha_arap = 1;
     double alpha_neo = 1;
     double eps = 1.5e-8;
+    bool stest = false;
 
 public:
-    Rosenbrock(int n_, Mesh* m, Arap* a, Elastic* e, json& j_input) : n(n_) {
+    Rosenbrock(int n_, Mesh* m, Arap* a, Elastic* e, json& j_input, bool test=false) : n(n_) {
     	mesh = m;
         arap = a;
         elas = e;
         alpha_arap = j_input["alpha_arap"];
         alpha_neo = j_input["alpha_neo"];
+        stest = test;
 
     }
     VectorXd get_w(VectorXd& r0, VectorXd& r){
@@ -339,13 +341,11 @@ public:
         if(computeGrad){        
 	        VectorXd pegrad = alpha_neo*mesh->N().transpose()*elas->PEGradient(*mesh);
 	        VectorXd arapgrad = alpha_arap*mesh->N().transpose()*arap->Jacobians(*mesh);
-	   
-            double E0 = arap->Energy(*mesh);
-            cout<<"Energy: "<<E0<<endl;
-            VectorXd fake_arap = mesh->N().transpose()*Full_ARAP_Grad(*mesh, *arap,*elas, fx, eps);
-            E0 = arap->Energy(*mesh);
-            cout<<"Energy1: "<<E0<<endl;
-            if ((arapgrad-fake_arap).norm()>10){
+	        
+            if(stest){
+                VectorXd fake_arap = mesh->N().transpose()*Full_ARAP_Grad(*mesh, *arap,*elas, fx, eps);
+                if ((arapgrad-fake_arap).norm()>10){
+                double E0 = arap->Energy(*mesh);
 	        	std::cout<<"fake arap issues"<<std::endl;
 	        	std::cout<<arapgrad.transpose()<<std::endl<<std::endl;
 	        	std::cout<<fake_arap.transpose()<<std::endl<<std::endl;
@@ -393,7 +393,8 @@ public:
                 cout<<(fakeErs-MatrixXd(arap->Ers())).norm()<<endl<<endl;
                 cout<<endl;
 	        	exit(0);
-	        }
+	           }
+           }
 
 	        // VectorXd fake = alpha_neo*WikipediaEnergy_grad(*mesh, *elas, 1e-5);
 	        // if ((pegrad-fake_neo).norm()>0.001){

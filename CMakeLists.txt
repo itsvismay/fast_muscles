@@ -43,7 +43,8 @@ include_directories(${OpenCV_INCLUDE_DIRS})
 
 # Add your project files
 file(GLOB HEADFILES "*.h")
-#file(GLOB SRCFILES "${ALGLIB_SRC_DIR}/*.cpp")
+file(GLOB HEADFILES "PreProcessing/*.h")
+file(GLOB SRCFILES "PreProcessing/*.cpp")
 file(GLOB EXTERNALS "${SPECTRA_DIR}/*.h" "${SPECTRA_DIR}/MatOp/*.h" "${BFGSB_SRC_DIR}/cppoptlib/*.h" "${BFGSB_SRC_DIR}/cppoptlib/solver/*.h")
 
 add_executable(${PROJECT_NAME} "main.cpp" ${HEADFILES} ${SRCFILES} ${EXTERNALS})

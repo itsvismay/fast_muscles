@@ -86,7 +86,7 @@ int main()
     std::sort (fix.begin(), fix.end());
     std::vector<int> mov = {};//getMinVerts_Axis_Tolerance(V, 1);
     std::sort (mov.begin(), mov.end());
-    std::vector<int> bones = {};
+    std::vector<VectorXi> bones = {};
     // getMaxTets_Axis_Tolerance(bones, V, T, 1, 3);
     // getMinTets_Axis_Tolerance(bones, V, T, 1, 3);
 
@@ -102,7 +102,7 @@ int main()
   
     std::cout<<"-----Solver-------"<<std::endl;
     int DIM = mesh->red_s().size();
-    Rosenbrock f(DIM, mesh, arap, neo, j_input);
+    Rosenbrock f(DIM, mesh, arap, neo, j_input, true);
 
   
 

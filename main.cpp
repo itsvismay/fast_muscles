@@ -72,19 +72,19 @@ int main(int argc, char *argv[])
 
 
     std::string datafile = j_input["data"];
-    // igl::readDMAT(datafile+"simple_joint/generated_files/tet_mesh_V.dmat", V);
-    // igl::readDMAT(datafile+"simple_joint/generated_files/tet_mesh_T.dmat", T);
-    // igl::readDMAT(datafile+"simple_joint/generated_files/combined_fiber_directions.dmat", Uvec);
-    // igl::readDMAT(datafile+"simple_joint/generated_files/muscle_muscle_indices.dmat", muscle1);
-    // igl::readDMAT(datafile+"simple_joint/generated_files/top_bone_bone_indices.dmat", bone1);
-    // igl::readDMAT(datafile+"simple_joint/generated_files/bottom_bone_bone_indices.dmat", bone2);
-    // igl::readDMAT(datafile+"simple_joint/generated_files/joint_indices.dmat", joint1);
-    igl::readDMAT(datafile+"output/combined_V.dmat", V);
-    igl::readDMAT(datafile+"output/combined_T.dmat", T);
-    igl::readDMAT(datafile+"output/fiber_directions.dmat", Uvec);
-    igl::readDMAT(datafile+"output/muscle_I.dmat", muscle1);
-    igl::readDMAT(datafile+"output/bone_1_I.dmat", bone1);
-    igl::readDMAT(datafile+"output/bone_2_I.dmat", bone2);
+    igl::readDMAT(datafile+"simple_joint/generated_files/tet_mesh_V.dmat", V);
+    igl::readDMAT(datafile+"simple_joint/generated_files/tet_mesh_T.dmat", T);
+    igl::readDMAT(datafile+"simple_joint/generated_files/combined_fiber_directions.dmat", Uvec);
+    igl::readDMAT(datafile+"simple_joint/generated_files/muscle_muscle_indices.dmat", muscle1);
+    igl::readDMAT(datafile+"simple_joint/generated_files/top_bone_bone_indices.dmat", bone1);
+    igl::readDMAT(datafile+"simple_joint/generated_files/bottom_bone_bone_indices.dmat", bone2);
+    igl::readDMAT(datafile+"simple_joint/generated_files/joint_indices.dmat", joint1);
+    // igl::readDMAT(datafile+"output/combined_V.dmat", V);
+    // igl::readDMAT(datafile+"output/combined_T.dmat", T);
+    // igl::readDMAT(datafile+"output/fiber_directions.dmat", Uvec);
+    // igl::readDMAT(datafile+"output/muscle_I.dmat", muscle1);
+    // igl::readDMAT(datafile+"output/bone_1_I.dmat", bone1);
+    // igl::readDMAT(datafile+"output/bone_2_I.dmat", bone2);
 
     igl::boundary_facets(T, F);
     cout<<"V size: "<<V.rows()<<endl;
@@ -92,22 +92,15 @@ int main(int argc, char *argv[])
     cout<<"F size: "<<F.rows()<<endl;
     
     std::vector<int> fix = getMaxVerts_Axis_Tolerance(V, 1);
-    // std::vector<int> fix2 = getMaxVerts_Axis_Tolerance(V, 0, 0.5);
-    // fix.insert(fix.end(), fix2.begin(), fix2.end());
+    std::vector<int> fix2 = getMaxVerts_Axis_Tolerance(V, 0, 0.5);
+    fix.insert(fix.end(), fix2.begin(), fix2.end());
     std::sort (fix.begin(), fix.end());
     
 
     std::vector<int> mov = {};//getMinVerts_Axis_Tolerance(V, 1);
     // std::sort (mov.begin(), mov.end());
     
-    std::vector<int> bones = {};
-    for(int i=0; i<bone1.size(); i++){
-        bones.push_back(bone1[i]);
-    }
-    for(int i=0; i<bone2.size(); i++){
-        bones.push_back(bone2[i]);
-    }
-
+    std::vector<VectorXi> bones = {bone1, bone2};
 
     std::cout<<"-----Mesh-------"<<std::endl;
     Mesh* mesh = new Mesh(T, V, fix, mov,bones, muscle1,Uvec,  j_input);

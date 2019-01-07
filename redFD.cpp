@@ -353,7 +353,7 @@ int main(int argc, char *argv[]){
     std::sort (fix.begin(), fix.end());
     std::vector<int> mov = {1,7};
     std::sort (mov.begin(), mov.end());
-    std::vector<int> bones = {};
+    std::vector<VectorXi> bones = {};
 
     std::cout<<"-----Mesh-------"<<std::endl;
     VectorXi muscle1;
