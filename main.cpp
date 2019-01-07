@@ -122,23 +122,23 @@ int main(int argc, char *argv[])
     param.linesearch = LBFGSpp::LBFGS_LINESEARCH_BACKTRACKING_ARMIJO;
     LBFGSSolver<double> solver(param);
 
-    // for(int i=0; i<6; i++){
-    //     MatrixXd newV = mesh->continuousV();
-    //     string datafile = j_input["data"];
-    //     igl::writeOBJ(datafile+"simple_joint"+to_string(i)+".obj",newV,F);
+    for(int i=0; i<6; i++){
+        MatrixXd newV = mesh->continuousV();
+        string datafile = j_input["data"];
+        igl::writeOBJ(datafile+"simple_joint_sparse_rot"+to_string(i)+".obj",newV,F);
         
-    //     double fx =0;
-    //     VectorXd ns = mesh->N().transpose()*mesh->red_s();
-    //     int niter = solver.minimize(f, ns, fx);
-    //     cout<<"End BFGS"<<", "<<niter<<endl;
-    //     VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
-    //     for(int i=0; i<reds.size(); i++){
-    //         mesh->red_s()[i] = reds[i];
-    //     }
+        double fx =0;
+        VectorXd ns = mesh->N().transpose()*mesh->red_s();
+        int niter = solver.minimize(f, ns, fx);
+        cout<<"End BFGS"<<", "<<niter<<endl;
+        VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
+        for(int i=0; i<reds.size(); i++){
+            mesh->red_s()[i] = reds[i];
+        }
         
-    //     neo->changeFiberMag(2);
-    // }
-    // exit(0);
+        neo->changeFiberMag(2);
+    }
+    exit(0);
 
     std::cout<<"-----Display-------"<<std::endl;
     igl::opengl::glfw::Viewer viewer;
