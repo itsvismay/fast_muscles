@@ -2,6 +2,7 @@
 #include "redArap.h"
 #include "elastic.h"
 #include <LBFGS.h>
+// #include <igl/Timer.h>
 
 using namespace LBFGSpp;
 using json = nlohmann::json;
@@ -19,6 +20,7 @@ private:
     double alpha_neo = 1;
     double eps = 1e-6;
     bool stest = false;
+    // igl::Timer timer;
 
 public:
     RedSolver(int n_, Mesh* m, Reduced_Arap* a, Elastic* e, json& j_input, bool test=false) : n(n_) {
@@ -316,9 +318,20 @@ public:
         double fx = Eneo + Earap;
 
         if(computeGrad){
+            
             VectorXd pegrad = alpha_neo*mesh->N().transpose()*elas->PEGradient(*mesh);
+            // timer.start();
             VectorXd arapgrad = alpha_arap*mesh->N().transpose()*arap->Jacobians(*mesh);
-            std::cout<<"BFGS: "<<Eneo<<", "<<Earap<<", "<<pegrad.norm()<<", "<<arapgrad.norm()<<","<<grad.norm()<<std::endl;
+            // timer.stop();
+            // double arap_grad_time = timer.getgetElapsedTimeInMilliSec();
+
+            cout<<"---BFGS Info"<<endl;
+            cout<<"NeoEnergy: "<<Eneo<<endl;
+            cout<<"NeoGradNorm: "<<pegrad.norm()<<endl;
+            cout<<"ArapEnergy: "<<Earap<<endl;
+            cout<<"ARAPGradNorm: "<<arapgrad.norm()<<endl;
+            cout<<"TotalGradNorm: "<<grad.norm()<<endl;
+            // cout<<"ARAPGradTime: "<<arap_grad_time<<endl;
             
             if(stest){
                 VectorXd fake_arap = mesh->N().transpose()*Full_ARAP_Grad(*mesh, *arap,*elas, fx, eps);
