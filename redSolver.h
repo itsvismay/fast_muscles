@@ -95,17 +95,14 @@ public:
         VectorXd fake = VectorXd::Zero(mesh.red_s().size());
         for(int i=0; i<fake.size(); i++){
             mesh.red_s()[i] += 0.5*eps;
-            // mesh.setGlobalF(false, true, false);
             double Eleft = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
             mesh.red_s()[i] -= 0.5*eps;
             
             mesh.red_s()[i] -= 0.5*eps;
-            // mesh.setGlobalF(false, true, false);
             double Eright = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
             mesh.red_s()[i] += 0.5*eps;
             fake[i] = (Eleft - Eright)/eps;
         }
-        // mesh.setGlobalF(false, true, false);
         return fake;
     }
     //-----------------------
@@ -348,7 +345,8 @@ public:
 
                     cout<<"Es"<<endl;
                     VectorXd fakeEs = Es(*mesh, *arap,E0, eps);
-                    cout<<arap->Es().transpose()<<endl;
+                    cout<<arap->Es().transpose()<<endl<<endl;
+                    cout<<fakeEs.transpose()<<endl;
                     cout<<(arap->Es().transpose() - fakeEs.transpose()).norm()<<endl<<endl;
                     
 

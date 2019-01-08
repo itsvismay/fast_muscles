@@ -11,6 +11,7 @@
 #include <igl/readOBJ.h>
 #include <igl/writeOBJ.h>
 #include <igl/opengl/glfw/Viewer.h>
+#include <igl/setdiff.h>
 
 using namespace LBFGSpp;
 using json = nlohmann::json;
@@ -86,14 +87,31 @@ int main()
     std::sort (fix.begin(), fix.end());
     std::vector<int> mov = {};//getMinVerts_Axis_Tolerance(V, 1);
     std::sort (mov.begin(), mov.end());
-    std::vector<VectorXi> bones = {};
-    // getMaxTets_Axis_Tolerance(bones, V, T, 1, 3);
-    // getMinTets_Axis_Tolerance(bones, V, T, 1, 3);
+
+    std::vector<int> bone1={};
+    getMaxTets_Axis_Tolerance(bone1, V, T, 1, 3);
+    std::vector<int> bone2={};
+    getMinTets_Axis_Tolerance(bone2, V, T, 1, 3);
+    VectorXi bone1vec = VectorXi::Map(bone1.data(), bone1.size());
+    VectorXi bone2vec = VectorXi::Map(bone2.data(), bone2.size());
+    std::vector<VectorXi> bones = {bone1vec};
+    VectorXi bonesvec(bone1vec.size() + bone2vec.size());
+    bonesvec<< bone1vec,bone2vec;
 
     std::cout<<"-----Mesh-------"<<std::endl;
+    VectorXi all(T.rows());
+    MatrixXd Uvec(all.size(), 3);
+    for(int i=0; i<T.rows(); i++){
+        all[i] = i;
+        Uvec.row(i) = Vector3d::UnitY();
+    }
     VectorXi muscle1;
-    MatrixXd Uvec;
-    Mesh* mesh = new Mesh(T, V, fix, mov,bones, muscle1, Uvec, j_input);
+    VectorXi shit;
+    igl::setdiff(all, bone1vec, muscle1, shit);
+
+
+
+    Mesh* mesh = new Mesh(T, V, fix, mov, bones, muscle1, Uvec, j_input);
     std::cout<<"-----Neo-------"<<std::endl;
     Elastic* neo = new Elastic(*mesh);
 
@@ -168,17 +186,19 @@ int main()
             //     mesh->red_s()[6*i+0] += 0.1;
             // }
             // arap->minimize(*mesh);
-            // double fx =0;
-            // VectorXd ns = mesh->N().transpose()*mesh->red_s();
-            // int niter = solver.minimize(f, ns, fx);
-            // VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
-	
             double fx =0;
-            VectorXd reds = mesh->red_s();
-            int niter = solver.minimize(f, reds, fx);
-            for(int i=0; i<reds.size(); i++){
-                mesh->red_s()[i] = reds[i];
-            }
+            cout<<mesh->red_s().transpose()<<endl;
+            VectorXd ns = mesh->N().transpose()*mesh->red_s();
+            cout<<ns.transpose()<<endl;
+            int niter = solver.minimize(f, ns, fx);
+            VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
+	
+            // double fx =0;
+            // VectorXd reds = mesh->red_s();
+            // int niter = solver.minimize(f, reds, fx);
+            // for(int i=0; i<reds.size(); i++){
+            //     mesh->red_s()[i] = reds[i];
+            // }
             std::cout<<"niter "<<niter<<std::endl;
         }
         

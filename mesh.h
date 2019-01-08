@@ -105,7 +105,7 @@ public:
         setup_rotation_cluster(nrc, reduced, mT, mV, ibones, imuscle, mred_x, mred_r, mred_w, mC, mA, mG, mx0, mRotationBLOCK, mr_cluster_elem_map, mr_elem_cluster_map);
         
         print("step 12");
-        setup_skinning_handles(nsh, reduced, mT, mV, ibones, imuscle, mC, mA, mG, mx0, ms_handles_ind, mred_s, msW);
+        setup_skinning_handles(nsh, reduced, mT, mV, ibones, imuscle, mC, mA, mG, mx0, mred_s, msW);
 
         print("step 13");
         mUvecs.resize(mT.rows(), 3);
@@ -128,7 +128,7 @@ public:
         print("step 14");
         setGlobalF(false, false, true);
         print("step 15");
-        setN();
+        setN(ibones);
         print("step 16");
         mPA = mP*mA;
         mPAx0 = mPA*mx0;
@@ -194,15 +194,15 @@ public:
         mC.setFromTriplets(triplets.begin(), triplets.end());
     }
 
-    void setN(){
+    void setN(std::vector<VectorXi> bones){
         //TODO make this work for reduced skinning
-        int nsh_bones = (int) mbones.sum();
+        int nsh_bones = bones.size();
         mN.resize(mred_s.size(), mred_s.size() - 6*nsh_bones); //#nsh x nsh for muscles (project out bones handles)
         mN.setZero();
 
         int j=0;
         for(int i=0; i<mN.rows()/6; i++){
-            if(mbones[i]>0.5){
+            if(i<bones.size()){
                 continue;
             }
             mN.coeffRef(6*i+0, 6*j+0) = 1;
@@ -214,12 +214,12 @@ public:
             j++;
         }
 
-        mAN.resize(mred_s.size(), 6*nsh_bones); //#nsh x nsh for muscles (project out bones handles)
+        mAN.resize(mred_s.size(), 6*nsh_bones); //#nsh x nsh for muscles (project out muscle handles)
         mAN.setZero();
 
         j=0;
         for(int i=0; i<mAN.rows()/6; i++){
-            if(mbones[i]<0.5){
+            if(i>=bones.size()){
                 continue;
             }
             mAN.coeffRef(6*i+0, 6*j+0) = 1;
@@ -665,9 +665,12 @@ public:
         VectorXd ms;
         if(3*mV.rows()==mred_x.size()){
             x = mred_x+mx0;
-            ms = mred_s;
         }else{
             x = mG*mred_x + mx0;
+        }
+        if(6*mT.rows() == mred_s.size()){
+            ms = mred_s;
+        }else{
             ms = msW*mred_s;
         }
 

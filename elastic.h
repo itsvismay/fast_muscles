@@ -198,6 +198,10 @@ public:
 			return 0;
 		}
 
+
+		if (W!=W){
+			exit(0);
+		}
 		return W;
 	}
 
@@ -208,8 +212,11 @@ public:
 		VectorXd& eP = mesh.ePoissons();
 		VectorXd& bones = mesh.bones();
 		VectorXd& rs = mesh.red_s();
-				
+
 		for(int t =0; t<mesh.T().rows(); t++){
+			if(mesh.bones()[t]>0.5){
+				continue;
+			}
             double C1 = 0.5*eY[t]/(2.0*(1.0+eP[t]));
             double D1 = 0.5*(eY[t]*eP[t])/((1.0+eP[t])*(1.0-2.0*eP[t]));
             if(rs.size()==6*mesh.T().rows()){
@@ -297,6 +304,9 @@ public:
 
 		Matrix3d c;
 		for(int t =0; t<mesh.T().rows(); t++){
+			if(mesh.bones()[t]>0.5){
+				continue;
+			}
             double C1 = 0.5*eY[t]/(2.0*(1.0+eP[t]));
             double D1 = 0.5*(eY[t]*eP[t])/((1.0+eP[t])*(1.0-2.0*eP[t]));
             if(rs.size()==6*mesh.T().rows()){
@@ -323,6 +333,7 @@ public:
 	double Energy(Mesh& m){
 		double Elas =  WikipediaEnergy(m);
 		double Muscle = MuscleEnergy(m);
+	
 		return Elas + Muscle;
 	}
 

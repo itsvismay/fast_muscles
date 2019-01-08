@@ -351,8 +351,8 @@ int main(int argc, char *argv[]){
     
     std::vector<int> fix = getMaxVerts_Axis_Tolerance(V, 1);
     std::sort (fix.begin(), fix.end());
-    std::vector<int> mov = {1,7};
-    std::sort (mov.begin(), mov.end());
+    std::vector<int> mov ={};
+    // std::sort (mov.begin(), mov.end());
     std::vector<VectorXi> bones = {};
 
     std::cout<<"-----Mesh-------"<<std::endl;

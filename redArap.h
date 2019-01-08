@@ -24,14 +24,14 @@ protected:
 	SparseLU<SparseMatrix<double>> ajacLU;
 
 	// FullPivLU<MatrixXd>  aARAPKKTSolver;
-	VectorXd aPAx0, aEr, aEr_max, aEs, aEx, aDEDs, aFPAx0;
-	SparseMatrix<double> aExx, aExs, aExr, aErr, aErs, aExr_max, aErr_max, aErs_max, aPAG, aCG;
+	VectorXd aPAx0, aEr, aEr_max, aEs, aEs_max, aEx, aDEDs, aFPAx0;
+	SparseMatrix<double> aExx, aExs, aExr, aErr, aErs, aExs_max, aExr_max, aErr_max, aErs_max, aPAG, aCG;
 	SparseMatrix<double> aJacKKTSparse, aJacConstrainsSparse;
 	MatrixXd aJacKKT, aJacConstrains;
 
 
 	SparseMatrix<double> aPAx0DS;
-	std::vector<Trip> aExx_trips, aExr_max_trips, aExr_trips, aErr_trips, aErs_trips, aErr_max_trips, aExs_trips, aErs_max_trips, aC_trips;
+	std::vector<Trip> aExx_trips, aExr_max_trips, aExr_trips, aErr_trips, aErs_trips, aErr_max_trips, aExs_trips, aExs_max_trips, aErs_max_trips, aC_trips;
 	double jacLUanalyzed = false;
 
 	SparseMatrix<double> adjointP, a_Wr, a_Ww;
@@ -53,11 +53,14 @@ public:
 		aExx_trips = to_triplets(aExx);
 
 		print("arap 2");
-		aExs.resize(z_size, s_size);
 		aErr_max.resize(3*t_size, 3*t_size);
-		aErs_max.resize(3*t_size, s_size);
+		aErs_max.resize(3*t_size, 6*t_size);
 		aExr_max.resize(z_size, 3*t_size);
+		aExs_max.resize(z_size, 6*t_size);
 		aEr_max.resize(3*t_size);
+		aEs_max.resize(6*t_size);
+
+		aExs.resize(z_size, s_size);
 		aErr.resize(r_size, r_size);
 		aErs.resize(r_size, s_size);
 		aExr.resize(z_size, r_size);
@@ -279,8 +282,7 @@ public:
 	}
 
 	double Energy(Mesh& m, VectorXd& z, VectorXd& redw, VectorXd& redr, VectorXd& reds){
-		//TODO VectorXd ms = m.sW()*reds;
-		VectorXd ms = reds;
+		VectorXd ms = m.sW()*reds;
 		VectorXd mr = a_Wr*redr;
 		VectorXd mw = a_Ww*redw;
 		VectorXd PAx = aPAG*z + aPAx0;
@@ -453,7 +455,7 @@ public:
 		// print("		+Hessians");
 		aExr_max_trips.clear();
 		aErr_max_trips.clear();
-		aExs_trips.clear();
+		aExs_max_trips.clear();
 		aErs_max_trips.clear();
 		// Exr_trip.reserve(3*t_size*z_size);
 		// Err_trip.reserve(3*3*t_size);
@@ -464,7 +466,7 @@ public:
 		Matrix3d Jx = cross_prod_mat(1,0,0);
 		Matrix3d Jy = cross_prod_mat(0,1,0);
 		Matrix3d Jz = cross_prod_mat(0,0,1);
-		VectorXd ms = m.red_s();
+		VectorXd ms = m.sW()*m.red_s();
 		VectorXd mr = a_Wr*m.red_r();
 		VectorXd PAg = aPAG*m.red_x() + aPAx0;
 
@@ -566,12 +568,12 @@ public:
 					double Exas4 = p1(0,1) + p2(0,1) + p3(0,1) + p4(0,1)+ p1(1,0) + p2(1,0) + p3(1,0) + p4(1,0);
 					double Exas5 = p1(0,2) + p2(0,2) + p3(0,2) + p4(0,2)+ p1(2,0) + p2(2,0) + p3(2,0) + p4(2,0);
 					double Exas6 = p1(2,1) + p2(2,1) + p3(2,1) + p4(2,1)+ p1(1,2) + p2(1,2) + p3(1,2) + p4(1,2);
-					aExs_trips.push_back(Trip(3*m.T().row(t)[e]+a, 6*t+0, Exas1));
-					aExs_trips.push_back(Trip(3*m.T().row(t)[e]+a, 6*t+1, Exas2));
-					aExs_trips.push_back(Trip(3*m.T().row(t)[e]+a, 6*t+2, Exas3));
-					aExs_trips.push_back(Trip(3*m.T().row(t)[e]+a, 6*t+3, Exas4));
-					aExs_trips.push_back(Trip(3*m.T().row(t)[e]+a, 6*t+4, Exas5));
-					aExs_trips.push_back(Trip(3*m.T().row(t)[e]+a, 6*t+5, Exas6));
+					aExs_max_trips.push_back(Trip(3*m.T().row(t)[e]+a, 6*t+0, Exas1));
+					aExs_max_trips.push_back(Trip(3*m.T().row(t)[e]+a, 6*t+1, Exas2));
+					aExs_max_trips.push_back(Trip(3*m.T().row(t)[e]+a, 6*t+2, Exas3));
+					aExs_max_trips.push_back(Trip(3*m.T().row(t)[e]+a, 6*t+3, Exas4));
+					aExs_max_trips.push_back(Trip(3*m.T().row(t)[e]+a, 6*t+4, Exas5));
+					aExs_max_trips.push_back(Trip(3*m.T().row(t)[e]+a, 6*t+5, Exas6));
 				}
 			}
 		}
@@ -629,15 +631,20 @@ public:
 
 		aExr_max.setFromTriplets(aExr_max_trips.begin(), aExr_max_trips.end());
 		aErr_max.setFromTriplets(aErr_max_trips.begin(), aErr_max_trips.end());
-		aExs.setFromTriplets(aExs_trips.begin(), aExs_trips.end());
+		aExs_max.setFromTriplets(aExs_max_trips.begin(), aExs_max_trips.end());
 		aErs_max.setFromTriplets(aErs_max_trips.begin(), aErs_max_trips.end());
 		
 		aErr = a_Ww.transpose()*aErr_max*a_Ww;
 		aExr = aExr_max*a_Ww;
-		aErs = a_Ww.transpose()*aErs_max;
+		aErs = a_Ww.transpose()*aErs_max*m.sW();
+		aExs = aExs_max*m.sW();
+
 		aErr_trips = to_triplets(aErr);
 		aExr_trips = to_triplets(aExr);
 		aErs_trips = to_triplets(aErs);
+		aExs_trips = to_triplets(aExs);
+
+
 		// print("		-Hessians");		
 		return 1;
 	}
@@ -656,7 +663,7 @@ public:
 		Matrix3d Jz = cross_prod_mat(0,0,1);
 
 		VectorXd PAg = aPAG*m.red_x() + aPAx0;
-		VectorXd ms = m.red_s();
+		VectorXd ms = m.sW()*m.red_s();
 		VectorXd mr = a_Wr*m.red_r();
 
 		for(int t=0; t<m.T().rows(); t++){
@@ -688,7 +695,7 @@ public:
 		aEr = a_Ww.transpose()*aEr_max;
 		
 		// print("		Es");
-		aEs.setZero();
+		aEs_max.setZero();
 		for(int t=0; t<m.T().rows(); t++){
 			Matrix3d rt = Map<Matrix3d>(mr.segment<9>(9*t).data());
 			Matrix3d s;
@@ -707,19 +714,19 @@ public:
 			double Es4 = p1(0,1) + p2(0,1) + p3(0,1) + p4(0,1)+ p1(1,0) + p2(1,0) + p3(1,0) + p4(1,0);
 			double Es5 = p1(0,2) + p2(0,2) + p3(0,2) + p4(0,2)+ p1(2,0) + p2(2,0) + p3(2,0) + p4(2,0);
 			double Es6 = p1(2,1) + p2(2,1) + p3(2,1) + p4(2,1)+ p1(1,2) + p2(1,2) + p3(1,2) + p4(1,2);
-			aEs[6*t+0] = Es1;
-			aEs[6*t+1] = Es2;
-			aEs[6*t+2] = Es3;
-			aEs[6*t+3] = Es4;
-			aEs[6*t+4] = Es5;
-			aEs[6*t+5] = Es6;
+			aEs_max[6*t+0] = Es1;
+			aEs_max[6*t+1] = Es2;
+			aEs_max[6*t+2] = Es3;
+			aEs_max[6*t+3] = Es4;
+			aEs_max[6*t+4] = Es5;
+			aEs_max[6*t+5] = Es6;
 
 		}
+		aEs = m.sW().transpose()*aEs_max;
 		
 
 		// print("			- Gradients");
 		return 1;
-
 	}
 
 
@@ -793,7 +800,7 @@ public:
 
 	int minimize(Mesh& m){
 		// print("	+ ARAP minimize");
-		VectorXd ms = m.red_s();
+		VectorXd ms = m.sW()*m.red_s();
 		VectorXd USUtPAx0 = VectorXd::Zero(12*m.T().rows());
 		for(int t =0; t<m.T().rows(); t++){
 			Matrix3d s;

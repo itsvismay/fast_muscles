@@ -7,9 +7,12 @@
 #include <igl/lbs_matrix.h>
 #include <igl/bbw.h>
 #include <unsupported/Eigen/KroneckerProduct>
+#include <igl/slice_into.h>
+#include <igl/remove_unreferenced.h>
 
 using namespace Eigen;
-MatrixXd bbw_strain_skinning_matrix(VectorXi& handles, const MatrixXd& mV, const MatrixXi& mT){
+using namespace std;
+MatrixXd bbw_strain_skinning_matrix(VectorXi& handles, const MatrixXd& mV, MatrixXi& mT){
     std::set<int> unique_vertex_handles;
     std::set<int>::iterator it;
     for(int i=0; i<handles.size(); i++){
@@ -49,6 +52,7 @@ MatrixXd bbw_strain_skinning_matrix(VectorXi& handles, const MatrixXd& mV, const
     VectorXi b;
     // List of boundary conditions of each weight function
     MatrixXd bc;
+    cout<<"---------0--------"<<endl;
     igl::boundary_conditions(mV, mT, C, P, MatrixXi(), MatrixXi(), b, bc);
     // compute BBW weights matrix
     igl::BBWData bbw_data;
@@ -57,17 +61,22 @@ MatrixXd bbw_strain_skinning_matrix(VectorXi& handles, const MatrixXd& mV, const
     bbw_data.verbosity = 2;
     
     MatrixXd W, M;
+    cout<<"---------1--------"<<endl;
     if(!igl::bbw(mV, mT, b, bc, bbw_data, W))
     {
         std::cout<<"EXIT: Error here"<<std::endl;
         exit(0);
         return MatrixXd();
     }
+    cout<<"---------2--------"<<endl;
 
     // Normalize weights to sum to one
     igl::normalize_row_sums(W,W);
+    cout<<"---------3--------"<<endl;
+
     // precompute linear blend skinning matrix
     igl::lbs_matrix(mV,W,M);
+    cout<<"---------4--------"<<endl;
 
     MatrixXd tW = MatrixXd::Zero(mT.rows(), handles.size());
     for(int t =0; t<mT.rows(); t++){
@@ -91,18 +100,78 @@ MatrixXd bbw_strain_skinning_matrix(VectorXi& handles, const MatrixXd& mV, const
             tW(t, h) = (p0+p1+p2+p3)/4;  
         }
     }
+    cout<<"---------5--------"<<endl;
     igl::normalize_row_sums(tW, tW);
 
-    MatrixXd Id6 = MatrixXd::Identity(6, 6);
-    return Eigen::kroneckerProduct(tW, Id6);
+    cout<<"---------6--------"<<endl;
+    return tW;
+}
+
+MatrixXd setup_skinning_helper(int nsh_on_component, bool reduced, MatrixXi& mT, MatrixXd& mV, VectorXi& component,
+    SparseMatrix<double>& mC, SparseMatrix<double>& mA, MatrixXd& mG, VectorXd& mx0){
+    std::vector<VectorXi> empty_bones = {};
+
+    VectorXi skinning_elem_cluster_map;
+    std::map<int, std::vector<int>> skinning_cluster_elem_map;
+  
+    if(nsh_on_component==component.size()){
+        skinning_elem_cluster_map.resize(mT.rows());
+        for(int i=0; i<mT.rows(); i++){
+            skinning_elem_cluster_map[i] = i;
+        }
+    }else if(nsh_on_component==1){
+        skinning_elem_cluster_map.resize(mT.rows());
+        for(int i=0; i<mT.rows(); i++){
+            skinning_elem_cluster_map[i] = 0;
+        }
+    }else{
+        kmeans_clustering(skinning_elem_cluster_map, nsh_on_component, empty_bones, component, mG, mC, mA, mx0);
+    }
+
+     for(int i=0; i<mT.rows(); i++){
+        skinning_cluster_elem_map[skinning_elem_cluster_map[i]].push_back(i);
+    }
+
+    VectorXi handles_ind = VectorXi::Zero(nsh_on_component);
+    VectorXd CAx0 = mC*mA*mx0;
+    for(int k=0; k<nsh_on_component; k++){
+        std::vector<int> els = skinning_cluster_elem_map[k];
+        VectorXd centx = VectorXd::Zero(els.size());
+        VectorXd centy = VectorXd::Zero(els.size());
+        VectorXd centz = VectorXd::Zero(els.size());
+        Vector3d avg_cent;
+
+        for(int i=0; i<els.size(); i++){
+            centx[i] = CAx0[12*component[els[i]]];
+            centy[i] = CAx0[12*component[els[i]]+1];
+            centz[i] = CAx0[12*component[els[i]]+2];
+        }
+        avg_cent<<centx.sum()/centx.size(), centy.sum()/centy.size(),centz.sum()/centz.size();
+        int minind = els[0];
+        double mindist = (avg_cent - Vector3d(centx[0],centy[0],centz[0])).norm();
+        for(int i=1; i<els.size(); i++){
+            double dist = (avg_cent - Vector3d(centx[i], centy[i], centz[i])).norm();
+            if(dist<mindist){
+                mindist = dist;
+                minind = els[i];
+            }
+        }
+        handles_ind[k] = minind;
+    }
+
+    return bbw_strain_skinning_matrix(handles_ind, mV, mT);
+
 }
 
 void setup_skinning_handles(int nsh, bool reduced, const MatrixXi& mT, const MatrixXd& mV, std::vector<VectorXi>& ibones, VectorXi& imuscle,
-	SparseMatrix<double>& mC, SparseMatrix<double>& mA, MatrixXd& mG, VectorXd& mx0, 
-	VectorXi& ms_handles_ind, VectorXd& mred_s, MatrixXd& msW){
+	SparseMatrix<double>& mC, SparseMatrix<double>& mA, MatrixXd& mG, VectorXd& mx0, VectorXd& mred_s, MatrixXd& msW){
+
     std::cout<<"+ Skinning Handles"<<std::endl;
     if(nsh==0){
-        nsh = mT.rows();
+        nsh = ibones.size() + imuscle.size();
+    }else if(nsh<(ibones.size()+1)){//hard coded to 1 muscle for now
+        std::cout<<"Too few skinning handles, too many components"<<std::endl;
+        exit(0);
     }
 
     mred_s.resize(6*nsh);
@@ -115,54 +184,53 @@ void setup_skinning_handles(int nsh, bool reduced, const MatrixXi& mT, const Mat
         mred_s[6*i+5] = 0;
     }
 
-    if(nsh==mT.rows()){
+    if(!reduced){
         std::cout<<"- Unreduced Skinning Handles"<<std::endl;
         std::cout<<"Code should be sparseified"<<std::endl;
         std::cout<<"not setting sW matrix"<<std::endl;
         return;
     }
 
-    VectorXi skinning_elem_cluster_map;
-    std::map<int, std::vector<int>> skinning_cluster_elem_map;
-    if(nsh==mT.rows()){
-        skinning_elem_cluster_map.resize(mT.rows());
-        for(int i=0; i<mT.rows(); i++){
-            skinning_elem_cluster_map[i] = i;
+    //blocked construction of full skinning weights matrix
+    MatrixXd sW = MatrixXd::Zero(mT.rows(), nsh);
+    sW.setZero();
+    cout<<"----------Bone COMPONENTS------------"<<endl;
+    int insert_index = 0;
+    for(int b=0; b<ibones.size(); b++){
+        MatrixXi subT(ibones[b].size(), 4);
+        MatrixXi componentT;
+        MatrixXd componentV;
+        VectorXi J;
+        for(int i=0; i<ibones[b].size() ; i++){
+            subT.row(i) = mT.row(ibones[b][i]);
         }
-    }else{
-        kmeans_clustering(skinning_elem_cluster_map, nsh, ibones, imuscle, mG, mC, mA, mx0);
+        igl::remove_unreferenced(mV, subT, componentV, componentT, J);
+        MatrixXd sWi = setup_skinning_helper(1, reduced, componentT, componentV, ibones[b], mC, mA, mG, mx0);
+        MatrixXd sWslice = MatrixXd::Zero(mT.rows(), sWi.cols());
+        igl::slice_into(sWi , ibones[b], 1, sWslice);
+        sW.block(0,insert_index, mT.rows(), sWi.cols()) = sWslice;
+        nsh = nsh - 1; //bone skinning handle has been made, so decrease nsh by 1
+        insert_index += 1;
     }
-    for(int i=0; i<mT.rows(); i++){
-        skinning_cluster_elem_map[skinning_elem_cluster_map[i]].push_back(i);
+    cout<<"----------MUSCLE COMPONENTS------------"<<endl;
+    for(int i=0; i<1; i++){ //through muscle vector
+        MatrixXi componentT;
+        MatrixXd componentV;
+        MatrixXi subT(imuscle.size(), 4);
+        VectorXi J;
+        for(int i=0; i<imuscle.size() ; i++){
+            subT.row(i) = mT.row(imuscle[i]);
+        }
+        igl::remove_unreferenced(mV, subT, componentV, componentT, J);
+        MatrixXd sWi = setup_skinning_helper(nsh, reduced, componentT, componentV, imuscle, mC, mA, mG, mx0);   
+        MatrixXd sWslice = MatrixXd::Zero(mT.rows(), sWi.cols());
+        igl::slice_into(sWi , imuscle, 1, sWslice);
+        sW.block(0,insert_index, mT.rows(), sWi.cols()) = sWslice;
     }
 
-    ms_handles_ind.resize(nsh);
-    VectorXd CAx0 = mC*mA*mx0;
-    for(int k=0; k<nsh; k++){
-        std::vector<int> els = skinning_cluster_elem_map[k];
-        VectorXd centx = VectorXd::Zero(els.size());
-        VectorXd centy = VectorXd::Zero(els.size());
-        VectorXd centz = VectorXd::Zero(els.size());
-        Vector3d avg_cent;
-
-        for(int i=0; i<els.size(); i++){
-            centx[i] = CAx0[12*els[i]];
-            centy[i] = CAx0[12*els[i]+1];
-            centz[i] = CAx0[12*els[i]+2];
-        }
-        avg_cent<<centx.sum()/centx.size(), centy.sum()/centy.size(),centz.sum()/centz.size();
-        int minind = els[0];
-        double mindist = (avg_cent - Vector3d(centx[0],centy[0],centz[0])).norm();
-        for(int i=1; i<els.size(); i++){
-            double dist = (avg_cent - Vector3d(centx[i], centy[i], centz[i])).norm();
-            if(dist<mindist){
-                mindist = dist;
-                minind = els[i];
-            }
-        }
-        ms_handles_ind[k] = minind;
-    }
-    msW = bbw_strain_skinning_matrix(ms_handles_ind, mV, mT);
+    MatrixXd Id6 = MatrixXd::Identity(6, 6);
+    msW =  Eigen::kroneckerProduct(sW, Id6);
+ 
     std::cout<<"- Skinning Handles"<<std::endl;
 }
 
