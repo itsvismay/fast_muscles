@@ -22,7 +22,7 @@ void setup_modes(int nummodes, bool reduced, SparseMatrix<double>& mP, SparseMat
         if(nummodes==0){
             //reduced, but no modes
             cout<<"reduced, but no modes?"<<endl;
-            //mG = MatrixXd::Identity(3*mV.rows(), 3*mV.rows());
+            mG = MatrixXd::Identity(3*mV.rows(), 3*mV.rows());
             return;
         }
 
@@ -37,7 +37,7 @@ void setup_modes(int nummodes, bool reduced, SparseMatrix<double>& mP, SparseMat
         Eigen::SparseMatrix<double> M1 = M;
         Spectra::SparseSymMatProd<double>Aop(K1);
         Spectra::SparseCholesky<double> Bop(M1);
-        Spectra::SymGEigsSolver<double, Spectra::SMALLEST_MAGN, Spectra::SparseSymMatProd<double>, Spectra::SparseCholesky<double>, Spectra::GEIGS_CHOLESKY>geigs(&Aop, &Bop, nummodes, 5*nummodes);
+        Spectra::SymGEigsSolver<double, Spectra::SMALLEST_MAGN, Spectra::SparseSymMatProd<double>, Spectra::SparseCholesky<double>, Spectra::GEIGS_CHOLESKY>geigs(&Aop, &Bop, nummodes, 2*nummodes);
         geigs.init();
         cout<<"     eig2"<<endl;
         int nconv = geigs.compute();

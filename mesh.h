@@ -6,6 +6,7 @@
 #include <json.hpp>
 #include <unsupported/Eigen/MatrixFunctions>
 #include <iostream>
+#include <igl/readDMAT.h>
 #include "PreProcessing/to_triplets.h"
 #include "PreProcessing/setup_modes.h"
 #include "PreProcessing/setup_rotation_cluster.h"
@@ -105,7 +106,12 @@ public:
         setup_skinning_handles(nsh, reduced, mT, mV, ibones, imuscle, mC, mA, mG, mx0, mred_s, msW);
         
         print("step 12");
-        setup_modes(num_modes, reduced, mP, mA, mConstrained, mV, mmass_diag, mG);
+        if(num_modes == 1){
+            igl::readDMAT("savedEigs.dmat", mG);
+        }else{
+            setup_modes(num_modes, reduced, mP, mA, mConstrained, mV, mmass_diag, mG);
+            
+        }
 
         print("step 13");
         mUvecs.resize(mT.rows(), 3);
@@ -666,6 +672,7 @@ public:
         if(3*mV.rows()==mred_x.size()){
             x = mred_x+mx0;
         }else{
+            print("reduced G");
             x = mG*mred_x + mx0;
         }
         if(6*mT.rows() == mred_s.size()){
