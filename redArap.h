@@ -798,7 +798,7 @@ public:
 		}
 	}
 
-	int minimize(Mesh& m){
+	bool minimize(Mesh& m){
 		// print("	+ ARAP minimize");
 		VectorXd ms = m.sW()*m.red_s();
 		VectorXd USUtPAx0 = VectorXd::Zero(12*m.T().rows());
@@ -821,7 +821,6 @@ public:
 			itR(m, USUtPAx0);
 			m.constTimeFPAx0(aFPAx0);
 			double newE = Energy(m);
-			cout<<i<<",";
 			if((newE - oldE)>1e-8 && i>1){
 				print("Reduced_Arap::minimize() error. ARAP should monotonically decrease.");
 				print(i);
@@ -837,17 +836,17 @@ public:
 						// print(m.red_s().transpose());
 						// exit(0);
 					}
-					std::cout<<"		- Red_ARAP minimize "<<i<<", "<<(newE - previous5ItE)<<std::endl;
-					return i;
+					std::cout<<"		FinalARAPDiffInEnergy: "<<Energy(m)-previous5ItE<<std::endl;
+					return true;
 				}
 				previous5ItE = newE;
 			}
 		
 		}
 		
-		std::cout<<"		- ARAP never converged "<<Energy(m)-previous5ItE<<std::endl;
-		// exit(0);
-		return 1000;
+		std::cout<<"		FinalARAPDiffInEnergy: "<<Energy(m)-previous5ItE<<std::endl;
+		
+		return false;
 	}
 
 	MatrixXd Exx(){ return aExx; }

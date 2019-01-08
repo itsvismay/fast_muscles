@@ -88,9 +88,6 @@ int main(int argc, char *argv[])
     // igl::readDMAT(datafile+"output/bone_2_I.dmat", bone2);
 
     igl::boundary_facets(T, F);
-    cout<<"V size: "<<V.rows()<<endl;
-    cout<<"T size: "<<T.rows()<<endl;
-    cout<<"F size: "<<F.rows()<<endl;
     
     std::vector<int> fix = getMaxVerts_Axis_Tolerance(V, 1);
     std::vector<int> fix2 = getMaxVerts_Axis_Tolerance(V, 0, 0.5);
@@ -123,17 +120,25 @@ int main(int argc, char *argv[])
     param.linesearch = LBFGSpp::LBFGS_LINESEARCH_BACKTRACKING_ARMIJO;
     LBFGSSolver<double> solver(param);
 
+    cout<<"---Record Mesh Setup Info"<<endl;
+    cout<<"V size: "<<V.rows()<<endl;
+    cout<<"T size: "<<T.rows()<<endl;
+    cout<<"F size: "<<F.rows()<<endl;
+    cout<<"NSH: "<<j_input["number_skinning_handles"]<<endl;
+    cout<<"NRC: "<<j_input["number_rotation_clusters"]<<endl;
+
+
     int run =0;
     for(int run=0; run<6; run++){
         MatrixXd newV = mesh->continuousV();
         string datafile = j_input["data"];
-        igl::writeOBJ(datafile+"skinned-clustered"+to_string(run)+".obj",newV, F);
-        igl::writeDMAT(datafile+"skinned-clustered_V"+to_string(run)+".dmat",newV);
-        
+        igl::writeOBJ(datafile+"modes-skinned-clustered"+to_string(run)+".obj",newV, F);
+        igl::writeDMAT(datafile+"modes-skinned-clustered_V"+to_string(run)+".dmat",newV);
+        cout<<"---Quasi-Newton Step Info"<<endl;
         double fx =0;
         VectorXd ns = mesh->N().transpose()*mesh->red_s();
         int niter = solver.minimize(f, ns, fx);
-        cout<<"End BFGS"<<", "<<niter<<endl;
+        cout<<"BFGSIters: "<<niter<<endl;
         VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
         for(int i=0; i<reds.size(); i++){
             mesh->red_s()[i] = reds[i];

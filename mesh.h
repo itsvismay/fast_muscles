@@ -99,13 +99,13 @@ public:
         setDiscontinuousMeshT();
 
         print("step 10");
-        setup_modes(num_modes, reduced, mP, mA, mConstrained, mV, mmass_diag, mG);
+        setup_rotation_cluster(nrc, reduced, mT, mV, ibones, imuscle, mred_x, mred_r, mred_w, mC, mA, mG, mx0, mRotationBLOCK, mr_cluster_elem_map, mr_elem_cluster_map);
 
         print("step 11");
-        setup_rotation_cluster(nrc, reduced, mT, mV, ibones, imuscle, mred_x, mred_r, mred_w, mC, mA, mG, mx0, mRotationBLOCK, mr_cluster_elem_map, mr_elem_cluster_map);
+        setup_skinning_handles(nsh, reduced, mT, mV, ibones, imuscle, mC, mA, mG, mx0, mred_s, msW);
         
         print("step 12");
-        setup_skinning_handles(nsh, reduced, mT, mV, ibones, imuscle, mC, mA, mG, mx0, mred_s, msW);
+        setup_modes(num_modes, reduced, mP, mA, mConstrained, mV, mmass_diag, mG);
 
         print("step 13");
         mUvecs.resize(mT.rows(), 3);

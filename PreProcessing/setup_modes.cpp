@@ -3,8 +3,9 @@
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 #include <iostream>
+#include <igl/writeDMAT.h>
 
-#include <MatOp/SparseGenMatProd.h>
+#include <MatOp/SparseSymMatProd.h>
 #include <MatOp/SparseCholesky.h>
 #include <SymGEigsSolver.h>
 #include <GenEigsSolver.h>
@@ -27,14 +28,16 @@ void setup_modes(int nummodes, bool reduced, SparseMatrix<double>& mP, SparseMat
 
         cout<<"+EIG SOLVE"<<endl;
         SparseMatrix<double> K = (mP*mA).transpose()*mP*mA;
-        Spectra::SparseGenMatProd<double> Aop(K);
         SparseMatrix<double> M(3*mV.rows(), 3*mV.rows());
         for(int i=0; i<mmass_diag.size(); i++){
             M.coeffRef(i,i) = mmass_diag[i];
         }
         cout<<"     eig1"<<endl;
-        Spectra::SparseCholesky<double> Bop(M);
-        Spectra::SymGEigsSolver<double, Spectra::SMALLEST_MAGN, Spectra::SparseGenMatProd<double>, Spectra::SparseCholesky<double>, Spectra::GEIGS_CHOLESKY>geigs(&Aop, &Bop, nummodes, 5*nummodes);
+        Eigen::SparseMatrix<double> K1 = K;
+        Eigen::SparseMatrix<double> M1 = M;
+        Spectra::SparseSymMatProd<double>Aop(K1);
+        Spectra::SparseCholesky<double> Bop(M1);
+        Spectra::SymGEigsSolver<double, Spectra::SMALLEST_MAGN, Spectra::SparseSymMatProd<double>, Spectra::SparseCholesky<double>, Spectra::GEIGS_CHOLESKY>geigs(&Aop, &Bop, nummodes, 5*nummodes);
         geigs.init();
         cout<<"     eig2"<<endl;
         int nconv = geigs.compute();
@@ -45,6 +48,11 @@ void setup_modes(int nummodes, bool reduced, SparseMatrix<double>& mP, SparseMat
         {
             eigenvalues = geigs.eigenvalues();
             eigenvectors = geigs.eigenvectors();
+            MatrixXd Kdense = MatrixXd(K);
+            igl::writeDMAT( "Kmat.dmat", Kdense);
+            igl::writeDMAT( "Mmat.dmat", MatrixXd(M));
+            igl::writeDMAT( "readEigs.dmat", eigenvalues);
+            igl::writeDMAT( "readVecs.dmat", eigenvectors);
         }
         else
         {
@@ -54,6 +62,8 @@ void setup_modes(int nummodes, bool reduced, SparseMatrix<double>& mP, SparseMat
         cout<<"     eig4"<<endl;
         // eigenvalues.head(eigenvalues.size() - 3));
         MatrixXd eV = eigenvectors.leftCols(eigenvalues.size() -3);
+        mG = eigenvectors;//.leftCols(eigenvalues.size() -3);
+        return;
         cout<<"-EIG SOLVE"<<endl;
 
         //############handle modes KKT solve#####
