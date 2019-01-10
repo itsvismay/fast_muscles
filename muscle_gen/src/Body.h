@@ -18,7 +18,9 @@ namespace muscle_gen {
 		TetMesh tet_mesh; // Tet mesh for whole muscle + bone system
 		
 		Eigen::MatrixXd combined_fiber_directions; // |T| x 3 (Zeros for bones)
-		
+		Eigen::MatrixXd harmonic_boundary_verts;
+
+
 		std::vector<int> joint_indices; // All tets belonging to joints
 
 		// Split up and mapped by name

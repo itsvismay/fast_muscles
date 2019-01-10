@@ -56,6 +56,21 @@ namespace muscle_gen {
 		return false;
 	}
 
+	void update(igl::opengl::glfw::Viewer &viewer, const Body &body, const std::map<std::string, int> &mesh_indices, const std::vector<Eigen::MatrixXd> &fiber_edges, double cutaway_offset) {
+		for(const auto &tet_mesh_el : body.split_tet_meshes) {
+			update_cutaway(viewer, tet_mesh_el.second, cutaway_offset, mesh_indices.at(tet_mesh_el.first));
+		}
+		if(fiber_edges.size() > 0) {
+			viewer.data().add_edges(fiber_edges[0], fiber_edges[1], RowVector3d(1.0, 0.0, 0.0));
+		}
+
+		int n_boundary_verts = body.harmonic_boundary_verts.rows();
+		if(n_boundary_verts > 0) {
+			MatrixXd C = RowVector3d(0,0,1).replicate(n_boundary_verts, 1);
+			viewer.data().add_points(body.harmonic_boundary_verts, C);
+		}
+	}
+
 	void launch_viewer(const Body &body) {
 		igl::opengl::glfw::Viewer viewer;
 		igl::opengl::glfw::imgui::ImGuiMenu menu;
@@ -75,23 +90,18 @@ namespace muscle_gen {
 		for(const auto &tet_mesh_el : body.split_tet_meshes) {
 			const int mesh_index = viewer.append_mesh();
 			mesh_indices[tet_mesh_el.first] = mesh_index;
-			update_cutaway(viewer, tet_mesh_el.second, cutaway_offset, mesh_index);
 		}
+
 		
 		menu.callback_draw_viewer_menu = [&]()
 		{
 			if(ImGui::InputFloat("Cutaway Plane", &cutaway_offset, 0.1f, 1.0f, 1)) {
-				for(const auto &tet_mesh_el : body.split_tet_meshes) {
-					update_cutaway(viewer, tet_mesh_el.second, cutaway_offset, mesh_indices[tet_mesh_el.first]);
-				}
+				update(viewer, body, mesh_indices, fiber_edges, cutaway_offset);
 			}
 		};
 
 
-		if(fiber_edges.size() > 0) {
-			viewer.data().add_edges(fiber_edges[0], fiber_edges[1], RowVector3d(1.0, 0.0, 0.0));
-		}
-		
+		update(viewer, body, mesh_indices, fiber_edges, cutaway_offset);
 		viewer.launch();
 	}
 

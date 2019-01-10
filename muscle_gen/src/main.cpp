@@ -11,15 +11,18 @@
 #include <igl/opengl/glfw/imgui/ImGuiHelpers.h>
 
 #include <igl/barycenter.h>
+#include <igl/boundary_facets.h>
 #include <igl/combine.h>
 #include <igl/grad.h>
 #include <igl/harmonic.h>
+#include <igl/intersect.h>
 #include <igl/list_to_matrix.h>
 #include <igl/readDMAT.h>
 #include <igl/readOBJ.h>
 #include <igl/remove_unreferenced.h>
 #include <igl/signed_distance.h>
 #include <igl/slice.h>
+#include <igl/writeDMAT.h>
 #include <igl/unique.h>
 
 #include <nlohmann/json.hpp>
@@ -122,8 +125,8 @@ TetMesh tetrahedralize_mesh(const Mesh &surf_mesh) {
 
 TetMesh load_body_tet_mesh(const string &body_dir) {
 	string tets_dir = lf::path::join(body_dir, "generated_files/");
-	string T_path = lf::path::join(tets_dir, "combined_T.dmat");
-	string V_path = lf::path::join(tets_dir, "combined_V.dmat");
+	string T_path = lf::path::join(tets_dir, "temp_saved_T.dmat");
+	string V_path = lf::path::join(tets_dir, "temp_saved_V.dmat");
 
 	TetMesh tet_mesh;
 	std::cout << "Reading " << T_path << std::endl;
@@ -132,6 +135,17 @@ TetMesh load_body_tet_mesh(const string &body_dir) {
 	igl::readDMAT(V_path, tet_mesh.V);	
 
 	return tet_mesh;
+}
+
+void save_body_tet_mesh(const string &body_dir, const TetMesh &tet_mesh) {
+	string tets_dir = lf::path::join(body_dir, "generated_files/");
+	string T_path = lf::path::join(tets_dir, "temp_saved_T.dmat");
+	string V_path = lf::path::join(tets_dir, "temp_saved_V.dmat");
+
+	std::cout << "Writing " << T_path << std::endl;
+	std::cout << "Writing " << V_path << std::endl;
+	igl::writeDMAT(T_path, tet_mesh.T, false);
+	igl::writeDMAT(V_path, tet_mesh.V, false);	
 }
 
 
@@ -204,14 +218,16 @@ void split_tet_meshes(
 
 			TetMesh split_tet_mesh;
 			MatrixXi temp;
-			igl::remove_unreferenced(temp_tet_mesh.V, temp_tet_mesh.T, split_tet_mesh.V, split_tet_mesh.T, temp);
+			igl::unique(temp_tet_mesh.T, split_tet_mesh.orig_indices);
+			igl::remove_unreferenced(temp_tet_mesh.V, temp_tet_mesh.T, split_tet_mesh.V, split_tet_mesh.T, split_tet_mesh.I, split_tet_mesh.J);
+
 			split_tet_meshes[el.first] = split_tet_mesh;
 		}
 	}
 }
 
 
-void compute_muscle_fibers(const Body &body, MatrixXd &combined_fiber_directions) {
+void compute_muscle_fibers(const Body &body, MatrixXd &combined_fiber_directions, MatrixXd &harmonic_boundary_verts) {
 
 	// For each muscle
 	// 	Identify attachment points
@@ -219,7 +235,8 @@ void compute_muscle_fibers(const Body &body, MatrixXd &combined_fiber_directions
 	// 	Do harmonic solve
 	// 	Gradient
 	// 	Store fiber directions
-	
+	combined_fiber_directions = MatrixXd::Zero(body.tet_mesh.T.rows(), 3);
+	std::vector<std::vector<double>> harmonic_boundary_verts_vec;
 	for(const auto &el : body.muscle_indices) {
 		const auto &muscle_name = el.first;
 		const TetMesh &muscle_tet_mesh = body.split_tet_meshes.at(muscle_name);
@@ -227,48 +244,89 @@ void compute_muscle_fibers(const Body &body, MatrixXd &combined_fiber_directions
 		// Need to compute boundary conditions for harmonic solve
 		VectorXi boundary_verts;
 		VectorXd boundary_vals;
-		
-		VectorXi muscle_verts_I;
-		igl::unique(muscle_tet_mesh.T, muscle_verts_I);
+	
 
-		// Get distance of all muscle verts to all the bones
-		std::vector<VectorXd> muscle_to_bone_dists;
-		for(const auto &bone_surf_el : body.bone_surfs) {
-			VectorXd S;
-			VectorXi I;
-			MatrixXd C, N;
-			igl::signed_distance(muscle_tet_mesh.V, bone_surf_el.second.V, bone_surf_el.second.F, igl::SignedDistanceType::SIGNED_DISTANCE_TYPE_WINDING_NUMBER, S, I, C, N);
-			muscle_to_bone_dists.push_back(S);
-		}
-
-		// Keep all the verts touching a bone and assign a boundary value
 		std::vector<int> boundary_verts_vec;
 		std::vector<double> boundary_vals_vec;
-		const double tolerance = 1e-6; 
-		int first_bone = -1; //dirty hack to make everything but the first bone found a heat sink
-		for(int i = 0; i < muscle_verts_I.size(); i++) {
-			const int muscle_vert_index = muscle_verts_I[i];
-			for(const auto &muscle_to_bone_dist : muscle_to_bone_dists) {
-				if(std::abs(muscle_to_bone_dist[muscle_vert_index]) <= tolerance) {
-					boundary_verts_vec.push_back(muscle_vert_index);
+		bool first_bone_found = false; // Only works (for sure) for muscles with two attachments
+		for(const auto &bone_el : body.bone_indices) {
+			const auto &bone_name = el.first;
+			const TetMesh &bone_tet_mesh = body.split_tet_meshes.at(bone_el.first);
 
-					// TODO - This is a horrible assumption
-					// It will always work in the case of one muscle attached to two bones.
-					// If there is one muscle attached to three bones, it may break depending on order.
-					if(first_bone == -1) { first_bone = i; }
-					if(i == first_bone) {
-						boundary_vals_vec.push_back(-1.0);
-					} else {
-						boundary_vals_vec.push_back(1.0);
-					}
-
-					break;
+			VectorXi inBoth;
+			igl::intersect(bone_tet_mesh.orig_indices, muscle_tet_mesh.orig_indices, inBoth);
+			
+			double bval = 0.0;
+			if(inBoth.size() > 0) {
+				if(!first_bone_found) {
+					bval = 1.0;
+				} else {
+					bval = -1.0;
 				}
+				first_bone_found = true;
+			}
+
+			for(int j = 0; j < inBoth.size(); j++) {
+				int muscle_vert_index = muscle_tet_mesh.I(inBoth(j));
+				boundary_vals_vec.push_back(bval);
+				boundary_verts_vec.push_back(muscle_vert_index);
+				harmonic_boundary_verts_vec.push_back({muscle_tet_mesh.V(muscle_vert_index, 0), muscle_tet_mesh.V(muscle_vert_index, 1), muscle_tet_mesh.V(muscle_vert_index, 2)});
 			}
 		}
+
+
+		// VectorXi muscle_verts_I;
+		// igl::unique(muscle_tet_mesh.T, muscle_verts_I);
+
+		// // Get distance of all muscle verts to all the bones
+		// std::vector<VectorXd> muscle_to_bone_dists;
+		// for(const auto &bone_surf_el : body.bone_surfs) {
+		// 	const string &bone_name = bone_surf_el.first;
+		// 	MatrixXi boneF;
+		// 	const TetMesh &bone_tet_mesh = body.split_tet_meshes.at(bone_name);
+		// 	MatrixXd boneV = bone_tet_mesh.V.array() + 0.001;
+		// 	igl::boundary_facets(bone_tet_mesh.T, boneF);
+
+		// 	VectorXd S;
+		// 	VectorXi I;
+		// 	MatrixXd C, N;
+		// 	igl::signed_distance(muscle_tet_mesh.V, boneV, boneF, igl::SignedDistanceType::SIGNED_DISTANCE_TYPE_PSEUDONORMAL, S, I, C, N);
+		// 	muscle_to_bone_dists.push_back(S);
+		// }
+
+		// // Keep all the verts touching a bone and assign a boundary value
+		// std::vector<int> boundary_verts_vec;
+		// std::vector<double> boundary_vals_vec;
+		// const double tolerance = 0.002;//1e-3;//1e-8; 
+		// int first_bone = -1; //dirty hack to make everything but the first bone found a heat sink
+		// for(int i = 0; i < muscle_verts_I.size(); i++) {
+		// 	const int muscle_vert_index = muscle_verts_I[i];
+
+		// 	for(int j = 0; j < muscle_to_bone_dists.size(); j++) {
+		// 		auto &muscle_to_bone_dist = muscle_to_bone_dists[j];
+
+		// 		if(std::abs(muscle_to_bone_dist(muscle_vert_index)) <= tolerance) {
+		// 			boundary_verts_vec.push_back(muscle_vert_index);
+		// 			harmonic_boundary_verts_vec.push_back({muscle_tet_mesh.V(muscle_vert_index, 0), muscle_tet_mesh.V(muscle_vert_index, 1), muscle_tet_mesh.V(muscle_vert_index, 2)});
+
+		// 			// TODO - This is a horrible assumption
+		// 			// It will always work in the case of one muscle attached to two bones.
+		// 			// If there is one muscle attached to three bones, it may break depending on order.
+		// 			if(first_bone == -1) { first_bone = j; }
+		// 			if(j == first_bone) {
+		// 				boundary_vals_vec.push_back(-1.0);
+		// 			} else {
+		// 				boundary_vals_vec.push_back(1.0);
+		// 			}
+
+		// 			break;
+		// 		} else {
+		// 			// std::cout << muscle_to_bone_dist(muscle_vert_index) << " ";
+		// 		}
+		// 	}
+		// }
 		igl::list_to_matrix(boundary_verts_vec, boundary_verts);
 		igl::list_to_matrix(boundary_vals_vec, boundary_vals);
-
 
 		// Now do the harmonic solve and compute the gradient
 		MatrixXd W;
@@ -281,12 +339,11 @@ void compute_muscle_fibers(const Body &body, MatrixXd &combined_fiber_directions
 		fiber_directions.rowwise().normalize();
 
 		// Map them back to the combined mesh
-		combined_fiber_directions = MatrixXd::Zero(body.tet_mesh.T.rows(), 3);
 		for(int i = 0; i < fiber_directions.rows(); i++) {
 			combined_fiber_directions.row(el.second[i]) = fiber_directions.row(i);
 		}
 	}
-
+	igl::list_to_matrix(harmonic_boundary_verts_vec, harmonic_boundary_verts);
 }
 
 
@@ -306,33 +363,44 @@ void add_joints(const json &config, const string &obj_dir, Body &body) {
 		// TODO For hinges only
 		const int nV = body.tet_mesh.V.rows();
 		const int nT = body.tet_mesh.T.rows();
-		body.tet_mesh.V.conservativeResize(nV + n_verts_in_joint, 3);
-		body.tet_mesh.T.conservativeResize(nT + 2, 4);
-		body.combined_fiber_directions.conservativeResize(nT + 2, 3);
+		const int new_nV = nV + n_verts_in_joint;
+		const int new_nT = nT + 2 * n_verts_in_joint;
+		body.tet_mesh.V.conservativeResize(new_nV, 3);
+		body.tet_mesh.T.conservativeResize(new_nT, 4); // 2 for ball, 4 for hinge
+		body.combined_fiber_directions.conservativeResize(new_nT, 3);
 		
 		for(int i = 0; i < n_verts_in_joint; i++) {
 			body.tet_mesh.V.row(nV + i) = joint_mesh.V.row(i);
 		}
 
-		if(type == "hinge") {
-			for(int i = 0; i < 2; i++) { // for n tets
-				body.bone_indices[bones[i]].push_back(nT + i);
+	
+		for(int i = 0; i < 2; i++) { 
+			const string cur_bone = bones[i];
+			auto &cur_bone_indices = body.bone_indices[cur_bone];
+			RowVector4i to_attach_tet = body.tet_mesh.T.row(cur_bone_indices[0]);
 
-				const string cur_bone = bones[i];
-				auto &cur_bone_indices = body.bone_indices[cur_bone];
-				RowVector4i to_attach_tet = body.tet_mesh.T.row(cur_bone_indices[0]);
+			if(type == "hinge") {
+				for(int j = 0; j < 2; j++) {
+					const int new_tet_i = nT + 2 * i + j;
+					cur_bone_indices.push_back(new_tet_i);
+					body.tet_mesh.T.row(new_tet_i) = RowVector4i(nV, nV+1, to_attach_tet(0 + j), to_attach_tet(1 + j));
+					body.combined_fiber_directions.row(new_tet_i) = RowVector3d(0.0, 0.0, 0.0);
+				}
+			} else if (type == "ball") {
 				const int new_tet_i = nT + i;
-				body.tet_mesh.T.row(new_tet_i) = RowVector4i(nV, nV+1, to_attach_tet(0), to_attach_tet(1));
+				cur_bone_indices.push_back(new_tet_i);
+				body.tet_mesh.T.row(new_tet_i) = RowVector4i(nV, to_attach_tet(0), to_attach_tet(1), to_attach_tet(2));
 				body.combined_fiber_directions.row(new_tet_i) = RowVector3d(0.0, 0.0, 0.0);
 				body.joint_indices.push_back(new_tet_i);
+			} else {
+				std::cout << "Unsupported joint type!" << std::endl;
+				exit(1);
 			}
-		} else {
-			std::cout << "ERROR NOT IMPLEMENTED" << std::endl;
-			exit(1);
 		}
 		
 	}
 }
+
 
 void generate_body_from_config(const string &body_dir, bool load_existing_tets, Body &body) {
 	json config = read_config(body_dir);
@@ -341,22 +409,21 @@ void generate_body_from_config(const string &body_dir, bool load_existing_tets, 
 	read_surfs(config, obj_dir, body.bone_surfs, body.muscle_surfs);
 	string surf_dir = lf::path::join(body_dir, "objs/");
 
-
 	body.surf_mesh = combine_surfs(body.bone_surfs, body.muscle_surfs);
 
+	// This is just to speed up development, saved files remain unused
 	if(load_existing_tets) {
 		body.tet_mesh = load_body_tet_mesh(body_dir);
 	} else {
 		body.tet_mesh = tetrahedralize_mesh(body.surf_mesh);
+		save_body_tet_mesh(body_dir, body.tet_mesh);
 	}
 
 	compute_indices(body.tet_mesh, body.bone_surfs, body.muscle_surfs, body.bone_indices, body.muscle_indices);
 	split_tet_meshes(body.tet_mesh, body.bone_indices, body.muscle_indices, body.split_tet_meshes);
-	compute_muscle_fibers(body, body.combined_fiber_directions);
+	compute_muscle_fibers(body, body.combined_fiber_directions, body.harmonic_boundary_verts);
 
-	if(!load_existing_tets) {
-		add_joints(config, obj_dir, body);
-	}
+	add_joints(config, obj_dir, body);
 }
 
 
@@ -372,8 +439,8 @@ int main(int argc, char *argv[])
 
 
 	map<string, TetMesh> temp_tet_mesh;
-	temp_tet_mesh["asdasd"] = body.tet_mesh;
-	body.split_tet_meshes = temp_tet_mesh;
+	// temp_tet_mesh["asdasd"] = body.tet_mesh;
+	// body.split_tet_meshes = temp_tet_mesh;
 	launch_viewer(body);
 
 	return 0;
