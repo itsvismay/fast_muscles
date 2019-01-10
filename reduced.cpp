@@ -95,7 +95,7 @@ int main()
     getMinTets_Axis_Tolerance(bone2, V, T, 1, 3);
     VectorXi bone1vec = VectorXi::Map(bone1.data(), bone1.size());
     VectorXi bone2vec = VectorXi::Map(bone2.data(), bone2.size());
-    std::vector<VectorXi> bones = {bone1vec};
+    std::vector<VectorXi> bones = {bone1vec, bone2vec};
     VectorXi bonesvec(bone1vec.size() + bone2vec.size());
     bonesvec<< bone1vec,bone2vec;
 
@@ -108,7 +108,7 @@ int main()
     }
     VectorXi muscle1;
     VectorXi shit;
-    igl::setdiff(all, bone1vec, muscle1, shit);
+    igl::setdiff(all, bonesvec, muscle1, shit);
 
     Mesh* mesh = new Mesh(T, V, fix, mov, bones, muscle1, Uvec, j_input);
 
@@ -158,16 +158,16 @@ int main()
     Colors = (Colors + MatrixXd::Constant(100,3,1e-6)); //set LO as the lower bound (offset)
     double tttt = 0;
     int kkkk = 0;
-    // cout<<mesh->G()<<endl;
-    // cout<<mesh->G()<<endl;
     viewer.callback_pre_draw = [&](igl::opengl::glfw::Viewer & viewer)
     {   
         if(viewer.core.is_animating)
         {   
-            // VectorXd x = 10*sin(tttt)*mesh->G().col(mesh->G().cols() - 1 - kkkk) + mesh->x0();
-            // Eigen::Map<Eigen::MatrixXd> newV(x.data(), V.cols(), V.rows());
-            // viewer.data().set_mesh(newV.transpose(), F);
-            // tttt+= 0.1;
+            // if(kkkk<mesh->G().cols()){
+            //     VectorXd x = 10*sin(tttt)*mesh->G().col(kkkk) + mesh->x0();
+            //     Eigen::Map<Eigen::MatrixXd> newV(x.data(), V.cols(), V.rows());
+            //     viewer.data().set_mesh(newV.transpose(), F);
+            //     tttt+= 0.1;
+            // }
     	}
             
         
@@ -175,7 +175,10 @@ int main()
     };
 
     viewer.callback_key_down = [&](igl::opengl::glfw::Viewer & viewer, unsigned char key, int modifiers)
-    {   std::cout<<"Key down, "<<key<<std::endl;
+    {   
+        kkkk +=1;
+
+        std::cout<<"Key down, "<<key<<std::endl;
         viewer.data().clear();
         
         //----------------

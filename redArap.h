@@ -45,6 +45,7 @@ public:
 		int z_size = m.red_x().size();
 		int s_size = m.red_s().size();
 		int t_size = m.T().rows();
+		int v_size = m.V().rows();
 
 		aFPAx0.resize(12*m.T().rows());
 		aFPAx0.setZero();
@@ -54,8 +55,8 @@ public:
 		print("arap 2");
 		aErr_max.resize(3*t_size, 3*t_size);
 		aErs_max.resize(3*t_size, 6*t_size);
-		aExr_max.resize(z_size, 3*t_size);
-		aExs_max.resize(z_size, 6*t_size);
+		aExr_max.resize(3*v_size, 3*t_size);
+		aExs_max.resize(3*v_size, 6*t_size);
 		aEr_max.resize(3*t_size);
 		aEs_max.resize(6*t_size);
 
@@ -82,8 +83,6 @@ public:
 		aJacKKT.resize(z_size+r_size+aCG.rows(), z_size+r_size+aCG.rows());
 		aJacConstrains.resize(z_size+r_size+aCG.rows() ,s_size);
 
-
-
 		print("rarap 6");
 		setupAdjointP();
 
@@ -91,6 +90,10 @@ public:
 		setupWrWw(m);
 		setupFastItR(m);
 
+		print("Jacobian solve pre-processing");
+		aJacKKT.block(0,0,aExx.rows(), aExx.cols()) = Exx();
+		aJacKKT.block(aExx.rows()+aExr.cols(), 0, aCG.rows(), aCG.cols()) = aCG;
+		aJacKKT.block(0, aExx.cols()+aExr.cols(), aCG.cols(), aCG.rows())= aCG.transpose();
 	}
 
 	void setupAdjointP(){
@@ -123,7 +126,6 @@ public:
 				ww_trips.push_back(Trip(3*cluster_elem[e]+2, 3*i+2, 1));
 			
 			}
-
 		}
 
 		a_Wr.resize( 9*m.T().rows(), m.red_r().size());
@@ -307,14 +309,14 @@ public:
 		aJacKKT.setZero();
 		aJacConstrains.setZero();
 		//col1
-		aJacKKT.block(0,0,aExx.rows(), aExx.cols()) = Exx();
+		
 		aJacKKT.block(aExx.rows(), 0, aExr.cols(), aExr.rows()) = Exr().transpose();
-		aJacKKT.block(aExx.rows()+aExr.cols(), 0, aCG.rows(), aCG.cols()) = aCG;
+		
 		//col2
 		aJacKKT.block(0,aExx.cols(),aExr.rows(), aExr.cols()) = Exr();
 		aJacKKT.block(aExr.rows(), aExx.cols(), aErr.rows(), aErr.cols()) = Err();
 		// // //col3
-		aJacKKT.block(0, aExx.cols()+aExr.cols(), aCG.cols(), aCG.rows())= aCG.transpose();
+		
 		// //rhs
 		aJacConstrains.block(0,0, aExs.rows(), aExs.cols()) = Exs();
 		aJacConstrains.block(aExs.rows(), 0, aErs.rows(), aErs.cols()) = Ers();
@@ -378,10 +380,10 @@ public:
 			for(int e=0; e<4; e++){
 				//Vert on tet
 				for(int a =0; a<3; a++){
-					Matrix3d p1 = -1*aPAG.col(3*m.T().row(t)[e]+a).segment<3>(12*t+0)*(s*aPAx0.segment<3>(12*t+0)).transpose();
-					Matrix3d p2 = -1*aPAG.col(3*m.T().row(t)[e]+a).segment<3>(12*t+3)*(s*aPAx0.segment<3>(12*t+3)).transpose();
-					Matrix3d p3 = -1*aPAG.col(3*m.T().row(t)[e]+a).segment<3>(12*t+6)*(s*aPAx0.segment<3>(12*t+6)).transpose();
-					Matrix3d p4 = -1*aPAG.col(3*m.T().row(t)[e]+a).segment<3>(12*t+9)*(s*aPAx0.segment<3>(12*t+9)).transpose();
+					Matrix3d p1 = -1*aPA.col(3*m.T().row(t)[e]+a).segment<3>(12*t+0)*(s*aPAx0.segment<3>(12*t+0)).transpose();
+					Matrix3d p2 = -1*aPA.col(3*m.T().row(t)[e]+a).segment<3>(12*t+3)*(s*aPAx0.segment<3>(12*t+3)).transpose();
+					Matrix3d p3 = -1*aPA.col(3*m.T().row(t)[e]+a).segment<3>(12*t+6)*(s*aPAx0.segment<3>(12*t+6)).transpose();
+					Matrix3d p4 = -1*aPA.col(3*m.T().row(t)[e]+a).segment<3>(12*t+9)*(s*aPAx0.segment<3>(12*t+9)).transpose();
 					
 
 					double Exar1 = p1.cwiseProduct(r1).sum() + p2.cwiseProduct(r1).sum() + p3.cwiseProduct(r1).sum() + p4.cwiseProduct(r1).sum();
@@ -443,10 +445,10 @@ public:
 				//Vert on tet
 				for(int a=0; a<3; a++){
 					//x, y, or z axis
-					Vector3d GtAtPtRU_row1 = -1*aPAG.col(3*m.T().row(t)[e]+a).segment<3>(12*t+0).transpose()*r;
-					Vector3d GtAtPtRU_row2 = -1*aPAG.col(3*m.T().row(t)[e]+a).segment<3>(12*t+3).transpose()*r;
-					Vector3d GtAtPtRU_row3 = -1*aPAG.col(3*m.T().row(t)[e]+a).segment<3>(12*t+6).transpose()*r;
-					Vector3d GtAtPtRU_row4 = -1*aPAG.col(3*m.T().row(t)[e]+a).segment<3>(12*t+9).transpose()*r;
+					Vector3d GtAtPtRU_row1 = -1*aPA.col(3*m.T().row(t)[e]+a).segment<3>(12*t+0).transpose()*r;
+					Vector3d GtAtPtRU_row2 = -1*aPA.col(3*m.T().row(t)[e]+a).segment<3>(12*t+3).transpose()*r;
+					Vector3d GtAtPtRU_row3 = -1*aPA.col(3*m.T().row(t)[e]+a).segment<3>(12*t+6).transpose()*r;
+					Vector3d GtAtPtRU_row4 = -1*aPA.col(3*m.T().row(t)[e]+a).segment<3>(12*t+9).transpose()*r;
 					Matrix3d p1 = GtAtPtRU_row1*aPAx0.segment<3>(12*t+0).transpose();
 					Matrix3d p2 = GtAtPtRU_row2*aPAx0.segment<3>(12*t+3).transpose();
 					Matrix3d p3 = GtAtPtRU_row3*aPAx0.segment<3>(12*t+6).transpose();
@@ -519,13 +521,16 @@ public:
 			}	
 		}
 
-
-		aExr_max.setFromTriplets(aExr_max_trips.begin(), aExr_max_trips.end());
+		print("		1");
 		aErr_max.setFromTriplets(aErr_max_trips.begin(), aErr_max_trips.end());
-		aExs_max.setFromTriplets(aExs_max_trips.begin(), aExs_max_trips.end());
+		print("		2");
 		aErs_max.setFromTriplets(aErs_max_trips.begin(), aErs_max_trips.end());
+		print("		3");
+		aExs_max.setFromTriplets(aExs_max_trips.begin(), aExs_max_trips.end());
+		print("		4");
+		aExr_max.setFromTriplets(aExr_max_trips.begin(), aExr_max_trips.end());
 
-		MatrixXd temp1 = a_Ww.transpose()*aErr_max*a_Ww;
+		SparseMatrix<double> temp1 = a_Ww.transpose()*aErr_max*a_Ww;
 		MatrixXd temp2 = m.G().transpose()*aExr_max*a_Ww;
 		MatrixXd temp3 = a_Ww.transpose()*aErs_max*m.sW();
 		MatrixXd temp4 = m.G().transpose()*aExs_max*m.sW();
@@ -731,7 +736,7 @@ public:
 						// print(m.red_s().transpose());
 						// exit(0);
 					}
-					std::cout<<"		FinalARAPDiffInEnergy: "<<Energy(m)-previous5ItE<<std::endl;
+					// std::cout<<"		FinalARAPDiffInEnergy: "<<Energy(m)-previous5ItE<<std::endl;
 					return true;
 				}
 				previous5ItE = newE;
@@ -739,7 +744,7 @@ public:
 		
 		}
 		
-		std::cout<<"		FinalARAPDiffInEnergy: "<<Energy(m)-previous5ItE<<std::endl;
+		// std::cout<<"		NotConvergedARAPDiffInEnergy: "<<Energy(m)-previous5ItE<<std::endl;
 		
 		return false;
 	}

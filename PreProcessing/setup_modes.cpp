@@ -14,7 +14,7 @@ using namespace Eigen;
 using namespace std;
 typedef Eigen::Triplet<double> Trip;
 
-void setup_modes(int nummodes, bool reduced, SparseMatrix<double>& mP, SparseMatrix<double>& mA, SparseMatrix<double> mConstrained, MatrixXd& mV, VectorXd& mmass_diag, MatrixXd& mG){
+void setup_modes(int nummodes, bool reduced, SparseMatrix<double>& mP, SparseMatrix<double>& mA, SparseMatrix<double> mConstrained, SparseMatrix<double> mUnconstrained, MatrixXd& mV, VectorXd& mmass_diag, MatrixXd& mG){
         if(nummodes==0 && reduced==false){
             //Unreduced just dont use G
             return;
@@ -32,37 +32,49 @@ void setup_modes(int nummodes, bool reduced, SparseMatrix<double>& mP, SparseMat
         for(int i=0; i<mmass_diag.size(); i++){
             M.coeffRef(i,i) = mmass_diag[i];
         }
+
+
         cout<<"     eig1"<<endl;
-        Eigen::SparseMatrix<double> K1 = K;
-        Eigen::SparseMatrix<double> M1 = M;
-        Spectra::SparseSymMatProd<double>Aop(K1);
-        Spectra::SparseCholesky<double> Bop(M1);
-        Spectra::SymGEigsSolver<double, Spectra::SMALLEST_MAGN, Spectra::SparseSymMatProd<double>, Spectra::SparseCholesky<double>, Spectra::GEIGS_CHOLESKY>geigs(&Aop, &Bop, nummodes, 2*nummodes);
+        //Spectra seems to freak out if you use row storage, this copy just ensures everything is setup the way the solver likes
+        Eigen::SparseMatrix<double> A = mUnconstrained.transpose()*K*mUnconstrained;
+        Eigen::SparseMatrix<double> B = mUnconstrained.transpose()*M*mUnconstrained;
+
+        double shift = 1e-6;
+        Eigen::SparseMatrix<double> K1 = A + shift*B;
+        Eigen::SparseMatrix<double> M1 = B;
+        
+        Spectra::SparseSymMatProd<double>Aop(M1);
+        Spectra::SparseCholesky<double> Bop(K1);
+
+        Spectra::SymGEigsSolver<double, Spectra::LARGEST_MAGN, Spectra::SparseSymMatProd<double>, Spectra::SparseCholesky<double>, Spectra::GEIGS_CHOLESKY>geigs(&Aop, &Bop, nummodes, std::min(5*nummodes, A.rows()));
         geigs.init();
         cout<<"     eig2"<<endl;
         int nconv = geigs.compute();
         cout<<"     eig3"<<endl;
-        VectorXd eigenvalues;
-        MatrixXd eigenvectors;
+ 
+        VectorXd eigsCorrected;
+        MatrixXd evsCorrected; //magnitude of eigenvectors can be wrong in this formulation
+        eigsCorrected.resize(geigs.eigenvalues().rows());
+        evsCorrected.resize(geigs.eigenvectors().rows(), geigs.eigenvectors().cols());
         if(geigs.info() == Spectra::SUCCESSFUL)
         {
-            eigenvalues = geigs.eigenvalues();
-            eigenvectors = geigs.eigenvectors();
-            MatrixXd Kdense = MatrixXd(K);
-            igl::writeDMAT( "Kmat.dmat", Kdense);
-            igl::writeDMAT( "Mmat.dmat", MatrixXd(M));
-            igl::writeDMAT( "readEigs.dmat", eigenvalues);
-            igl::writeDMAT( "readVecs.dmat", eigenvectors);
+            for(unsigned int ii=0; ii<geigs.eigenvalues().rows(); ++ii) {
+                eigsCorrected[ii] = -(static_cast<double>(1)/(geigs.eigenvalues()[ii]) + shift);
+                evsCorrected.col(ii) = geigs.eigenvectors().col(ii).normalized();
+            }
+
+            igl::writeDMAT(to_string(nummodes)+"simplejoint.dmat", evsCorrected);
         }
         else
         {
             cout<<"EIG SOLVE FAILED: "<<endl<<geigs.info()<<endl;
             exit(0);
         }
+
         cout<<"     eig4"<<endl;
         // eigenvalues.head(eigenvalues.size() - 3));
-        MatrixXd eV = eigenvectors.leftCols(eigenvalues.size() -3);
-        mG = eigenvectors;//.leftCols(eigenvalues.size() -3);
+        MatrixXd eV = mUnconstrained*(evsCorrected);
+        mG = eV;
         return;
         cout<<"-EIG SOLVE"<<endl;
 
@@ -83,6 +95,7 @@ void setup_modes(int nummodes, bool reduced, SparseMatrix<double>& mP, SparseMat
         }
         KTrips.insert(KTrips.end(),CTrips.begin(), CTrips.end());
         HandleModesKKTmat.setFromTriplets(KTrips.begin(), KTrips.end());
+
         cout<<"     eig6"<<endl;
         SparseMatrix<double>eHconstrains(K.rows()+C.rows(), C.rows());
         eHconstrains.setZero();
@@ -91,19 +104,23 @@ void setup_modes(int nummodes, bool reduced, SparseMatrix<double>& mP, SparseMat
             eHTrips.push_back(Trip(i+K.rows(), i, 1));
         }
         eHconstrains.setFromTriplets(eHTrips.begin(), eHTrips.end());
+        
+        cout<<"     eig7"<<endl;
         SparseLU<SparseMatrix<double>> solver;
         solver.compute(HandleModesKKTmat);
         SparseMatrix<double> eHsparse = solver.solve(eHconstrains);
-        cout<<"     eig7"<<endl;
         MatrixXd eH = MatrixXd(eHsparse).topRows(K.rows());
         cout<<"-ModesForHandles"<<endl;
+
         //###############QR get orth basis of Modes, eH#######
         MatrixXd eHeV(eH.rows(), eH.cols()+eV.cols());
-        eHeV<<eH,eV;
+        eHeV<<eV,eH;
+        igl::writeDMAT("TOQR.dmat", eHeV);
         HouseholderQR<MatrixXd> QR(eHeV);
         cout<<"     eig8"<<endl;
         MatrixXd thinQ = MatrixXd::Identity(eHeV.rows(), eHeV.cols());
         //SET Q TO G
         mG = QR.householderQ()*thinQ; 
+        return;
         cout<<"     eig9"<<endl;       
 }

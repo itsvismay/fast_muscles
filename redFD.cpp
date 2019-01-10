@@ -1,11 +1,9 @@
-#include <igl/opengl/glfw/Viewer.h>
 #include <igl/writeOBJ.h>
 #include <igl/barycenter.h>
 #include <igl/readOFF.h>
 #include <igl/readMESH.h>
 #include <igl/readOBJ.h>
 #include <igl/slice.h>
-#include <unsupported/Eigen/NumericalDiff>
 
 
 #include <json.hpp>

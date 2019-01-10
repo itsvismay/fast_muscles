@@ -21,6 +21,7 @@ private:
     double eps = 1e-6;
     bool stest = false;
     igl::Timer timer;
+    bool terminate;
 
 public:
     RedSolver(int n_, Mesh* m, Reduced_Arap* a, Elastic* e, json& j_input, bool test=false) : n(n_) {
@@ -313,16 +314,18 @@ public:
         }
         double Eneo = alpha_neo*elas->Energy(*mesh);
 
-        timer.start();
+        // timer.start();
         bool converged = arap->minimize(*mesh);
-        timer.stop();
-        double arap_time = timer.getElapsedTimeInMilliSec();
-        cout<<"     ---LineSearch Info"<<endl;
-        cout<<"     ARAPConverged: "<<converged<<endl;
-        cout<<"     ARAPTime: "<<arap_time<<endl;
+        // timer.stop();
+        // double arap_time = timer.getElapsedTimeInMilliSec();
+        // cout<<"     ---LineSearch Info"<<endl;
+        // cout<<"     ARAPConverged: "<<converged<<endl;
+        // cout<<"     ARAPTime: "<<arap_time<<endl;
 
         double Earap = alpha_arap*arap->Energy(*mesh);
         double fx = Eneo + Earap;
+
+
 
         if(computeGrad){
             
@@ -339,6 +342,7 @@ public:
             cout<<"ARAPGradNorm: "<<arapgrad.norm()<<endl;
             cout<<"ARAPGradTime: "<<arap_grad_time<<endl;
             cout<<"TotalGradNorm: "<<grad.norm()<<endl;
+
             
             if(stest){
                 VectorXd fake_arap = mesh->N().transpose()*Full_ARAP_Grad(*mesh, *arap,*elas, fx, eps);
@@ -403,9 +407,9 @@ public:
                 grad[i] += arapgrad[i];
             }
 
+
 	       // cout<<arapgrad.transpose()<<endl;
         }
-
 
         return fx;
     }
