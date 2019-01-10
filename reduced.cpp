@@ -95,7 +95,7 @@ int main()
     getMinTets_Axis_Tolerance(bone2, V, T, 1, 3);
     VectorXi bone1vec = VectorXi::Map(bone1.data(), bone1.size());
     VectorXi bone2vec = VectorXi::Map(bone2.data(), bone2.size());
-    std::vector<VectorXi> bones = {bone1vec, bone2vec};
+    std::vector<VectorXi> bones = {bone1vec};
     VectorXi bonesvec(bone1vec.size() + bone2vec.size());
     bonesvec<< bone1vec,bone2vec;
 
@@ -108,7 +108,7 @@ int main()
     }
     VectorXi muscle1;
     VectorXi shit;
-    igl::setdiff(all, bonesvec, muscle1, shit);
+    igl::setdiff(all, bone1vec, muscle1, shit);
 
     Mesh* mesh = new Mesh(T, V, fix, mov, bones, muscle1, Uvec, j_input);
 
@@ -162,12 +162,12 @@ int main()
     {   
         if(viewer.core.is_animating)
         {   
-            // if(kkkk<mesh->G().cols()){
-            //     VectorXd x = 10*sin(tttt)*mesh->G().col(kkkk) + mesh->x0();
-            //     Eigen::Map<Eigen::MatrixXd> newV(x.data(), V.cols(), V.rows());
-            //     viewer.data().set_mesh(newV.transpose(), F);
-            //     tttt+= 0.1;
-            // }
+            if(kkkk<mesh->G().cols()){
+                VectorXd x = 10*sin(tttt)*mesh->G().col(kkkk) + mesh->x0();
+                Eigen::Map<Eigen::MatrixXd> newV(x.data(), V.cols(), V.rows());
+                viewer.data().set_mesh(newV.transpose(), F);
+                tttt+= 0.1;
+            }
     	}
             
         
@@ -178,81 +178,81 @@ int main()
     {   
         kkkk +=1;
 
-        std::cout<<"Key down, "<<key<<std::endl;
-        viewer.data().clear();
+        // std::cout<<"Key down, "<<key<<std::endl;
+        // viewer.data().clear();
         
-        //----------------
-        if(key=='A'){
-            cout<<"here"<<endl;
-            neo->changeFiberMag(2);
-        }
-
-        if(key==' '){
-      		VectorXd& dx = mesh->dx();
-            
-            // VectorXd ns = mesh->N().transpose()*mesh->red_s();
-            // for(int i=0; i<ns.size()/6; i++){
-            //     ns[6*i+1] += 0.1;
-            //     ns[6*i+0] += 0.1;
-            // }
-            
-            double fx =0;
-            cout<<mesh->red_s().transpose()<<endl;
-            VectorXd ns = mesh->N().transpose()*mesh->red_s();
-            cout<<ns.transpose()<<endl;
-            int niter = solver.minimize(f, ns, fx);
-            VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
-    
-            // double fx =0;
-            // VectorXd reds = mesh->red_s();
-            // int niter = solver.minimize(f, reds, fx);
-            for(int i=0; i<reds.size(); i++){
-                mesh->red_s()[i] = reds[i];
-            }
-            // arap->minimize(*mesh);
-            std::cout<<"niter "<<niter<<std::endl;
-        }
-        // ----------------
-        // Draw continuous mesh
-        MatrixXd newV = mesh->continuousV();
-        viewer.data().set_mesh(newV, F);
-        
-        //Draw disc mesh
-        std::cout<<std::endl;
-        MatrixXd& discV = mesh->discontinuousV();
-        MatrixXi& discT = mesh->discontinuousT();
-        for(int i=0; i<discT.rows(); i++){
-            Vector4i e = discT.row(i);
-            // std::cout<<discT.row(i)<<std::endl<<std::endl;
-            // std::cout<<discV(Eigen::placeholders::all, discT.row(i))<<std::endl;
-            Matrix<double, 1,3> p0 = discV.row(e[0]);
-            Matrix<double, 1,3> p1 = discV.row(e[1]);
-            Matrix<double, 1,3> p2 = discV.row(e[2]);
-            Matrix<double, 1,3> p3 = discV.row(e[3]);
-
-            viewer.data().add_edges(p0,p1,Eigen::RowVector3d(1,0,1));
-            viewer.data().add_edges(p0,p2,Eigen::RowVector3d(1,0,1));
-            viewer.data().add_edges(p0,p3,Eigen::RowVector3d(1,0,1));
-            viewer.data().add_edges(p1,p2,Eigen::RowVector3d(1,0,1));
-            viewer.data().add_edges(p1,p3,Eigen::RowVector3d(1,0,1));
-            viewer.data().add_edges(p2,p3,Eigen::RowVector3d(1,0,1));
-        }
-        //Draw fixed and moving points
-        for(int i=0; i<fix.size(); i++){
-            viewer.data().add_points(mesh->V().row(fix[i]),Eigen::RowVector3d(1,0,0));
-        }
-        for(int i=0; i<mov.size(); i++){
-            viewer.data().add_points(newV.row(mov[i]),Eigen::RowVector3d(0,1,0));
-        }
-        // for(int c=0; c<mesh->red_w().size()/3; c++){
-        //     std::vector<int> cluster_elem = mesh->r_cluster_elem_map()[c];
-        //     for(int e=0; e<cluster_elem.size(); e++){
-        //         viewer.data().add_points(newV.row(mesh->T().row(cluster_elem[e])[0]), Colors.row(c));
-        //         viewer.data().add_points(newV.row(mesh->T().row(cluster_elem[e])[1]), Colors.row(c));
-        //         viewer.data().add_points(newV.row(mesh->T().row(cluster_elem[e])[2]), Colors.row(c));
-        //         viewer.data().add_points(newV.row(mesh->T().row(cluster_elem[e])[3]), Colors.row(c));
-        //     }
+        // //----------------
+        // if(key=='A'){
+        //     cout<<"here"<<endl;
+        //     neo->changeFiberMag(2);
         // }
+
+        // if(key==' '){
+      		// VectorXd& dx = mesh->dx();
+            
+        //     // VectorXd ns = mesh->N().transpose()*mesh->red_s();
+        //     // for(int i=0; i<ns.size()/6; i++){
+        //     //     ns[6*i+1] += 0.1;
+        //     //     ns[6*i+0] += 0.1;
+        //     // }
+            
+        //     double fx =0;
+        //     cout<<mesh->red_s().transpose()<<endl;
+        //     VectorXd ns = mesh->N().transpose()*mesh->red_s();
+        //     cout<<ns.transpose()<<endl;
+        //     int niter = solver.minimize(f, ns, fx);
+        //     VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
+    
+        //     // double fx =0;
+        //     // VectorXd reds = mesh->red_s();
+        //     // int niter = solver.minimize(f, reds, fx);
+        //     for(int i=0; i<reds.size(); i++){
+        //         mesh->red_s()[i] = reds[i];
+        //     }
+        //     // arap->minimize(*mesh);
+        //     std::cout<<"niter "<<niter<<std::endl;
+        // }
+        // // ----------------
+        // // Draw continuous mesh
+        // MatrixXd newV = mesh->continuousV();
+        // viewer.data().set_mesh(newV, F);
+        
+        // //Draw disc mesh
+        // std::cout<<std::endl;
+        // MatrixXd& discV = mesh->discontinuousV();
+        // MatrixXi& discT = mesh->discontinuousT();
+        // for(int i=0; i<discT.rows(); i++){
+        //     Vector4i e = discT.row(i);
+        //     // std::cout<<discT.row(i)<<std::endl<<std::endl;
+        //     // std::cout<<discV(Eigen::placeholders::all, discT.row(i))<<std::endl;
+        //     Matrix<double, 1,3> p0 = discV.row(e[0]);
+        //     Matrix<double, 1,3> p1 = discV.row(e[1]);
+        //     Matrix<double, 1,3> p2 = discV.row(e[2]);
+        //     Matrix<double, 1,3> p3 = discV.row(e[3]);
+
+        //     viewer.data().add_edges(p0,p1,Eigen::RowVector3d(1,0,1));
+        //     viewer.data().add_edges(p0,p2,Eigen::RowVector3d(1,0,1));
+        //     viewer.data().add_edges(p0,p3,Eigen::RowVector3d(1,0,1));
+        //     viewer.data().add_edges(p1,p2,Eigen::RowVector3d(1,0,1));
+        //     viewer.data().add_edges(p1,p3,Eigen::RowVector3d(1,0,1));
+        //     viewer.data().add_edges(p2,p3,Eigen::RowVector3d(1,0,1));
+        // }
+        // //Draw fixed and moving points
+        // for(int i=0; i<fix.size(); i++){
+        //     viewer.data().add_points(mesh->V().row(fix[i]),Eigen::RowVector3d(1,0,0));
+        // }
+        // for(int i=0; i<mov.size(); i++){
+        //     viewer.data().add_points(newV.row(mov[i]),Eigen::RowVector3d(0,1,0));
+        // }
+        // // for(int c=0; c<mesh->red_w().size()/3; c++){
+        // //     std::vector<int> cluster_elem = mesh->r_cluster_elem_map()[c];
+        // //     for(int e=0; e<cluster_elem.size(); e++){
+        // //         viewer.data().add_points(newV.row(mesh->T().row(cluster_elem[e])[0]), Colors.row(c));
+        // //         viewer.data().add_points(newV.row(mesh->T().row(cluster_elem[e])[1]), Colors.row(c));
+        // //         viewer.data().add_points(newV.row(mesh->T().row(cluster_elem[e])[2]), Colors.row(c));
+        // //         viewer.data().add_points(newV.row(mesh->T().row(cluster_elem[e])[3]), Colors.row(c));
+        // //     }
+        // // }
 
         return false;
     };

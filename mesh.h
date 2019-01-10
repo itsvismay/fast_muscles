@@ -110,9 +110,9 @@ public:
         if(num_modes == 1){
             MatrixXd temp1;
             igl::readDMAT("300simplejointprecious.dmat", temp1);
-            mG = mFree*temp1;
+            mG = mFree*mY*temp1;
         }else{
-            setup_modes(num_modes, reduced, mP, mA, mConstrained, mFree, mV, mmass_diag, mG);
+            setup_modes(num_modes, reduced, mP, mA, mConstrained, mFree, mY, mV, mmass_diag, mG);
             
         }
 
@@ -204,8 +204,10 @@ public:
     }
 
     void setHandleModesMatrix(std::vector<VectorXi> ibones, VectorXi imuscle){
-        VectorXd bone_or_muscle = VectorXd::Zero(3*mV.rows()); //0 for muscle, 1,2 for each bone
 
+        VectorXd bone_normalize_helper = VectorXd::Zero(mV.rows());// counts how many times each element touches the vertex
+
+        VectorXd bone_or_muscle = VectorXd::Zero(3*mV.rows()); //0 for muscle, 1,2 for each bone
         for(int i=0; i<ibones.size(); i++){
             for(int j=0; j<ibones[i].size(); j++){
                 bone_or_muscle.segment<3>(3*mT.row(ibones[i][j])[0])[0] = i+1;
@@ -219,29 +221,34 @@ public:
                 bone_or_muscle.segment<3>(3*mT.row(ibones[i][j])[2])[2] = i+1;
                 bone_or_muscle.segment<3>(3*mT.row(ibones[i][j])[3])[0] = i+1;
                 bone_or_muscle.segment<3>(3*mT.row(ibones[i][j])[3])[1] = i+1;
-                bone_or_muscle.segment<3>(3*mT.row(ibones[i][j])[3])[2] = i+1;         
+                bone_or_muscle.segment<3>(3*mT.row(ibones[i][j])[3])[2] = i+1; 
+                bone_normalize_helper[mT.row(ibones[i][j])[0]] += 1;
+                bone_normalize_helper[mT.row(ibones[i][j])[1]] += 1;
+                bone_normalize_helper[mT.row(ibones[i][j])[2]] += 1;
+                bone_normalize_helper[mT.row(ibones[i][j])[3]] += 1;        
             }
         }
 
+
         int muscleVerts = 0;
-        VectorXd free_bone_muscle = mFree.transpose()*bone_or_muscle;
-        for(int i=0; i<free_bone_muscle.size()/3; i++){
-            if(fabs(free_bone_muscle[3*i]-0)<1e-8){
+        for(int i=0; i<bone_or_muscle.size()/3; i++){
+            if(bone_or_muscle[3*i]<1e-8){
                 muscleVerts += 1;
             }
         }
     
-        mY.resize(free_bone_muscle.size(), 3*muscleVerts + 12*ibones.size());
+        
+        mY.resize(3*mV.rows(), 3*muscleVerts + 12*ibones.size());
         std::vector<Trip> mY_trips = {};
         //set top |bones|*12 dofs to be the bones
         //set the rest to be muscles, indexed correctly 
         int muscle_index = 0;
-        for(int i=0; i<free_bone_muscle.size()/3; i++){
-            if(free_bone_muscle[3*i]<=1e-9){
+        for(int i=0; i<bone_or_muscle.size()/3; i++){
+            if(bone_or_muscle[3*i]<=1e-9){
                 //its a muscle, figure out which one, and index it correctly
-                mY_trips.push_back(Trip(3*i+0, 12*ibones.size()+3*muscle_index+0, 1));
-                mY_trips.push_back(Trip(3*i+1, 12*ibones.size()+3*muscle_index+1, 1));
-                mY_trips.push_back(Trip(3*i+2, 12*ibones.size()+3*muscle_index+2, 1));
+                mY_trips.push_back(Trip(3*i+0, 12*ibones.size()+3*muscle_index+0, 1.0));
+                mY_trips.push_back(Trip(3*i+1, 12*ibones.size()+3*muscle_index+1, 1.0));
+                mY_trips.push_back(Trip(3*i+2, 12*ibones.size()+3*muscle_index+2, 1.0));
                 muscle_index +=1;
             }
         }
@@ -250,34 +257,51 @@ public:
         for(int i=0; i<mfix.size(); i++){
             fix_or_not[mfix[i]] = 1;
         }
-        for(int i=0; i<ibones.size(); i++){
-            for(int j=0; j<ibones[i].size(); j++){
-                VectorXi e = mT.row(ibones[i][j]);
-                if( fix_or_not[e[0]]<1){
-                    mY_trips.push_back(Trip(3*e[0]+0, 12*i+0, 1));
-                    mY_trips.push_back(Trip(3*e[0]+1, 12*i+1, 1));
-                    mY_trips.push_back(Trip(3*e[0]+2, 12*i+2, 1));
-                }
-                if( fix_or_not[e[1]]<1){
-                    mY_trips.push_back(Trip(3*e[1]+0, 12*i+3, 1));
-                    mY_trips.push_back(Trip(3*e[1]+1, 12*i+4, 1));
-                    mY_trips.push_back(Trip(3*e[1]+2, 12*i+5, 1));
-                }
-                if( fix_or_not[e[2]]<1){
-                    mY_trips.push_back(Trip(3*e[2]+0, 12*i+6, 1));
-                    mY_trips.push_back(Trip(3*e[2]+1, 12*i+7, 1));
-                    mY_trips.push_back(Trip(3*e[2]+2, 12*i+8, 1));
-                }
+      
+        for(int i=0; i<bone_or_muscle.size()/3; i++){
+                if(bone_or_muscle[3*i]>0.5){
+                // if( fix_or_not[e[0]]<1){
+                    mY_trips.push_back(Trip(3*i+0, 0*12*(bone_or_muscle[3*i]-1)+0, mV.row(i)[0]/std::max(1.0,bone_normalize_helper[i])));
+                    mY_trips.push_back(Trip(3*i+1, 0*12*(bone_or_muscle[3*i]-1)+1, mV.row(i)[0]/std::max(1.0,bone_normalize_helper[i])));
+                    mY_trips.push_back(Trip(3*i+2, 0*12*(bone_or_muscle[3*i]-1)+2, mV.row(i)[0]/std::max(1.0,bone_normalize_helper[i])));
+                // }
+                // if( fix_or_not[e[1]]<1){
+                    mY_trips.push_back(Trip(3*i+0, 12*(bone_or_muscle[3*i]-1)+3, mV.row(i)[1]/std::max(1.0,bone_normalize_helper[i])));
+                    mY_trips.push_back(Trip(3*i+1, 12*(bone_or_muscle[3*i]-1)+4, mV.row(i)[1]/std::max(1.0,bone_normalize_helper[i])));
+                    mY_trips.push_back(Trip(3*i+2, 12*(bone_or_muscle[3*i]-1)+5, mV.row(i)[1]/std::max(1.0,bone_normalize_helper[i])));
+                // }
+                // if( fix_or_not[e[2]]<1){
+                    mY_trips.push_back(Trip(3*i+0, 12*(bone_or_muscle[3*i]-1)+6, mV.row(i)[2]/std::max(1.0,bone_normalize_helper[i])));
+                    mY_trips.push_back(Trip(3*i+1, 12*(bone_or_muscle[3*i]-1)+7, mV.row(i)[2]/std::max(1.0,bone_normalize_helper[i])));
+                    mY_trips.push_back(Trip(3*i+2, 12*(bone_or_muscle[3*i]-1)+8, mV.row(i)[2]/std::max(1.0,bone_normalize_helper[i])));
+                // }
 
-                if( fix_or_not[e[3]]<1){
-                    mY_trips.push_back(Trip(3*e[3]+0, 12*i+9, 1));
-                    mY_trips.push_back(Trip(3*e[3]+1, 12*i+10, 1));
-                    mY_trips.push_back(Trip(3*e[3]+2, 12*i+11, 1));
-                }
+                // if( fix_or_not[e[3]]<1){
+                    mY_trips.push_back(Trip(3*i+0, 12*(bone_or_muscle[i]-1)+9,  1.0/std::max(1.0,bone_normalize_helper[i])));
+                    mY_trips.push_back(Trip(3*i+1, 12*(bone_or_muscle[i]-1)+10, 1.0/std::max(1.0,bone_normalize_helper[i])));
+                    mY_trips.push_back(Trip(3*i+2, 12*(bone_or_muscle[i]-1)+11, 1.0/std::max(1.0,bone_normalize_helper[i])));
             }
         }
+    
 
         mY.setFromTriplets(mY_trips.begin(), mY_trips.end());
+        VectorXd testY = VectorXd::Zero(mY.cols());
+        testY[0] += 1;
+        testY[1] += 1;
+        testY[2] += 1;
+        testY[3] += 1;
+        testY[4] += 1;
+        testY[5] += 1;
+        testY[6] += 1;
+        testY[7] += 1;
+        testY[8] += 1;
+        testY[9] += 1;
+        testY[10] += 1;
+        testY[11] += 1;
+
+
+        cout<<MatrixXd(mY)<<endl;
+
 
     }
 

@@ -14,7 +14,7 @@ using namespace Eigen;
 using namespace std;
 typedef Eigen::Triplet<double> Trip;
 
-void setup_modes(int nummodes, bool reduced, SparseMatrix<double>& mP, SparseMatrix<double>& mA, SparseMatrix<double> mConstrained, SparseMatrix<double> mUnconstrained, MatrixXd& mV, VectorXd& mmass_diag, MatrixXd& mG){
+void setup_modes(int nummodes, bool reduced, SparseMatrix<double>& mP, SparseMatrix<double>& mA, SparseMatrix<double> mConstrained, SparseMatrix<double> mUnconstrained, SparseMatrix<double> mY, MatrixXd& mV, VectorXd& mmass_diag, MatrixXd& mG){
         if(nummodes==0 && reduced==false){
             //Unreduced just dont use G
             return;
@@ -36,8 +36,8 @@ void setup_modes(int nummodes, bool reduced, SparseMatrix<double>& mP, SparseMat
 
         cout<<"     eig1"<<endl;
         //Spectra seems to freak out if you use row storage, this copy just ensures everything is setup the way the solver likes
-        Eigen::SparseMatrix<double> A = mUnconstrained.transpose()*K*mUnconstrained;
-        Eigen::SparseMatrix<double> B = mUnconstrained.transpose()*M*mUnconstrained;
+        Eigen::SparseMatrix<double> A = mY.transpose()*mUnconstrained*mUnconstrained.transpose()*K*mUnconstrained*mUnconstrained.transpose()*mY;
+        Eigen::SparseMatrix<double> B = mY.transpose()*mUnconstrained*mUnconstrained.transpose()*M*mUnconstrained*mUnconstrained.transpose()*mY;
 
         double shift = 1e-6;
         Eigen::SparseMatrix<double> K1 = A + shift*B;
@@ -73,7 +73,7 @@ void setup_modes(int nummodes, bool reduced, SparseMatrix<double>& mP, SparseMat
 
         cout<<"     eig4"<<endl;
         // eigenvalues.head(eigenvalues.size() - 3));
-        MatrixXd eV = mUnconstrained*(evsCorrected);
+        MatrixXd eV = mUnconstrained*mUnconstrained.transpose()*mY*evsCorrected;
         mG = eV;
         return;
         cout<<"-EIG SOLVE"<<endl;
