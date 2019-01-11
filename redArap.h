@@ -677,7 +677,6 @@ public:
 				aeUSUtPAx0[i].row(4*c+1) = USUtPAx0.segment<3>(12*cluster_elem[c]+3);
 				aeUSUtPAx0[i].row(4*c+2) = USUtPAx0.segment<3>(12*cluster_elem[c]+6);
 				aeUSUtPAx0[i].row(4*c+3) = USUtPAx0.segment<3>(12*cluster_elem[c]+9);
-
 			}
 
 
@@ -721,6 +720,7 @@ public:
 			itR(m, USUtPAx0);
 			m.constTimeFPAx0(aFPAx0);
 			double newE = Energy(m);
+			cout<<i<<", ";
 			if((newE - oldE)>1e-5 && i>1){
 				print("Reduced_Arap::minimize() error. ARAP should monotonically decrease.");
 				print(i);
@@ -731,7 +731,7 @@ public:
 			oldE = newE;
 	
 			if (i%5==0){
-				if(fabs(newE - previous5ItE)<1e-10){
+				if(fabs(newE - previous5ItE)<1e-8){
 					if(i>1000){
 						// print(m.red_s().transpose());
 						// exit(0);

@@ -1,6 +1,7 @@
 /build
 /data
 /release
+/ThirdParty
 # Prerequisites
 *.d
 

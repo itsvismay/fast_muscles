@@ -4,17 +4,19 @@
 #include <Eigen/Sparse>
 #include <iostream>
 #include <igl/writeDMAT.h>
+#include <unsupported/Eigen/KroneckerProduct>
 
 #include <MatOp/SparseSymMatProd.h>
 #include <MatOp/SparseCholesky.h>
 #include <SymGEigsSolver.h>
 #include <GenEigsSolver.h>
+#include <igl/cotmatrix.h>
 
 using namespace Eigen;
 using namespace std;
 typedef Eigen::Triplet<double> Trip;
 
-void setup_modes(int nummodes, bool reduced, SparseMatrix<double>& mP, SparseMatrix<double>& mA, SparseMatrix<double> mConstrained, SparseMatrix<double> mUnconstrained, SparseMatrix<double> mY, MatrixXd& mV, VectorXd& mmass_diag, MatrixXd& mG){
+void setup_modes(int nummodes, bool reduced, SparseMatrix<double>& mP, SparseMatrix<double>& mA, SparseMatrix<double> mConstrained, SparseMatrix<double> mFree, SparseMatrix<double> mY, MatrixXd& mV, const MatrixXi& mT, VectorXd& mmass_diag, MatrixXd& mG){
         if(nummodes==0 && reduced==false){
             //Unreduced just dont use G
             return;
@@ -26,6 +28,12 @@ void setup_modes(int nummodes, bool reduced, SparseMatrix<double>& mP, SparseMat
             return;
         }
 
+        // SparseMatrix<double> L;
+        // igl::cotmatrix(mV, mT, L);
+        // SparseMatrix<double> Kt = K1.transpose();
+        // SparseMatrix<double> symK = -.5*(K1+Kt);
+  
+
         cout<<"+EIG SOLVE"<<endl;
         SparseMatrix<double> K = (mP*mA).transpose()*mP*mA;
         SparseMatrix<double> M(3*mV.rows(), 3*mV.rows());
@@ -36,15 +44,19 @@ void setup_modes(int nummodes, bool reduced, SparseMatrix<double>& mP, SparseMat
 
         cout<<"     eig1"<<endl;
         //Spectra seems to freak out if you use row storage, this copy just ensures everything is setup the way the solver likes
-        Eigen::SparseMatrix<double> A = mY.transpose()*mUnconstrained*mUnconstrained.transpose()*K*mUnconstrained*mUnconstrained.transpose()*mY;
-        Eigen::SparseMatrix<double> B = mY.transpose()*mUnconstrained*mUnconstrained.transpose()*M*mUnconstrained*mUnconstrained.transpose()*mY;
+        Eigen::SparseMatrix<double> A = mY.transpose()*K*mY;
+        Eigen::SparseMatrix<double> B = mY.transpose()*M*mY;
 
+        cout<<"here1"<<endl;
         double shift = 1e-6;
         Eigen::SparseMatrix<double> K1 = A + shift*B;
         Eigen::SparseMatrix<double> M1 = B;
-        
+        cout<<"here2"<<endl;
+
         Spectra::SparseSymMatProd<double>Aop(M1);
         Spectra::SparseCholesky<double> Bop(K1);
+        cout<<"here3"<<endl;
+ 
 
         Spectra::SymGEigsSolver<double, Spectra::LARGEST_MAGN, Spectra::SparseSymMatProd<double>, Spectra::SparseCholesky<double>, Spectra::GEIGS_CHOLESKY>geigs(&Aop, &Bop, nummodes, std::min(5*nummodes, A.rows()));
         geigs.init();
@@ -73,8 +85,8 @@ void setup_modes(int nummodes, bool reduced, SparseMatrix<double>& mP, SparseMat
 
         cout<<"     eig4"<<endl;
         // eigenvalues.head(eigenvalues.size() - 3));
-        MatrixXd eV = mUnconstrained*mUnconstrained.transpose()*mY*evsCorrected;
-        mG = eV;
+        MatrixXd eV = mY*evsCorrected;
+        mG = eV.leftCols(nummodes-25);
         return;
         cout<<"-EIG SOLVE"<<endl;
 
