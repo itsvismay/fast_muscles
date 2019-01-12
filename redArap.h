@@ -20,8 +20,8 @@ class Reduced_Arap
 {
 
 protected:
-	// SparseLU<SparseMatrix<double>>  aARAPKKTSparseSolver;
-	// SparseLU<SparseMatrix<double>> ajacLU;
+	SparseLU<SparseMatrix<double>>  aARAPKKTSparseSolver;
+	SparseLU<SparseMatrix<double>> ajacLU;
 
 	FullPivLU<MatrixXd>  aARAPKKTSolver;
 	VectorXd aPAx0, aEr, aEr_max, aEs, aEs_max, aEx, aDEDs, aFPAx0;
@@ -71,29 +71,33 @@ public:
 		aPA = m.P()*m.A();
 		aPAG = m.P()*m.A()*m.G();
 		aCG = m.AB().transpose()*m.G();
-
 		print("rarap 4");
 		MatrixXd KKTmat = MatrixXd::Zero(aExx.rows()+aCG.rows(), aExx.rows()+aCG.rows());
 		KKTmat.block(0,0, aExx.rows(), aExx.cols()) = aExx;
 		KKTmat.block(aExx.rows(), 0, aCG.rows(), aCG.cols()) = aCG;
 		KKTmat.block(0, aExx.cols(), aCG.cols(), aCG.rows()) = aCG.transpose();
 		aARAPKKTSolver.compute(KKTmat);
-
 		print("rarap 5");
 		aJacKKT.resize(z_size+r_size+aCG.rows(), z_size+r_size+aCG.rows());
 		aJacConstrains.resize(z_size+r_size+aCG.rows() ,s_size);
-
 		print("rarap 6");
 		setupAdjointP();
-
 		print("pre-processing");
 		setupWrWw(m);
 		setupFastItR(m);
-
 		print("Jacobian solve pre-processing");
 		aJacKKT.block(0,0,aExx.rows(), aExx.cols()) = Exx();
 		aJacKKT.block(aExx.rows()+aExr.cols(), 0, aCG.rows(), aCG.cols()) = aCG;
 		aJacKKT.block(0, aExx.cols()+aExr.cols(), aCG.cols(), aCG.rows())= aCG.transpose();
+
+
+
+
+
+	
+
+
+
 	}
 
 	void setupAdjointP(){
@@ -684,7 +688,7 @@ public:
 			Matrix3d ri,ti,ui,vi;
      		Vector3d _;
       		igl::polar_svd(F,ri,ti,ui,_,vi);
-
+     		
       		mr[9*i+0] = ri(0,0);
       		mr[9*i+1] = ri(0,1);
       		mr[9*i+2] = ri(0,2);

@@ -16,7 +16,7 @@ protected:
 	double muscle_fibre_mag = 10000;
 	double rho = 6.4; 
 	VectorXd sW1, sW2, sW3, sW4, sW5, sW6, muscle_forces, elastic_forces;
-
+	std::vector<int> contract_muscles = {0};
 public:
 	Elastic(Mesh& m){
 		if(m.T().rows()*6 == m.red_s().size()){
@@ -58,29 +58,36 @@ public:
 		VectorXd& rs = mesh.red_s();
 		VectorXd& bones = mesh.bones();
 		
-		for(int t=0; t<mesh.T().rows(); t++){
-			if(bones[t]>0.5){
+		for(int q=0; q<contract_muscles.size(); q++){
+			if(contract_muscles[q]>=mesh.muscle_vecs().size()){
 				continue;
 			}
-            Vector3d u = mesh.Uvecs().row(t);
-	        
+			for(int i=0; i<mesh.muscle_vecs()[contract_muscles[q]].size(); i++){
+				int t = mesh.muscle_vecs()[contract_muscles[q]][i];
+				if(bones[t]>0.5){
+					continue;
+				}
 
-			if(rs.size()==6*mesh.T().rows()){
-				sW1[6*t+0] += 1;
-				sW2[6*t+1] += 1;
-				sW3[6*t+2] += 1;
-				sW4[6*t+3] += 1;
-				sW5[6*t+4] += 1;
-				sW6[6*t+5] += 1;
-	        	En += MuscleElementEnergy(sW1,sW2,sW3,sW4,sW5,sW6, rs, u);
-	        	sW1[6*t+0] -= 1;
-				sW2[6*t+1] -= 1;
-				sW3[6*t+2] -= 1;
-				sW4[6*t+3] -= 1;
-				sW5[6*t+4] -= 1;
-				sW6[6*t+5] -= 1;
-			}else{
-            	En += MuscleElementEnergy(mesh.sW().row(6*t+0),mesh.sW().row(6*t+1),mesh.sW().row(6*t+2),mesh.sW().row(6*t+3),mesh.sW().row(6*t+4),mesh.sW().row(6*t+5), rs, u);
+	            Vector3d u = mesh.Uvecs().row(t);
+		        
+
+				if(rs.size()==6*mesh.T().rows()){
+					sW1[6*t+0] += 1;
+					sW2[6*t+1] += 1;
+					sW3[6*t+2] += 1;
+					sW4[6*t+3] += 1;
+					sW5[6*t+4] += 1;
+					sW6[6*t+5] += 1;
+		        	En += MuscleElementEnergy(sW1,sW2,sW3,sW4,sW5,sW6, rs, u);
+		        	sW1[6*t+0] -= 1;
+					sW2[6*t+1] -= 1;
+					sW3[6*t+2] -= 1;
+					sW4[6*t+3] -= 1;
+					sW5[6*t+4] -= 1;
+					sW6[6*t+5] -= 1;
+				}else{
+	            	En += MuscleElementEnergy(mesh.sW().row(6*t+0),mesh.sW().row(6*t+1),mesh.sW().row(6*t+2),mesh.sW().row(6*t+3),mesh.sW().row(6*t+4),mesh.sW().row(6*t+5), rs, u);
+				}
 			}
 		}
 		
@@ -138,29 +145,36 @@ public:
 		VectorXd& rs = mesh.red_s();
 		VectorXd& bones = mesh.bones();
 
-		for(int t=0; t<mesh.T().rows(); t++){
-			if(bones[t]>0.5){
+		
+		for(int q=0; q<contract_muscles.size(); q++){
+			if(contract_muscles[q]>=mesh.muscle_vecs().size()){
 				continue;
-			}
-            Vector3d u = mesh.Uvecs().row(t);
-            if(rs.size()==6*mesh.T().rows()){
-				sW1[6*t+0] += 1;
-				sW2[6*t+1] += 1;
-				sW3[6*t+2] += 1;
-				sW4[6*t+3] += 1;
-				sW5[6*t+4] += 1;
-				sW6[6*t+5] += 1;
-	        	MuscleElementForce(muscle_forces, sW1,sW2,sW3,sW4,sW5,sW6, rs, u);
-	        	sW1[6*t+0] -= 1;
-				sW2[6*t+1] -= 1;
-				sW3[6*t+2] -= 1;
-				sW4[6*t+3] -= 1;
-				sW5[6*t+4] -= 1;
-				sW6[6*t+5] -= 1;
-			}else{
-            	MuscleElementForce(muscle_forces, mesh.sW().row(6*t+0),mesh.sW().row(6*t+1),mesh.sW().row(6*t+2),mesh.sW().row(6*t+3),mesh.sW().row(6*t+4),mesh.sW().row(6*t+5), rs, u);
+			}	
+			for(int i=0; i<mesh.muscle_vecs()[contract_muscles[q]].size(); i++){
+				int t = mesh.muscle_vecs()[contract_muscles[q]][i];
+				if(bones[t]>0.5){
+					continue;
+				}
+	            Vector3d u = mesh.Uvecs().row(t);
+	            if(rs.size()==6*mesh.T().rows()){
+					sW1[6*t+0] += 1;
+					sW2[6*t+1] += 1;
+					sW3[6*t+2] += 1;
+					sW4[6*t+3] += 1;
+					sW5[6*t+4] += 1;
+					sW6[6*t+5] += 1;
+		        	MuscleElementForce(muscle_forces, sW1,sW2,sW3,sW4,sW5,sW6, rs, u);
+		        	sW1[6*t+0] -= 1;
+					sW2[6*t+1] -= 1;
+					sW3[6*t+2] -= 1;
+					sW4[6*t+3] -= 1;
+					sW5[6*t+4] -= 1;
+					sW6[6*t+5] -= 1;
+				}else{
+	            	MuscleElementForce(muscle_forces, mesh.sW().row(6*t+0),mesh.sW().row(6*t+1),mesh.sW().row(6*t+2),mesh.sW().row(6*t+3),mesh.sW().row(6*t+4),mesh.sW().row(6*t+5), rs, u);
+	        	}
         	}
-        }
+    	}
 	}
 
 	double WikipediaElementEnergy(const VectorXd& w0, const VectorXd& w1, const VectorXd& w2, const VectorXd& w3, const VectorXd& w4, const VectorXd& w5,  const VectorXd& rs, double C1, double D1){
@@ -347,6 +361,19 @@ public:
 		muscle_fibre_mag *= multiplier;
 		cout<<"muscle fiber mag"<<endl;
 		cout<<muscle_fibre_mag<<endl;
+	}
+
+	void changeContractMuscle(int i){
+		cout<<"contracting muscles"<<endl;
+		if(i==0){
+			contract_muscles.clear();
+		}else{
+			contract_muscles.push_back(i-1);
+		}
+		for(int c=0; c<contract_muscles.size(); c++){
+			cout<<contract_muscles[c]<<", ";
+		}
+		cout<<endl;
 	}
 
 	template<typename DataType>

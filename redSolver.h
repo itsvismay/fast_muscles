@@ -335,13 +335,7 @@ public:
             timer.stop();
             double arap_grad_time = timer.getElapsedTimeInMilliSec();
 
-            cout<<"---BFGS Info"<<endl;
-            cout<<"NeoEnergy: "<<Eneo<<endl;
-            cout<<"NeoGradNorm: "<<pegrad.norm()<<endl;
-            cout<<"ArapEnergy: "<<Earap<<endl;
-            cout<<"ARAPGradNorm: "<<arapgrad.norm()<<endl;
-            cout<<"ARAPGradTime: "<<arap_grad_time<<endl;
-            cout<<"TotalGradNorm: "<<grad.norm()<<endl;
+           
 
             
             if(stest){
@@ -406,6 +400,13 @@ public:
                 grad[i] = pegrad[i];
                 grad[i] += arapgrad[i];
             }
+            cout<<"---BFGS Info"<<endl;
+            cout<<"NeoEnergy: "<<Eneo<<endl;
+            cout<<"NeoGradNorm: "<<pegrad.norm()<<endl;
+            cout<<"ArapEnergy: "<<Earap<<endl;
+            cout<<"ARAPGradNorm: "<<arapgrad.norm()<<endl;
+            cout<<"ARAPGradTime: "<<arap_grad_time<<endl;
+            cout<<"TotalGradNorm: "<<grad.norm()<<endl;
 
 
 	       // cout<<arapgrad.transpose()<<endl;

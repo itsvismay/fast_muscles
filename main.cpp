@@ -65,6 +65,8 @@ int main(int argc, char *argv[])
     MatrixXi F;
     MatrixXd Uvec;
     VectorXi muscle1;
+    VectorXi muscle2;
+    VectorXi muscle3;
     VectorXi bone1;
     VectorXi bone2;
     VectorXi joint1;
@@ -81,18 +83,26 @@ int main(int argc, char *argv[])
     // igl::readDMAT(datafile+"simple_joint/generated_files/bottom_bone_bone_indices.dmat", bone2);
     // igl::readDMAT(datafile+"simple_joint/generated_files/joint_indices.dmat", joint1);
     
-    igl::readDMAT(datafile+"output/combined_V.dmat", V);
-    igl::readDMAT(datafile+"output/combined_T.dmat", T);
-    igl::readDMAT(datafile+"output/fiber_directions.dmat", Uvec);
-    igl::readDMAT(datafile+"output/muscle_I.dmat", muscle1);
-    igl::readDMAT(datafile+"output/bone_1_I.dmat", bone1);
-    igl::readDMAT(datafile+"output/bone_2_I.dmat", bone2);
+    // igl::readDMAT(datafile+"output/combined_V.dmat", V);
+    // igl::readDMAT(datafile+"output/combined_T.dmat", T);
+    // igl::readDMAT(datafile+"output/fiber_directions.dmat", Uvec);
+    // igl::readDMAT(datafile+"output/muscle_I.dmat", muscle1);
+    // igl::readDMAT(datafile+"output/bone_1_I.dmat", bone1);
+    // igl::readDMAT(datafile+"output/bone_2_I.dmat", bone2);
 
+     igl::readDMAT(datafile+"simple_shoulder/generated_files/tet_mesh_V.dmat", V);
+    igl::readDMAT(datafile+"simple_shoulder/generated_files/tet_mesh_T.dmat", T);
+    igl::readDMAT(datafile+"simple_shoulder/generated_files/combined_fiber_directions.dmat", Uvec);
+    igl::readDMAT(datafile+"simple_shoulder/generated_files/front_deltoid_muscle_indices.dmat", muscle1);
+    igl::readDMAT(datafile+"simple_shoulder/generated_files/rear_deltoid_muscle_indices.dmat", muscle2);
+    igl::readDMAT(datafile+"simple_shoulder/generated_files/top_deltoid_muscle_indices.dmat", muscle3);
+    igl::readDMAT(datafile+"simple_shoulder/generated_files/scapula_bone_indices.dmat", bone1);
+    igl::readDMAT(datafile+"simple_shoulder/generated_files/humerus_bone_indices.dmat", bone2);
+    igl::readDMAT(datafile+"simple_shoulder/generated_files/joint_indices.dmat", joint1);
+    
     igl::boundary_facets(T, F);
     
-    std::vector<int> fix = getMaxVerts_Axis_Tolerance(V, 1);
-    // std::vector<int> fix2 = getMaxVerts_Axis_Tolerance(V, 0, 0.5);
-    // fix.insert(fix.end(), fix2.begin(), fix2.end());
+    std::vector<int> fix = {T.row(bone1[0])[0], T.row(bone1[0])[1], T.row(bone1[0])[2], T.row(bone1[0])[3]};
     std::sort (fix.begin(), fix.end());
     
 
@@ -100,9 +110,10 @@ int main(int argc, char *argv[])
     // std::sort (mov.begin(), mov.end());
     
     std::vector<VectorXi> bones = {bone1, bone2};
+    std::vector<VectorXi> muscles = {muscle1, muscle2, muscle3};
 
     std::cout<<"-----Mesh-------"<<std::endl;
-    Mesh* mesh = new Mesh(T, V, fix, mov,bones, muscle1,Uvec,  j_input);
+    Mesh* mesh = new Mesh(T, V, fix, mov,bones, muscles, Uvec,  j_input);
     
     std::cout<<"-----ARAP-----"<<std::endl;
     Reduced_Arap* arap = new Reduced_Arap(*mesh);
@@ -115,7 +126,7 @@ int main(int argc, char *argv[])
     RedSolver f(DIM, mesh, arap, neo, j_input);
     LBFGSParam<double> param;
     param.epsilon = 1e-1;
-    param.delta = 1e-3;
+    param.delta = 1e-5;
     param.past = 1;
     param.linesearch = LBFGSpp::LBFGS_LINESEARCH_BACKTRACKING_ARMIJO;
     LBFGSSolver<double> solver(param);
@@ -126,27 +137,28 @@ int main(int argc, char *argv[])
     cout<<"F size: "<<F.rows()<<endl;
     cout<<"NSH: "<<j_input["number_skinning_handles"]<<endl;
     cout<<"NRC: "<<j_input["number_rot_clusters"]<<endl;
+    cout<<"MODES: "<<j_input["number_modes"]<<endl;
 
 
-    // int run =0;
-    // for(int run=0; run<10; run++){
-    //     MatrixXd newV = mesh->continuousV();
-    //     string datafile = j_input["data"];
-    //     igl::writeOBJ(datafile+"bigmuscle-modes-skinned-clustered"+to_string(run)+".obj",newV, F);
-    //     igl::writeDMAT(datafile+"bigmuscle-modes-skinned-clustered_V"+to_string(run)+".dmat",newV);
-    //     cout<<"---Quasi-Newton Step Info"<<endl;
-    //     double fx =0;
-    //     VectorXd ns = mesh->N().transpose()*mesh->red_s();
-    //     int niter = solver.minimize(f, ns, fx);
-    //     cout<<"BFGSIters: "<<niter<<endl;
-    //     VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
-    //     for(int i=0; i<reds.size(); i++){
-    //         mesh->red_s()[i] = reds[i];
-    //     }
+    int run =0;
+    for(int run=0; run<10; run++){
+        MatrixXd newV = mesh->continuousV();
+        string datafile = j_input["data"];
+        igl::writeOBJ(datafile+"simple_jointtest"+to_string(run)+".obj",newV, F);
+        igl::writeDMAT(datafile+"simple_jointtest"+to_string(run)+".dmat",newV);
+        cout<<"---Quasi-Newton Step Info"<<endl;
+        double fx =0;
+        VectorXd ns = mesh->N().transpose()*mesh->red_s();
+        int niter = solver.minimize(f, ns, fx);
+        cout<<"BFGSIters: "<<niter<<endl;
+        VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
+        for(int i=0; i<reds.size(); i++){
+            mesh->red_s()[i] = reds[i];
+        }
         
-    //     neo->changeFiberMag(2);
-    // }
-    // exit(0);
+        neo->changeFiberMag(2);
+    }
+    exit(0);
 
     std::cout<<"-----Display-------"<<std::endl;
     igl::opengl::glfw::Viewer viewer;
@@ -180,24 +192,25 @@ int main(int argc, char *argv[])
 
         if(key==' '){
             
-            VectorXd ns = mesh->N().transpose()*mesh->red_s();
-            for(int i=0; i<ns.size()/6; i++){
-                ns[6*i+1] -= 0.2;
-                ns[6*i+2] += 0.2;
-                ns[6*i+0] += 0.2;
-            }
-
-            // double fx =0;
             // VectorXd ns = mesh->N().transpose()*mesh->red_s();
-            // int niter = solver.minimize(f, ns, fx);
+            // for(int i=0; i<ns.size()/6; i++){
+            //     ns[6*i+1] -= 0.2;
+            //     ns[6*i+2] += 0.2;
+            //     ns[6*i+0] += 0.2;
+            // }
+
+            double fx =0;
+            VectorXd ns = mesh->N().transpose()*mesh->red_s();
+            int niter = solver.minimize(f, ns, fx);
             
             VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
             for(int i=0; i<reds.size(); i++){
                 mesh->red_s()[i] = reds[i];
             }
+
             cout<<"NS"<<endl;
             cout<<mesh->red_s().transpose()<<endl;
-            arap->minimize(*mesh);
+            // arap->minimize(*mesh);
         }
 
         //Draw continuous mesh

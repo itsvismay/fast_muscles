@@ -125,7 +125,8 @@ MatrixXd setup_skinning_helper(int nsh_on_component, bool reduced, MatrixXi& mT,
             skinning_elem_cluster_map[i] = 0;
         }
     }else{
-        kmeans_clustering(skinning_elem_cluster_map, nsh_on_component, empty_bones, component, mG, mC, mA, mx0);
+        std::vector<VectorXi> comp_vector = {component};
+        kmeans_clustering(skinning_elem_cluster_map, nsh_on_component, empty_bones, comp_vector, mG, mC, mA, mx0);
     }
 
      for(int i=0; i<mT.rows(); i++){
@@ -163,13 +164,13 @@ MatrixXd setup_skinning_helper(int nsh_on_component, bool reduced, MatrixXi& mT,
 
 }
 
-void setup_skinning_handles(int nsh, bool reduced, const MatrixXi& mT, const MatrixXd& mV, std::vector<VectorXi>& ibones, VectorXi& imuscle,
+void setup_skinning_handles(int nsh, bool reduced, const MatrixXi& mT, const MatrixXd& mV, std::vector<VectorXi>& ibones, std::vector<VectorXi>& imuscle,
 	SparseMatrix<double>& mC, SparseMatrix<double>& mA, MatrixXd& mG, VectorXd& mx0, VectorXd& mred_s, MatrixXd& msW){
 
     std::cout<<"+ Skinning Handles"<<std::endl;
     if(nsh==0){
         nsh = ibones.size() + imuscle.size();
-    }else if(nsh<(ibones.size()+1)){//hard coded to 1 muscle for now
+    }else if(nsh<(ibones.size()+imuscle.size())){//hard coded to 1 muscle for now
         std::cout<<"Too few skinning handles, too many components"<<std::endl;
         exit(0);
     }
@@ -213,20 +214,32 @@ void setup_skinning_handles(int nsh, bool reduced, const MatrixXi& mT, const Mat
         insert_index += 1;
     }
     cout<<"----------MUSCLE COMPONENTS------------"<<endl;
-    for(int i=0; i<1; i++){ //through muscle vector
+    int number_handles_per_muscle = nsh/imuscle.size();
+    for(int m=0; m<imuscle.size(); m++){ //through muscle vector
         MatrixXi componentT;
         MatrixXd componentV;
-        MatrixXi subT(imuscle.size(), 4);
+        MatrixXi subT(imuscle[m].size(), 4);
         VectorXi J;
-        for(int i=0; i<imuscle.size() ; i++){
-            subT.row(i) = mT.row(imuscle[i]);
+        for(int i=0; i<imuscle[m].size() ; i++){
+            subT.row(i) = mT.row(imuscle[m][i]);
         }
         igl::remove_unreferenced(mV, subT, componentV, componentT, J);
-        MatrixXd sWi = setup_skinning_helper(nsh, reduced, componentT, componentV, imuscle, mC, mA, mG, mx0);   
+
+        MatrixXd sWi;
+        if(m==imuscle.size()-1){
+            //Deal with remainder handles
+            sWi = setup_skinning_helper(nsh, reduced, componentT, componentV, imuscle[m], mC, mA, mG, mx0);
+        }else{
+            sWi = setup_skinning_helper(number_handles_per_muscle, reduced, componentT, componentV, imuscle[m], mC, mA, mG, mx0);
+        }
+
         MatrixXd sWslice = MatrixXd::Zero(mT.rows(), sWi.cols());
-        igl::slice_into(sWi , imuscle, 1, sWslice);
+        igl::slice_into(sWi , imuscle[m], 1, sWslice);
         sW.block(0,insert_index, mT.rows(), sWi.cols()) = sWslice;
+        insert_index += number_handles_per_muscle;
+        nsh =  nsh - number_handles_per_muscle;
     }
+    assert(nsh==0);
 
     MatrixXd Id6 = MatrixXd::Identity(6, 6);
     msW =  Eigen::kroneckerProduct(sW, Id6);

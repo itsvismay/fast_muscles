@@ -60,6 +60,7 @@ protected:
     std::map<int, std::vector<int>> mr_cluster_elem_map;
     std::vector<SparseMatrix<double>> mRotationBLOCK;
     bool reduced;
+    std::vector<VectorXi> mmuscles;
     //end
 
     
@@ -68,12 +69,13 @@ public:
     Mesh(){}
 
     Mesh(MatrixXi& iT, MatrixXd& iV, std::vector<int>& ifix, 
-        std::vector<int>& imov, std::vector<VectorXi>& ibones, VectorXi& imuscle,
+        std::vector<int>& imov, std::vector<VectorXi>& ibones, std::vector<VectorXi>& imuscle,
         MatrixXd& iUvecs, json& j_input){
         mV = iV;
         mT = iT;
         mfix = ifix;
         mmov = imov;
+        mmuscles = imuscle;
 
         double youngs = j_input["youngs"];
         double poissons = j_input["poissons"];
@@ -109,7 +111,7 @@ public:
         setFreedConstrainedMatrices();
         print("step 6");
         setVertexWiseMassDiag();
-        //setMassMatrix();
+
         print("step 7");
         setHandleModesMatrix(ibones, imuscle);
         
@@ -127,7 +129,7 @@ public:
         print("step 12");
         if(num_modes == 1){
             MatrixXd temp1;
-            igl::readDMAT("250simplejoint.dmat", temp1);
+            igl::readDMAT("325simplejoint.dmat", temp1);
             mG = mY*temp1;
         }else{
 
@@ -149,7 +151,9 @@ public:
         mUvecs.resize(mT.rows(), 3);
         mUvecs.setZero();
         for(int i=0; i<imuscle.size(); i++){
-            mUvecs.row(imuscle[i]) = iUvecs.row(i);
+            for(int j=0; j<imuscle[i].size(); j++){
+                mUvecs.row(imuscle[i][j]) = iUvecs.row(imuscle[i][j]);
+            }
         }
 
         if(mG.cols()==0){
@@ -171,8 +175,8 @@ public:
         mPA = mP*mA;
         mPAx0 = mPA*mx0;
         mFPAx.resize(mPAx0.size());
-
         setupWrWw();
+
     }
 
 
@@ -232,7 +236,7 @@ public:
         mC.setFromTriplets(triplets.begin(), triplets.end());
     }
 
-    void setHandleModesMatrix(std::vector<VectorXi> ibones, VectorXi imuscle){
+    void setHandleModesMatrix(std::vector<VectorXi>& ibones, std::vector<VectorXi>& imuscle){
         VectorXd vert_free_or_not = mFree*mFree.transpose()*VectorXd::Ones(3*mV.rows());// check if vert is fixed
         //TODO fixed bones, used this vector (Y*Y'Ones(3*V.rows())) to create the mFree matrix and mConstrained matrix
         
@@ -241,7 +245,7 @@ public:
 
         VectorXd bone_or_muscle = VectorXd::Zero(3*mV.rows()); //0 for muscle, 1,2 for each bone
         bone_or_muscle.array() += -1;
-        for(int i=0; i<ibones.size(); i++){
+        for(int i=ibones.size() -1; i>=0; i--){ //go through in reverse so joints are part of the fixed bone
             for(int j=0; j<ibones[i].size(); j++){
                 bone_or_muscle.segment<3>(3*mT.row(ibones[i][j])[0])[0] = i+1;
                 bone_or_muscle.segment<3>(3*mT.row(ibones[i][j])[0])[1] = i+1;
@@ -358,7 +362,7 @@ public:
         for(int i=0; i<mT.rows(); i++){
             double weight = 1;
             if(mbones[i]==1){
-                weight = 10;
+                weight = 1;
             }
             for(int j=0; j<3; j++){
                 triplets.push_back(Trip(12*i+0+j, 12*i+0+j, weight*p(0,0)/4));
@@ -734,6 +738,7 @@ public:
     std::map<int, std::vector<int>>& r_cluster_elem_map(){ return mr_cluster_elem_map; }
     VectorXi& r_elem_cluster_map(){ return mr_elem_cluster_map; }
     VectorXd& bones(){ return mbones; }
+    std::vector<VectorXi> muscle_vecs() { return mmuscles; }
     MatrixXd& sW(){ 
         if(mred_s.size()== 6*mT.rows() && reduced==false){
             print("skinning is unreduced, don't call this function");

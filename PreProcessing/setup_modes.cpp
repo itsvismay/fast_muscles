@@ -30,9 +30,7 @@ void setup_modes(int nummodes, bool reduced, SparseMatrix<double>& mP, SparseMat
 
         // SparseMatrix<double> L;
         // igl::cotmatrix(mV, mT, L);
-        // SparseMatrix<double> Kt = K1.transpose();
-        // SparseMatrix<double> symK = -.5*(K1+Kt);
-  
+        // Eigen::kroneckerProduct(L, Matrix3d::Identity());
 
         cout<<"+EIG SOLVE"<<endl;
         SparseMatrix<double> K = (mP*mA).transpose()*mP*mA;
@@ -54,6 +52,8 @@ void setup_modes(int nummodes, bool reduced, SparseMatrix<double>& mP, SparseMat
         cout<<"here2"<<endl;
 
         Spectra::SparseSymMatProd<double>Aop(M1);
+        SparseMatrix<double> Kt = K1.transpose();
+        // SparseMatrix<double> symK = -.5*(K1+Kt);
         Spectra::SparseCholesky<double> Bop(K1);
         cout<<"here3"<<endl;
  
@@ -65,17 +65,16 @@ void setup_modes(int nummodes, bool reduced, SparseMatrix<double>& mP, SparseMat
         cout<<"     eig3"<<endl;
  
         VectorXd eigsCorrected;
-        MatrixXd evsCorrected; //magnitude of eigenvectors can be wrong in this formulation
         eigsCorrected.resize(geigs.eigenvalues().rows());
-        evsCorrected.resize(geigs.eigenvectors().rows(), geigs.eigenvectors().cols());
+        MatrixXd evsCorrected = geigs.eigenvectors();
         if(geigs.info() == Spectra::SUCCESSFUL)
         {
             for(unsigned int ii=0; ii<geigs.eigenvalues().rows(); ++ii) {
                 eigsCorrected[ii] = -(static_cast<double>(1)/(geigs.eigenvalues()[ii]) + shift);
-                evsCorrected.col(ii) = geigs.eigenvectors().col(ii).normalized();
+                evsCorrected.col(ii) /= sqrt(geigs.eigenvectors().col(ii).transpose()*M1*geigs.eigenvectors().col(ii));
             }
 
-            igl::writeDMAT(to_string(nummodes)+"simplejoint.dmat", evsCorrected);
+            // igl::writeDMAT(to_string(nummodes)+"simplejoint.dmat", evsCorrected);
         }
         else
         {
@@ -87,8 +86,8 @@ void setup_modes(int nummodes, bool reduced, SparseMatrix<double>& mP, SparseMat
         // eigenvalues.head(eigenvalues.size() - 3));
         MatrixXd eV = mY*evsCorrected;
         mG = eV.leftCols(nummodes-25);
-        return;
         cout<<"-EIG SOLVE"<<endl;
+        return;
 
         //############handle modes KKT solve#####
         cout<<"+ModesForHandles"<<endl;
