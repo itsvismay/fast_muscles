@@ -27,7 +27,7 @@ void setup_modes(int nummodes, bool reduced, SparseMatrix<double>& mP, SparseMat
             mG = MatrixXd::Identity(3*mV.rows(), 3*mV.rows());
             return;
         }
-
+        nummodes = std::min(nummodes+25, mA.cols());
         // SparseMatrix<double> L;
         // igl::cotmatrix(mV, mT, L);
         // Eigen::kroneckerProduct(L, Matrix3d::Identity());

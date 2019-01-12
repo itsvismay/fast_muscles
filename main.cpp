@@ -69,38 +69,21 @@ int main(int argc, char *argv[])
     VectorXi muscle3;
     VectorXi bone1;
     VectorXi bone2;
+    VectorXi bone3;
     VectorXi joint1;
 
 
 
-
     std::string datafile = j_input["data"];
-    // igl::readDMAT(datafile+"simple_joint/generated_files/tet_mesh_V.dmat", V);
-    // igl::readDMAT(datafile+"simple_joint/generated_files/tet_mesh_T.dmat", T);
-    // igl::readDMAT(datafile+"simple_joint/generated_files/combined_fiber_directions.dmat", Uvec);
-    // igl::readDMAT(datafile+"simple_joint/generated_files/muscle_muscle_indices.dmat", muscle1);
-    // igl::readDMAT(datafile+"simple_joint/generated_files/top_bone_bone_indices.dmat", bone1);
-    // igl::readDMAT(datafile+"simple_joint/generated_files/bottom_bone_bone_indices.dmat", bone2);
-    // igl::readDMAT(datafile+"simple_joint/generated_files/joint_indices.dmat", joint1);
-    
-    // igl::readDMAT(datafile+"output/combined_V.dmat", V);
-    // igl::readDMAT(datafile+"output/combined_T.dmat", T);
-    // igl::readDMAT(datafile+"output/fiber_directions.dmat", Uvec);
-    // igl::readDMAT(datafile+"output/muscle_I.dmat", muscle1);
-    // igl::readDMAT(datafile+"output/bone_1_I.dmat", bone1);
-    // igl::readDMAT(datafile+"output/bone_2_I.dmat", bone2);
 
-     igl::readDMAT(datafile+"simple_shoulder/generated_files/tet_mesh_V.dmat", V);
-    igl::readDMAT(datafile+"simple_shoulder/generated_files/tet_mesh_T.dmat", T);
-    igl::readDMAT(datafile+"simple_shoulder/generated_files/combined_fiber_directions.dmat", Uvec);
-    igl::readDMAT(datafile+"simple_shoulder/generated_files/front_deltoid_muscle_indices.dmat", muscle1);
-    igl::readDMAT(datafile+"simple_shoulder/generated_files/rear_deltoid_muscle_indices.dmat", muscle2);
-    igl::readDMAT(datafile+"simple_shoulder/generated_files/top_deltoid_muscle_indices.dmat", muscle3);
-    igl::readDMAT(datafile+"simple_shoulder/generated_files/scapula_bone_indices.dmat", bone1);
-    igl::readDMAT(datafile+"simple_shoulder/generated_files/humerus_bone_indices.dmat", bone2);
-    igl::readDMAT(datafile+"simple_shoulder/generated_files/joint_indices.dmat", joint1);
-    
-    igl::boundary_facets(T, F);
+    igl::readDMAT(datafile+"realistic_biceps/generated_files/tet_mesh_V.dmat", V);
+    igl::readDMAT(datafile+"realistic_biceps/generated_files/tet_mesh_T.dmat", T);
+    igl::readDMAT(datafile+"realistic_biceps/generated_files/combined_fiber_directions.dmat", Uvec);
+    igl::readDMAT(datafile+"realistic_biceps/generated_files/biceps_muscle_indices.dmat", muscle1);
+    igl::readDMAT(datafile+"realistic_biceps/generated_files/scapula_bone_indices.dmat", bone1);
+    igl::readDMAT(datafile+"realistic_biceps/generated_files/humerus_bone_indices.dmat", bone2);
+    igl::readDMAT(datafile+"realistic_biceps/generated_files/forearm_bone_indices.dmat", bone3);
+    igl::readDMAT(datafile+"realistic_biceps/generated_files/joint_indices.dmat", joint1);
     
     std::vector<int> fix = {T.row(bone1[0])[0], T.row(bone1[0])[1], T.row(bone1[0])[2], T.row(bone1[0])[3]};
     std::sort (fix.begin(), fix.end());
@@ -109,9 +92,13 @@ int main(int argc, char *argv[])
     std::vector<int> mov = {};//getMinVerts_Axis_Tolerance(V, 1);
     // std::sort (mov.begin(), mov.end());
     
-    std::vector<VectorXi> bones = {bone1, bone2};
-    std::vector<VectorXi> muscles = {muscle1, muscle2, muscle3};
+    std::vector<VectorXi> bones = {bone1, bone2, bone3};
+    std::vector<VectorXi> muscles = {muscle1};
 
+
+    
+
+    igl::boundary_facets(T, F);
     std::cout<<"-----Mesh-------"<<std::endl;
     Mesh* mesh = new Mesh(T, V, fix, mov,bones, muscles, Uvec,  j_input);
     
@@ -144,8 +131,8 @@ int main(int argc, char *argv[])
     for(int run=0; run<10; run++){
         MatrixXd newV = mesh->continuousV();
         string datafile = j_input["data"];
-        igl::writeOBJ(datafile+"simple_jointtest"+to_string(run)+".obj",newV, F);
-        igl::writeDMAT(datafile+"simple_jointtest"+to_string(run)+".dmat",newV);
+        igl::writeOBJ(datafile+"realistic_arm"+to_string(run)+".obj",newV, F);
+        igl::writeDMAT(datafile+"realistic_arm"+to_string(run)+".dmat",newV);
         cout<<"---Quasi-Newton Step Info"<<endl;
         double fx =0;
         VectorXd ns = mesh->N().transpose()*mesh->red_s();
@@ -263,7 +250,6 @@ int main(int argc, char *argv[])
         for(int i=0; i<mov.size(); i++){
             viewer.data().add_points(newV.row(mov[i]),Eigen::RowVector3d(0,1,0));
         }
-
         
         return false;
     };
