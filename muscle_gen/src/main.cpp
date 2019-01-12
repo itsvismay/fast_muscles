@@ -273,58 +273,6 @@ void compute_muscle_fibers(const Body &body, MatrixXd &combined_fiber_directions
 				harmonic_boundary_verts_vec.push_back({muscle_tet_mesh.V(muscle_vert_index, 0), muscle_tet_mesh.V(muscle_vert_index, 1), muscle_tet_mesh.V(muscle_vert_index, 2)});
 			}
 		}
-
-
-		// VectorXi muscle_verts_I;
-		// igl::unique(muscle_tet_mesh.T, muscle_verts_I);
-
-		// // Get distance of all muscle verts to all the bones
-		// std::vector<VectorXd> muscle_to_bone_dists;
-		// for(const auto &bone_surf_el : body.bone_surfs) {
-		// 	const string &bone_name = bone_surf_el.first;
-		// 	MatrixXi boneF;
-		// 	const TetMesh &bone_tet_mesh = body.split_tet_meshes.at(bone_name);
-		// 	MatrixXd boneV = bone_tet_mesh.V.array() + 0.001;
-		// 	igl::boundary_facets(bone_tet_mesh.T, boneF);
-
-		// 	VectorXd S;
-		// 	VectorXi I;
-		// 	MatrixXd C, N;
-		// 	igl::signed_distance(muscle_tet_mesh.V, boneV, boneF, igl::SignedDistanceType::SIGNED_DISTANCE_TYPE_PSEUDONORMAL, S, I, C, N);
-		// 	muscle_to_bone_dists.push_back(S);
-		// }
-
-		// // Keep all the verts touching a bone and assign a boundary value
-		// std::vector<int> boundary_verts_vec;
-		// std::vector<double> boundary_vals_vec;
-		// const double tolerance = 0.002;//1e-3;//1e-8; 
-		// int first_bone = -1; //dirty hack to make everything but the first bone found a heat sink
-		// for(int i = 0; i < muscle_verts_I.size(); i++) {
-		// 	const int muscle_vert_index = muscle_verts_I[i];
-
-		// 	for(int j = 0; j < muscle_to_bone_dists.size(); j++) {
-		// 		auto &muscle_to_bone_dist = muscle_to_bone_dists[j];
-
-		// 		if(std::abs(muscle_to_bone_dist(muscle_vert_index)) <= tolerance) {
-		// 			boundary_verts_vec.push_back(muscle_vert_index);
-		// 			harmonic_boundary_verts_vec.push_back({muscle_tet_mesh.V(muscle_vert_index, 0), muscle_tet_mesh.V(muscle_vert_index, 1), muscle_tet_mesh.V(muscle_vert_index, 2)});
-
-		// 			// TODO - This is a horrible assumption
-		// 			// It will always work in the case of one muscle attached to two bones.
-		// 			// If there is one muscle attached to three bones, it may break depending on order.
-		// 			if(first_bone == -1) { first_bone = j; }
-		// 			if(j == first_bone) {
-		// 				boundary_vals_vec.push_back(-1.0);
-		// 			} else {
-		// 				boundary_vals_vec.push_back(1.0);
-		// 			}
-
-		// 			break;
-		// 		} else {
-		// 			// std::cout << muscle_to_bone_dist(muscle_vert_index) << " ";
-		// 		}
-		// 	}
-		// }
 		igl::list_to_matrix(boundary_verts_vec, boundary_verts);
 		igl::list_to_matrix(boundary_vals_vec, boundary_vals);
 
@@ -385,6 +333,7 @@ void add_joints(const json &config, const string &obj_dir, Body &body) {
 					cur_bone_indices.push_back(new_tet_i);
 					body.tet_mesh.T.row(new_tet_i) = RowVector4i(nV, nV+1, to_attach_tet(0 + j), to_attach_tet(1 + j));
 					body.combined_fiber_directions.row(new_tet_i) = RowVector3d(0.0, 0.0, 0.0);
+					body.joint_indices.push_back(new_tet_i);
 				}
 			} else if (type == "ball") {
 				const int new_tet_i = nT + i;

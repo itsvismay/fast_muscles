@@ -17,7 +17,10 @@ namespace muscle_gen {
 		Vector3d(1.0, 0.0, 0.0),
 		Vector3d(0.0, 1.0, 0.0),
 		Vector3d(0.0, 0.0, 1.0),
-		Vector3d(1.0, 1.0, 0.0)
+		Vector3d(1.0, 1.0, 0.0),
+		Vector3d(1.0, 0.0, 1.0),
+		Vector3d(0.8, 0.8, 0.8),
+		Vector3d(0.2, 0.2, 0.2),
 	};
 
 	bool update_cutaway(igl::opengl::glfw::Viewer &viewer, const TetMesh &tet_mesh, double t, int mesh_index)
