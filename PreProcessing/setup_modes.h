@@ -11,6 +11,6 @@
 #include <GenEigsSolver.h>
 
 using namespace Eigen;
-void setup_modes(int nummodes, bool reduced, SparseMatrix<double>& mP, SparseMatrix<double>& mA, SparseMatrix<double> mConstrained, MatrixXd& mV, VectorXd& mmass_diag, MatrixXd& mG);
+void setup_modes(int nummodes, bool reduced, SparseMatrix<double>& mP, SparseMatrix<double>& mA, SparseMatrix<double> mConstrained, SparseMatrix<double> mFree, SparseMatrix<double> mY, MatrixXd& mV, const MatrixXi& mT, VectorXd& mmass_diag, MatrixXd& mG);
 
 #endif

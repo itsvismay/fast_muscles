@@ -427,7 +427,8 @@ int main(int argc, char *argv[]){
     std::cout<<"-----Mesh-------"<<std::endl;
     VectorXi muscle1;
     MatrixXd Uvec;
-    Mesh* mesh = new Mesh(T, V, fix, mov, bones, muscle1, Uvec, j_input);
+    std::vector<VectorXi> muscles = {muscle1};
+    Mesh* mesh = new Mesh(T, V, fix, mov, bones, muscles, Uvec, j_input);
 
     std::cout<<"-----ARAP-----"<<std::endl;
     Arap* arap = new Arap(*mesh);

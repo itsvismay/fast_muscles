@@ -6,10 +6,24 @@
 #include <json.hpp>
 #include <unsupported/Eigen/MatrixFunctions>
 #include <iostream>
+#include <igl/readDMAT.h>
 #include "PreProcessing/to_triplets.h"
 #include "PreProcessing/setup_modes.h"
 #include "PreProcessing/setup_rotation_cluster.h"
 #include "PreProcessing/setup_skinning_handles.h"
+
+// #include <GaussIncludes.h>
+// #include <FEMIncludes.h>
+// #include <UtilitiesEigen.h>
+// //Any extra things I need such as constraints
+// #include <ConstraintFixedPoint.h>
+// #include <TimeStepperLinearModes.h>
+
+// using namespace Gauss;
+// using namespace FEM;
+// using namespace ParticleSystem; //For Force Spring
+
+
 
 
 
@@ -21,6 +35,10 @@ using json = nlohmann::json;
 typedef Eigen::Triplet<double> Trip;
 typedef Matrix<double, 12, 1> Vector12d;
 
+// typedef PhysicalSystemFEM<double, LinearTet> FEMLinearTets;
+// typedef World<double, std::tuple<FEMLinearTets *>, std::tuple<ForceSpringFEMParticle<double> *>, std::tuple<ConstraintFixedPoint<double> *> > MyWorld;
+
+
 class Mesh
 {
 
@@ -30,7 +48,7 @@ protected:
 
     //Used in the sim
     SparseMatrix<double> mMass, mGF, mGR, mGS, mGU, mP, mC, m_P, mPA, mWr, mWw;
-    SparseMatrix<double> mA, mFree, mConstrained, mN, mAN;
+    SparseMatrix<double> mA, mFree, mConstrained, mN, mAN, mY;
 
     VectorXi melemType, mr_elem_cluster_map, ms_handles_ind;
     VectorXd mcontx, mx, mx0, mred_s, melemYoungs, 
@@ -42,6 +60,7 @@ protected:
     std::map<int, std::vector<int>> mr_cluster_elem_map;
     std::vector<SparseMatrix<double>> mRotationBLOCK;
     bool reduced;
+    std::vector<VectorXi> mmuscles;
     //end
 
     
@@ -50,12 +69,13 @@ public:
     Mesh(){}
 
     Mesh(MatrixXi& iT, MatrixXd& iV, std::vector<int>& ifix, 
-        std::vector<int>& imov, std::vector<VectorXi>& ibones, VectorXi& imuscle,
+        std::vector<int>& imov, std::vector<VectorXi>& ibones, std::vector<VectorXi>& imuscle,
         MatrixXd& iUvecs, json& j_input){
         mV = iV;
         mT = iT;
         mfix = ifix;
         mmov = imov;
+        mmuscles = imuscle;
 
         double youngs = j_input["youngs"];
         double poissons = j_input["poissons"];
@@ -88,30 +108,52 @@ public:
         print("step 4");
         setC();
         print("step 5");
-        //setMassMatrix();
+        setFreedConstrainedMatrices();
         print("step 6");
         setVertexWiseMassDiag();
+
         print("step 7");
-        setFreedConstrainedMatrices();
+        setHandleModesMatrix(ibones, imuscle);
+        
         print("step 8");
         setElemWiseYoungsPoissons(youngs, poissons);
         print("step 9");
         setDiscontinuousMeshT();
 
         print("step 10");
-        setup_modes(num_modes, reduced, mP, mA, mConstrained, mV, mmass_diag, mG);
+        setup_rotation_cluster(nrc, reduced, mT, mV, ibones, imuscle, mred_x, mred_r, mred_w, mC, mA, mG, mx0, mRotationBLOCK, mr_cluster_elem_map, mr_elem_cluster_map);
 
         print("step 11");
-        setup_rotation_cluster(nrc, reduced, mT, mV, ibones, imuscle, mred_x, mred_r, mred_w, mC, mA, mG, mx0, mRotationBLOCK, mr_cluster_elem_map, mr_elem_cluster_map);
+        setup_skinning_handles(nsh, reduced, mT, mV, ibones, imuscle, mC, mA, mG, mx0, mred_s, msW);
         
         print("step 12");
-        setup_skinning_handles(nsh, reduced, mT, mV, ibones, imuscle, mC, mA, mG, mx0, ms_handles_ind, mred_s, msW);
+        if(num_modes == 1){
+            MatrixXd temp1;
+            igl::readDMAT("325simplejoint.dmat", temp1);
+            mG = mY*temp1;
+        }else{
+
+            // MyWorld world;
+            // FEMLinearTets *test = new FEMLinearTets(mV,mT);
+            // world.addSystem(test);
+            // world.finalize();
+            // //build mass and stiffness matrices
+            // AssemblerParallel<double, AssemblerEigenSparseMatrix<double> > mass;
+            // AssemblerParallel<double, AssemblerEigenSparseMatrix<double> > stiffness;
+            // getMassMatrix(mass, world);
+            // getStiffnessMatrix(stiffness, world);
+
+            setup_modes(num_modes, reduced, mP, mA, mConstrained, mFree, mY, mV, mT, mmass_diag, mG);
+            
+        }
 
         print("step 13");
         mUvecs.resize(mT.rows(), 3);
         mUvecs.setZero();
         for(int i=0; i<imuscle.size(); i++){
-            mUvecs.row(imuscle[i]) = iUvecs.row(i);
+            for(int j=0; j<imuscle[i].size(); j++){
+                mUvecs.row(imuscle[i][j]) = iUvecs.row(imuscle[i][j]);
+            }
         }
 
         if(mG.cols()==0){
@@ -128,13 +170,13 @@ public:
         print("step 14");
         setGlobalF(false, false, true);
         print("step 15");
-        setN();
+        setN(ibones);
         print("step 16");
         mPA = mP*mA;
         mPAx0 = mPA*mx0;
         mFPAx.resize(mPAx0.size());
-
         setupWrWw();
+
     }
 
 
@@ -194,15 +236,89 @@ public:
         mC.setFromTriplets(triplets.begin(), triplets.end());
     }
 
-    void setN(){
+    void setHandleModesMatrix(std::vector<VectorXi>& ibones, std::vector<VectorXi>& imuscle){
+        VectorXd vert_free_or_not = mFree*mFree.transpose()*VectorXd::Ones(3*mV.rows());// check if vert is fixed
+        //TODO fixed bones, used this vector (Y*Y'Ones(3*V.rows())) to create the mFree matrix and mConstrained matrix
+        
+        //ibones should have fixed bones at the front, rest at the back
+        std::vector<int> fixedbones = {0}; //bone at ibones index 0 is fixed
+
+        VectorXd bone_or_muscle = VectorXd::Zero(3*mV.rows()); //0 for muscle, 1,2 for each bone
+        bone_or_muscle.array() += -1;
+        for(int i=ibones.size() -1; i>=0; i--){ //go through in reverse so joints are part of the fixed bone
+            for(int j=0; j<ibones[i].size(); j++){
+                bone_or_muscle.segment<3>(3*mT.row(ibones[i][j])[0])[0] = i+1;
+                bone_or_muscle.segment<3>(3*mT.row(ibones[i][j])[0])[1] = i+1;
+                bone_or_muscle.segment<3>(3*mT.row(ibones[i][j])[0])[2] = i+1;
+                bone_or_muscle.segment<3>(3*mT.row(ibones[i][j])[1])[0] = i+1;
+                bone_or_muscle.segment<3>(3*mT.row(ibones[i][j])[1])[1] = i+1;
+                bone_or_muscle.segment<3>(3*mT.row(ibones[i][j])[1])[2] = i+1;
+                bone_or_muscle.segment<3>(3*mT.row(ibones[i][j])[2])[0] = i+1;
+                bone_or_muscle.segment<3>(3*mT.row(ibones[i][j])[2])[1] = i+1;
+                bone_or_muscle.segment<3>(3*mT.row(ibones[i][j])[2])[2] = i+1;
+                bone_or_muscle.segment<3>(3*mT.row(ibones[i][j])[3])[0] = i+1;
+                bone_or_muscle.segment<3>(3*mT.row(ibones[i][j])[3])[1] = i+1;
+                bone_or_muscle.segment<3>(3*mT.row(ibones[i][j])[3])[2] = i+1; 
+            }
+        }
+
+        int muscleVerts = 0;
+        for(int i=0; i<bone_or_muscle.size()/3; i++){
+            if(bone_or_muscle[3*i]<-1e-8){
+                muscleVerts += 1;
+            }
+        }
+    
+        
+        std::vector<Trip> mY_trips = {};
+        //set top |bones|*12 dofs to be the bones
+        //set the rest to be muscles, indexed correctly 
+        int muscle_index = 0;
+        for(int i=0; i<bone_or_muscle.size()/3; i++){
+            if(bone_or_muscle[3*i]<-1e-8){
+                //its a muscle, figure out which one, and index it correctly
+                mY_trips.push_back(Trip(3*i+0, 12*(ibones.size()-fixedbones.size())+3*muscle_index+0, 1.0));
+                mY_trips.push_back(Trip(3*i+1, 12*(ibones.size()-fixedbones.size())+3*muscle_index+1, 1.0));
+                mY_trips.push_back(Trip(3*i+2, 12*(ibones.size()-fixedbones.size())+3*muscle_index+2, 1.0));
+                muscle_index +=1;
+            }
+        }
+
+
+        for(int i=0; i<bone_or_muscle.size()/3; i++){
+                if(bone_or_muscle[3*i]>fixedbones.size()){
+                    mY_trips.push_back(Trip(3*i+0, (int)(12*(bone_or_muscle[3*i]-1 - fixedbones.size()))+0, mV.row(i)[0]));
+                    mY_trips.push_back(Trip(3*i+1, (int)(12*(bone_or_muscle[3*i]-1 - fixedbones.size()))+1, mV.row(i)[0]));
+                    mY_trips.push_back(Trip(3*i+2, (int)(12*(bone_or_muscle[3*i]-1 - fixedbones.size()))+2, mV.row(i)[0]));
+
+                    mY_trips.push_back(Trip(3*i+0, (int)(12*(bone_or_muscle[3*i]-1 - fixedbones.size()))+3, mV.row(i)[1]));
+                    mY_trips.push_back(Trip(3*i+1, (int)(12*(bone_or_muscle[3*i]-1 - fixedbones.size()))+4, mV.row(i)[1]));
+                    mY_trips.push_back(Trip(3*i+2, (int)(12*(bone_or_muscle[3*i]-1 - fixedbones.size()))+5, mV.row(i)[1]));
+
+                    mY_trips.push_back(Trip(3*i+0, (int)(12*(bone_or_muscle[3*i]-1 - fixedbones.size()))+6, mV.row(i)[2]));
+                    mY_trips.push_back(Trip(3*i+1, (int)(12*(bone_or_muscle[3*i]-1 - fixedbones.size()))+7, mV.row(i)[2]));
+                    mY_trips.push_back(Trip(3*i+2, (int)(12*(bone_or_muscle[3*i]-1 - fixedbones.size()))+8, mV.row(i)[2]));
+
+                    mY_trips.push_back(Trip(3*i+0, (int)(12*(bone_or_muscle[3*i]-1 - fixedbones.size()))+9,  1.0));
+                    mY_trips.push_back(Trip(3*i+1, (int)(12*(bone_or_muscle[3*i]-1 - fixedbones.size()))+10, 1.0));
+                    mY_trips.push_back(Trip(3*i+2, (int)(12*(bone_or_muscle[3*i]-1 - fixedbones.size()))+11, 1.0));
+            }
+        }
+
+        mY.resize(3*mV.rows(), 3*muscleVerts + 12*(ibones.size() - fixedbones.size()));
+        mY.setFromTriplets(mY_trips.begin(), mY_trips.end());
+
+    }
+
+    void setN(std::vector<VectorXi> bones){
         //TODO make this work for reduced skinning
-        int nsh_bones = (int) mbones.sum();
+        int nsh_bones = bones.size();
         mN.resize(mred_s.size(), mred_s.size() - 6*nsh_bones); //#nsh x nsh for muscles (project out bones handles)
         mN.setZero();
 
         int j=0;
         for(int i=0; i<mN.rows()/6; i++){
-            if(mbones[i]>0.5){
+            if(i<bones.size()){
                 continue;
             }
             mN.coeffRef(6*i+0, 6*j+0) = 1;
@@ -214,12 +330,12 @@ public:
             j++;
         }
 
-        mAN.resize(mred_s.size(), 6*nsh_bones); //#nsh x nsh for muscles (project out bones handles)
+        mAN.resize(mred_s.size(), 6*nsh_bones); //#nsh x nsh for muscles (project out muscle handles)
         mAN.setZero();
 
         j=0;
         for(int i=0; i<mAN.rows()/6; i++){
-            if(mbones[i]<0.5){
+            if(i>=bones.size()){
                 continue;
             }
             mAN.coeffRef(6*i+0, 6*j+0) = 1;
@@ -246,7 +362,7 @@ public:
         for(int i=0; i<mT.rows(); i++){
             double weight = 1;
             if(mbones[i]==1){
-                weight = 10;
+                weight = 1;
             }
             for(int j=0; j<3; j++){
                 triplets.push_back(Trip(12*i+0+j, 12*i+0+j, weight*p(0,0)/4));
@@ -607,6 +723,7 @@ public:
     SparseMatrix<double>& A(){ return mA; }
     SparseMatrix<double>& N(){ return mN; }
     SparseMatrix<double>& AN(){ return mAN; }
+    SparseMatrix<double>& Y(){ return mY; }
     MatrixXd& G(){ return mG; }
     MatrixXd& Uvecs(){ return mUvecs; }
 
@@ -621,6 +738,7 @@ public:
     std::map<int, std::vector<int>>& r_cluster_elem_map(){ return mr_cluster_elem_map; }
     VectorXi& r_elem_cluster_map(){ return mr_elem_cluster_map; }
     VectorXd& bones(){ return mbones; }
+    std::vector<VectorXi> muscle_vecs() { return mmuscles; }
     MatrixXd& sW(){ 
         if(mred_s.size()== 6*mT.rows() && reduced==false){
             print("skinning is unreduced, don't call this function");
@@ -665,9 +783,13 @@ public:
         VectorXd ms;
         if(3*mV.rows()==mred_x.size()){
             x = mred_x+mx0;
+        }else{
+            print("reduced G");
+            x = mG*mred_x + mx0;
+        }
+        if(6*mT.rows() == mred_s.size()){
             ms = mred_s;
         }else{
-            x = mG*mred_x + mx0;
             ms = msW*mred_s;
         }
 

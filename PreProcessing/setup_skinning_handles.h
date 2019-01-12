@@ -10,8 +10,17 @@
 
 using namespace Eigen;
 
-void setup_skinning_handles(int nsh, bool reduced, const MatrixXi& mT, const MatrixXd& mV, std::vector<VectorXi>& ibones, VectorXi& imuscle, 
-	SparseMatrix<double>& mC, SparseMatrix<double>& mA, MatrixXd& mG, VectorXd& mx0, 
-	VectorXi& ms_handles_ind, VectorXd& mred_s, MatrixXd& msW);
+void setup_skinning_handles(int nsh, 
+	bool reduced, 
+	const MatrixXi& mT, 
+	const MatrixXd& mV, 
+	std::vector<VectorXi>& ibones, 
+	std::vector<VectorXi>& imuscle, 
+	SparseMatrix<double>& mC, 
+	SparseMatrix<double>& mA, 
+	MatrixXd& mG, 
+	VectorXd& mx0, 
+	VectorXd& mred_s, 
+	MatrixXd& msW);
 
 #endif

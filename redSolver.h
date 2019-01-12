@@ -2,6 +2,7 @@
 #include "redArap.h"
 #include "elastic.h"
 #include <LBFGS.h>
+#include <igl/Timer.h>
 
 using namespace LBFGSpp;
 using json = nlohmann::json;
@@ -19,6 +20,8 @@ private:
     double alpha_neo = 1;
     double eps = 1e-6;
     bool stest = false;
+    igl::Timer timer;
+    bool terminate;
 
 public:
     RedSolver(int n_, Mesh* m, Reduced_Arap* a, Elastic* e, json& j_input, bool test=false) : n(n_) {
@@ -95,17 +98,14 @@ public:
         VectorXd fake = VectorXd::Zero(mesh.red_s().size());
         for(int i=0; i<fake.size(); i++){
             mesh.red_s()[i] += 0.5*eps;
-            // mesh.setGlobalF(false, true, false);
             double Eleft = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
             mesh.red_s()[i] -= 0.5*eps;
             
             mesh.red_s()[i] -= 0.5*eps;
-            // mesh.setGlobalF(false, true, false);
             double Eright = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
             mesh.red_s()[i] += 0.5*eps;
             fake[i] = (Eleft - Eright)/eps;
         }
-        // mesh.setGlobalF(false, true, false);
         return fake;
     }
     //-----------------------
@@ -314,14 +314,29 @@ public:
         }
         double Eneo = alpha_neo*elas->Energy(*mesh);
 
-        arap->minimize(*mesh);
+        // timer.start();
+        bool converged = arap->minimize(*mesh);
+        // timer.stop();
+        // double arap_time = timer.getElapsedTimeInMilliSec();
+        // cout<<"     ---LineSearch Info"<<endl;
+        // cout<<"     ARAPConverged: "<<converged<<endl;
+        // cout<<"     ARAPTime: "<<arap_time<<endl;
+
         double Earap = alpha_arap*arap->Energy(*mesh);
         double fx = Eneo + Earap;
 
+
+
         if(computeGrad){
+            
             VectorXd pegrad = alpha_neo*mesh->N().transpose()*elas->PEGradient(*mesh);
+            timer.start();
             VectorXd arapgrad = alpha_arap*mesh->N().transpose()*arap->Jacobians(*mesh);
-            std::cout<<"BFGS: "<<Eneo<<", "<<Earap<<", "<<pegrad.norm()<<", "<<arapgrad.norm()<<","<<grad.norm()<<std::endl;
+            timer.stop();
+            double arap_grad_time = timer.getElapsedTimeInMilliSec();
+
+           
+
             
             if(stest){
                 VectorXd fake_arap = mesh->N().transpose()*Full_ARAP_Grad(*mesh, *arap,*elas, fx, eps);
@@ -348,7 +363,8 @@ public:
 
                     cout<<"Es"<<endl;
                     VectorXd fakeEs = Es(*mesh, *arap,E0, eps);
-                    cout<<arap->Es().transpose()<<endl;
+                    cout<<arap->Es().transpose()<<endl<<endl;
+                    cout<<fakeEs.transpose()<<endl;
                     cout<<(arap->Es().transpose() - fakeEs.transpose()).norm()<<endl<<endl;
                     
 
@@ -384,10 +400,17 @@ public:
                 grad[i] = pegrad[i];
                 grad[i] += arapgrad[i];
             }
+            cout<<"---BFGS Info"<<endl;
+            cout<<"NeoEnergy: "<<Eneo<<endl;
+            cout<<"NeoGradNorm: "<<pegrad.norm()<<endl;
+            cout<<"ArapEnergy: "<<Earap<<endl;
+            cout<<"ARAPGradNorm: "<<arapgrad.norm()<<endl;
+            cout<<"ARAPGradTime: "<<arap_grad_time<<endl;
+            cout<<"TotalGradNorm: "<<grad.norm()<<endl;
+
 
 	       // cout<<arapgrad.transpose()<<endl;
         }
-
 
         return fx;
     }

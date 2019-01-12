@@ -3,14 +3,18 @@
   "mesh_file":"/home/vismay/recode/fast_muscles/data/testbar/bar.1.mesh",
   "v_file" : "/home/vismay/recode/fast_muscles/data/simple_joint/generated_files/tet_mesh_V.dmat",
   "t_file" : "/home/vismay/recode/fast_muscles/data/simple_joint/generated_files/tet_mesh_T.dmat",
+  
   "youngs": 60000,
   "poissons": 0.45,
   "fibre_mag": 0,
-  "reduced": true,
+  "reduced": false,
+  "reduced_s": true,
+  "reduced_r": true,
+  "reduced_x": true,
   "number_skinning_handles": 0,
-  "number_rot_clusters": 10,
+  "number_rot_clusters": 0,
   "number_modes": 0,
   "fd_eps": 1e-4,
-  "alpha_arap": 1e4,
+  "alpha_arap": 1e1,
   "alpha_neo":1
 }

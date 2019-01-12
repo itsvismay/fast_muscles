@@ -1,11 +1,9 @@
-#include <igl/opengl/glfw/Viewer.h>
 #include <igl/writeOBJ.h>
 #include <igl/barycenter.h>
 #include <igl/readOFF.h>
 #include <igl/readMESH.h>
 #include <igl/readOBJ.h>
 #include <igl/slice.h>
-#include <unsupported/Eigen/NumericalDiff>
 
 
 #include <json.hpp>
@@ -351,14 +349,15 @@ int main(int argc, char *argv[]){
     
     std::vector<int> fix = getMaxVerts_Axis_Tolerance(V, 1);
     std::sort (fix.begin(), fix.end());
-    std::vector<int> mov = {1,7};
-    std::sort (mov.begin(), mov.end());
+    std::vector<int> mov ={};
+    // std::sort (mov.begin(), mov.end());
     std::vector<VectorXi> bones = {};
 
     std::cout<<"-----Mesh-------"<<std::endl;
     VectorXi muscle1;
     MatrixXd Uvec;
-    Mesh* mesh = new Mesh(T, V, fix, mov, bones, muscle1, Uvec, j_input);
+    std::vector<VectorXi> muscles = {muscle1};
+    Mesh* mesh = new Mesh(T, V, fix, mov, bones, muscles, Uvec, j_input);
 
     std::cout<<"-----ARAP-----"<<std::endl;
     Reduced_Arap* redarap = new Reduced_Arap(*mesh);
