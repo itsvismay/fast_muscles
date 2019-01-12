@@ -16,7 +16,7 @@ protected:
 	double muscle_fibre_mag = 10000;
 	double rho = 6.4; 
 	VectorXd sW1, sW2, sW3, sW4, sW5, sW6, muscle_forces, elastic_forces;
-	std::vector<int> contract_muscles = {0};
+	std::vector<int> contract_muscles = {2};
 public:
 	Elastic(Mesh& m){
 		if(m.T().rows()*6 == m.red_s().size()){

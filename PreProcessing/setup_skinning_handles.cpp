@@ -168,9 +168,23 @@ void setup_skinning_handles(int nsh, bool reduced, const MatrixXi& mT, const Mat
 	SparseMatrix<double>& mC, SparseMatrix<double>& mA, MatrixXd& mG, VectorXd& mx0, VectorXd& mred_s, MatrixXd& msW){
 
     std::cout<<"+ Skinning Handles"<<std::endl;
-    if(nsh==0){
+    if(reduced==false){
+        mred_s.resize(6*mT.rows());
+        for(int i=0; i<mT.rows(); i++){
+            mred_s[6*i+0] = 1; 
+            mred_s[6*i+1] = 1; 
+            mred_s[6*i+2] = 1; 
+            mred_s[6*i+3] = 0; 
+            mred_s[6*i+4] = 0; 
+            mred_s[6*i+5] = 0;
+        }
+        return;
+    
+    }
+    if(nsh==0 && reduced==true){
         nsh = ibones.size() + imuscle.size();
-    }else if(nsh<(ibones.size()+imuscle.size())){//hard coded to 1 muscle for now
+    
+    }else if(nsh<(ibones.size()+imuscle.size())){
         std::cout<<"Too few skinning handles, too many components"<<std::endl;
         exit(0);
     }
