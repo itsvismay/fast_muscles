@@ -16,9 +16,9 @@ protected:
 	double muscle_fibre_mag = 10000;
 	double rho = 6.4; 
 	VectorXd sW1, sW2, sW3, sW4, sW5, sW6, muscle_forces, elastic_forces;
-	std::vector<int> contract_muscles = {2};
+	std::vector<int> contract_muscles = {};
 public:
-	Elastic(Mesh& m){
+	Elastic(Mesh& m, double strength=10000, std::vector<int> tocontract={0}){
 		if(m.T().rows()*6 == m.red_s().size()){
 			sW1 = VectorXd::Zero(m.red_s().size());
 			sW2 = VectorXd::Zero(m.red_s().size());
@@ -30,6 +30,11 @@ public:
 
 		muscle_forces = VectorXd::Zero(m.red_s().size());
 		elastic_forces = VectorXd::Zero(m.red_s().size());
+
+		muscle_fibre_mag = strength;
+		for(int i=0; i<tocontract.size(); i++){
+			contract_muscles.push_back(tocontract[i]);
+		}
 	}
 
 	double MuscleElementEnergy(const VectorXd& w1, const VectorXd& w2, const VectorXd& w3, const VectorXd& w4, const VectorXd& w5, const VectorXd& w6,  const VectorXd& rs, Vector3d& u){
@@ -64,7 +69,7 @@ public:
 			}
 			for(int i=0; i<mesh.muscle_vecs()[contract_muscles[q]].size(); i++){
 				int t = mesh.muscle_vecs()[contract_muscles[q]][i];
-				if(bones[t]>0.5){
+				if(bones[t]>=0){
 					continue;
 				}
 
@@ -152,7 +157,7 @@ public:
 			}	
 			for(int i=0; i<mesh.muscle_vecs()[contract_muscles[q]].size(); i++){
 				int t = mesh.muscle_vecs()[contract_muscles[q]][i];
-				if(bones[t]>0.5){
+				if(bones[t]>=0){
 					continue;
 				}
 	            Vector3d u = mesh.Uvecs().row(t);
@@ -186,7 +191,6 @@ public:
 		double s5 = w5.dot(rs);
 		double I1 = s0*s0 + s1*s1 + s2*s2 + 2*s3*s3 + 2*s4*s4 + 2*s5*s5;
 		double J = s0*s1*s2 - s2*s3*s3 - s1*s4*s4 + 2*s3*s4*s5 - s0*s5*s5;
-
 		//Energy Terms for MatrixCalc.org
 		//I1 = w0'*rs*w0'*rs + w1'*rs*w1'*rs + w2'*rs*w2'*rs + 2*w3'*rs*w3'*rs + 2*w4'*rs*w4'*rs + 2*w5'*rs*w5'*rs
 		//J =  w0'*rs*w1'*rs*w2'*rs - w2'*rs*w3'*rs*w3'*rs - w1'*rs*w4'*rs*w4'*rs + 2*w3'*rs*w4'*rs*w5'*rs - w0'*rs*w5'*rs*w5'*rs
@@ -198,9 +202,7 @@ public:
 		}
 
 		double I1bar = std::pow(J, -2/3.0)*I1;
-
 		double W = C1*(I1bar -3) + D1*(J-1)*(J-1);
-
 		if(W<-1e-5){
 			std::cout<<"Negative energy"<<std::endl;
 			std::cout<<"W: "<<W<<std::endl;
@@ -212,8 +214,17 @@ public:
 			return 0;
 		}
 
-
 		if (W!=W){
+			cout<<"NAN in Wikipedia energy"<<endl;
+			cout<<I1<<endl;
+			cout<<J<<endl;
+			cout<<I1bar<<endl;
+			cout<<w0.transpose()<<endl;
+			cout<<w1.transpose()<<endl;
+			cout<<w2.transpose()<<endl;
+			cout<<w3.transpose()<<endl;
+			cout<<w4.transpose()<<endl;
+			cout<<w5.transpose()<<endl;
 			exit(0);
 		}
 		return W;
@@ -221,14 +232,12 @@ public:
 
 	double WikipediaEnergy(Mesh& mesh){
 		double En = 0;
-
 		VectorXd& eY = mesh.eYoungs();
 		VectorXd& eP = mesh.ePoissons();
 		VectorXd& bones = mesh.bones();
 		VectorXd& rs = mesh.red_s();
-
 		for(int t =0; t<mesh.T().rows(); t++){
-			if(mesh.bones()[t]>0.5){
+			if(mesh.bones()[t]>=0){
 				continue;
 			}
             double C1 = 0.5*eY[t]/(2.0*(1.0+eP[t]));
@@ -251,6 +260,7 @@ public:
             	En += WikipediaElementEnergy(mesh.sW().row(6*t+0),mesh.sW().row(6*t+1),mesh.sW().row(6*t+2),mesh.sW().row(6*t+3),mesh.sW().row(6*t+4),mesh.sW().row(6*t+5), rs, C1, D1);
 			}
 		}
+		cout<<"En "<<En<<endl;
 		return En;
 	}
 
@@ -318,7 +328,7 @@ public:
 
 		Matrix3d c;
 		for(int t =0; t<mesh.T().rows(); t++){
-			if(mesh.bones()[t]>0.5){
+			if(mesh.bones()[t]>=0){
 				continue;
 			}
             double C1 = 0.5*eY[t]/(2.0*(1.0+eP[t]));
@@ -347,7 +357,6 @@ public:
 	double Energy(Mesh& m){
 		double Elas =  WikipediaEnergy(m);
 		double Muscle = MuscleEnergy(m);
-	
 		return Elas + Muscle;
 	}
 

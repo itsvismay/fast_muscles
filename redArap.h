@@ -6,6 +6,7 @@
 #include<Eigen/LU>
 #include <iostream>
 #include <string>
+#include <igl/Timer.h>
 
 
 using namespace Eigen;
@@ -38,6 +39,13 @@ protected:
 	SparseMatrix<double> adjointP, a_Wr, a_Ww;
 	std::vector<MatrixXd> aePAx;
 	std::vector<MatrixXd> aeUSUtPAx0;
+
+	std::vector<MatrixXd> aFASTARAPDenseTerms;
+	std::vector<MatrixXd> aFASTARAPSparseTerms;
+	std::vector<MatrixXd> aFASTARAPCubeGtAtPtRSPAx0;
+	igl::Timer atimer;
+
+
 
 public:
 	Reduced_Arap(Mesh& m){
@@ -72,11 +80,7 @@ public:
 		aPAG = m.P()*m.A()*m.G();
 		aCG = m.AB().transpose()*m.G();
 		print("rarap 4");
-		MatrixXd KKTmat = MatrixXd::Zero(aExx.rows()+aCG.rows(), aExx.rows()+aCG.rows());
-		KKTmat.block(0,0, aExx.rows(), aExx.cols()) = aExx;
-		KKTmat.block(aExx.rows(), 0, aCG.rows(), aCG.cols()) = aCG;
-		KKTmat.block(0, aExx.cols(), aCG.cols(), aCG.rows()) = aCG.transpose();
-		aARAPKKTSolver.compute(KKTmat);
+		aARAPKKTSolver.compute(aExx);
 		print("rarap 5");
 		aJacKKT.resize(z_size+r_size+aCG.rows(), z_size+r_size+aCG.rows());
 		aJacConstrains.resize(z_size+r_size+aCG.rows() ,s_size);
@@ -85,17 +89,74 @@ public:
 		print("pre-processing");
 		setupWrWw(m);
 		setupFastItR(m);
+		setupFASTARAPTerms(m);
+
 		print("Jacobian solve pre-processing");
 		aJacKKT.block(0,0,aExx.rows(), aExx.cols()) = Exx();
 		aJacKKT.block(aExx.rows()+aExr.cols(), 0, aCG.rows(), aCG.cols()) = aCG;
 		aJacKKT.block(0, aExx.cols()+aExr.cols(), aCG.cols(), aCG.rows())= aCG.transpose();
 
+	}
+
+	void setupFASTARAPTerms(Mesh& m){
+		print("setupFASTARAPTerms");
+		m.red_s()[1] += 0.1;
+		m.red_s()[4] += 0.1;
+		m.red_r()[1] += 0.1;
+		m.red_r()[4] += 0.1;
+
+		VectorXd AtPtPAx0 = (aPAG).transpose()*(aPAx0);
+		aFASTARAPDenseTerms.push_back(AtPtPAx0);
+		std::vector<Trip> PAx0_trips;
+		for(int t=0; t<m.T().rows(); t++){
+			for(int j=0; j<4; j++){
+				Vector3d PAx0 = aPAx0.segment<3>(12*t + 3*j);
+				PAx0_trips.push_back(Trip( 12*t+3*j+0, 6*t+0 , PAx0[0]));
+				PAx0_trips.push_back(Trip( 12*t+3*j+0, 6*t+3 , PAx0[1]));
+				PAx0_trips.push_back(Trip( 12*t+3*j+0, 6*t+4 , PAx0[2]));
+
+				PAx0_trips.push_back(Trip( 12*t+3*j+1, 6*t+1 , PAx0[1]));
+				PAx0_trips.push_back(Trip( 12*t+3*j+1, 6*t+3 , PAx0[0]));
+				PAx0_trips.push_back(Trip( 12*t+3*j+1, 6*t+5 , PAx0[2]));
+
+				PAx0_trips.push_back(Trip( 12*t+3*j+2, 6*t+2 , PAx0[2]));
+				PAx0_trips.push_back(Trip( 12*t+3*j+2, 6*t+4 , PAx0[0]));
+				PAx0_trips.push_back(Trip( 12*t+3*j+2, 6*t+5 , PAx0[1]));
+				
+			}
+		}
+		SparseMatrix<double> MPAx0(12*m.T().rows(), 6*m.T().rows());
+		MPAx0.setFromTriplets(PAx0_trips.begin(), PAx0_trips.end());
+		MatrixXd MPAx0sW = MPAx0*m.sW();
 
 
+		MatrixXd& sW = m.sW();
+		for(int s=0; s<sW.cols(); s++){
+			VectorXd p = MPAx0sW.col(s);
+			std::vector<Trip> BigCube_s_trips;
+			for(int t=0; t<m.T().rows(); t++){
+				for(int jj=0; jj<4; jj++){
+					BigCube_s_trips.push_back(Trip(12*t+3*jj+0, 9*t+0, p[12*t+3*jj+0]));
+					BigCube_s_trips.push_back(Trip(12*t+3*jj+0, 9*t+1, p[12*t+3*jj+1]));
+					BigCube_s_trips.push_back(Trip(12*t+3*jj+0, 9*t+2, p[12*t+3*jj+2]));
+
+					BigCube_s_trips.push_back(Trip(12*t+3*jj+1, 9*t+3, p[12*t+3*jj+0]));
+					BigCube_s_trips.push_back(Trip(12*t+3*jj+1, 9*t+4, p[12*t+3*jj+1]));
+					BigCube_s_trips.push_back(Trip(12*t+3*jj+1, 9*t+5, p[12*t+3*jj+2]));
+
+					BigCube_s_trips.push_back(Trip(12*t+3*jj+2, 9*t+6, p[12*t+3*jj+0]));
+					BigCube_s_trips.push_back(Trip(12*t+3*jj+2, 9*t+7, p[12*t+3*jj+1]));
+					BigCube_s_trips.push_back(Trip(12*t+3*jj+2, 9*t+8, p[12*t+3*jj+2]));
+				}
+			}
 
 
-	
+			SparseMatrix<double> BigCube_s(12*m.T().rows(), 9*m.T().rows());
+			BigCube_s.setFromTriplets(BigCube_s_trips.begin(), BigCube_s_trips.end());
 
+			MatrixXd ClusteredCube_s = (aPAG).transpose()*BigCube_s*a_Wr;
+			aFASTARAPCubeGtAtPtRSPAx0.push_back(ClusteredCube_s);
+		}
 
 
 	}
@@ -642,25 +703,14 @@ public:
 
 	bool itT(Mesh& m){
 		//TODO DENSIFY
-		VectorXd deltaABtx = m.AB().transpose()*m.dx();
-		VectorXd AtPtFPAx0 = (aPAG).transpose()*aFPAx0;
-		VectorXd AtPtPAx0 = (aPAG).transpose()*(aPAx0);
-		VectorXd gb = AtPtFPAx0 - AtPtPAx0;
-		VectorXd gd(gb.size()+deltaABtx.size());
-		gd<<gb,deltaABtx;
-		VectorXd result = aARAPKKTSolver.solve(gd);
-		VectorXd gu = result.head(gb.size());
-		m.red_x(gu);
+		VectorXd AtPtFPAx0 = VectorXd::Zero(m.red_x().size());
+		for(int s=0; s<m.red_s().size(); s++){
+			AtPtFPAx0 += m.red_s()[s]*(aFASTARAPCubeGtAtPtRSPAx0[s]*m.red_r());
+		}
+		VectorXd gb = AtPtFPAx0 - aFASTARAPDenseTerms[0];
+		VectorXd result = aARAPKKTSolver.solve(gb);
+		m.red_x(result);
 
-		// VectorXd deltaABtx = m.AB().transpose()*m.dx();
-		// VectorXd AtPtFPAx0 = (aPAG).transpose()*aFPAx0;
-		// VectorXd AtPtPAx0 = (aPAG).transpose()*(aPAx0);
-		// VectorXd gb = AtPtFPAx0 - AtPtPAx0;
-		// VectorXd gd(gb.size()+deltaABtx.size());
-		// gd<<gb,deltaABtx;
-		// VectorXd result = aARAPKKTSparseSolver.solve(gd);
-		// VectorXd gu = result.head(gb.size());
-		// m.red_x(gu);
 		return false;
 	}
 
@@ -702,7 +752,7 @@ public:
 	}
 
 	bool minimize(Mesh& m){
-		// print("	+ ARAP minimize");
+		print("	+ ARAP minimize");
 		VectorXd ms = m.sW()*m.red_s();
 		VectorXd USUtPAx0 = VectorXd::Zero(12*m.T().rows());
 		for(int t =0; t<m.T().rows(); t++){
@@ -714,14 +764,22 @@ public:
 				USUtPAx0.segment<3>(12*t+3*j) = s*aPAx0.segment<3>(12*t+3*j);
 			}
 		}
-
 		m.constTimeFPAx0(aFPAx0);
+
+		double itRTimes = 0;
+		double itTTimes = 0;
 
 		double previous5ItE = Energy(m);
 		double oldE = Energy(m);
 		for(int i=1; i< 1000; i++){
+			atimer.start();
 			bool converged = itT(m);
+			atimer.stop();
+			itTTimes += atimer.getElapsedTimeInMicroSec();
+			atimer.start();
 			itR(m, USUtPAx0);
+			atimer.stop();
+			itRTimes += atimer.getElapsedTimeInMicroSec();
 			m.constTimeFPAx0(aFPAx0);
 			double newE = Energy(m);
 			cout<<i<<", ";
@@ -736,17 +794,14 @@ public:
 	
 			if (i%5==0){
 				if(fabs(newE - previous5ItE)<1e-8){
-					if(i>1000){
-						// print(m.red_s().transpose());
-						// exit(0);
-					}
 					// std::cout<<"		FinalARAPDiffInEnergy: "<<Energy(m)-previous5ItE<<std::endl;
+					std::cout<<"TIMES: "<<itTTimes<<", "<<itRTimes<<endl;
 					return true;
 				}
 				previous5ItE = newE;
 			}
-		
 		}
+		std::cout<<"TIMES: "<<itTTimes<<", "<<itRTimes<<endl;
 		
 		// std::cout<<"		NotConvergedARAPDiffInEnergy: "<<Energy(m)-previous5ItE<<std::endl;
 		

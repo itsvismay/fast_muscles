@@ -4,6 +4,7 @@
 #include <igl/readMESH.h>
 #include <igl/readOBJ.h>
 #include <igl/slice.h>
+#include <igl/setdiff.h>
 
 
 #include <json.hpp>
@@ -43,6 +44,16 @@ std::vector<int> getMinVerts_Axis_Tolerance(MatrixXd& mV, int dim, double tolera
     }
     return maxV;
 }
+void getMaxTets_Axis_Tolerance(std::vector<int>& ibones, MatrixXd& mV, MatrixXi& mT, double dim, double tolerance = 1-5){
+	auto maxX = mV.col(dim).maxCoeff();
+	for(int i=0; i< mT.rows(); i++){
+		Vector3d centre = (mV.row(mT.row(i)[0])+ mV.row(mT.row(i)[1]) + mV.row(mT.row(i)[2])+ mV.row(mT.row(i)[3]))/4.0;
+		if (fabs(centre[dim] - maxX)< tolerance){
+			ibones.push_back(i);
+		}
+	}
+}
+
 
 VectorXd get_w(VectorXd& r0, VectorXd& r){
 	VectorXd w = VectorXd::Zero(r0.size()/3);
@@ -346,18 +357,32 @@ int main(int argc, char *argv[]){
     MatrixXi T;
     MatrixXi F;
     igl::readMESH(j_input["mesh_file"], V, T, F);
-    
-    std::vector<int> fix = getMaxVerts_Axis_Tolerance(V, 1);
-    std::sort (fix.begin(), fix.end());
-    std::vector<int> mov ={};
-    // std::sort (mov.begin(), mov.end());
-    std::vector<VectorXi> bones = {};
+    cout<<"V size: "<<V.rows()<<endl;
+    cout<<"T size: "<<T.rows()<<endl;
+    cout<<"F size: "<<F.rows()<<endl;
+
+    std::vector<int> bone1={};
+    getMaxTets_Axis_Tolerance(bone1, V, T, 1, 3);
+    VectorXi bone1vec = VectorXi::Map(bone1.data(), bone1.size());
+    VectorXi all(T.rows());
+    MatrixXd Uvec(all.size(), 3);
+    for(int i=0; i<T.rows(); i++){
+        all[i] = i;
+        Uvec.row(i) = Vector3d::UnitY();
+    }
+    VectorXi muscle1;
+    VectorXi shit;
+    igl::setdiff(all, bone1vec, muscle1, shit);
+   
+
+
+    std::vector<VectorXi> bones = {bone1vec};
+    std::vector<VectorXi> muscles = {muscle1};
+    std::vector<int> fix_bones = {0};
+    std::vector<int> mov = {};
 
     std::cout<<"-----Mesh-------"<<std::endl;
-    VectorXi muscle1;
-    MatrixXd Uvec;
-    std::vector<VectorXi> muscles = {muscle1};
-    Mesh* mesh = new Mesh(T, V, fix, mov, bones, muscles, Uvec, j_input);
+    Mesh* mesh = new Mesh(T, V, fix_bones, mov, bones, muscles, Uvec, j_input);
 
     std::cout<<"-----ARAP-----"<<std::endl;
     Reduced_Arap* redarap = new Reduced_Arap(*mesh);
@@ -374,34 +399,11 @@ int main(int argc, char *argv[]){
     	  -0.00796292,   0.0371727 ,    1.17835 ,   0.494537 ,    1.22059,   -0.012968,
     	   -0.00408742 ,  0.0147056};
 
-    // std::vector<double> r = {   0.996916 ,  0.0784517 , 0.00175743 , -0.0784445 ,   0.996911,
-    //  -0.00381348, -0.00205117,  0.00366386 ,   0.999991 ,   0.994617 ,  0.0994266 ,  0.0291812 ,
-    //    -0.100029 ,   0.994784 ,  0.0199547 ,  -0.027045,  -0.0227662,    0.999375,    0.99933 ,
-    //    0.036391, -0.00378501 , -0.0364939 ,   0.998819,  -0.0320736,  0.00261334 ,  0.0321903 ,
-    //     0.999478,    0.999679,   0.0252053,  -0.0024076,  -0.0252473,    0.999494,  -0.0193542,
-    //      0.00191855,   0.0194088 ,    0.99981 ,   0.998806 ,  0.0460166 ,  0.0164289 , -0.0453156 ,
-    //         0.998141 , -0.0407561 ,
-    //  -0.0182739  ,  0.039963 ,   0.999034,    0.999572,   0.0291523,  0.00242857 ,  -0.028946 ,   0.997658 , -0.0619663 ,-0.00422935 ,  0.0618695 ,   0.998075, 999949};
-
-    // std::vector<double> x = { 0.499787 ,    9.54507  ,  0.488427  ,   0.35146  ,
-    // 10.0335,   -0.944859  ,         0   ,        0  ,         0  ,         0   ,        0 ,
-    //  0, 4.09929e-16,          -0 ,         -0    ,       0       ,    0     ,      0    ,
-    //  -1.01585  ,   10.2377,   -0.687974  , -0.836396   ,  10.3988  ,  0.715365};
-    
     cout<<s.size()<<", "<<mesh->red_s().size()<<endl;
     for(int i=0; i<s.size(); i++){
     	mesh->red_s()[i] = s[i];
     }
 
-    // cout<<r.size()<<", "<<mesh->red_r().size()<<endl;
-    // for(int i=0; i<r.size(); i++){
-    // 	mesh->red_r()[i] = r[i];
-    // }
-
-    // cout<<x.size()<<", "<<mesh->red_x().size()<<endl;
-    // for(int i=0; i<x.size(); i++){
-    // 	mesh->red_x()[i] = x[i];
-    // }
     redarap->minimize(*mesh);
 
     checkRedARAP(*mesh, *redarap);

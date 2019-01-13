@@ -308,14 +308,15 @@ public:
     }
     double operator()(const VectorXd& x, VectorXd& grad, bool computeGrad = true)
     {
-  		VectorXd reds = mesh->N()*x + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
+        
+        VectorXd reds = mesh->N()*x + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
         for(int i=0; i<reds.size(); i++){
             mesh->red_s()[i] = reds[i];
         }
         double Eneo = alpha_neo*elas->Energy(*mesh);
-
         // timer.start();
         bool converged = arap->minimize(*mesh);
+
         // timer.stop();
         // double arap_time = timer.getElapsedTimeInMilliSec();
         // cout<<"     ---LineSearch Info"<<endl;
@@ -326,9 +327,7 @@ public:
         double fx = Eneo + Earap;
 
 
-
         if(computeGrad){
-            
             VectorXd pegrad = alpha_neo*mesh->N().transpose()*elas->PEGradient(*mesh);
             timer.start();
             VectorXd arapgrad = alpha_arap*mesh->N().transpose()*arap->Jacobians(*mesh);
@@ -405,7 +404,6 @@ public:
             cout<<"NeoGradNorm: "<<pegrad.norm()<<endl;
             cout<<"ArapEnergy: "<<Earap<<endl;
             cout<<"ARAPGradNorm: "<<arapgrad.norm()<<endl;
-            cout<<"ARAPGradTime: "<<arap_grad_time<<endl;
             cout<<"TotalGradNorm: "<<grad.norm()<<endl;
 
 

@@ -7,6 +7,8 @@
 #include <igl/readOBJ.h>
 #include <igl/slice.h>
 #include <igl/boundary_facets.h>
+#include <json.hpp>
+#include <igl/Timer.h>
 
 
 #include "mesh.h"
@@ -28,106 +30,75 @@ RowVector3d green(0,1,0);
 RowVector3d black(0,0,0);
 MatrixXd Colors;
 
-std::vector<int> getMaxVerts_Axis_Tolerance(MatrixXd& mV, int dim, double tolerance=1e-5){
-    auto maxX = mV.col(dim).maxCoeff();
-    std::vector<int> maxV;
-    for(unsigned int ii=0; ii<mV.rows(); ++ii) {
-
-        if(fabs(mV(ii,dim) - maxX) < tolerance) {
-            maxV.push_back(ii);
-        }
-    }
-    return maxV;
-}
-
-std::vector<int> getMinVerts_Axis_Tolerance(MatrixXd& mV, int dim, double tolerance=1e-5){
-    auto maxX = mV.col(dim).minCoeff();
-    std::vector<int> maxV;
-    for(unsigned int ii=0; ii<mV.rows(); ++ii) {
-
-        if(fabs(mV(ii,dim) - maxX) < tolerance) {
-            maxV.push_back(ii);
-            std::cout<<ii;
-        }
-    }
-    return maxV;
-}
 
 int main(int argc, char *argv[])
 {
     std::cout<<"-----Configs-------"<<std::endl;
-    json j_config_parameters;
-    std::ifstream i("../input/input.json");
-    i >> j_input;
+    std::ifstream input_file("../input/input.json");
+    input_file >> j_input;
     
     MatrixXd V;
     MatrixXi T;
     MatrixXi F;
     MatrixXd Uvec;
-    VectorXi muscle1;
-    VectorXi muscle2;
-    VectorXi muscle3;
-    VectorXi bone1;
-    VectorXi bone2;
-    VectorXi joint1;
-
-
-
+    std::vector<int> mov = {};
+    
+    std::vector<VectorXi> bones = {};
+    std::vector<VectorXi> muscles = {};
+    std::vector<VectorXi> joints = {};
 
     std::string datafile = j_input["data"];
-    // igl::readDMAT(datafile+"simple_joint/generated_files/tet_mesh_V.dmat", V);
-    // igl::readDMAT(datafile+"simple_joint/generated_files/tet_mesh_T.dmat", T);
-    // igl::readDMAT(datafile+"simple_joint/generated_files/combined_fiber_directions.dmat", Uvec);
-    // igl::readDMAT(datafile+"simple_joint/generated_files/muscle_muscle_indices.dmat", muscle1);
-    // igl::readDMAT(datafile+"simple_joint/generated_files/top_bone_bone_indices.dmat", bone1);
-    // igl::readDMAT(datafile+"simple_joint/generated_files/bottom_bone_bone_indices.dmat", bone2);
-    // igl::readDMAT(datafile+"simple_joint/generated_files/joint_indices.dmat", joint1);
-    
-    // igl::readDMAT(datafile+"output/combined_V.dmat", V);
-    // igl::readDMAT(datafile+"output/combined_T.dmat", T);
-    // igl::readDMAT(datafile+"output/fiber_directions.dmat", Uvec);
-    // igl::readDMAT(datafile+"output/muscle_I.dmat", muscle1);
-    // igl::readDMAT(datafile+"output/bone_1_I.dmat", bone1);
-    // igl::readDMAT(datafile+"output/bone_2_I.dmat", bone2);
+    std::string outputfile = j_input["output"];
+    std::string namestring = j_input["name"];
 
-     igl::readDMAT(datafile+"simple_shoulder/generated_files/tet_mesh_V.dmat", V);
-    igl::readDMAT(datafile+"simple_shoulder/generated_files/tet_mesh_T.dmat", T);
-    igl::readDMAT(datafile+"simple_shoulder/generated_files/combined_fiber_directions.dmat", Uvec);
-    igl::readDMAT(datafile+"simple_shoulder/generated_files/front_deltoid_muscle_indices.dmat", muscle1);
-    igl::readDMAT(datafile+"simple_shoulder/generated_files/rear_deltoid_muscle_indices.dmat", muscle2);
-    igl::readDMAT(datafile+"simple_shoulder/generated_files/top_deltoid_muscle_indices.dmat", muscle3);
-    igl::readDMAT(datafile+"simple_shoulder/generated_files/scapula_bone_indices.dmat", bone1);
-    igl::readDMAT(datafile+"simple_shoulder/generated_files/humerus_bone_indices.dmat", bone2);
-    igl::readDMAT(datafile+"simple_shoulder/generated_files/joint_indices.dmat", joint1);
-    
+    igl::readDMAT(datafile+"/generated_files/tet_mesh_V.dmat", V);
+    igl::readDMAT(datafile+"/generated_files/tet_mesh_T.dmat", T);
+    igl::readDMAT(datafile+"/generated_files/combined_fiber_directions.dmat", Uvec);
+
+        json j_muscle_geometry_config;
+        std::ifstream muscle_config_file(datafile+"/config.json");
+        muscle_config_file >> j_muscle_geometry_config;
+
+        json j_muscles = j_muscle_geometry_config["muscles"];
+        json j_bones = j_muscle_geometry_config["bones"];
+
+        for (json::iterator it = j_bones.begin(); it != j_bones.end(); ++it) {
+            VectorXi bone_i;
+            std::cout << it.key() << "\n";
+            igl::readDMAT(datafile+"/generated_files/"+it.key()+"_bone_indices.dmat", bone_i);
+            bones.push_back(bone_i);
+        }
+
+        for (json::iterator it = j_muscles.begin(); it != j_muscles.end(); ++it) {
+            std::cout << it.key() << "\n";
+            VectorXi muscle_i;
+            igl::readDMAT(datafile+"/generated_files/"+it.key()+"_muscle_indices.dmat", muscle_i);
+            muscles.push_back(muscle_i);
+        }
+    std::vector<int> fix_bones = j_input["fix_bones_alphabet_order"];
+
     igl::boundary_facets(T, F);
-    
-    std::vector<int> fix = {T.row(bone1[0])[0], T.row(bone1[0])[1], T.row(bone1[0])[2], T.row(bone1[0])[3]};
-    std::sort (fix.begin(), fix.end());
-    
-
-    std::vector<int> mov = {};//getMinVerts_Axis_Tolerance(V, 1);
-    // std::sort (mov.begin(), mov.end());
-    
-    std::vector<VectorXi> bones = {bone1, bone2};
-    std::vector<VectorXi> muscles = {muscle1, muscle2, muscle3};
-
     std::cout<<"-----Mesh-------"<<std::endl;
-    Mesh* mesh = new Mesh(T, V, fix, mov,bones, muscles, Uvec,  j_input);
+    Mesh* mesh = new Mesh(T, V, fix_bones, mov,bones, muscles, Uvec,  j_input);
     
     std::cout<<"-----ARAP-----"<<std::endl;
     Reduced_Arap* arap = new Reduced_Arap(*mesh);
 
     std::cout<<"-----Neo-------"<<std::endl;
-    Elastic* neo = new Elastic(*mesh);
+    double start_strength = j_input["muscle_starting_strength"];
+    std::vector<int> contract_muscles_at_ind = j_input["contract_muscles_at_index"];
+    Elastic* neo = new Elastic(*mesh, start_strength, contract_muscles_at_ind);
 
     std::cout<<"-----Solver-------"<<std::endl;
     int DIM = mesh->red_s().size();
     RedSolver f(DIM, mesh, arap, neo, j_input);
     LBFGSParam<double> param;
     param.epsilon = 1e-1;
-    param.delta = 1e-5;
-    param.past = 1;
+    if(j_input["bfgs_convergence_crit_fast"]){
+        param.delta = 1e-5;
+        param.past = 1;
+    }
+
     param.linesearch = LBFGSpp::LBFGS_LINESEARCH_BACKTRACKING_ARMIJO;
     LBFGSSolver<double> solver(param);
 
@@ -138,33 +109,47 @@ int main(int argc, char *argv[])
     cout<<"NSH: "<<j_input["number_skinning_handles"]<<endl;
     cout<<"NRC: "<<j_input["number_rot_clusters"]<<endl;
     cout<<"MODES: "<<j_input["number_modes"]<<endl;
+    igl::Timer timer;
 
-
-    int run =0;
-    for(int run=0; run<10; run++){
-        MatrixXd newV = mesh->continuousV();
-        string datafile = j_input["data"];
-        igl::writeOBJ(datafile+"simple_jointtest"+to_string(run)+".obj",newV, F);
-        igl::writeDMAT(datafile+"simple_jointtest"+to_string(run)+".dmat",newV);
-        cout<<"---Quasi-Newton Step Info"<<endl;
-        double fx =0;
-        VectorXd ns = mesh->N().transpose()*mesh->red_s();
-        int niter = solver.minimize(f, ns, fx);
-        cout<<"BFGSIters: "<<niter<<endl;
-        VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
-        for(int i=0; i<reds.size(); i++){
-            mesh->red_s()[i] = reds[i];
-        }
+    // int run =0;
+    // for(int run=0; run<j_input["QS_steps"]; run++){
+    //     MatrixXd newV = mesh->continuousV();
+    //     string datafile = j_input["data"];
+    //     igl::writeOBJ(outputfile+"/"+namestring+"animation"+to_string(run)+".obj",newV, F);
+    //     igl::writeDMAT(outputfile+"/"+namestring+"animation"+to_string(run)+".dmat",newV);
+    //     cout<<"     ---Quasi-Newton Step Info"<<endl;
+    //     double fx =0;
+    //     VectorXd ns = mesh->N().transpose()*mesh->red_s();
+    //     timer.start();
+    //     int niter = solver.minimize(f, ns, fx);
+    //     timer.stop();
+    //     cout<<"     BFGSIters: "<<niter<<endl;
+    //     cout<<"     QSsteptime: "<<timer.getElapsedTimeInMilliSec()<<endl;
+    //     VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
+    //     for(int i=0; i<reds.size(); i++){
+    //         mesh->red_s()[i] = reds[i];
+    //     }
         
-        neo->changeFiberMag(2);
-    }
-    exit(0);
+    //     neo->changeFiberMag(j_input["multiplier_strength_each_step"]);
+    // }
+    // exit(0);
 
     std::cout<<"-----Display-------"<<std::endl;
     igl::opengl::glfw::Viewer viewer;
     MatrixXd Colors = MatrixXd::Random(100,3); // 3x3 Matrix filled with random numbers between (-1,1)
     Colors = (Colors + MatrixXd::Constant(100,3,1.))*(1-1e-6)/2.; // add 1 to the matrix to have values between 0 and 2; multiply with range/2
     Colors = (Colors + MatrixXd::Constant(100,3,1e-6)); //set LO as the lower bound (offset)
+    MatrixXd SETCOLORSMAT = MatrixXd::Zero(V.rows(), 3);
+    for(int c=0; c<mesh->red_w().size()/3; c++){
+        std::vector<int> cluster_elem = mesh->r_cluster_elem_map()[c];
+        for(int e=0; e<cluster_elem.size(); e++){
+            SETCOLORSMAT.row(mesh->T().row(cluster_elem[e])[0]) = Colors.row(c);
+            SETCOLORSMAT.row(mesh->T().row(cluster_elem[e])[1]) = Colors.row(c);
+            SETCOLORSMAT.row(mesh->T().row(cluster_elem[e])[2]) = Colors.row(c);
+            SETCOLORSMAT.row(mesh->T().row(cluster_elem[e])[3]) = Colors.row(c);
+        }
+    }
+
     int kkkk = 0;
     double tttt = 0;
     viewer.callback_pre_draw = [&](igl::opengl::glfw::Viewer & viewer){   
@@ -186,48 +171,37 @@ int main(int argc, char *argv[])
         viewer.data().clear();
         if(key=='A'){
             cout<<"here"<<endl;
-            neo->changeFiberMag(2);
+            neo->changeFiberMag(j_input["multiplier_strength_each_step"]);
         }
 
 
         if(key==' '){
             
-            // VectorXd ns = mesh->N().transpose()*mesh->red_s();
-            // for(int i=0; i<ns.size()/6; i++){
-            //     ns[6*i+1] -= 0.2;
-            //     ns[6*i+2] += 0.2;
-            //     ns[6*i+0] += 0.2;
-            // }
-
-            double fx =0;
             VectorXd ns = mesh->N().transpose()*mesh->red_s();
-            int niter = solver.minimize(f, ns, fx);
-            
+            for(int i=0; i<ns.size()/6; i++){
+                ns[6*i+1] -= 0.2;
+                ns[6*i+2] += 0.2;
+                ns[6*i+0] += 0.2;
+            }
+            arap->minimize(*mesh);
+
+            // double fx =0;
+            // VectorXd ns = mesh->N().transpose()*mesh->red_s();
+            // int niter = solver.minimize(f, ns, fx);
             VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
             for(int i=0; i<reds.size(); i++){
                 mesh->red_s()[i] = reds[i];
             }
 
             cout<<"NS"<<endl;
-            cout<<mesh->red_s().transpose()<<endl;
-            // arap->minimize(*mesh);
         }
 
-        //Draw continuous mesh
+        // //Draw continuous mesh
         MatrixXd newV = mesh->continuousV();
         viewer.data().set_mesh(newV, F);
 
-        if(key=='C'){
-            for(int c=0; c<mesh->red_w().size()/3; c++){
-                std::vector<int> cluster_elem = mesh->r_cluster_elem_map()[c];
-                for(int e=0; e<cluster_elem.size(); e++){
-                    viewer.data().add_points(newV.row(mesh->T().row(cluster_elem[e])[0]), Colors.row(c));
-                    viewer.data().add_points(newV.row(mesh->T().row(cluster_elem[e])[1]), Colors.row(c));
-                    viewer.data().add_points(newV.row(mesh->T().row(cluster_elem[e])[2]), Colors.row(c));
-                    viewer.data().add_points(newV.row(mesh->T().row(cluster_elem[e])[3]), Colors.row(c));
-                }
-            }
-        }
+        viewer.data().compute_normals();
+        
 
         if(key=='D'){
             
@@ -257,23 +231,21 @@ int main(int argc, char *argv[])
         //---------------- 
 
         //Draw fixed and moving points
-        for(int i=0; i<fix.size(); i++){
-            viewer.data().add_points(mesh->V().row(fix[i]),Eigen::RowVector3d(1,0,0));
+        for(int i=0; i<mesh->fixed_verts().size(); i++){
+            viewer.data().add_points(mesh->V().row(mesh->fixed_verts()[i]),Eigen::RowVector3d(1,0,0));
         }
-        for(int i=0; i<mov.size(); i++){
-            viewer.data().add_points(newV.row(mov[i]),Eigen::RowVector3d(0,1,0));
-        }
-
         
+        viewer.data().set_colors(SETCOLORSMAT);
         return false;
     };
 
 	viewer.data().set_mesh(V,F);
-    viewer.data().show_lines = true;
+    viewer.data().show_lines = false;
     viewer.data().invert_normals = true;
     viewer.core.is_animating = false;
     viewer.data().face_based = true;
-    // viewer.data.set_colors(C);
+    viewer.core.background_color = Eigen::Vector4f(1,1,1,0);
+    viewer.data().set_colors(SETCOLORSMAT);
 
     viewer.launch();
     return EXIT_SUCCESS;

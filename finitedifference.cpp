@@ -423,12 +423,13 @@ int main(int argc, char *argv[]){
     std::vector<int> mov = {1,7};
     std::sort (mov.begin(), mov.end());
     std::vector<VectorXi> bones = {};
+    std::vector<int> fixedbones = {};
 
     std::cout<<"-----Mesh-------"<<std::endl;
     VectorXi muscle1;
     MatrixXd Uvec;
     std::vector<VectorXi> muscles = {muscle1};
-    Mesh* mesh = new Mesh(T, V, fix, mov, bones, muscles, Uvec, j_input);
+    Mesh* mesh = new Mesh(T, V, fixedbones, mov, bones, muscles, Uvec, j_input, fix);
 
     std::cout<<"-----ARAP-----"<<std::endl;
     Arap* arap = new Arap(*mesh);
