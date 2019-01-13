@@ -8,6 +8,7 @@
 #include <igl/slice.h>
 #include <igl/boundary_facets.h>
 #include <json.hpp>
+#include <igl/Timer.h>
 
 
 #include "mesh.h"
@@ -109,18 +110,21 @@ int main(int argc, char *argv[])
     cout<<"NRC: "<<j_input["number_rot_clusters"]<<endl;
     cout<<"MODES: "<<j_input["number_modes"]<<endl;
 
-
+    igl::Timer timer;
     int run =0;
     for(int run=0; run<j_input["QS_steps"]; run++){
         MatrixXd newV = mesh->continuousV();
         string datafile = j_input["data"];
         igl::writeOBJ(outputfile+"/"+namestring+"animation"+to_string(run)+".obj",newV, F);
         igl::writeDMAT(outputfile+"/"+namestring+"animation"+to_string(run)+".dmat",newV);
-        cout<<"---Quasi-Newton Step Info"<<endl;
+        cout<<"     ---Quasi-Newton Step Info"<<endl;
         double fx =0;
         VectorXd ns = mesh->N().transpose()*mesh->red_s();
+        timer.start();
         int niter = solver.minimize(f, ns, fx);
-        cout<<"BFGSIters: "<<niter<<endl;
+        timer.stop();
+        cout<<"     BFGSIters: "<<niter<<endl;
+        cout<<"     QSsteptime: "<<timer.getElapsedTimeInMilliSec()<<endl;
         VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
         for(int i=0; i<reds.size(); i++){
             mesh->red_s()[i] = reds[i];

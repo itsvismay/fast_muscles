@@ -405,7 +405,6 @@ public:
             cout<<"NeoGradNorm: "<<pegrad.norm()<<endl;
             cout<<"ArapEnergy: "<<Earap<<endl;
             cout<<"ARAPGradNorm: "<<arapgrad.norm()<<endl;
-            cout<<"ARAPGradTime: "<<arap_grad_time<<endl;
             cout<<"TotalGradNorm: "<<grad.norm()<<endl;
 
 
