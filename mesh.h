@@ -68,12 +68,11 @@ protected:
 public:
     Mesh(){}
 
-    Mesh(MatrixXi& iT, MatrixXd& iV, std::vector<int>& ifix, 
+    Mesh(MatrixXi& iT, MatrixXd& iV, std::vector<int>& ifix_bones, 
         std::vector<int>& imov, std::vector<VectorXi>& ibones, std::vector<VectorXi>& imuscle,
         MatrixXd& iUvecs, json& j_input){
         mV = iV;
         mT = iT;
-        mfix = ifix;
         mmov = imov;
         mmuscles = imuscle;
 
@@ -83,6 +82,32 @@ public:
         int nsh = j_input["number_skinning_handles"];
         int nrc = j_input["number_rot_clusters"];
         reduced = j_input["reduced"];
+
+        //###########Re-index ifix_bones (fixed bone indexes) to be the top indices mapping into ibones
+        for(int ii=0; ii<ifix_bones.size(); ii++){
+            std::swap(ibones[ifix_bones[ii]], ibones[ii]);
+            ifix_bones[ii] = ii;
+        }
+        //###########
+
+
+        cout<<"if it fails here, make sure indexing is within bounds"<<endl;
+        std::set<int> fix_verts_set;
+        for(int ii=0; ii<ifix_bones.size(); ii++){
+            cout<<ifix_bones[ii]<<endl;
+            fix_verts_set.insert(mT.row(ibones[ifix_bones[ii]][0])[0]);
+            fix_verts_set.insert(mT.row(ibones[ifix_bones[ii]][0])[1]);
+            fix_verts_set.insert(mT.row(ibones[ifix_bones[ii]][0])[2]);
+            fix_verts_set.insert(mT.row(ibones[ifix_bones[ii]][0])[3]);
+        }
+
+        mfix.assign(fix_verts_set.begin(), fix_verts_set.end());
+        std::sort (mfix.begin(), mfix.end());
+
+
+
+
+
         
         print("step 1");
         mx0.resize(mV.cols()*mV.rows());
@@ -113,7 +138,7 @@ public:
         setVertexWiseMassDiag();
 
         print("step 7");
-        setHandleModesMatrix(ibones, imuscle);
+        setHandleModesMatrix(ibones, imuscle, ifix_bones);
         
         print("step 8");
         setElemWiseYoungsPoissons(youngs, poissons);
@@ -236,12 +261,11 @@ public:
         mC.setFromTriplets(triplets.begin(), triplets.end());
     }
 
-    void setHandleModesMatrix(std::vector<VectorXi>& ibones, std::vector<VectorXi>& imuscle){
+    void setHandleModesMatrix(std::vector<VectorXi>& ibones, std::vector<VectorXi>& imuscle, std::vector<int> fixedbones){
         VectorXd vert_free_or_not = mFree*mFree.transpose()*VectorXd::Ones(3*mV.rows());// check if vert is fixed
         //TODO fixed bones, used this vector (Y*Y'Ones(3*V.rows())) to create the mFree matrix and mConstrained matrix
         
         //ibones should have fixed bones at the front, rest at the back
-        std::vector<int> fixedbones = {0}; //bone at ibones index 0 is fixed
 
         VectorXd bone_or_muscle = VectorXd::Zero(3*mV.rows()); //0 for muscle, 1,2 for each bone
         bone_or_muscle.array() += -1;
@@ -735,6 +759,7 @@ public:
     VectorXd& ePoissons(){ return melemPoissons; }
     VectorXd& x0(){ return mx0; }
     VectorXd& red_s(){return mred_s; }
+    std::vector<int>& fixed_verts(){ return mfix; }
     std::map<int, std::vector<int>>& r_cluster_elem_map(){ return mr_cluster_elem_map; }
     VectorXi& r_elem_cluster_map(){ return mr_elem_cluster_map; }
     VectorXd& bones(){ return mbones; }

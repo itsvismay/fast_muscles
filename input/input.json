@@ -1,5 +1,7 @@
 {
+  "name": "simple_test",
   "data": "/home/vismay/recode/fast_muscles/data/simple_muscle",
+  "output": "/home/vismay/recode/fast_muscles/data/simple_muscle",
   "fix_bones_alphabet_order": [1],  
   "muscle_starting_strength": 10000,
   "QS_steps": 10,
@@ -16,7 +18,7 @@
   "reduced_x": true,
   "number_skinning_handles": 5,
   "number_rot_clusters": 5,
-  "number_modes": 10,
+  "number_modes": 20,
   "fd_eps": 1e-4,
   "alpha_arap": 1e4,
   "alpha_neo":1
