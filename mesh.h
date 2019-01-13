@@ -70,7 +70,7 @@ public:
 
     Mesh(MatrixXi& iT, MatrixXd& iV, std::vector<int>& ifix_bones, 
         std::vector<int>& imov, std::vector<VectorXi>& ibones, std::vector<VectorXi>& imuscle,
-        MatrixXd& iUvecs, json& j_input){
+        MatrixXd& iUvecs, json& j_input, std::vector<int> fd_fix = {}){
         mV = iV;
         mT = iT;
         mmov = imov;
@@ -104,7 +104,9 @@ public:
         mfix.assign(fix_verts_set.begin(), fix_verts_set.end());
         std::sort (mfix.begin(), mfix.end());
 
-
+        if(fd_fix.size() != 0){
+            mfix = fd_fix;
+        }
 
 
 
