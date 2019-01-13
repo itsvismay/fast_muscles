@@ -1,7 +1,6 @@
 #ifndef MESH 
 #define MESH
 
-#include <Eigen/CholmodSupport>
 #include <unsupported/Eigen/KroneckerProduct>
 #include <json.hpp>
 #include <unsupported/Eigen/MatrixFunctions>
@@ -125,6 +124,11 @@ public:
         for(int b=0; b<ibones.size(); b++){
             for(int i=0; i<ibones[b].size(); i++){
                 mbones[ibones[b][i]] = 1;
+            }
+        }
+        for(int m=0; m<imuscle.size(); m++){
+            for(int i=0; i<imuscle[m].size(); i++){
+                mbones[imuscle[m][i]] -=1;
             }
         }
 

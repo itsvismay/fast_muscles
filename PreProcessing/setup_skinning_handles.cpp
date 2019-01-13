@@ -228,7 +228,8 @@ void setup_skinning_handles(int nsh, bool reduced, const MatrixXi& mT, const Mat
         nsh = nsh - 1; //bone skinning handle has been made, so decrease nsh by 1
         insert_index += 1;
     }
-    cout<<"----------MUSCLE COMPONENTS------------"<<endl;
+
+    cout<<"----------MUSCLE COMPONENTS----"<<nsh<<"---"<<insert_index<<"-----"<<endl;
     int number_handles_per_muscle = nsh/imuscle.size();
     for(int m=0; m<imuscle.size(); m++){ //through muscle vector
         MatrixXi componentT;

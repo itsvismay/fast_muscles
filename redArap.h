@@ -39,6 +39,8 @@ protected:
 	std::vector<MatrixXd> aePAx;
 	std::vector<MatrixXd> aeUSUtPAx0;
 
+	std::vector<MatrixXd> FASTARAPTerms();
+
 public:
 	Reduced_Arap(Mesh& m){
 		int r_size = m.red_w().size();
@@ -72,11 +74,7 @@ public:
 		aPAG = m.P()*m.A()*m.G();
 		aCG = m.AB().transpose()*m.G();
 		print("rarap 4");
-		MatrixXd KKTmat = MatrixXd::Zero(aExx.rows()+aCG.rows(), aExx.rows()+aCG.rows());
-		KKTmat.block(0,0, aExx.rows(), aExx.cols()) = aExx;
-		KKTmat.block(aExx.rows(), 0, aCG.rows(), aCG.cols()) = aCG;
-		KKTmat.block(0, aExx.cols(), aCG.cols(), aCG.rows()) = aCG.transpose();
-		aARAPKKTSolver.compute(KKTmat);
+		aARAPKKTSolver.compute(aExx);
 		print("rarap 5");
 		aJacKKT.resize(z_size+r_size+aCG.rows(), z_size+r_size+aCG.rows());
 		aJacConstrains.resize(z_size+r_size+aCG.rows() ,s_size);
@@ -85,20 +83,16 @@ public:
 		print("pre-processing");
 		setupWrWw(m);
 		setupFastItR(m);
+		// setupFASTARAPTerms();
+
 		print("Jacobian solve pre-processing");
 		aJacKKT.block(0,0,aExx.rows(), aExx.cols()) = Exx();
 		aJacKKT.block(aExx.rows()+aExr.cols(), 0, aCG.rows(), aCG.cols()) = aCG;
 		aJacKKT.block(0, aExx.cols()+aExr.cols(), aCG.cols(), aCG.rows())= aCG.transpose();
 
-
-
-
-
-	
-
-
-
 	}
+
+
 
 	void setupAdjointP(){
 		adjointP.resize(aExx.rows()+aErr.rows(), aExx.rows()+aErr.rows()+aCG.rows());
@@ -642,25 +636,12 @@ public:
 
 	bool itT(Mesh& m){
 		//TODO DENSIFY
-		VectorXd deltaABtx = m.AB().transpose()*m.dx();
 		VectorXd AtPtFPAx0 = (aPAG).transpose()*aFPAx0;
 		VectorXd AtPtPAx0 = (aPAG).transpose()*(aPAx0);
 		VectorXd gb = AtPtFPAx0 - AtPtPAx0;
-		VectorXd gd(gb.size()+deltaABtx.size());
-		gd<<gb,deltaABtx;
-		VectorXd result = aARAPKKTSolver.solve(gd);
-		VectorXd gu = result.head(gb.size());
-		m.red_x(gu);
+		VectorXd result = aARAPKKTSolver.solve(gb);
+		m.red_x(result);
 
-		// VectorXd deltaABtx = m.AB().transpose()*m.dx();
-		// VectorXd AtPtFPAx0 = (aPAG).transpose()*aFPAx0;
-		// VectorXd AtPtPAx0 = (aPAG).transpose()*(aPAx0);
-		// VectorXd gb = AtPtFPAx0 - AtPtPAx0;
-		// VectorXd gd(gb.size()+deltaABtx.size());
-		// gd<<gb,deltaABtx;
-		// VectorXd result = aARAPKKTSparseSolver.solve(gd);
-		// VectorXd gu = result.head(gb.size());
-		// m.red_x(gu);
 		return false;
 	}
 
@@ -702,7 +683,7 @@ public:
 	}
 
 	bool minimize(Mesh& m){
-		// print("	+ ARAP minimize");
+		print("	+ ARAP minimize");
 		VectorXd ms = m.sW()*m.red_s();
 		VectorXd USUtPAx0 = VectorXd::Zero(12*m.T().rows());
 		for(int t =0; t<m.T().rows(); t++){
@@ -714,7 +695,6 @@ public:
 				USUtPAx0.segment<3>(12*t+3*j) = s*aPAx0.segment<3>(12*t+3*j);
 			}
 		}
-
 		m.constTimeFPAx0(aFPAx0);
 
 		double previous5ItE = Energy(m);
