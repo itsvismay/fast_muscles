@@ -9,6 +9,7 @@
 #include <unsupported/Eigen/KroneckerProduct>
 #include <igl/slice_into.h>
 #include <igl/remove_unreferenced.h>
+#include <igl/normalize_row_sums.h>
 
 using namespace Eigen;
 using namespace std;

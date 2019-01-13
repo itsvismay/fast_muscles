@@ -16,9 +16,9 @@ protected:
 	double muscle_fibre_mag = 10000;
 	double rho = 6.4; 
 	VectorXd sW1, sW2, sW3, sW4, sW5, sW6, muscle_forces, elastic_forces;
-	std::vector<int> contract_muscles = {2};
+	std::vector<int> contract_muscles = {};
 public:
-	Elastic(Mesh& m){
+	Elastic(Mesh& m, double strength=10000, std::vector<int> tocontract={0}){
 		if(m.T().rows()*6 == m.red_s().size()){
 			sW1 = VectorXd::Zero(m.red_s().size());
 			sW2 = VectorXd::Zero(m.red_s().size());
@@ -30,6 +30,11 @@ public:
 
 		muscle_forces = VectorXd::Zero(m.red_s().size());
 		elastic_forces = VectorXd::Zero(m.red_s().size());
+
+		muscle_fibre_mag = strength;
+		for(int i=0; i<tocontract.size(); i++){
+			contract_muscles.push_back(tocontract[i]);
+		}
 	}
 
 	double MuscleElementEnergy(const VectorXd& w1, const VectorXd& w2, const VectorXd& w3, const VectorXd& w4, const VectorXd& w5, const VectorXd& w6,  const VectorXd& rs, Vector3d& u){

@@ -1,9 +1,12 @@
 {
-  "data": "/home/vismay/recode/fast_muscles/data/",
-  "mesh_file":"/home/vismay/recode/fast_muscles/data/testbar/bar.1.mesh",
-  "v_file" : "/home/vismay/recode/fast_muscles/data/simple_joint/generated_files/tet_mesh_V.dmat",
-  "t_file" : "/home/vismay/recode/fast_muscles/data/simple_joint/generated_files/tet_mesh_T.dmat",
-  
+  "data": "/home/vismay/recode/fast_muscles/data/simple_muscle",
+  "fix_bones_alphabet_order": [1],  
+  "muscle_starting_strength": 10000,
+  "QS_steps": 10,
+  "multiplier_strength_each_step": 2,
+  "contract_muscles_at_index": [0],
+  "bfgs_convergence_crit_fast": true,
+
   "youngs": 60000,
   "poissons": 0.45,
   "fibre_mag": 0,
@@ -11,10 +14,10 @@
   "reduced_s": true,
   "reduced_r": true,
   "reduced_x": true,
-  "number_skinning_handles": 20,
-  "number_rot_clusters": 20,
-  "number_modes": 100,
+  "number_skinning_handles": 5,
+  "number_rot_clusters": 5,
+  "number_modes": 10,
   "fd_eps": 1e-4,
-  "alpha_arap": 1e1,
+  "alpha_arap": 1e4,
   "alpha_neo":1
 }
