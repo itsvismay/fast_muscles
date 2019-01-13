@@ -67,9 +67,14 @@ protected:
 public:
     Mesh(){}
 
-    Mesh(MatrixXi& iT, MatrixXd& iV, std::vector<int>& ifix_bones, 
-        std::vector<int>& imov, std::vector<VectorXi>& ibones, std::vector<VectorXi>& imuscle,
-        MatrixXd& iUvecs, json& j_input, std::vector<int> fd_fix = {}){
+    Mesh(MatrixXi& iT, MatrixXd& iV, 
+        std::vector<int>& ifix_bones, 
+        std::vector<int>& imov, 
+        std::vector<VectorXi>& ibones, 
+        std::vector<VectorXi>& imuscle,
+        MatrixXd& iUvecs, json& j_input, 
+        std::vector<int> fd_fix = {})
+    {
         mV = iV;
         mT = iT;
         mmov = imov;

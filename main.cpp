@@ -111,28 +111,28 @@ int main(int argc, char *argv[])
     cout<<"MODES: "<<j_input["number_modes"]<<endl;
     igl::Timer timer;
 
-    int run =0;
-    for(int run=0; run<j_input["QS_steps"]; run++){
-        MatrixXd newV = mesh->continuousV();
-        string datafile = j_input["data"];
-        igl::writeOBJ(outputfile+"/"+namestring+"animation"+to_string(run)+".obj",newV, F);
-        igl::writeDMAT(outputfile+"/"+namestring+"animation"+to_string(run)+".dmat",newV);
-        cout<<"     ---Quasi-Newton Step Info"<<endl;
-        double fx =0;
-        VectorXd ns = mesh->N().transpose()*mesh->red_s();
-        timer.start();
-        int niter = solver.minimize(f, ns, fx);
-        timer.stop();
-        cout<<"     BFGSIters: "<<niter<<endl;
-        cout<<"     QSsteptime: "<<timer.getElapsedTimeInMilliSec()<<endl;
-        VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
-        for(int i=0; i<reds.size(); i++){
-            mesh->red_s()[i] = reds[i];
-        }
+    // int run =0;
+    // for(int run=0; run<j_input["QS_steps"]; run++){
+    //     MatrixXd newV = mesh->continuousV();
+    //     string datafile = j_input["data"];
+    //     igl::writeOBJ(outputfile+"/"+namestring+"animation"+to_string(run)+".obj",newV, F);
+    //     igl::writeDMAT(outputfile+"/"+namestring+"animation"+to_string(run)+".dmat",newV);
+    //     cout<<"     ---Quasi-Newton Step Info"<<endl;
+    //     double fx =0;
+    //     VectorXd ns = mesh->N().transpose()*mesh->red_s();
+    //     timer.start();
+    //     int niter = solver.minimize(f, ns, fx);
+    //     timer.stop();
+    //     cout<<"     BFGSIters: "<<niter<<endl;
+    //     cout<<"     QSsteptime: "<<timer.getElapsedTimeInMilliSec()<<endl;
+    //     VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
+    //     for(int i=0; i<reds.size(); i++){
+    //         mesh->red_s()[i] = reds[i];
+    //     }
         
-        neo->changeFiberMag(j_input["multiplier_strength_each_step"]);
-    }
-    exit(0);
+    //     neo->changeFiberMag(j_input["multiplier_strength_each_step"]);
+    // }
+    // exit(0);
 
     std::cout<<"-----Display-------"<<std::endl;
     igl::opengl::glfw::Viewer viewer;
@@ -154,12 +154,12 @@ int main(int argc, char *argv[])
     double tttt = 0;
     viewer.callback_pre_draw = [&](igl::opengl::glfw::Viewer & viewer){   
         if(viewer.core.is_animating){
-            if(kkkk<mesh->G().cols()){
-                VectorXd x = 10*sin(tttt)*mesh->G().col(kkkk) + mesh->x0();
-                Eigen::Map<Eigen::MatrixXd> newV(x.data(), V.cols(), V.rows());
-                viewer.data().set_mesh(newV.transpose(), F);
-                tttt+= 0.1;
-            }
+            // if(kkkk<mesh->G().cols()){
+            //     VectorXd x = 10*sin(tttt)*mesh->G().col(kkkk) + mesh->x0();
+            //     Eigen::Map<Eigen::MatrixXd> newV(x.data(), V.cols(), V.rows());
+            //     viewer.data().set_mesh(newV.transpose(), F);
+            //     tttt+= 0.1;
+            // }
     	}
         return false;
     };
@@ -177,24 +177,23 @@ int main(int argc, char *argv[])
 
         if(key==' '){
             
-            // VectorXd ns = mesh->N().transpose()*mesh->red_s();
-            // for(int i=0; i<ns.size()/6; i++){
-            //     ns[6*i+1] -= 0.2;
-            //     ns[6*i+2] += 0.2;
-            //     ns[6*i+0] += 0.2;
-            // }
-
-            double fx =0;
             VectorXd ns = mesh->N().transpose()*mesh->red_s();
-            int niter = solver.minimize(f, ns, fx);
+            for(int i=0; i<ns.size()/6; i++){
+                ns[6*i+1] -= 0.2;
+                ns[6*i+2] += 0.2;
+                ns[6*i+0] += 0.2;
+            }
+            arap->minimize(*mesh);
+
+            // double fx =0;
+            // VectorXd ns = mesh->N().transpose()*mesh->red_s();
+            // int niter = solver.minimize(f, ns, fx);
             VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
             for(int i=0; i<reds.size(); i++){
                 mesh->red_s()[i] = reds[i];
             }
 
             cout<<"NS"<<endl;
-            cout<<mesh->red_s().transpose()<<endl;
-            arap->minimize(*mesh);
         }
 
         // //Draw continuous mesh

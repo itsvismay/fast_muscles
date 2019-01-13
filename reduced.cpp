@@ -95,11 +95,8 @@ int main()
     getMinTets_Axis_Tolerance(bone2, V, T, 1, 3);
     VectorXi bone1vec = VectorXi::Map(bone1.data(), bone1.size());
     VectorXi bone2vec = VectorXi::Map(bone2.data(), bone2.size());
-    std::vector<VectorXi> bones = {bone1vec, bone2vec};
     VectorXi bonesvec(bone1vec.size() + bone2vec.size());
     bonesvec<< bone1vec,bone2vec;
-
-    std::cout<<"-----Mesh-------"<<std::endl;
     VectorXi all(T.rows());
     MatrixXd Uvec(all.size(), 3);
     for(int i=0; i<T.rows(); i++){
@@ -111,7 +108,11 @@ int main()
     igl::setdiff(all, bonesvec, muscle1, shit);
 
     std::vector<VectorXi> muscles = {muscle1};
-    Mesh* mesh = new Mesh(T, V, fix, mov, bones, muscles, Uvec, j_input);
+    std::vector<VectorXi> bones = {bone1vec, bone2vec};
+    std::vector<int> fix_bones = {0};
+
+    std::cout<<"-----Mesh-------"<<std::endl;
+    Mesh* mesh = new Mesh(T, V, fix_bones, mov, bones, muscles, Uvec, j_input);
 
     std::cout<<"-----Neo-------"<<std::endl;
     Elastic* neo = new Elastic(*mesh);
@@ -193,27 +194,24 @@ int main()
         if(key==' '){
       		VectorXd& dx = mesh->dx();
             
-            // VectorXd ns = mesh->N().transpose()*mesh->red_s();
-            // for(int i=0; i<ns.size()/6; i++){
-            //     ns[6*i+1] += 0.1;
-            //     ns[6*i+0] += 0.1;
-            // }
-            
-            double fx =0;
-            cout<<mesh->red_s().transpose()<<endl;
             VectorXd ns = mesh->N().transpose()*mesh->red_s();
-            cout<<ns.transpose()<<endl;
-            int niter = solver.minimize(f, ns, fx);
-            VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
-    
+            for(int i=0; i<ns.size()/6; i++){
+                ns[6*i+1] += 0.1;
+                ns[6*i+0] += 0.1;
+            }
+            
+            arap->minimize(*mesh);
             // double fx =0;
-            // VectorXd reds = mesh->red_s();
-            // int niter = solver.minimize(f, reds, fx);
+            // cout<<mesh->red_s().transpose()<<endl;
+            // VectorXd ns = mesh->N().transpose()*mesh->red_s();
+            // cout<<ns.transpose()<<endl;
+            // int niter = solver.minimize(f, ns, fx);
+            // std::cout<<"niter "<<niter<<std::endl;
+
+            VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
             for(int i=0; i<reds.size(); i++){
                 mesh->red_s()[i] = reds[i];
             }
-            // arap->minimize(*mesh);
-            std::cout<<"niter "<<niter<<std::endl;
         }
         // ----------------
         // Draw continuous mesh
