@@ -174,6 +174,7 @@ void compute_indices(
 
 
 	// For each tet, find the first mesh (in listed order) that contains its center
+	// TODO: This isn't guaranteed to assign all tets. Could have NaNs or other edge cases.
 	for(int i = 0; i < tet_mesh.T.rows(); i++) {
 		bool found_bone = false;
 		// bones
@@ -351,6 +352,7 @@ void add_joints(const json &config, const string &obj_dir, Body &body) {
 }
 
 
+// TODO: Make this (and associated fn's) a member of Body
 void generate_body_from_config(const string &body_dir, bool load_existing_tets, Body &body) {
 	json config = read_config(body_dir);
 	string obj_dir = lf::path::join(body_dir, "objs/");
@@ -369,9 +371,11 @@ void generate_body_from_config(const string &body_dir, bool load_existing_tets, 
 	}
 
 	compute_indices(body.tet_mesh, body.bone_surfs, body.muscle_surfs, body.bone_indices, body.muscle_indices);
-	split_tet_meshes(body.tet_mesh, body.bone_indices, body.muscle_indices, body.split_tet_meshes);
-	compute_muscle_fibers(body, body.combined_fiber_directions, body.harmonic_boundary_verts);
 
+	split_tet_meshes(body.tet_mesh, body.bone_indices, body.muscle_indices, body.split_tet_meshes);
+
+	compute_muscle_fibers(body, body.combined_fiber_directions, body.harmonic_boundary_verts);
+	
 	add_joints(config, obj_dir, body);
 }
 
@@ -386,10 +390,6 @@ int main(int argc, char *argv[])
 
 	body.write(output_dir);
 
-
-	map<string, TetMesh> temp_tet_mesh;
-	// temp_tet_mesh["asdasd"] = body.tet_mesh;
-	// body.split_tet_meshes = temp_tet_mesh;
 	launch_viewer(body);
 
 	return 0;
