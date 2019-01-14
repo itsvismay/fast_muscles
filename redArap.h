@@ -104,6 +104,8 @@ public:
 		m.red_s()[4] += 0.1;
 		m.red_r()[1] += 0.1;
 		m.red_r()[4] += 0.1;
+		m.red_x()[1] += 0.1;
+		m.red_x()[4] += 0.1;
 
 		VectorXd AtPtPAx0 = (aPAG).transpose()*(aPAx0);
 		aFASTARAPDenseTerms.push_back(AtPtPAx0);
@@ -159,6 +161,112 @@ public:
 		}
 
 
+		for(int g=0; g<m.red_r().size()/9; g++){
+			std::vector<Trip> try_trips1;
+			std::vector<Trip> try_trips2;
+			std::vector<Trip> try_trips3;
+			SparseMatrix<double>& B = m.RotBLOCK()[g];
+			for(int i=0; i< B.cols()/3; i++){
+				try_trips1.push_back(Trip(i, 3*i+0, 1));
+				try_trips2.push_back(Trip(i, 3*i+1, 1));
+				try_trips3.push_back(Trip(i, 3*i+2, 1));
+
+			}
+
+			SparseMatrix<double> try1(B.cols()/3, B.cols());
+			SparseMatrix<double> try2(B.cols()/3, B.cols());
+			SparseMatrix<double> try3(B.cols()/3, B.cols());
+			try1.setFromTriplets(try_trips1.begin(), try_trips1.end());
+			try2.setFromTriplets(try_trips2.begin(), try_trips2.end());
+			try3.setFromTriplets(try_trips3.begin(), try_trips3.end());
+
+			MatrixXd BtPAG = B.transpose()*aPAG;
+			MatrixXd BtPAx0 = B.transpose()*aPAx0;
+			MatrixXd BtMPAx0sW = B.transpose()*MPAx0sW;
+
+			MatrixXd BtPAG1 = try1*BtPAG;
+			MatrixXd BtPAG2 = try2*BtPAG;
+			MatrixXd BtPAG3 = try3*BtPAG;
+
+			VectorXd BtPAx0_1 = try1*BtPAx0;
+			VectorXd BtPAx0_2 = try2*BtPAx0;
+			VectorXd BtPAx0_3 = try3*BtPAx0;
+
+			MatrixXd BtMPAx0sW1 = try1*BtMPAx0sW;
+			MatrixXd BtMPAx0sW2 = try2*BtMPAx0sW;
+			MatrixXd BtMPAx0sW3 = try3*BtMPAx0sW;
+
+			MatrixXd zs11 = BtPAG1.transpose()*BtMPAx0sW1;
+			MatrixXd zs12 = BtPAG1.transpose()*BtMPAx0sW2;
+			MatrixXd zs13 = BtPAG1.transpose()*BtMPAx0sW3;
+			MatrixXd zs21 = BtPAG2.transpose()*BtMPAx0sW1;
+			MatrixXd zs22 = BtPAG2.transpose()*BtMPAx0sW2;
+			MatrixXd zs23 = BtPAG2.transpose()*BtMPAx0sW3;
+			MatrixXd zs31 = BtPAG3.transpose()*BtMPAx0sW1;
+			MatrixXd zs32 = BtPAG3.transpose()*BtMPAx0sW2;
+			MatrixXd zs33 = BtPAG3.transpose()*BtMPAx0sW3;
+
+			VectorXd ps11 = BtPAx0_1.transpose()*BtMPAx0sW1;
+			VectorXd ps12 = BtPAx0_1.transpose()*BtMPAx0sW2;
+			VectorXd ps13 = BtPAx0_1.transpose()*BtMPAx0sW3;
+			VectorXd ps21 = BtPAx0_2.transpose()*BtMPAx0sW1;
+			VectorXd ps22 = BtPAx0_2.transpose()*BtMPAx0sW2;
+			VectorXd ps23 = BtPAx0_2.transpose()*BtMPAx0sW3;
+			VectorXd ps31 = BtPAx0_3.transpose()*BtMPAx0sW1;
+			VectorXd ps32 = BtPAx0_3.transpose()*BtMPAx0sW2;
+			VectorXd ps33 = BtPAx0_3.transpose()*BtMPAx0sW3;
+			double r11 = m.red_x().transpose()*zs11*m.red_s() + (ps11*m.red_s()).sum();
+			double r12 = m.red_x().transpose()*zs12*m.red_s() + (ps12*m.red_s()).sum();
+			double r13 = m.red_x().transpose()*zs13*m.red_s() + (ps13*m.red_s()).sum();
+			double r21 = m.red_x().transpose()*zs21*m.red_s() + (ps21*m.red_s()).sum();
+			double r22 = m.red_x().transpose()*zs22*m.red_s() + (ps22*m.red_s()).sum();
+			double r23 = m.red_x().transpose()*zs23*m.red_s() + (ps23*m.red_s()).sum();
+			double r31 = m.red_x().transpose()*zs31*m.red_s() + (ps31*m.red_s()).sum();
+			double r32 = m.red_x().transpose()*zs32*m.red_s() + (ps32*m.red_s()).sum();
+			double r33 = m.red_x().transpose()*zs33*m.red_s() + (ps33*m.red_s()).sum();
+
+			Matrix3d F;
+			F.row(0) = Vector3d(r11, r12, r13);
+			F.row(1) = Vector3d(r21, r22, r23);
+			F.row(2) = Vector3d(r31, r32, r33);
+			cout<<"my F"<<endl;
+			cout<<F<<endl;
+			break;
+		}
+
+		
+				
+		VectorXd USUtPAx0 = MPAx0sW*m.red_s();
+		VectorXd PAx = aPAG*m.red_x() + aPAx0;
+		VectorXd& mr =m.red_r();
+		std::map<int, std::vector<int>>& c_e_map = m.r_cluster_elem_map();
+		for (int i=0; i<mr.size()/9; i++){
+			std::vector<int> cluster_elem = c_e_map[i];
+			for(int c=0; c<cluster_elem.size(); c++){
+				aePAx[i].row(4*c+0) = PAx.segment<3>(12*cluster_elem[c]);
+				aePAx[i].row(4*c+1) = PAx.segment<3>(12*cluster_elem[c]+3);
+				aePAx[i].row(4*c+2) = PAx.segment<3>(12*cluster_elem[c]+6);
+				aePAx[i].row(4*c+3) = PAx.segment<3>(12*cluster_elem[c]+9);
+
+				aeUSUtPAx0[i].row(4*c+0) = USUtPAx0.segment<3>(12*cluster_elem[c]);
+				aeUSUtPAx0[i].row(4*c+1) = USUtPAx0.segment<3>(12*cluster_elem[c]+3);
+				aeUSUtPAx0[i].row(4*c+2) = USUtPAx0.segment<3>(12*cluster_elem[c]+6);
+				aeUSUtPAx0[i].row(4*c+3) = USUtPAx0.segment<3>(12*cluster_elem[c]+9);
+			}
+
+
+			Matrix3d F = aePAx[i].transpose()*aeUSUtPAx0[i];
+			cout<<"F"<<endl;
+			cout<<F<<endl;
+			Matrix3d ri,ti,ui,vi;
+     		Vector3d _;
+      		igl::polar_svd(F,ri,ti,ui,_,vi);
+     		
+   			break;
+		}
+
+
+		exit(0);
 	}
 
 	void setupAdjointP(){
