@@ -43,6 +43,8 @@ protected:
 	std::vector<MatrixXd> aFASTARAPDenseTerms;
 	std::vector<MatrixXd> aFASTARAPSparseTerms;
 	std::vector<MatrixXd> aFASTARAPCubeGtAtPtRSPAx0;
+	std::vector<MatrixXd> aFASTARAPItRTerms1;
+	std::vector<VectorXd> aFASTARAPItRTerms2;
 	igl::Timer atimer;
 
 
@@ -100,12 +102,12 @@ public:
 
 	void setupFASTARAPTerms(Mesh& m){
 		print("setupFASTARAPTerms");
-		m.red_s()[1] += 0.1;
-		m.red_s()[4] += 0.1;
-		m.red_r()[1] += 0.1;
-		m.red_r()[4] += 0.1;
-		m.red_x()[1] += 0.1;
-		m.red_x()[4] += 0.1;
+		// m.red_s()[1] += 0.1;
+		// m.red_s()[4] += 0.1;
+		// m.red_r()[1] += 0.1;
+		// m.red_r()[4] += 0.1;
+		// m.red_x()[1] += 0.1;
+		// m.red_x()[4] += 0.1;
 
 		VectorXd AtPtPAx0 = (aPAG).transpose()*(aPAx0);
 		aFASTARAPDenseTerms.push_back(AtPtPAx0);
@@ -215,58 +217,31 @@ public:
 			VectorXd ps31 = BtPAx0_3.transpose()*BtMPAx0sW1;
 			VectorXd ps32 = BtPAx0_3.transpose()*BtMPAx0sW2;
 			VectorXd ps33 = BtPAx0_3.transpose()*BtMPAx0sW3;
-			double r11 = m.red_x().transpose()*zs11*m.red_s() + (ps11*m.red_s()).sum();
-			double r12 = m.red_x().transpose()*zs12*m.red_s() + (ps12*m.red_s()).sum();
-			double r13 = m.red_x().transpose()*zs13*m.red_s() + (ps13*m.red_s()).sum();
-			double r21 = m.red_x().transpose()*zs21*m.red_s() + (ps21*m.red_s()).sum();
-			double r22 = m.red_x().transpose()*zs22*m.red_s() + (ps22*m.red_s()).sum();
-			double r23 = m.red_x().transpose()*zs23*m.red_s() + (ps23*m.red_s()).sum();
-			double r31 = m.red_x().transpose()*zs31*m.red_s() + (ps31*m.red_s()).sum();
-			double r32 = m.red_x().transpose()*zs32*m.red_s() + (ps32*m.red_s()).sum();
-			double r33 = m.red_x().transpose()*zs33*m.red_s() + (ps33*m.red_s()).sum();
 
-			Matrix3d F;
-			F.row(0) = Vector3d(r11, r12, r13);
-			F.row(1) = Vector3d(r21, r22, r23);
-			F.row(2) = Vector3d(r31, r32, r33);
-			cout<<"my F"<<endl;
-			cout<<F<<endl;
-			break;
+			aFASTARAPItRTerms1.push_back(zs11);
+			aFASTARAPItRTerms1.push_back(zs12);
+			aFASTARAPItRTerms1.push_back(zs13);
+			aFASTARAPItRTerms1.push_back(zs21);
+			aFASTARAPItRTerms1.push_back(zs22);
+			aFASTARAPItRTerms1.push_back(zs23);
+			aFASTARAPItRTerms1.push_back(zs31);
+			aFASTARAPItRTerms1.push_back(zs32);
+			aFASTARAPItRTerms1.push_back(zs33);
+
+			aFASTARAPItRTerms2.push_back(ps11);
+			aFASTARAPItRTerms2.push_back(ps12);
+			aFASTARAPItRTerms2.push_back(ps13);
+			aFASTARAPItRTerms2.push_back(ps21);
+			aFASTARAPItRTerms2.push_back(ps22);
+			aFASTARAPItRTerms2.push_back(ps23);
+			aFASTARAPItRTerms2.push_back(ps31);
+			aFASTARAPItRTerms2.push_back(ps32);
+			aFASTARAPItRTerms2.push_back(ps33);
+
 		}
 
 		
 				
-		VectorXd USUtPAx0 = MPAx0sW*m.red_s();
-		VectorXd PAx = aPAG*m.red_x() + aPAx0;
-		VectorXd& mr =m.red_r();
-		std::map<int, std::vector<int>>& c_e_map = m.r_cluster_elem_map();
-		for (int i=0; i<mr.size()/9; i++){
-			std::vector<int> cluster_elem = c_e_map[i];
-			for(int c=0; c<cluster_elem.size(); c++){
-				aePAx[i].row(4*c+0) = PAx.segment<3>(12*cluster_elem[c]);
-				aePAx[i].row(4*c+1) = PAx.segment<3>(12*cluster_elem[c]+3);
-				aePAx[i].row(4*c+2) = PAx.segment<3>(12*cluster_elem[c]+6);
-				aePAx[i].row(4*c+3) = PAx.segment<3>(12*cluster_elem[c]+9);
-
-				aeUSUtPAx0[i].row(4*c+0) = USUtPAx0.segment<3>(12*cluster_elem[c]);
-				aeUSUtPAx0[i].row(4*c+1) = USUtPAx0.segment<3>(12*cluster_elem[c]+3);
-				aeUSUtPAx0[i].row(4*c+2) = USUtPAx0.segment<3>(12*cluster_elem[c]+6);
-				aeUSUtPAx0[i].row(4*c+3) = USUtPAx0.segment<3>(12*cluster_elem[c]+9);
-			}
-
-
-			Matrix3d F = aePAx[i].transpose()*aeUSUtPAx0[i];
-			cout<<"F"<<endl;
-			cout<<F<<endl;
-			Matrix3d ri,ti,ui,vi;
-     		Vector3d _;
-      		igl::polar_svd(F,ri,ti,ui,_,vi);
-     		
-   			break;
-		}
-
-
-		exit(0);
 	}
 
 	void setupAdjointP(){
@@ -823,26 +798,26 @@ public:
 	}
 
 	void itR(Mesh& m, VectorXd& USUtPAx0){
-		VectorXd PAx = aPAG*m.red_x() + aPAx0;
-		VectorXd& mr =m.red_r();
 		
-		std::map<int, std::vector<int>>& c_e_map = m.r_cluster_elem_map();
+		VectorXd& mr =m.red_r();
+		// std::map<int, std::vector<int>>& c_e_map = m.r_cluster_elem_map();
 		for (int i=0; i<mr.size()/9; i++){
-			std::vector<int> cluster_elem = c_e_map[i];
-			for(int c=0; c<cluster_elem.size(); c++){
-				aePAx[i].row(4*c+0) = PAx.segment<3>(12*cluster_elem[c]);
-				aePAx[i].row(4*c+1) = PAx.segment<3>(12*cluster_elem[c]+3);
-				aePAx[i].row(4*c+2) = PAx.segment<3>(12*cluster_elem[c]+6);
-				aePAx[i].row(4*c+3) = PAx.segment<3>(12*cluster_elem[c]+9);
+			double r11 = m.red_x().transpose()*aFASTARAPItRTerms1[9*i+0]*m.red_s() + aFASTARAPItRTerms2[9*i+0].dot(m.red_s());
+			double r12 = m.red_x().transpose()*aFASTARAPItRTerms1[9*i+1]*m.red_s() + aFASTARAPItRTerms2[9*i+1].dot(m.red_s());
+			double r13 = m.red_x().transpose()*aFASTARAPItRTerms1[9*i+2]*m.red_s() + aFASTARAPItRTerms2[9*i+2].dot(m.red_s());
+			double r21 = m.red_x().transpose()*aFASTARAPItRTerms1[9*i+3]*m.red_s() + aFASTARAPItRTerms2[9*i+3].dot(m.red_s());
+			double r22 = m.red_x().transpose()*aFASTARAPItRTerms1[9*i+4]*m.red_s() + aFASTARAPItRTerms2[9*i+4].dot(m.red_s());
+			double r23 = m.red_x().transpose()*aFASTARAPItRTerms1[9*i+5]*m.red_s() + aFASTARAPItRTerms2[9*i+5].dot(m.red_s());
+			double r31 = m.red_x().transpose()*aFASTARAPItRTerms1[9*i+6]*m.red_s() + aFASTARAPItRTerms2[9*i+6].dot(m.red_s());
+			double r32 = m.red_x().transpose()*aFASTARAPItRTerms1[9*i+7]*m.red_s() + aFASTARAPItRTerms2[9*i+7].dot(m.red_s());
+			double r33 = m.red_x().transpose()*aFASTARAPItRTerms1[9*i+8]*m.red_s() + aFASTARAPItRTerms2[9*i+8].dot(m.red_s());
 
-				aeUSUtPAx0[i].row(4*c+0) = USUtPAx0.segment<3>(12*cluster_elem[c]);
-				aeUSUtPAx0[i].row(4*c+1) = USUtPAx0.segment<3>(12*cluster_elem[c]+3);
-				aeUSUtPAx0[i].row(4*c+2) = USUtPAx0.segment<3>(12*cluster_elem[c]+6);
-				aeUSUtPAx0[i].row(4*c+3) = USUtPAx0.segment<3>(12*cluster_elem[c]+9);
-			}
+			Matrix3d F;
+			F.row(0) = Vector3d(r11, r12, r13);
+			F.row(1) = Vector3d(r21, r22, r23);
+			F.row(2) = Vector3d(r31, r32, r33);
+			
 
-
-			Matrix3d F = aePAx[i].transpose()*aeUSUtPAx0[i];
 			Matrix3d ri,ti,ui,vi;
      		Vector3d _;
       		igl::polar_svd(F,ri,ti,ui,_,vi);
@@ -903,7 +878,7 @@ public:
 			if (i%5==0){
 				if(fabs(newE - previous5ItE)<1e-8){
 					// std::cout<<"		FinalARAPDiffInEnergy: "<<Energy(m)-previous5ItE<<std::endl;
-					std::cout<<"TIMES: "<<itTTimes<<", "<<itRTimes<<endl;
+					std::cout<<"TIMES: "<<itTTimes/i<<", "<<itRTimes/i<<endl;
 					return true;
 				}
 				previous5ItE = newE;

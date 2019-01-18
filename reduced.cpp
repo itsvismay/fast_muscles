@@ -219,32 +219,32 @@ int main()
         viewer.data().set_mesh(newV, F);
         
         //Draw disc mesh
-        std::cout<<std::endl;
-        MatrixXd& discV = mesh->discontinuousV();
-        MatrixXi& discT = mesh->discontinuousT();
-        for(int i=0; i<discT.rows(); i++){
-            Vector4i e = discT.row(i);
-            // std::cout<<discT.row(i)<<std::endl<<std::endl;
-            // std::cout<<discV(Eigen::placeholders::all, discT.row(i))<<std::endl;
-            Matrix<double, 1,3> p0 = discV.row(e[0]);
-            Matrix<double, 1,3> p1 = discV.row(e[1]);
-            Matrix<double, 1,3> p2 = discV.row(e[2]);
-            Matrix<double, 1,3> p3 = discV.row(e[3]);
+        // std::cout<<std::endl;
+        // MatrixXd& discV = mesh->discontinuousV();
+        // MatrixXi& discT = mesh->discontinuousT();
+        // for(int i=0; i<discT.rows(); i++){
+        //     Vector4i e = discT.row(i);
+        //     // std::cout<<discT.row(i)<<std::endl<<std::endl;
+        //     // std::cout<<discV(Eigen::placeholders::all, discT.row(i))<<std::endl;
+        //     Matrix<double, 1,3> p0 = discV.row(e[0]);
+        //     Matrix<double, 1,3> p1 = discV.row(e[1]);
+        //     Matrix<double, 1,3> p2 = discV.row(e[2]);
+        //     Matrix<double, 1,3> p3 = discV.row(e[3]);
 
-            viewer.data().add_edges(p0,p1,Eigen::RowVector3d(1,0,1));
-            viewer.data().add_edges(p0,p2,Eigen::RowVector3d(1,0,1));
-            viewer.data().add_edges(p0,p3,Eigen::RowVector3d(1,0,1));
-            viewer.data().add_edges(p1,p2,Eigen::RowVector3d(1,0,1));
-            viewer.data().add_edges(p1,p3,Eigen::RowVector3d(1,0,1));
-            viewer.data().add_edges(p2,p3,Eigen::RowVector3d(1,0,1));
-        }
-        //Draw fixed and moving points
-        for(int i=0; i<fix.size(); i++){
-            viewer.data().add_points(mesh->V().row(fix[i]),Eigen::RowVector3d(1,0,0));
-        }
-        for(int i=0; i<mov.size(); i++){
-            viewer.data().add_points(newV.row(mov[i]),Eigen::RowVector3d(0,1,0));
-        }
+        //     viewer.data().add_edges(p0,p1,Eigen::RowVector3d(1,0,1));
+        //     viewer.data().add_edges(p0,p2,Eigen::RowVector3d(1,0,1));
+        //     viewer.data().add_edges(p0,p3,Eigen::RowVector3d(1,0,1));
+        //     viewer.data().add_edges(p1,p2,Eigen::RowVector3d(1,0,1));
+        //     viewer.data().add_edges(p1,p3,Eigen::RowVector3d(1,0,1));
+        //     viewer.data().add_edges(p2,p3,Eigen::RowVector3d(1,0,1));
+        // }
+        // //Draw fixed and moving points
+        // for(int i=0; i<fix.size(); i++){
+        //     viewer.data().add_points(mesh->V().row(fix[i]),Eigen::RowVector3d(1,0,0));
+        // }
+        // for(int i=0; i<mov.size(); i++){
+        //     viewer.data().add_points(newV.row(mov[i]),Eigen::RowVector3d(0,1,0));
+        // }
         // for(int c=0; c<mesh->red_w().size()/3; c++){
         //     std::vector<int> cluster_elem = mesh->r_cluster_elem_map()[c];
         //     for(int e=0; e<cluster_elem.size(); e++){
