@@ -194,19 +194,20 @@ int main()
         if(key==' '){
       		VectorXd& dx = mesh->dx();
             
-            VectorXd ns = mesh->N().transpose()*mesh->red_s();
-            for(int i=0; i<ns.size()/6; i++){
-                ns[6*i+1] += 0.1;
-                ns[6*i+0] += 0.1;
-            }
-            
-            arap->minimize(*mesh);
-            // double fx =0;
-            // cout<<mesh->red_s().transpose()<<endl;
             // VectorXd ns = mesh->N().transpose()*mesh->red_s();
-            // cout<<ns.transpose()<<endl;
-            // int niter = solver.minimize(f, ns, fx);
-            // std::cout<<"niter "<<niter<<std::endl;
+            // for(int i=0; i<ns.size()/6; i++){
+            //     ns[6*i+1] += 0.1;
+            //     ns[6*i+0] += 0.1;
+            // }
+            
+            // arap->minimize(*mesh);
+            
+            double fx =0;
+            cout<<mesh->red_s().transpose()<<endl;
+            VectorXd ns = mesh->N().transpose()*mesh->red_s();
+            cout<<ns.transpose()<<endl;
+            int niter = solver.minimize(f, ns, fx);
+            std::cout<<"niter "<<niter<<std::endl;
 
             VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
             for(int i=0; i<reds.size(); i++){

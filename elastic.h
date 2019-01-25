@@ -260,7 +260,6 @@ public:
             	En += WikipediaElementEnergy(mesh.sW().row(6*t+0),mesh.sW().row(6*t+1),mesh.sW().row(6*t+2),mesh.sW().row(6*t+3),mesh.sW().row(6*t+4),mesh.sW().row(6*t+5), rs, C1, D1);
 			}
 		}
-		cout<<"En "<<En<<endl;
 		return En;
 	}
 

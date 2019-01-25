@@ -54,44 +54,7 @@ public:
 
         return w;
     }
-    //CHECK E,x-------------
-    VectorXd Ex(Mesh& mesh, Reduced_Arap& arap, double E0, double eps){
-        VectorXd z = mesh.red_x();
-        VectorXd fake = VectorXd::Zero(z.size());
-        #pragma omp parallel for
-        for(int i=0; i<fake.size(); i++){
-            z[i] += 0.5*eps;
-            double Eleft = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
-            z[i] -= 0.5*eps;
-            z[i] -= 0.5*eps;
-            double Eright = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
-            z[i] += 0.5*eps;
-            fake[i] = (Eleft - Eright)/eps;
-        }
-        return fake;
-    }
-    //-----------------------
-
-    //CHECK E,r-------------
-    VectorXd Er(Mesh& mesh, Reduced_Arap& arap, double E0, double eps){
-        VectorXd z = mesh.red_x();
-        VectorXd fake = VectorXd::Zero(mesh.red_w().size());
-        for(int i=0; i<fake.size(); i++){
-            mesh.red_w()[i] += 0.5*eps;
-            // mesh.setGlobalF(true, false, false);
-            double Eleft = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
-            mesh.red_w()[i] -= 0.5*eps;
-            mesh.red_w()[i] -= 0.5*eps;
-            // mesh.setGlobalF(true, false, false);
-            double Eright = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
-            mesh.red_w()[i] += 0.5*eps;
-            fake[i] = (Eleft - Eright)/(eps);
-        }
-        // mesh.setGlobalF(true, false, false);
-        return fake;
-    }
-    //-----------------------
-
+   
     //CHECK E,s-------------
     VectorXd Es(Mesh& mesh, Reduced_Arap& arap, double E0, double eps){
         VectorXd z = mesh.red_x();
@@ -133,135 +96,6 @@ public:
             }
         }
         
-        return fake;
-    }
-    //-----------------------
-
-
-    //CHECK Exr/Erx-------------
-    MatrixXd Exr(Mesh& mesh, Reduced_Arap& arap, double E0, double eps){
-        MatrixXd fake = MatrixXd::Zero(mesh.red_x().size(), mesh.red_w().size());
-        VectorXd z = mesh.red_x();
-
-        for(int i=0; i<fake.rows(); i++){
-            for(int j=0; j<fake.cols(); j++){
-                mesh.red_w()[j] += eps;
-                z[i] += eps;
-                // mesh.setGlobalF(true, false, false);
-                double Eij = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
-                mesh.red_w()[j] -= eps;
-                z[i] -= eps;
-
-                mesh.red_w()[j] += eps;
-                // mesh.setGlobalF(true, false, false);
-                double Ei = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
-                mesh.red_w()[j] -= eps;
-
-                z[i] += eps;
-                // mesh.setGlobalF(true, false, false);
-                double Ej = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
-                z[i] -= eps;
-
-                fake(i,j) = ((Eij - Ei - Ej + E0)/(eps*eps));
-            }
-        }
-        // mesh.setGlobalF(true, false, false);
-        return fake;
-    }
-    //-----------------------
-
-    //CHECK Exs-------------
-    MatrixXd Exs(Mesh& mesh, Reduced_Arap& arap, double E0, double eps){
-        MatrixXd fake = MatrixXd::Zero(mesh.red_x().size(), mesh.red_s().size());
-        VectorXd z = mesh.red_x();
-
-        for(int i=0; i<fake.rows(); i++){
-            for(int j=0; j<fake.cols(); j++){
-                mesh.red_s()[j] += eps;
-                z[i] += eps;
-                // mesh.setGlobalF(false, true, false);
-                double Eij = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
-                mesh.red_s()[j] -= eps;
-                z[i] -= eps;
-
-                mesh.red_s()[j] += eps;
-                // mesh.setGlobalF(false, true, false);
-                double Ei = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
-                mesh.red_s()[j] -= eps;
-
-                z[i] += eps;
-                // mesh.setGlobalF(false, true, false);
-                double Ej = arap.Energy(mesh, z, mesh.red_w(), mesh.red_r(), mesh.red_s());
-                z[i] -= eps;
-
-                fake(i,j) = ((Eij - Ei - Ej + E0)/(eps*eps));
-            }
-        }
-        // mesh.setGlobalF(false, true, false);
-        return fake;
-    }
-    //-----------------------
-
-    //CHECK Err--------------
-    MatrixXd Err(Mesh& mesh, Reduced_Arap& arap, double E0, double eps){
-        MatrixXd fake = MatrixXd::Zero(mesh.red_w().size(), mesh.red_w().size());
-
-        for(int i=0; i<fake.rows(); i++){
-            for(int j=0; j<fake.cols(); j++){
-                mesh.red_w()[j] += eps;
-                mesh.red_w()[i] += eps;
-                // mesh.setGlobalF(true, false, false);
-                double Eij = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s());
-                mesh.red_w()[j] -= eps;
-                mesh.red_w()[i] -= eps;
-
-                mesh.red_w()[j] += eps;
-                // mesh.setGlobalF(true, false, false);
-                double Ei = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s());
-                mesh.red_w()[j] -= eps;
-
-                mesh.red_w()[i] += eps;
-                // mesh.setGlobalF(true, false, false);
-                double Ej = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s());
-                mesh.red_w()[i] -= eps;
-
-                fake(i,j) = ((Eij - Ei - Ej + E0)/(eps*eps));
-            }
-        }
-        // mesh.setGlobalF(true, false, false);
-        
-        return fake;
-    }
-    //-----------------------
-
-    //CHECK Ers--------------
-    MatrixXd Ers(Mesh& mesh, Reduced_Arap& arap, double E0, double eps){
-        MatrixXd fake = MatrixXd::Zero(mesh.red_w().size(), mesh.red_s().size());
-
-        for(int i=0; i<fake.rows(); i++){
-            for(int j=0; j<fake.cols(); j++){
-                mesh.red_w()[i] += eps;
-                mesh.red_s()[j] += eps;
-                // mesh.setGlobalF(true, true, false);
-                double Eij = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s());
-                mesh.red_s()[j] -= eps;
-                mesh.red_w()[i] -= eps;
-
-                mesh.red_w()[i] += eps;
-                // mesh.setGlobalF(true, true, false);
-                double Ei = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s());
-                mesh.red_w()[i] -= eps;
-
-                mesh.red_s()[j] += eps;
-                // mesh.setGlobalF(true, true, false);
-                double Ej = arap.Energy(mesh, mesh.red_x(), mesh.red_w(), mesh.red_r(), mesh.red_s());
-                mesh.red_s()[j] -= eps;
-
-                fake(i,j) = ((Eij - Ei - Ej + E0)/(eps*eps));
-            }
-        }
-        // mesh.setGlobalF(true, true, false);
-
         return fake;
     }
     //-----------------------
@@ -318,7 +152,7 @@ public:
         bool converged = arap->minimize(*mesh);
 
         // timer.stop();
-        // double arap_time = timer.getElapsedTimeInMilliSec();
+        // double arap_time = timer.getElapsedTimeInMicroSec();
         // cout<<"     ---LineSearch Info"<<endl;
         // cout<<"     ARAPConverged: "<<converged<<endl;
         // cout<<"     ARAPTime: "<<arap_time<<endl;
@@ -328,17 +162,23 @@ public:
 
 
         if(computeGrad){
-            VectorXd pegrad = alpha_neo*mesh->N().transpose()*elas->PEGradient(*mesh);
             timer.start();
-            VectorXd arapgrad = alpha_arap*mesh->N().transpose()*arap->Jacobians(*mesh);
+            VectorXd pegrad = alpha_neo*mesh->N().transpose()*elas->PEGradient(*mesh);
             timer.stop();
-            double arap_grad_time = timer.getElapsedTimeInMilliSec();
+            double pe_grad_time = timer.getElapsedTimeInMicroSec();
+            timer.start();
+            VectorXd arapgrad = alpha_arap*mesh->N().transpose()*arap->fastEs(*mesh);
+            timer.stop();
+            double arap_grad_time = timer.getElapsedTimeInMicroSec();
 
-           
 
             
-            if(stest){
+            if(false){
                 VectorXd fake_arap = mesh->N().transpose()*Full_ARAP_Grad(*mesh, *arap,*elas, fx, eps);
+                cout<<"             Checking dEdx and dEdr"<<endl;
+                cout<<"             FDgrad-dEds: "<<(fake_arap-alpha_arap*mesh->N().transpose()*arap->Es()).norm()<<endl;
+                cout<<"             arapgrad-dEds: "<<(arapgrad-alpha_arap*mesh->N().transpose()*arap->Es()).norm()<<endl;
+
                 if ((arapgrad-fake_arap).norm()>10){
                     double E0 = arap->Energy(*mesh);
                    
@@ -351,46 +191,19 @@ public:
                     cout<<mesh->red_r().transpose()<<endl<<endl;
                     cout<<"x"<<endl;
                     cout<<mesh->red_x().transpose()<<endl<<endl;
+                    
                     cout<<"-------------------------------------"<<endl;
-                    cout<<"Ex"<<endl;
-                    VectorXd fakeEx = Ex(*mesh, *arap, E0, eps);
-                    cout<<(arap->Ex().transpose()-fakeEx.transpose()).norm()<<endl<<endl;
-
-                    cout<<"Er"<<endl;
-                    VectorXd fakeEr = Er(*mesh, *arap, E0, eps);
-                    cout<<(arap->Er().transpose()-fakeEr.transpose()).norm()<<endl<<endl;
-
+                  
                     cout<<"Es"<<endl;
                     VectorXd fakeEs = Es(*mesh, *arap,E0, eps);
                     cout<<arap->Es().transpose()<<endl<<endl;
                     cout<<fakeEs.transpose()<<endl;
                     cout<<(arap->Es().transpose() - fakeEs.transpose()).norm()<<endl<<endl;
-                    
 
                     cout<<"Exx"<<endl;
                     MatrixXd fakeExx = Exx(*mesh, *arap, E0, eps);
                     cout<<(fakeExx-arap->Exx()).norm()<<endl<<endl;
                     cout<<endl<<endl;
-
-                    MatrixXd fakeExr = Exr(*mesh, *arap, E0, eps);
-                    cout<<"Exr"<<endl;
-                    cout<<(fakeExr-MatrixXd(arap->Exr())).norm()<<endl<<endl;
-                    cout<<endl<<endl;
-
-                    cout<<"Exs"<<endl;
-                    MatrixXd fakeExs = Exs(*mesh, *arap, E0, eps);
-                    cout<<(fakeExs-MatrixXd(arap->Exs())).norm()<<endl<<endl;
-                    cout<<endl;
-
-                    cout<<"Err"<<endl;
-                    MatrixXd fakeErr = Err(*mesh, *arap, E0, eps);
-                    cout<<(fakeErr-MatrixXd(arap->Err())).norm()<<endl<<endl;
-                    cout<<endl;
-
-                    cout<<"Ers"<<endl;
-                    MatrixXd fakeErs = Ers(*mesh, *arap, E0, eps);
-                    cout<<(fakeErs-MatrixXd(arap->Ers())).norm()<<endl<<endl;
-                    cout<<endl;
                     exit(0);
                 }  
             }
@@ -399,12 +212,14 @@ public:
                 grad[i] = pegrad[i];
                 grad[i] += arapgrad[i];
             }
-            cout<<"---BFGS Info"<<endl;
-            cout<<"NeoEnergy: "<<Eneo<<endl;
-            cout<<"NeoGradNorm: "<<pegrad.norm()<<endl;
-            cout<<"ArapEnergy: "<<Earap<<endl;
-            cout<<"ARAPGradNorm: "<<arapgrad.norm()<<endl;
-            cout<<"TotalGradNorm: "<<grad.norm()<<endl;
+            cout<<" ---BFGS Info"<<endl;
+            cout<<" NeoEnergy: "<<Eneo<<endl;
+            cout<<" +NeoGradNorm: "<<pegrad.norm()<<endl;
+            cout<<" +NeoGradTime: "<<pe_grad_time<<endl;
+            cout<<" ArapEnergy: "<<Earap<<endl;
+            cout<<" +ARAPGradNorm: "<<arapgrad.norm()<<endl;
+            cout<<" +ArapGradTime: "<<arap_grad_time<<endl;
+            cout<<" TotalGradNorm: "<<grad.norm()<<endl;
 
 
 	       // cout<<arapgrad.transpose()<<endl;

@@ -124,7 +124,7 @@ int main(int argc, char *argv[])
     //     int niter = solver.minimize(f, ns, fx);
     //     timer.stop();
     //     cout<<"     BFGSIters: "<<niter<<endl;
-    //     cout<<"     QSsteptime: "<<timer.getElapsedTimeInMilliSec()<<endl;
+    //     cout<<"     QSsteptime: "<<timer.getElapsedTimeInMicroSec()<<endl;
     //     VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
     //     for(int i=0; i<reds.size(); i++){
     //         mesh->red_s()[i] = reds[i];
@@ -177,23 +177,25 @@ int main(int argc, char *argv[])
 
         if(key==' '){
             
-            VectorXd ns = mesh->N().transpose()*mesh->red_s();
-            for(int i=0; i<ns.size()/6; i++){
-                ns[6*i+1] -= 0.2;
-                ns[6*i+2] += 0.2;
-                ns[6*i+0] += 0.2;
-            }
-            arap->minimize(*mesh);
-
-            // double fx =0;
             // VectorXd ns = mesh->N().transpose()*mesh->red_s();
-            // int niter = solver.minimize(f, ns, fx);
+            // for(int i=0; i<ns.size()/6; i++){
+            //     ns[6*i+1] -= 0.2;
+            //     ns[6*i+2] += 0.2;
+            //     ns[6*i+0] += 0.2;
+            // }
+            // arap->minimize(*mesh);
+
+            double fx =0;
+            VectorXd ns = mesh->N().transpose()*mesh->red_s();
+            timer.start();
+            int niter = solver.minimize(f, ns, fx);
+            timer.stop();
             VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
+            
             for(int i=0; i<reds.size(); i++){
                 mesh->red_s()[i] = reds[i];
             }
-
-            cout<<"NS"<<endl;
+            cout<<"****QSsteptime: "<<timer.getElapsedTimeInMicroSec()<<endl;
         }
 
         // //Draw continuous mesh
