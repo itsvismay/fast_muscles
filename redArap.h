@@ -25,7 +25,7 @@ protected:
 	SparseLU<SparseMatrix<double>> ajacLU;
 
 	FullPivLU<MatrixXd>  aARAPKKTSolver;
-	VectorXd aPAx0, aEr, aEr_max, aEs, aEs_max, aEx, aDEDs, aFPAx0;
+	Eigen::VectorXd aPAx0, aEr, aEr_max, aEs, aEs_max, aEx, aDEDs, aFPAx0;
 	SparseMatrix<double>  aExs_max, aExr_max, aErr_max, aErs_max, aPA;
 	MatrixXd aExx, aExs, aExr, aErr, aErs, aPAG, aCG;
 	SparseMatrix<double> aJacKKTSparse, aJacConstrainsSparse;
@@ -39,6 +39,11 @@ protected:
 	SparseMatrix<double> adjointP, a_Wr, a_Ww;
 	std::vector<MatrixXd> aePAx;
 	std::vector<MatrixXd> aeUSUtPAx0;
+
+	double aPAx0squaredNorm =0;
+	VectorXd aPAx0tPAG;
+	MatrixXd aPAx0tRSPAx0;
+	MatrixXd aRSPAx0tRSPAx0;
 
 	std::vector<MatrixXd> aFASTARAPDenseTerms;
 	std::vector<MatrixXd> aFASTARAPSparseTerms;
@@ -93,15 +98,69 @@ public:
 		print("rarap 6");
 		setupAdjointP();
 		print("pre-processing");
+		m.constTimeFPAx0(aFPAx0);
 		setupWrWw(m);
 		setupFASTARAPTerms(m);
 		setupFastPAx0DSTerm(m);
 		setupFastEsTerms(m);
+		setupFastEnergyTerms(m);
 
 		print("Jacobian solve pre-processing");
 		aJacKKT.block(0,0,aExx.rows(), aExx.cols()) = Exx();
 		aJacKKT.block(aExx.rows()+aExr.cols(), 0, aCG.rows(), aCG.cols()) = aCG;
 		aJacKKT.block(0, aExx.cols()+aExr.cols(), aCG.cols(), aCG.rows())= aCG.transpose();
+
+	}
+
+	void setupFastEnergyTerms(Mesh& m){
+		aPAx0squaredNorm = aPAx0.transpose()*aPAx0;
+		aPAx0tPAG = aPAx0.transpose()*aPAG;
+
+			std::vector<Trip> SPAx0_trips;
+			for(int t=0; t<m.T().rows(); t++){
+				for(int j=0; j<4; j++){
+					Vector3d PAx0 = aPAx0.segment<3>(12*t + 3*j);
+					SPAx0_trips.push_back(Trip( 12*t+3*j+0, 6*t+0 , PAx0[0]));
+					SPAx0_trips.push_back(Trip( 12*t+3*j+0, 6*t+3 , PAx0[1]));
+					SPAx0_trips.push_back(Trip( 12*t+3*j+0, 6*t+4 , PAx0[2]));
+
+					SPAx0_trips.push_back(Trip( 12*t+3*j+1, 6*t+3 , PAx0[0]));
+					SPAx0_trips.push_back(Trip( 12*t+3*j+1, 6*t+1 , PAx0[1]));
+					SPAx0_trips.push_back(Trip( 12*t+3*j+1, 6*t+5 , PAx0[2]));
+
+					SPAx0_trips.push_back(Trip( 12*t+3*j+2, 6*t+4 , PAx0[0]));
+					SPAx0_trips.push_back(Trip( 12*t+3*j+2, 6*t+5 , PAx0[1]));
+					SPAx0_trips.push_back(Trip( 12*t+3*j+2, 6*t+2 , PAx0[2]));
+					
+				}
+			}
+			SparseMatrix<double> SMPAx0(12*m.T().rows(), 6*m.T().rows());
+			SMPAx0.setFromTriplets(SPAx0_trips.begin(), SPAx0_trips.end());
+		aRSPAx0tRSPAx0 = (SMPAx0*m.sW()).transpose()*(SMPAx0*m.sW());
+
+	
+			std::vector<Trip> PAx0tR_trips;
+			for(int t=0; t<m.T().rows(); t++){
+				for(int j=0; j<4; j++){
+					Vector3d PAx0 = aPAx0.segment<3>(12*t + 3*j);
+					PAx0tR_trips.push_back(Trip(12*t+3*j+0, 9*t+0, PAx0[0]));
+					PAx0tR_trips.push_back(Trip(12*t+3*j+0, 9*t+3, PAx0[1]));
+					PAx0tR_trips.push_back(Trip(12*t+3*j+0, 9*t+6, PAx0[2]));
+
+					PAx0tR_trips.push_back(Trip(12*t+3*j+1, 9*t+1, PAx0[0]));
+					PAx0tR_trips.push_back(Trip(12*t+3*j+1, 9*t+4, PAx0[1]));
+					PAx0tR_trips.push_back(Trip(12*t+3*j+1, 9*t+7, PAx0[2]));
+
+					PAx0tR_trips.push_back(Trip(12*t+3*j+2, 9*t+2, PAx0[0]));
+					PAx0tR_trips.push_back(Trip(12*t+3*j+2, 9*t+5, PAx0[1]));
+					PAx0tR_trips.push_back(Trip(12*t+3*j+2, 9*t+8, PAx0[2]));
+				}
+			}
+			SparseMatrix<double> RMPAx0(12*m.T().rows(), 9*m.T().rows());
+			RMPAx0.setFromTriplets(PAx0tR_trips.begin(), PAx0tR_trips.end());
+		aPAx0tRSPAx0 = (RMPAx0*a_Wr).transpose()*(SMPAx0*m.sW());
+
+
 
 	}
 
@@ -391,13 +450,6 @@ public:
 	}
 
 	void setupFastEsTerms(Mesh& m){
-		m.red_s()[0] += 0.1;
-		m.red_s()[8] += 0.1;
-		m.red_r()[0] += 0.1;
-		m.red_r()[8] += 0.1;
-		m.red_x()[0] += 0.1;
-		m.red_x()[8] += 0.1;
-
 		std::vector<Trip> SPAx0_trips;
 		for(int t=0; t<m.T().rows(); t++){
 			for(int j=0; j<4; j++){
@@ -472,8 +524,19 @@ public:
 	}
 
 	double Energy(Mesh& m){
-		VectorXd PAx = aPAG*m.red_x() + aPAx0;
-		double En= 0.5*(PAx - aFPAx0).squaredNorm();
+		VectorXd GtAtPtFPAx0 = VectorXd::Zero(m.red_x().size());
+		for(int s=0; s<m.red_s().size(); s++){
+			GtAtPtFPAx0 += m.red_s()[s]*(aFASTARAPCubeGtAtPtRSPAx0[s]*m.red_r());
+		}
+
+		double t1 = 0.5*m.red_x().transpose()*aExx*m.red_x();
+		double t2 = 0.5*aPAx0squaredNorm;
+		double t3 = 0.5*m.red_s().transpose()*aRSPAx0tRSPAx0*m.red_s();
+		double t4 = aPAx0tPAG.dot(m.red_x());
+		double t5 = GtAtPtFPAx0.dot(m.red_x());
+		double t6 = m.red_r().transpose()*aPAx0tRSPAx0*m.red_s();
+		double En = t1+t2+t3+t4-t5-t6;
+		
 		return En;
 	}
 
@@ -857,23 +920,26 @@ public:
 
 
 	VectorXd dEdx(Mesh& m){
-		VectorXd PAx = aPAG*m.red_x() + aPAx0;
-		VectorXd res = (aPAG).transpose()*(PAx - aFPAx0);
+		VectorXd GtAtPtFPAx0 = VectorXd::Zero(m.red_x().size());
+		for(int s=0; s<m.red_s().size(); s++){
+			GtAtPtFPAx0 += m.red_s()[s]*(aFASTARAPCubeGtAtPtRSPAx0[s]*m.red_r());
+		}
+
+		VectorXd res = aExx*m.red_x() + aFASTARAPDenseTerms[0] - GtAtPtFPAx0;
+
 		return res;
 	}
 
-	bool itT(Mesh& m){
+	void itT(Mesh& m){
 		//TODO DENSIFY
-		VectorXd AtPtFPAx0 = VectorXd::Zero(m.red_x().size());
+		VectorXd GtAtPtFPAx0 = VectorXd::Zero(m.red_x().size());
 		for(int s=0; s<m.red_s().size(); s++){
-			AtPtFPAx0 += m.red_s()[s]*(aFASTARAPCubeGtAtPtRSPAx0[s]*m.red_r());
+			GtAtPtFPAx0 += m.red_s()[s]*(aFASTARAPCubeGtAtPtRSPAx0[s]*m.red_r());
 		}
-		VectorXd gb = AtPtFPAx0 - aFASTARAPDenseTerms[0];
+		VectorXd gb = GtAtPtFPAx0 - aFASTARAPDenseTerms[0];
 		VectorXd result = aARAPKKTSolver.solve(gb);
 		m.red_x(result);
-
-		return false;
-	}
+ 	}
 
 	void itR(Mesh& m){
 		
@@ -924,15 +990,18 @@ public:
 		double newE;
 		for(int i=1; i< 1000; i++){
 			atimer.start();
-			bool converged = itT(m);
+			itT(m);
 			atimer.stop();
 			itTTimes += atimer.getElapsedTimeInMicroSec();
 			atimer.start();
 			itR(m);
 			atimer.stop();
 			itRTimes += atimer.getElapsedTimeInMicroSec();
-			m.constTimeFPAx0(aFPAx0);
-			// cout<<i<<", ";
+			// m.constTimeFPAx0(aFPAx0);
+
+			newE = Energy(m);
+			cout<<i<<", "<<newE-oldE<<endl;
+			// VectorXd newEx = dEdx(m);
 			// if((newE - oldE)>1e-5 && i>1){
 			// 	print("Reduced_Arap::minimize() error. ARAP should monotonically decrease.");
 			// 	print(i);
@@ -940,17 +1009,14 @@ public:
 			// 	print(newE);
 			// 	exit(0);
 			// }
-	
-			if (i%5==0){
-				newE = Energy(m);
-				oldE = newE;
-				if(fabs(newE - previous5ItE)<1e-8){
-					m.constTimeFPAx0(aFPAx0);
-					std::cout<<"		ItTtime: "<<itTTimes<<", ItRtime: "<<itRTimes<<", Iterations: "<<i<<endl;
-					return true;
-				}
-				previous5ItE = newE;
+			
+			if(fabs(newE - oldE)<5e-6){
+				m.constTimeFPAx0(aFPAx0);
+				std::cout<<"		ItTtime: "<<itTTimes<<", ItRtime: "<<itRTimes<<", Iterations: "<<i<<endl;
+				return true;
 			}
+			
+			oldE = newE;
 		}
 		std::cout<<"		ItTtime: "<<itTTimes<<", ItRtime: "<<itRTimes<<", Iterations: "<<1000<<endl;
 		

@@ -203,9 +203,7 @@ int main()
             // arap->minimize(*mesh);
             
             double fx =0;
-            cout<<mesh->red_s().transpose()<<endl;
             VectorXd ns = mesh->N().transpose()*mesh->red_s();
-            cout<<ns.transpose()<<endl;
             int niter = solver.minimize(f, ns, fx);
             std::cout<<"niter "<<niter<<std::endl;
 

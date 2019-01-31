@@ -16,7 +16,7 @@
   "reduced_s": true,
   "reduced_r": true,
   "reduced_x": true,
-  "number_skinning_handles": 4,
+  "number_skinning_handles": 5,
   "number_rot_clusters": 5,
   "number_modes": 70,
   "fd_eps": 1e-2,

@@ -17,6 +17,9 @@ protected:
 	double rho = 6.4; 
 	VectorXd sW1, sW2, sW3, sW4, sW5, sW6, muscle_forces, elastic_forces;
 	std::vector<int> contract_muscles = {};
+
+	std::vector<MatrixXd> aFastMuscles;
+
 public:
 	Elastic(Mesh& m, double strength=10000, std::vector<int> tocontract={0}){
 		if(m.T().rows()*6 == m.red_s().size()){
@@ -35,6 +38,37 @@ public:
 		for(int i=0; i<tocontract.size(); i++){
 			contract_muscles.push_back(tocontract[i]);
 		}
+
+
+		cout<<"Pre-process Muscles"<<endl;
+		setupFastMuscles(m);
+	}
+
+	void setupFastMuscles(Mesh& mesh){
+		for(int m=0; m<mesh.muscle_vecs().size(); m++){
+			//for each muscle, preprocess the muscle energy equation
+			std::vector<Trip> uS_trips;
+			for(int i=0; i<mesh.muscle_vecs()[m].size(); i++){
+				int t = mesh.muscle_vecs()[m][i];
+				Vector3d u = mesh.Uvecs().row(t);
+				uS_trips.push_back(Trip(3*t+0, 6*t+0 , u[0]));
+				uS_trips.push_back(Trip(3*t+0, 6*t+3 , u[1]));
+				uS_trips.push_back(Trip(3*t+0, 6*t+4 , u[2]));
+
+				uS_trips.push_back(Trip(3*t+1, 6*t+3 , u[0]));
+				uS_trips.push_back(Trip(3*t+1, 6*t+1 , u[1]));
+				uS_trips.push_back(Trip(3*t+1, 6*t+5 , u[2]));
+
+				uS_trips.push_back(Trip(3*t+2, 6*t+4 , u[0]));
+				uS_trips.push_back(Trip(3*t+2, 6*t+5 , u[1]));
+				uS_trips.push_back(Trip(3*t+2, 6*t+2 , u[2]));
+				
+			}
+			SparseMatrix<double> uS(3*mesh.T().rows(), 6*mesh.T().rows());
+			uS.setFromTriplets(uS_trips.begin(), uS_trips.end());
+			aFastMuscles.push_back((uS*mesh.sW()).transpose()*(uS*mesh.sW()));
+
+		}
 	}
 
 	double MuscleElementEnergy(const VectorXd& w1, const VectorXd& w2, const VectorXd& w3, const VectorXd& w4, const VectorXd& w5, const VectorXd& w6,  const VectorXd& rs, Vector3d& u){
@@ -48,14 +82,10 @@ public:
 		double u2 = u[1];
 		double u3 = u[2];
 
-		double W = 0.5*muscle_fibre_mag*(u2*(s6*(s5*u1 + s6*u2 + s3*u3) + s4*(s1*u1 + s4*u2 + s5*u3) + 
-		s2*(s4*u1 + s2*u2 + s6*u3)) + 
-		u1*(s5*(s5*u1 + s6*u2 + s3*u3) + s1*(s1*u1 + s4*u2 + s5*u3) + 
-		s4*(s4*u1 + s2*u2 + s6*u3)) + 
-		u3*(s3*(s5*u1 + s6*u2 + s3*u3) + s5*(s1*u1 + s4*u2 + s5*u3) + 
-		s6*(s4*u1 + s2*u2 + s6*u3)));
-		
-		return W;
+
+		double W1 = 0.5*muscle_fibre_mag*((s5*u1 + s6*u2 + s3*u3)*(s5*u1 + s6*u2 + s3*u3) + (s1*u1 + s4*u2 + s5*u3)*(s1*u1 + s4*u2 + s5*u3) + 
+   					(s4*u1 + s2*u2 + s6*u3)*(s4*u1 + s2*u2 + s6*u3));
+		return W1;
 	}
 
 	double MuscleEnergy(Mesh& mesh){
@@ -63,39 +93,45 @@ public:
 		VectorXd& rs = mesh.red_s();
 		VectorXd& bones = mesh.bones();
 		
+		// for(int q=0; q<contract_muscles.size(); q++){
+		// 	if(contract_muscles[q]>=mesh.muscle_vecs().size()){
+		// 		continue;
+		// 	}
+		// 	for(int i=0; i<mesh.muscle_vecs()[contract_muscles[q]].size(); i++){
+		// 		int t = mesh.muscle_vecs()[contract_muscles[q]][i];
+		// 		// if(bones[t]>=0){
+		// 		// 	continue;
+		// 		// }
+
+	 //            Vector3d u = mesh.Uvecs().row(t);
+		        
+
+		// 		if(rs.size()==6*mesh.T().rows()){
+		// 			sW1[6*t+0] += 1;
+		// 			sW2[6*t+1] += 1;
+		// 			sW3[6*t+2] += 1;
+		// 			sW4[6*t+3] += 1;
+		// 			sW5[6*t+4] += 1;
+		// 			sW6[6*t+5] += 1;
+		//         	En += MuscleElementEnergy(sW1,sW2,sW3,sW4,sW5,sW6, rs, u);
+		//         	sW1[6*t+0] -= 1;
+		// 			sW2[6*t+1] -= 1;
+		// 			sW3[6*t+2] -= 1;
+		// 			sW4[6*t+3] -= 1;
+		// 			sW5[6*t+4] -= 1;
+		// 			sW6[6*t+5] -= 1;
+		// 		}else{
+	 //            	En += MuscleElementEnergy(mesh.sW().row(6*t+0),mesh.sW().row(6*t+1),mesh.sW().row(6*t+2),mesh.sW().row(6*t+3),mesh.sW().row(6*t+4),mesh.sW().row(6*t+5), rs, u);
+					
+		// 		}
+		// 	}
+		// }
 		for(int q=0; q<contract_muscles.size(); q++){
 			if(contract_muscles[q]>=mesh.muscle_vecs().size()){
 				continue;
 			}
-			for(int i=0; i<mesh.muscle_vecs()[contract_muscles[q]].size(); i++){
-				int t = mesh.muscle_vecs()[contract_muscles[q]][i];
-				if(bones[t]>=0){
-					continue;
-				}
-
-	            Vector3d u = mesh.Uvecs().row(t);
-		        
-
-				if(rs.size()==6*mesh.T().rows()){
-					sW1[6*t+0] += 1;
-					sW2[6*t+1] += 1;
-					sW3[6*t+2] += 1;
-					sW4[6*t+3] += 1;
-					sW5[6*t+4] += 1;
-					sW6[6*t+5] += 1;
-		        	En += MuscleElementEnergy(sW1,sW2,sW3,sW4,sW5,sW6, rs, u);
-		        	sW1[6*t+0] -= 1;
-					sW2[6*t+1] -= 1;
-					sW3[6*t+2] -= 1;
-					sW4[6*t+3] -= 1;
-					sW5[6*t+4] -= 1;
-					sW6[6*t+5] -= 1;
-				}else{
-	            	En += MuscleElementEnergy(mesh.sW().row(6*t+0),mesh.sW().row(6*t+1),mesh.sW().row(6*t+2),mesh.sW().row(6*t+3),mesh.sW().row(6*t+4),mesh.sW().row(6*t+5), rs, u);
-				}
-			}
+			En += 0.5*muscle_fibre_mag*mesh.red_s().transpose()*aFastMuscles[contract_muscles[0]]*mesh.red_s();
 		}
-		
 		return En;
 	}
 
@@ -151,35 +187,43 @@ public:
 		VectorXd& bones = mesh.bones();
 
 		
-		for(int q=0; q<contract_muscles.size(); q++){
+		// for(int q=0; q<contract_muscles.size(); q++){
+		// 	if(contract_muscles[q]>=mesh.muscle_vecs().size()){
+		// 		continue;
+		// 	}	
+		// 	for(int i=0; i<mesh.muscle_vecs()[contract_muscles[q]].size(); i++){
+		// 		int t = mesh.muscle_vecs()[contract_muscles[q]][i];
+		// 		// if(bones[t]>=0){
+		// 		// 	continue;
+		// 		// }
+	 //            Vector3d u = mesh.Uvecs().row(t);
+	 //            if(rs.size()==6*mesh.T().rows()){
+		// 			sW1[6*t+0] += 1;
+		// 			sW2[6*t+1] += 1;
+		// 			sW3[6*t+2] += 1;
+		// 			sW4[6*t+3] += 1;
+		// 			sW5[6*t+4] += 1;
+		// 			sW6[6*t+5] += 1;
+		//         	MuscleElementForce(muscle_forces, sW1,sW2,sW3,sW4,sW5,sW6, rs, u);
+		//         	sW1[6*t+0] -= 1;
+		// 			sW2[6*t+1] -= 1;
+		// 			sW3[6*t+2] -= 1;
+		// 			sW4[6*t+3] -= 1;
+		// 			sW5[6*t+4] -= 1;
+		// 			sW6[6*t+5] -= 1;
+		// 		}else{
+	 //            	MuscleElementForce(muscle_forces, mesh.sW().row(6*t+0),mesh.sW().row(6*t+1),mesh.sW().row(6*t+2),mesh.sW().row(6*t+3),mesh.sW().row(6*t+4),mesh.sW().row(6*t+5), rs, u);
+	 //        	}
+  //       	}
+  //   	}
+
+    	for(int q=0; q<contract_muscles.size(); q++){
 			if(contract_muscles[q]>=mesh.muscle_vecs().size()){
 				continue;
-			}	
-			for(int i=0; i<mesh.muscle_vecs()[contract_muscles[q]].size(); i++){
-				int t = mesh.muscle_vecs()[contract_muscles[q]][i];
-				if(bones[t]>=0){
-					continue;
-				}
-	            Vector3d u = mesh.Uvecs().row(t);
-	            if(rs.size()==6*mesh.T().rows()){
-					sW1[6*t+0] += 1;
-					sW2[6*t+1] += 1;
-					sW3[6*t+2] += 1;
-					sW4[6*t+3] += 1;
-					sW5[6*t+4] += 1;
-					sW6[6*t+5] += 1;
-		        	MuscleElementForce(muscle_forces, sW1,sW2,sW3,sW4,sW5,sW6, rs, u);
-		        	sW1[6*t+0] -= 1;
-					sW2[6*t+1] -= 1;
-					sW3[6*t+2] -= 1;
-					sW4[6*t+3] -= 1;
-					sW5[6*t+4] -= 1;
-					sW6[6*t+5] -= 1;
-				}else{
-	            	MuscleElementForce(muscle_forces, mesh.sW().row(6*t+0),mesh.sW().row(6*t+1),mesh.sW().row(6*t+2),mesh.sW().row(6*t+3),mesh.sW().row(6*t+4),mesh.sW().row(6*t+5), rs, u);
-	        	}
-        	}
-    	}
+			}
+			muscle_forces += muscle_fibre_mag*aFastMuscles[contract_muscles[0]]*mesh.red_s();
+		}
+
 	}
 
 	double WikipediaElementEnergy(const VectorXd& w0, const VectorXd& w1, const VectorXd& w2, const VectorXd& w3, const VectorXd& w4, const VectorXd& w5,  const VectorXd& rs, double C1, double D1){
@@ -236,6 +280,8 @@ public:
 		VectorXd& eP = mesh.ePoissons();
 		VectorXd& bones = mesh.bones();
 		VectorXd& rs = mesh.red_s();
+
+		#pragma omp parallel for
 		for(int t =0; t<mesh.T().rows(); t++){
 			if(mesh.bones()[t]>=0){
 				continue;
@@ -323,9 +369,10 @@ public:
 		VectorXd& eY = mesh.eYoungs();
 		VectorXd& eP = mesh.ePoissons();
 		VectorXd& bones = mesh.bones();
-		VectorXd rs = mesh.red_s();
+		VectorXd& rs = mesh.red_s();
 
 		Matrix3d c;
+		#pragma omp parallel for
 		for(int t =0; t<mesh.T().rows(); t++){
 			if(mesh.bones()[t]>=0){
 				continue;
@@ -350,7 +397,6 @@ public:
             	WikipediaElementForce(elastic_forces, mesh.sW().row(6*t+0),mesh.sW().row(6*t+1),mesh.sW().row(6*t+2),mesh.sW().row(6*t+3),mesh.sW().row(6*t+4),mesh.sW().row(6*t+5), rs, C1, D1);
 			}
 		}
-
 	}
 
 	double Energy(Mesh& m){
