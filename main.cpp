@@ -30,6 +30,16 @@ RowVector3d green(0,1,0);
 RowVector3d black(0,0,0);
 MatrixXd Colors;
 
+void removeRow(Eigen::MatrixXi& matrix, unsigned int rowToRemove)
+{
+    unsigned int numRows = matrix.rows()-1;
+    unsigned int numCols = matrix.cols();
+
+    if( rowToRemove < numRows )
+        matrix.block(rowToRemove,0,numRows-rowToRemove,numCols) = matrix.block(rowToRemove+1,0,numRows-rowToRemove,numCols);
+
+    matrix.conservativeResize(numRows,numCols);
+}
 
 int main(int argc, char *argv[])
 {
@@ -45,7 +55,7 @@ int main(int argc, char *argv[])
     
     std::vector<VectorXi> bones = {};
     std::vector<VectorXi> muscles = {};
-    std::vector<VectorXi> joints = {};
+    std::vector<MatrixXd> joints = {};
 
     std::string datafile = j_input["data"];
     std::string outputfile = j_input["output"];
@@ -61,6 +71,7 @@ int main(int argc, char *argv[])
 
         json j_muscles = j_muscle_geometry_config["muscles"];
         json j_bones = j_muscle_geometry_config["bones"];
+        json j_joints = j_muscle_geometry_config["joints"];
 
         for (json::iterator it = j_bones.begin(); it != j_bones.end(); ++it) {
             VectorXi bone_i;
@@ -75,11 +86,27 @@ int main(int argc, char *argv[])
             igl::readDMAT(datafile+"/generated_files/"+it.key()+"_muscle_indices.dmat", muscle_i);
             muscles.push_back(muscle_i);
         }
+
+        // for(json::iterator it = j_joints.begin(); it!= j_joints.end(); ++it){
+        //     std::cout<<it.key()<<"\n";
+        //     MatrixXd joint_i;
+        //     MatrixXi joint_f;
+        //     igl::readOBJ(datafile+"/objs/"+it.key()+".obj", joint_i, joint_f);
+        //     joints.push_back(joint_i);
+        // }
+        //Remove joints from tetmesh
+        // VectorXi joints_ind;
+        // igl::readDMAT(datafile+"/generated_files/joint_indices.dmat", joints_ind);
+        // cout<<joints_ind.transpose()<<endl;
+        // for(int i=0; i<joints_ind.size(); i++){
+        //     removeRow(T, joints_ind[i]);
+        // }
+
     std::vector<int> fix_bones = j_input["fix_bones_alphabet_order"];
 
     igl::boundary_facets(T, F);
     std::cout<<"-----Mesh-------"<<std::endl;
-    Mesh* mesh = new Mesh(T, V, fix_bones, mov,bones, muscles, Uvec,  j_input);
+    Mesh* mesh = new Mesh(T, V, fix_bones, mov, bones, muscles, joints, Uvec,  j_input);
     
     std::cout<<"-----ARAP-----"<<std::endl;
     Reduced_Arap* arap = new Reduced_Arap(*mesh);

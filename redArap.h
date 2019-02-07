@@ -91,7 +91,13 @@ public:
 		aPAG = m.P()*m.A()*m.G();
 		aCG = m.AB().transpose()*m.G();
 		print("rarap 4");
+		// MatrixXd& YC = m.JointY();
+		// MatrixXd ARAPKKTmat = MatrixXd::Zero(aExx.rows() + YC.rows(), aExx.cols() + YC.rows());
+		// ARAPKKTmat.block(0,0,aExx.rows(), aExx.cols()) = aExx;
+		// ARAPKKTmat.block(0, aExx.cols(), YC.cols(), YC.rows()) = YC.transpose();
+		// ARAPKKTmat.block(aExx.rows(), 0, YC.rows(), YC.cols()) = YC;
 		aARAPKKTSolver.compute(aExx);
+
 		print("rarap 5");
 		aJacKKT.resize(z_size+r_size+aCG.rows(), z_size+r_size+aCG.rows());
 		aJacConstrains.resize(z_size+r_size+aCG.rows() ,s_size);
@@ -936,9 +942,14 @@ public:
 		for(int s=0; s<m.red_s().size(); s++){
 			GtAtPtFPAx0 += m.red_s()[s]*(aFASTARAPCubeGtAtPtRSPAx0[s]*m.red_r());
 		}
+		
 		VectorXd gb = GtAtPtFPAx0 - aFASTARAPDenseTerms[0];
+		VectorXd zer = VectorXd::Zero(m.JointY().rows());
+		VectorXd gd (gb.size() + zer.size());
+		gd<<gb, zer; 
 		VectorXd result = aARAPKKTSolver.solve(gb);
-		m.red_x(result);
+		VectorXd gu = result.head(gb.size());
+		m.red_x(gu);
  	}
 
 	void itR(Mesh& m){

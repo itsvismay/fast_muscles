@@ -89,6 +89,7 @@ int main()
     std::vector<int> mov = {};//getMinVerts_Axis_Tolerance(V, 1);
     std::sort (mov.begin(), mov.end());
 
+    std::vector<MatrixXd> joints;
     std::vector<int> bone1={};
     getMaxTets_Axis_Tolerance(bone1, V, T, 1, 3);
     std::vector<int> bone2={};
@@ -112,7 +113,7 @@ int main()
     std::vector<int> fix_bones = {0};
 
     std::cout<<"-----Mesh-------"<<std::endl;
-    Mesh* mesh = new Mesh(T, V, fix_bones, mov, bones, muscles, Uvec, j_input);
+    Mesh* mesh = new Mesh(T, V, fix_bones, mov, bones, muscles, joints, Uvec, j_input);
 
     std::cout<<"-----Neo-------"<<std::endl;
     Elastic* neo = new Elastic(*mesh);

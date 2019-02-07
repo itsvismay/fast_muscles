@@ -52,7 +52,7 @@ protected:
     VectorXi melemType, mr_elem_cluster_map, ms_handles_ind;
     VectorXd mcontx, mx, mx0, mred_s, melemYoungs, 
     melemPoissons, mred_r, mred_x, mred_w, mPAx0, mFPAx;
-    MatrixXd mR, mG, msW, mUvecs;
+    MatrixXd mR, mG, msW, mUvecs, mJ;
     VectorXd mmass_diag, mbones;
 
     std::vector<int> mfix, mmov;
@@ -72,6 +72,7 @@ public:
         std::vector<int>& imov, 
         std::vector<VectorXi>& ibones, 
         std::vector<VectorXi>& imuscle,
+        std::vector<MatrixXd>& ijoints,
         MatrixXd& iUvecs, json& j_input, 
         std::vector<int> fd_fix = {})
     {
@@ -169,16 +170,6 @@ public:
             mG = mY*temp1;
         }else{
 
-            // MyWorld world;
-            // FEMLinearTets *test = new FEMLinearTets(mV,mT);
-            // world.addSystem(test);
-            // world.finalize();
-            // //build mass and stiffness matrices
-            // AssemblerParallel<double, AssemblerEigenSparseMatrix<double> > mass;
-            // AssemblerParallel<double, AssemblerEigenSparseMatrix<double> > stiffness;
-            // getMassMatrix(mass, world);
-            // getStiffnessMatrix(stiffness, world);
-
             setup_modes(num_modes, reduced, mP, mA, mConstrained, mFree, mY, mV, mT, mmass_diag, mG);
             
         }
@@ -198,19 +189,26 @@ public:
             mred_x.resize(mG.cols());
         }
         mred_x.setZero();
-
         mGR.resize(12*mT.rows(), 12*mT.rows());
         mGU.resize(12*mT.rows(), 12*mT.rows());
         mGS.resize(12*mT.rows(), 12*mT.rows());
+
+        print("step 13.5");
+        // setJointConstraintMatrix(ibones, imuscle, ifix_bones, ijoints, mred_x.size());
+
 
         print("step 14");
         setGlobalF(false, false, true);
         print("step 15");
         setN(ibones);
         print("step 16");
-        mPA = mP*mA;
-        mPAx0 = mPA*mx0;
+        cout<<"mA: "<<mA.rows()<<", "<<mA.cols()<<endl;
+        cout<<"mP: "<<mP.rows()<<", "<<mP.cols()<<endl;
+        print("step 17");
+        mPAx0 = mP*mA*mx0;
+        print("step 18");
         mFPAx.resize(mPAx0.size());
+        print("step 19");
         setupWrWw();
 
     }
@@ -277,7 +275,6 @@ public:
         //TODO fixed bones, used this vector (Y*Y'Ones(3*V.rows())) to create the mFree matrix and mConstrained matrix
         
         //ibones should have fixed bones at the front, rest at the back
-
         VectorXd bone_or_muscle = VectorXd::Zero(3*mV.rows()); //0 for muscle, 1,2 for each bone
         bone_or_muscle.array() += -1;
         for(int i=ibones.size() -1; i>=0; i--){ //go through in reverse so joints are part of the fixed bone
@@ -345,6 +342,75 @@ public:
 
     }
 
+    void setJointConstraintMatrix(std::vector<VectorXi>& ibones, std::vector<VectorXi>& imuscle, std::vector<int> fixedbones, std::vector<MatrixXd> joints, int mredxsize){
+        int hingejoints = joints.size();
+        int socketjoints = 0;
+        std::vector<Trip> joint_trips;
+        for(int i=0; i<hingejoints; i++){
+            Vector3d p1 = joints[0].row(2*i);
+            Vector3d p2 = joints[0].row(2*i+1);
+            Vector3d v = (p1 - p2);
+
+            joint_trips.push_back(Trip(6*i+0, (int)12*0+0, p1[0]));
+            joint_trips.push_back(Trip(6*i+1, (int)12*0+1, p1[0]));
+            joint_trips.push_back(Trip(6*i+2, (int)12*0+2, p1[0]));
+
+            joint_trips.push_back(Trip(6*i+0, (int)12*0+3, p1[1]));
+            joint_trips.push_back(Trip(6*i+1, (int)12*0+4, p1[1]));
+            joint_trips.push_back(Trip(6*i+2, (int)12*0+5, p1[1]));
+
+            joint_trips.push_back(Trip(6*i+0, (int)12*0+6, p1[2]));
+            joint_trips.push_back(Trip(6*i+1, (int)12*0+7, p1[2]));
+            joint_trips.push_back(Trip(6*i+2, (int)12*0+8, p1[2]));
+
+            joint_trips.push_back(Trip(6*i+0, (int)12*0+9, 1));
+            joint_trips.push_back(Trip(6*i+1, (int)12*0+10, 1));
+            joint_trips.push_back(Trip(6*i+2, (int)12*0+11, 1));
+
+            // joint_trips.push_back(Trip(6*i+3, (int)12*0+0, p2[0]));
+            // joint_trips.push_back(Trip(6*i+4, (int)12*0+1, p2[0]));
+            // joint_trips.push_back(Trip(6*i+5, (int)12*0+2, p2[0]));
+
+            // joint_trips.push_back(Trip(6*i+3, (int)12*0+3, p2[1]));
+            // joint_trips.push_back(Trip(6*i+4, (int)12*0+4, p2[1]));
+            // joint_trips.push_back(Trip(6*i+5, (int)12*0+5, p2[1]));
+
+            // joint_trips.push_back(Trip(6*i+3, (int)12*0+6, p2[1]));
+            // joint_trips.push_back(Trip(6*i+4, (int)12*0+7, p2[1]));
+            // joint_trips.push_back(Trip(6*i+5, (int)12*0+8, p2[1]));
+
+            // joint_trips.push_back(Trip(6*i+0, (int)12*0+9, 1));
+            // joint_trips.push_back(Trip(6*i+1, (int)12*0+10, 1));
+            // joint_trips.push_back(Trip(6*i+2, (int)12*0+11, 1));
+
+            joint_trips.push_back(Trip(6*i+3, (int)12*0+0, v[0]));
+            joint_trips.push_back(Trip(6*i+4, (int)12*0+1, v[0]));
+            joint_trips.push_back(Trip(6*i+5, (int)12*0+2, v[0]));
+
+            joint_trips.push_back(Trip(6*i+3, (int)12*0+3, v[1]));
+            joint_trips.push_back(Trip(6*i+4, (int)12*0+4, v[1]));
+            joint_trips.push_back(Trip(6*i+5, (int)12*0+5, v[1]));
+
+            joint_trips.push_back(Trip(6*i+3, (int)12*0+6, v[2]));
+            joint_trips.push_back(Trip(6*i+4, (int)12*0+7, v[2]));
+            joint_trips.push_back(Trip(6*i+5, (int)12*0+8, v[2]));                  
+        }
+
+        SparseMatrix<double> jointsY;
+        jointsY.resize(3*hingejoints + 3*socketjoints, 12*(ibones.size() - fixedbones.size()));
+        jointsY.setFromTriplets(joint_trips.begin(), joint_trips.end());
+
+        std::vector<Trip> boneC_trips;
+        for(int i=0; i< 12*(ibones.size() - fixedbones.size()); i++){
+            boneC_trips.push_back(Trip(i, i, 1));
+        }
+
+        SparseMatrix<double> boneC;
+        boneC.resize(12*(ibones.size() - fixedbones.size()), mredxsize);
+        boneC.setFromTriplets(boneC_trips.begin(), boneC_trips.end());
+        cout<<boneC.rows()<<", "<<boneC.cols()<<endl;
+        mJ = MatrixXd(jointsY)*boneC;
+    }
     void setN(std::vector<VectorXi> bones){
         //TODO make this work for reduced skinning
         int nsh_bones = bones.size();
@@ -759,6 +825,7 @@ public:
     SparseMatrix<double>& N(){ return mN; }
     SparseMatrix<double>& AN(){ return mAN; }
     SparseMatrix<double>& Y(){ return mY; }
+    MatrixXd& JointY(){ return mJ;}
     MatrixXd& G(){ return mG; }
     MatrixXd& Uvecs(){ return mUvecs; }
 

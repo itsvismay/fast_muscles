@@ -67,6 +67,7 @@ void setup_modes(int nummodes, bool reduced, SparseMatrix<double>& mP, SparseMat
         VectorXd eigsCorrected;
         eigsCorrected.resize(geigs.eigenvalues().rows());
         MatrixXd evsCorrected = geigs.eigenvectors();
+        cout<<"     eig3.5"<<endl;
         if(geigs.info() == Spectra::SUCCESSFUL)
         {
             for(unsigned int ii=0; ii<geigs.eigenvalues().rows(); ++ii) {
