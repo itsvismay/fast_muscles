@@ -85,54 +85,53 @@ void setup_modes(int nummodes, bool reduced, SparseMatrix<double>& mP, SparseMat
 
         cout<<"     eig4"<<endl;
         // eigenvalues.head(eigenvalues.size() - 3));
-        MatrixXd eV = mY*evsCorrected;
-        mG = eV.leftCols(nummodes-25);
+        mG = evsCorrected.leftCols(nummodes-25);
         cout<<"-EIG SOLVE"<<endl;
         return;
 
-        //############handle modes KKT solve#####
-        cout<<"+ModesForHandles"<<endl;
-        SparseMatrix<double> C = mConstrained.transpose();
-        SparseMatrix<double> HandleModesKKTmat(K.rows()+C.rows(), K.rows()+C.rows());
-        HandleModesKKTmat.setZero();
-        std::vector<Trip> KTrips = to_triplets(K);
-        std::vector<Trip> CTrips = to_triplets(C);
-        cout<<"     eig5"<<endl;
-        for(int i=0; i<CTrips.size(); i++){
-            int row = CTrips[i].row();
-            int col = CTrips[i].col();
-            int val = CTrips[i].value();
-            KTrips.push_back(Trip(row+K.rows(), col, val));
-            KTrips.push_back(Trip(col, row+K.cols(), val));
-        }
-        KTrips.insert(KTrips.end(),CTrips.begin(), CTrips.end());
-        HandleModesKKTmat.setFromTriplets(KTrips.begin(), KTrips.end());
+        // //############handle modes KKT solve#####
+        // cout<<"+ModesForHandles"<<endl;
+        // SparseMatrix<double> C = mConstrained.transpose();
+        // SparseMatrix<double> HandleModesKKTmat(K.rows()+C.rows(), K.rows()+C.rows());
+        // HandleModesKKTmat.setZero();
+        // std::vector<Trip> KTrips = to_triplets(K);
+        // std::vector<Trip> CTrips = to_triplets(C);
+        // cout<<"     eig5"<<endl;
+        // for(int i=0; i<CTrips.size(); i++){
+        //     int row = CTrips[i].row();
+        //     int col = CTrips[i].col();
+        //     int val = CTrips[i].value();
+        //     KTrips.push_back(Trip(row+K.rows(), col, val));
+        //     KTrips.push_back(Trip(col, row+K.cols(), val));
+        // }
+        // KTrips.insert(KTrips.end(),CTrips.begin(), CTrips.end());
+        // HandleModesKKTmat.setFromTriplets(KTrips.begin(), KTrips.end());
 
-        cout<<"     eig6"<<endl;
-        SparseMatrix<double>eHconstrains(K.rows()+C.rows(), C.rows());
-        eHconstrains.setZero();
-        std::vector<Trip> eHTrips;
-        for(int i=0; i<C.rows(); i++){
-            eHTrips.push_back(Trip(i+K.rows(), i, 1));
-        }
-        eHconstrains.setFromTriplets(eHTrips.begin(), eHTrips.end());
+        // cout<<"     eig6"<<endl;
+        // SparseMatrix<double>eHconstrains(K.rows()+C.rows(), C.rows());
+        // eHconstrains.setZero();
+        // std::vector<Trip> eHTrips;
+        // for(int i=0; i<C.rows(); i++){
+        //     eHTrips.push_back(Trip(i+K.rows(), i, 1));
+        // }
+        // eHconstrains.setFromTriplets(eHTrips.begin(), eHTrips.end());
         
-        cout<<"     eig7"<<endl;
-        SparseLU<SparseMatrix<double>> solver;
-        solver.compute(HandleModesKKTmat);
-        SparseMatrix<double> eHsparse = solver.solve(eHconstrains);
-        MatrixXd eH = MatrixXd(eHsparse).topRows(K.rows());
-        cout<<"-ModesForHandles"<<endl;
+        // cout<<"     eig7"<<endl;
+        // SparseLU<SparseMatrix<double>> solver;
+        // solver.compute(HandleModesKKTmat);
+        // SparseMatrix<double> eHsparse = solver.solve(eHconstrains);
+        // MatrixXd eH = MatrixXd(eHsparse).topRows(K.rows());
+        // cout<<"-ModesForHandles"<<endl;
 
-        //###############QR get orth basis of Modes, eH#######
-        MatrixXd eHeV(eH.rows(), eH.cols()+eV.cols());
-        eHeV<<eV,eH;
-        igl::writeDMAT("TOQR.dmat", eHeV);
-        HouseholderQR<MatrixXd> QR(eHeV);
-        cout<<"     eig8"<<endl;
-        MatrixXd thinQ = MatrixXd::Identity(eHeV.rows(), eHeV.cols());
-        //SET Q TO G
-        mG = QR.householderQ()*thinQ; 
-        return;
-        cout<<"     eig9"<<endl;       
+        // //###############QR get orth basis of Modes, eH#######
+        // MatrixXd eHeV(eH.rows(), eH.cols()+eV.cols());
+        // eHeV<<eV,eH;
+        // igl::writeDMAT("TOQR.dmat", eHeV);
+        // HouseholderQR<MatrixXd> QR(eHeV);
+        // cout<<"     eig8"<<endl;
+        // MatrixXd thinQ = MatrixXd::Identity(eHeV.rows(), eHeV.cols());
+        // //SET Q TO G
+        // mG = QR.householderQ()*thinQ; 
+        // return;
+        // cout<<"     eig9"<<endl;       
 }

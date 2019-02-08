@@ -18,7 +18,7 @@
   "reduced_x": true,
   "number_skinning_handles": 10,
   "number_rot_clusters": 10,
-  "number_modes": 20,
+  "number_modes": 50,
   "fd_eps": 1e-2,
   "alpha_arap": 1e4,
   "alpha_neo":1

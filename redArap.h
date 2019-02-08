@@ -91,12 +91,12 @@ public:
 		aPAG = m.P()*m.A()*m.G();
 		aCG = m.AB().transpose()*m.G();
 		print("rarap 4");
-		// MatrixXd& YC = m.JointY();
-		// MatrixXd ARAPKKTmat = MatrixXd::Zero(aExx.rows() + YC.rows(), aExx.cols() + YC.rows());
-		// ARAPKKTmat.block(0,0,aExx.rows(), aExx.cols()) = aExx;
-		// ARAPKKTmat.block(0, aExx.cols(), YC.cols(), YC.rows()) = YC.transpose();
-		// ARAPKKTmat.block(aExx.rows(), 0, YC.rows(), YC.cols()) = YC;
-		aARAPKKTSolver.compute(aExx);
+		MatrixXd& YC = m.JointY();
+		MatrixXd ARAPKKTmat = MatrixXd::Zero(aExx.rows() + YC.rows(), aExx.cols() + YC.rows());
+		ARAPKKTmat.block(0,0,aExx.rows(), aExx.cols()) = aExx;
+		ARAPKKTmat.block(0, aExx.cols(), YC.cols(), YC.rows()) = YC.transpose();
+		ARAPKKTmat.block(aExx.rows(), 0, YC.rows(), YC.cols()) = YC;
+		aARAPKKTSolver.compute(ARAPKKTmat);
 
 		print("rarap 5");
 		aJacKKT.resize(z_size+r_size+aCG.rows(), z_size+r_size+aCG.rows());
@@ -115,7 +115,6 @@ public:
 		aJacKKT.block(0,0,aExx.rows(), aExx.cols()) = Exx();
 		aJacKKT.block(aExx.rows()+aExr.cols(), 0, aCG.rows(), aCG.cols()) = aCG;
 		aJacKKT.block(0, aExx.cols()+aExr.cols(), aCG.cols(), aCG.rows())= aCG.transpose();
-
 	}
 
 	void setupFastEnergyTerms(Mesh& m){
@@ -165,9 +164,6 @@ public:
 			SparseMatrix<double> RMPAx0(12*m.T().rows(), 9*m.T().rows());
 			RMPAx0.setFromTriplets(PAx0tR_trips.begin(), PAx0tR_trips.end());
 		aPAx0tRSPAx0 = (RMPAx0*a_Wr).transpose()*(SMPAx0*m.sW());
-
-
-
 	}
 
 	void setupFASTARAPTerms(Mesh& m){
@@ -945,10 +941,17 @@ public:
 		
 		VectorXd gb = GtAtPtFPAx0 - aFASTARAPDenseTerms[0];
 		VectorXd zer = VectorXd::Zero(m.JointY().rows());
+		// zer.segment<3>(0) = m.joints()[0].row(0);
+		// zer.segment<3>(3) = m.joints()[0].row(1);
+		
+
+
 		VectorXd gd (gb.size() + zer.size());
 		gd<<gb, zer; 
-		VectorXd result = aARAPKKTSolver.solve(gb);
+		VectorXd result = aARAPKKTSolver.solve(gd);
 		VectorXd gu = result.head(gb.size());
+		cout<<(m.JointY()*gu).transpose()<<endl;
+		cout<<(gu.head(12)).transpose()<<endl;	
 		m.red_x(gu);
  	}
 

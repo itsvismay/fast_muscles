@@ -73,6 +73,14 @@ int main(int argc, char *argv[])
         json j_bones = j_muscle_geometry_config["bones"];
         json j_joints = j_muscle_geometry_config["joints"];
 
+         // Remove joints from tetmesh
+        VectorXi joints_ind;
+        igl::readDMAT(datafile+"/generated_files/joint_indices.dmat", joints_ind);
+        // cout<<joints_ind.transpose()<<endl;
+        // for(int i=0; i<joints_ind.size(); i++){
+        //     removeRow(T, joints_ind[i]);
+        // }
+
         for (json::iterator it = j_bones.begin(); it != j_bones.end(); ++it) {
             VectorXi bone_i;
             std::cout << it.key() << "\n";
@@ -87,20 +95,14 @@ int main(int argc, char *argv[])
             muscles.push_back(muscle_i);
         }
 
-        // for(json::iterator it = j_joints.begin(); it!= j_joints.end(); ++it){
-        //     std::cout<<it.key()<<"\n";
-        //     MatrixXd joint_i;
-        //     MatrixXi joint_f;
-        //     igl::readOBJ(datafile+"/objs/"+it.key()+".obj", joint_i, joint_f);
-        //     joints.push_back(joint_i);
-        // }
-        //Remove joints from tetmesh
-        // VectorXi joints_ind;
-        // igl::readDMAT(datafile+"/generated_files/joint_indices.dmat", joints_ind);
-        // cout<<joints_ind.transpose()<<endl;
-        // for(int i=0; i<joints_ind.size(); i++){
-        //     removeRow(T, joints_ind[i]);
-        // }
+        for(json::iterator it = j_joints.begin(); it!= j_joints.end(); ++it){
+            std::cout<<it.key()<<"\n";
+            MatrixXd joint_i;
+            MatrixXi joint_f;
+            igl::readOBJ(datafile+"/objs/"+it.key()+".obj", joint_i, joint_f);
+            joints.push_back(joint_i);
+        }
+       
 
     std::vector<int> fix_bones = j_input["fix_bones_alphabet_order"];
 
@@ -180,14 +182,14 @@ int main(int argc, char *argv[])
     int kkkk = 0;
     double tttt = 0;
     viewer.callback_pre_draw = [&](igl::opengl::glfw::Viewer & viewer){   
-        if(viewer.core.is_animating){
-            // if(kkkk<mesh->G().cols()){
-            //     VectorXd x = 10*sin(tttt)*mesh->G().col(kkkk) + mesh->x0();
-            //     Eigen::Map<Eigen::MatrixXd> newV(x.data(), V.cols(), V.rows());
-            //     viewer.data().set_mesh(newV.transpose(), F);
-            //     tttt+= 0.1;
-            // }
-    	}
+     //    if(viewer.core.is_animating){
+     //        if(kkkk<mesh->G().cols()){
+     //            VectorXd x = 10*sin(tttt)*mesh->G().col(kkkk) + mesh->x0();
+     //            Eigen::Map<Eigen::MatrixXd> newV(x.data(), V.cols(), V.rows());
+     //            viewer.data().set_mesh(newV.transpose(), F);
+     //            tttt+= 0.1;
+     //        }
+    	// }
         return false;
     };
 
@@ -238,8 +240,8 @@ int main(int argc, char *argv[])
             std::cout<<std::endl;
             MatrixXd& discV = mesh->discontinuousV();
             MatrixXi& discT = mesh->discontinuousT();
-            for(int i=0; i<discT.rows(); i++){
-                Vector4i e = discT.row(i);
+            for(int i=0; i<joints_ind.size(); i++){
+                Vector4i e = discT.row(joints_ind[i]);
                 // std::cout<<discT.row(i)<<std::endl<<std::endl;
                 // std::cout<<discV(Eigen::placeholders::all, discT.row(i))<<std::endl;
                 Matrix<double, 1,3> p0 = discV.row(e[0]);
@@ -262,6 +264,17 @@ int main(int argc, char *argv[])
         //Draw fixed and moving points
         for(int i=0; i<mesh->fixed_verts().size(); i++){
             viewer.data().add_points(mesh->V().row(mesh->fixed_verts()[i]),Eigen::RowVector3d(1,0,0));
+        }
+
+        //Draw joint points
+        for(int i=0; i<joints.size(); i++){
+            // VectorXd js = mesh->JointY()*mesh->red_x();
+            RowVector3d p1 = joints[i].row(0);//js.segment<3>(0);
+            RowVector3d p2 = joints[i].row(1);//js.segment<3>(3);
+            // cout<<p1.transpose()<<", "<<p2.transpose()<<endl;
+            viewer.data().add_points(p1, Eigen::RowVector3d(0,0,0));
+            viewer.data().add_points(p2, Eigen::RowVector3d(0,0,0));
+            viewer.data().add_edges(p1, p2, Eigen::RowVector3d(0,0,0));
         }
         
         viewer.data().set_colors(SETCOLORSMAT);
