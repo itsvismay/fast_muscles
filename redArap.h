@@ -937,21 +937,14 @@ public:
 		VectorXd GtAtPtFPAx0 = VectorXd::Zero(m.red_x().size());
 		for(int s=0; s<m.red_s().size(); s++){
 			GtAtPtFPAx0 += m.red_s()[s]*(aFASTARAPCubeGtAtPtRSPAx0[s]*m.red_r());
-		}
-		
+		}		
 		VectorXd gb = GtAtPtFPAx0 - aFASTARAPDenseTerms[0];
 		VectorXd zer = VectorXd::Zero(m.JointY().rows());
-		// zer.segment<3>(0) = m.joints()[0].row(0);
-		// zer.segment<3>(3) = m.joints()[0].row(1);
-		
-
 
 		VectorXd gd (gb.size() + zer.size());
 		gd<<gb, zer; 
 		VectorXd result = aARAPKKTSolver.solve(gd);
 		VectorXd gu = result.head(gb.size());
-		cout<<(m.JointY()*gu).transpose()<<endl;
-		cout<<(gu.head(12)).transpose()<<endl;	
 		m.red_x(gu);
  	}
 

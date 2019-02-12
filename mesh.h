@@ -390,58 +390,72 @@ public:
         boneC.setFromTriplets(boneC_trips.begin(), boneC_trips.end());
 
 
-        int hingejoints = joints.size();
-        int socketjoints = 0;
+        int hingejoints = 0; //joints.size();
+        int socketjoints = 0;//joints.size();
+        for(int i=0; i<joints.size(); i++){
+            if(joints[i].rows()>1){
+                hingejoints +=1;
+            }else{
+                socketjoints +=1;
+            }
+        }
+
         std::vector<Trip> joint_trips;
         for(int i=0; i<1; i++){
-            print(joints[i]);
-            RowVector3d p1 = joints[i].row(0);
-            RowVector3d p2 = joints[i].row(1);
-            Vector3d v = (p1 - p2);
+           
+            if(joints[i].rows()>1){
+                RowVector3d p1 = joints[i].row(0);
+                joint_trips.push_back(Trip(6*i+0, (int)12*0+0, p1[0]));
+                joint_trips.push_back(Trip(6*i+1, (int)12*0+1, p1[0]));
+                joint_trips.push_back(Trip(6*i+2, (int)12*0+2, p1[0]));
 
-            joint_trips.push_back(Trip(6*i+0, (int)12*0+0, p1[0]));
-            joint_trips.push_back(Trip(6*i+1, (int)12*0+1, p1[0]));
-            joint_trips.push_back(Trip(6*i+2, (int)12*0+2, p1[0]));
+                joint_trips.push_back(Trip(6*i+0, (int)12*0+3, p1[1]));
+                joint_trips.push_back(Trip(6*i+1, (int)12*0+4, p1[1]));
+                joint_trips.push_back(Trip(6*i+2, (int)12*0+5, p1[1]));
 
-            joint_trips.push_back(Trip(6*i+0, (int)12*0+3, p1[1]));
-            joint_trips.push_back(Trip(6*i+1, (int)12*0+4, p1[1]));
-            joint_trips.push_back(Trip(6*i+2, (int)12*0+5, p1[1]));
+                joint_trips.push_back(Trip(6*i+0, (int)12*0+6, p1[2]));
+                joint_trips.push_back(Trip(6*i+1, (int)12*0+7, p1[2]));
+                joint_trips.push_back(Trip(6*i+2, (int)12*0+8, p1[2]));
 
-            joint_trips.push_back(Trip(6*i+0, (int)12*0+6, p1[2]));
-            joint_trips.push_back(Trip(6*i+1, (int)12*0+7, p1[2]));
-            joint_trips.push_back(Trip(6*i+2, (int)12*0+8, p1[2]));
+                joint_trips.push_back(Trip(6*i+0, (int)12*0+9, 1));
+                joint_trips.push_back(Trip(6*i+1, (int)12*0+10, 1));
+                joint_trips.push_back(Trip(6*i+2, (int)12*0+11, 1));
 
-            joint_trips.push_back(Trip(6*i+0, (int)12*0+9, 1));
-            joint_trips.push_back(Trip(6*i+1, (int)12*0+10, 1));
-            joint_trips.push_back(Trip(6*i+2, (int)12*0+11, 1));
+                RowVector3d p2 = joints[i].row(1);
+                joint_trips.push_back(Trip(6*i+3, (int)12*0+0, p2[0]));
+                joint_trips.push_back(Trip(6*i+4, (int)12*0+1, p2[0]));
+                joint_trips.push_back(Trip(6*i+5, (int)12*0+2, p2[0]));
 
-            joint_trips.push_back(Trip(6*i+3, (int)12*0+0, p2[0]));
-            joint_trips.push_back(Trip(6*i+4, (int)12*0+1, p2[0]));
-            joint_trips.push_back(Trip(6*i+5, (int)12*0+2, p2[0]));
+                joint_trips.push_back(Trip(6*i+3, (int)12*0+3, p2[1]));
+                joint_trips.push_back(Trip(6*i+4, (int)12*0+4, p2[1]));
+                joint_trips.push_back(Trip(6*i+5, (int)12*0+5, p2[1]));
 
-            joint_trips.push_back(Trip(6*i+3, (int)12*0+3, p2[1]));
-            joint_trips.push_back(Trip(6*i+4, (int)12*0+4, p2[1]));
-            joint_trips.push_back(Trip(6*i+5, (int)12*0+5, p2[1]));
+                joint_trips.push_back(Trip(6*i+3, (int)12*0+6, p2[2]));
+                joint_trips.push_back(Trip(6*i+4, (int)12*0+7, p2[2]));
+                joint_trips.push_back(Trip(6*i+5, (int)12*0+8, p2[2]));
 
-            joint_trips.push_back(Trip(6*i+3, (int)12*0+6, p2[2]));
-            joint_trips.push_back(Trip(6*i+4, (int)12*0+7, p2[2]));
-            joint_trips.push_back(Trip(6*i+5, (int)12*0+8, p2[2]));
+                joint_trips.push_back(Trip(6*i+3, (int)12*0+9, 1));
+                joint_trips.push_back(Trip(6*i+4, (int)12*0+10, 1));
+                joint_trips.push_back(Trip(6*i+5, (int)12*0+11, 1));
 
-            joint_trips.push_back(Trip(6*i+3, (int)12*0+9, 1));
-            joint_trips.push_back(Trip(6*i+4, (int)12*0+10, 1));
-            joint_trips.push_back(Trip(6*i+5, (int)12*0+11, 1));
+            }else{
+                RowVector3d p1 = joints[i].row(0);
+                joint_trips.push_back(Trip(3*i+0, (int)12*0+0, p1[0]));
+                joint_trips.push_back(Trip(3*i+1, (int)12*0+1, p1[0]));
+                joint_trips.push_back(Trip(3*i+2, (int)12*0+2, p1[0]));
 
-            // joint_trips.push_back(Trip(6*i+3, (int)12*0+0, v[0]));
-            // joint_trips.push_back(Trip(6*i+4, (int)12*0+1, v[0]));
-            // joint_trips.push_back(Trip(6*i+5, (int)12*0+2, v[0]));
+                joint_trips.push_back(Trip(3*i+0, (int)12*0+3, p1[1]));
+                joint_trips.push_back(Trip(3*i+1, (int)12*0+4, p1[1]));
+                joint_trips.push_back(Trip(3*i+2, (int)12*0+5, p1[1]));
 
-            // joint_trips.push_back(Trip(6*i+3, (int)12*0+3, v[1]));
-            // joint_trips.push_back(Trip(6*i+4, (int)12*0+4, v[1]));
-            // joint_trips.push_back(Trip(6*i+5, (int)12*0+5, v[1]));
+                joint_trips.push_back(Trip(3*i+0, (int)12*0+6, p1[2]));
+                joint_trips.push_back(Trip(3*i+1, (int)12*0+7, p1[2]));
+                joint_trips.push_back(Trip(3*i+2, (int)12*0+8, p1[2]));
 
-            // joint_trips.push_back(Trip(6*i+3, (int)12*0+6, v[2]));
-            // joint_trips.push_back(Trip(6*i+4, (int)12*0+7, v[2]));
-            // joint_trips.push_back(Trip(6*i+5, (int)12*0+8, v[2]));                  
+                joint_trips.push_back(Trip(3*i+0, (int)12*0+9, 1));
+                joint_trips.push_back(Trip(3*i+1, (int)12*0+10, 1));
+                joint_trips.push_back(Trip(3*i+2, (int)12*0+11, 1));
+            }
         }
 
         jointsY.resize(6*hingejoints + 3*socketjoints, boneC.cols());

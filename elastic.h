@@ -130,7 +130,7 @@ public:
 			if(contract_muscles[q]>=mesh.muscle_vecs().size()){
 				continue;
 			}
-			En += 0.5*muscle_fibre_mag*mesh.red_s().transpose()*aFastMuscles[contract_muscles[0]]*mesh.red_s();
+			En += 0.5*muscle_fibre_mag*mesh.red_s().transpose()*aFastMuscles[contract_muscles[q]]*mesh.red_s();
 		}
 		return En;
 	}
@@ -221,7 +221,7 @@ public:
 			if(contract_muscles[q]>=mesh.muscle_vecs().size()){
 				continue;
 			}
-			muscle_forces += muscle_fibre_mag*aFastMuscles[contract_muscles[0]]*mesh.red_s();
+			muscle_forces += muscle_fibre_mag*aFastMuscles[contract_muscles[q]]*mesh.red_s();
 		}
 
 	}

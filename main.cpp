@@ -97,9 +97,11 @@ int main(int argc, char *argv[])
 
         for(json::iterator it = j_joints.begin(); it!= j_joints.end(); ++it){
             std::cout<<it.key()<<"\n";
+            std::string joint_name = it.value()["location_obj"];
+            cout<<joint_name<<endl;
             MatrixXd joint_i;
             MatrixXi joint_f;
-            igl::readOBJ(datafile+"/objs/"+it.key()+".obj", joint_i, joint_f);
+            igl::readOBJ(datafile+"/objs/"+joint_name, joint_i, joint_f);
             joints.push_back(joint_i);
         }
        
@@ -224,7 +226,7 @@ int main(int argc, char *argv[])
             for(int i=0; i<reds.size(); i++){
                 mesh->red_s()[i] = reds[i];
             }
-            cout<<"****QSsteptime: "<<timer.getElapsedTimeInMicroSec()<<endl;
+            cout<<"****QSsteptime: "<<timer.getElapsedTimeInMicroSec()<<", "<<niter<<endl;
         }
 
         // //Draw continuous mesh
@@ -268,13 +270,14 @@ int main(int argc, char *argv[])
 
         //Draw joint points
         for(int i=0; i<joints.size(); i++){
-            // VectorXd js = mesh->JointY()*mesh->red_x();
             RowVector3d p1 = joints[i].row(0);//js.segment<3>(0);
-            RowVector3d p2 = joints[i].row(1);//js.segment<3>(3);
-            // cout<<p1.transpose()<<", "<<p2.transpose()<<endl;
             viewer.data().add_points(p1, Eigen::RowVector3d(0,0,0));
-            viewer.data().add_points(p2, Eigen::RowVector3d(0,0,0));
-            viewer.data().add_edges(p1, p2, Eigen::RowVector3d(0,0,0));
+            if(joints[i].rows()>1){
+                RowVector3d p2 = joints[i].row(1);//js.segment<3>(3);
+                viewer.data().add_points(p2, Eigen::RowVector3d(0,0,0));
+                viewer.data().add_edges(p1, p2, Eigen::RowVector3d(0,0,0));
+                
+            }
         }
         
         viewer.data().set_colors(SETCOLORSMAT);
