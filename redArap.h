@@ -1007,7 +1007,7 @@ public:
 			// m.constTimeFPAx0(aFPAx0);
 
 			newE = Energy(m);
-			cout<<i<<", "<<newE-oldE<<endl;
+			// cout<<i<<", "<<newE-oldE<<endl;
 			// VectorXd newEx = dEdx(m);
 			// if((newE - oldE)>1e-5 && i>1){
 			// 	print("Reduced_Arap::minimize() error. ARAP should monotonically decrease.");
@@ -1018,7 +1018,7 @@ public:
 			// }
 			
 			if(fabs(newE - oldE)<5e-6){
-				m.constTimeFPAx0(aFPAx0);
+				// m.constTimeFPAx0(aFPAx0);
 				std::cout<<"		ItTtime: "<<itTTimes<<", ItRtime: "<<itRTimes<<", Iterations: "<<i<<endl;
 				return true;
 			}
@@ -1028,7 +1028,7 @@ public:
 		std::cout<<"		ItTtime: "<<itTTimes<<", ItRtime: "<<itRTimes<<", Iterations: "<<1000<<endl;
 		
 		// std::cout<<"		NotConvergedARAPDiffInEnergy: "<<Energy(m)-previous5ItE<<std::endl;
-		m.constTimeFPAx0(aFPAx0);
+		// m.constTimeFPAx0(aFPAx0);
 		return false;
 	}
 

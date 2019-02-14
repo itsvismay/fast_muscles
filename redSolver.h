@@ -147,18 +147,24 @@ public:
         for(int i=0; i<reds.size(); i++){
             mesh->red_s()[i] = reds[i];
         }
+        timer.start();
         double Eneo = alpha_neo*elas->Energy(*mesh);
-        // timer.start();
+        timer.stop();
+        double neo_time = timer.getElapsedTimeInMicroSec();
+
+        timer.start();
         bool converged = arap->minimize(*mesh);
+        timer.stop();
+        double arap_time = timer.getElapsedTimeInMicroSec();
 
-        // timer.stop();
-        // double arap_time = timer.getElapsedTimeInMicroSec();
-        // cout<<"     ---LineSearch Info"<<endl;
-        // cout<<"     ARAPConverged: "<<converged<<endl;
-        // cout<<"     ARAPTime: "<<arap_time<<endl;
-
+        timer.start();
         double Earap = alpha_arap*arap->Energy(*mesh);
+        timer.stop();
+        double arap_energy_time = timer.getElapsedTimeInMicroSec();
         double fx = Eneo + Earap;
+        cout<<"     ARAP Min Time: "<<arap_time<<endl;
+        cout<<"     ARAP energy time: "<< arap_energy_time<<endl;
+        cout<<"     NEO Time: "<<neo_time<<endl;
 
 
         if(computeGrad){

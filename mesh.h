@@ -61,8 +61,10 @@ protected:
     std::vector<VectorXi> mmuscles;
     std::vector<MatrixXd> mjoints;
 
-    SparseMatrix<double> mBoneVertsAffineMaps;
-    SparseMatrix<double> mMuscleVertsMaps;
+    std::map<std::string, int> mmuscle_name_index_map;
+    std::map<std::string, int> mbone_name_index_map;
+    std::vector< std::pair<std::vector<std::string>, MatrixXd>> mjoint_bones_verts;
+
     bool reduced;
     //end
 
@@ -71,20 +73,28 @@ protected:
 public:
     Mesh(){}
 
-    Mesh(MatrixXi& iT, MatrixXd& iV, 
-        std::vector<int>& ifix_bones, 
-        std::vector<int>& imov, 
-        std::vector<VectorXi>& ibones, 
-        std::vector<VectorXi>& imuscle,
-        std::vector<MatrixXd> ijoints,
-        MatrixXd& iUvecs, json& j_input, 
-        std::vector<int> fd_fix = {})
+    Mesh(
+        MatrixXd& iV, 
+        MatrixXi& iT, 
+        MatrixXd& iUvecs, 
+        std::vector<std::string>& ifix_bones,
+        std::vector<VectorXi>& ibone_tets,
+        std::vector<VectorXi>& imuscle_tets,
+        std::map<std::string, int>& ibone_name_index_map,
+        std::map<std::string, int>& imuscle_name_index_map,
+        std::vector< std::pair<std::vector<std::string>, MatrixXd>>& ijoint_bones_verts,
+        json& j_input,
+        std::vector<int> fd_fix = {},
+        std::vector<int> imov = {})
     {
+        
         mV = iV;
         mT = iT;
         mmov = imov;
-        mmuscles = imuscle;
-        mjoints = ijoints;
+        mmuscles = imuscle_tets;
+        mmuscle_name_index_map = imuscle_name_index_map;
+        mbone_name_index_map = ibone_name_index_map;
+        mjoint_bones_verts = ijoint_bones_verts;
 
         double youngs = j_input["youngs"];
         double poissons = j_input["poissons"];
@@ -93,22 +103,16 @@ public:
         int nrc = j_input["number_rot_clusters"];
         reduced = j_input["reduced"];
 
-        //###########Re-index ifix_bones (fixed bone indexes) to be the top indices mapping into ibones
-        for(int ii=0; ii<ifix_bones.size(); ii++){
-            std::swap(ibones[ifix_bones[ii]], ibones[ii]);
-            ifix_bones[ii] = ii;
-        }
-        //###########
-
 
         cout<<"if it fails here, make sure indexing is within bounds"<<endl;
         std::set<int> fix_verts_set;
         for(int ii=0; ii<ifix_bones.size(); ii++){
             cout<<ifix_bones[ii]<<endl;
-            fix_verts_set.insert(mT.row(ibones[ifix_bones[ii]][10])[0]);
-            fix_verts_set.insert(mT.row(ibones[ifix_bones[ii]][10])[1]);
-            fix_verts_set.insert(mT.row(ibones[ifix_bones[ii]][10])[2]);
-            fix_verts_set.insert(mT.row(ibones[ifix_bones[ii]][10])[3]);
+            int bone_ind = mbone_name_index_map[ifix_bones[ii]];
+            fix_verts_set.insert(mT.row(ibone_tets[bone_ind][10])[0]);
+            fix_verts_set.insert(mT.row(ibone_tets[bone_ind][10])[1]);
+            fix_verts_set.insert(mT.row(ibone_tets[bone_ind][10])[2]);
+            fix_verts_set.insert(mT.row(ibone_tets[bone_ind][10])[3]);
         }
 
         mfix.assign(fix_verts_set.begin(), fix_verts_set.end());
@@ -117,9 +121,6 @@ public:
         if(fd_fix.size() != 0){
             mfix = fd_fix;
         }
-
-
-
         
         print("step 1");
         mx0.resize(mV.cols()*mV.rows());
@@ -132,14 +133,15 @@ public:
 
         mbones.resize(mT.rows());
         mbones.setZero();
-        for(int b=0; b<ibones.size(); b++){
-            for(int i=0; i<ibones[b].size(); i++){
-                mbones[ibones[b][i]] = 1;
+
+        for(int b=0; b<ibone_tets.size(); b++){
+            for(int i=0; i<ibone_tets[b].size(); i++){
+                mbones[ibone_tets[b][i]] = 1;
             }
         }
-        for(int m=0; m<imuscle.size(); m++){
-            for(int i=0; i<imuscle[m].size(); i++){
-                mbones[imuscle[m][i]] -=1;
+        for(int m=0; m<imuscle_tets.size(); m++){
+            for(int i=0; i<imuscle_tets[m].size(); i++){
+                mbones[imuscle_tets[m][i]] -=1;
             }
         }
 
@@ -155,7 +157,7 @@ public:
         setVertexWiseMassDiag();
 
         print("step 7");
-        setHandleModesMatrix(ibones, imuscle, ifix_bones);
+        setHandleModesMatrix(ibone_tets, imuscle_tets, ifix_bones);
         
         print("step 8");
         setElemWiseYoungsPoissons(youngs, poissons);
@@ -163,10 +165,10 @@ public:
         setDiscontinuousMeshT();
 
         print("step 10");
-        setup_rotation_cluster(nrc, reduced, mT, mV, ibones, imuscle, mred_x, mred_r, mred_w, mC, mA, mG, mx0, mRotationBLOCK, mr_cluster_elem_map, mr_elem_cluster_map);
+        setup_rotation_cluster(nrc, reduced, mT, mV, ibone_tets, imuscle_tets, mred_x, mred_r, mred_w, mC, mA, mG, mx0, mRotationBLOCK, mr_cluster_elem_map, mr_elem_cluster_map);
 
         print("step 11");
-        setup_skinning_handles(nsh, reduced, mT, mV, ibones, imuscle, mC, mA, mG, mx0, mred_s, msW);
+        setup_skinning_handles(nsh, reduced, mT, mV, ibone_tets, imuscle_tets, mC, mA, mG, mx0, mred_s, msW);
         
         print("step 12");
         MatrixXd temp1;
@@ -182,9 +184,9 @@ public:
         print("step 13");
         mUvecs.resize(mT.rows(), 3);
         mUvecs.setZero();
-        for(int i=0; i<imuscle.size(); i++){
-            for(int j=0; j<imuscle[i].size(); j++){
-                mUvecs.row(imuscle[i][j]) = iUvecs.row(imuscle[i][j]);
+        for(int i=0; i<imuscle_tets.size(); i++){
+            for(int j=0; j<imuscle_tets[i].size(); j++){
+                mUvecs.row(imuscle_tets[i][j]) = iUvecs.row(imuscle_tets[i][j]);
             }
         }
 
@@ -200,13 +202,13 @@ public:
 
         print("step 13.5");
         SparseMatrix<double> jointsY;
-        setJointConstraintMatrix(jointsY, ibones, imuscle, ifix_bones, ijoints);
+        setJointConstraintMatrix(jointsY, ibone_tets, imuscle_tets, ifix_bones, mjoint_bones_verts);
         mJ = MatrixXd(jointsY)*temp1;
 
         print("step 14");
         setGlobalF(false, false, true);
         print("step 15");
-        setN(ibones);
+        setN(ibone_tets);
         print("step 16");
         cout<<"mA: "<<mA.rows()<<", "<<mA.cols()<<endl;
         cout<<"mP: "<<mP.rows()<<", "<<mP.cols()<<endl;
@@ -276,7 +278,7 @@ public:
         mC.setFromTriplets(triplets.begin(), triplets.end());
     }
 
-    void setHandleModesMatrix(std::vector<VectorXi>& ibones, std::vector<VectorXi>& imuscle, std::vector<int> fixedbones){
+    void setHandleModesMatrix(std::vector<VectorXi>& ibones, std::vector<VectorXi>& imuscle, std::vector<std::string> fixedbones){
         VectorXd vert_free_or_not = mFree*mFree.transpose()*VectorXd::Ones(3*mV.rows());// check if vert is fixed
         //TODO fixed bones, used this vector (Y*Y'Ones(3*V.rows())) to create the mFree matrix and mConstrained matrix
         
@@ -345,123 +347,132 @@ public:
 
     }
 
-    void setJointConstraintMatrix(SparseMatrix<double>& jointsY, std::vector<VectorXi>& ibones, std::vector<VectorXi>& imuscle, std::vector<int> fixedbones, std::vector<MatrixXd> joints){
-        VectorXd bone_or_muscle = VectorXd::Zero(3*mV.rows()); //0 for muscle, 1,2 for each bone
-        bone_or_muscle.array() += -1;
-        for(int i=ibones.size() -1; i>=0; i--){ //go through in reverse so joints are part of the fixed bone
-            for(int j=0; j<ibones[i].size(); j++){
-                bone_or_muscle.segment<3>(3*mT.row(ibones[i][j])[0])[0] = i+1;
-                bone_or_muscle.segment<3>(3*mT.row(ibones[i][j])[0])[1] = i+1;
-                bone_or_muscle.segment<3>(3*mT.row(ibones[i][j])[0])[2] = i+1;
-                bone_or_muscle.segment<3>(3*mT.row(ibones[i][j])[1])[0] = i+1;
-                bone_or_muscle.segment<3>(3*mT.row(ibones[i][j])[1])[1] = i+1;
-                bone_or_muscle.segment<3>(3*mT.row(ibones[i][j])[1])[2] = i+1;
-                bone_or_muscle.segment<3>(3*mT.row(ibones[i][j])[2])[0] = i+1;
-                bone_or_muscle.segment<3>(3*mT.row(ibones[i][j])[2])[1] = i+1;
-                bone_or_muscle.segment<3>(3*mT.row(ibones[i][j])[2])[2] = i+1;
-                bone_or_muscle.segment<3>(3*mT.row(ibones[i][j])[3])[0] = i+1;
-                bone_or_muscle.segment<3>(3*mT.row(ibones[i][j])[3])[1] = i+1;
-                bone_or_muscle.segment<3>(3*mT.row(ibones[i][j])[3])[2] = i+1; 
-            }
-        }
-
-        std::vector<Trip> boneC_trips;
-        for(int i=0; i<bone_or_muscle.size()/3; i++){
-                if(bone_or_muscle[3*i]>fixedbones.size()){
-                    boneC_trips.push_back(Trip(3*i+0, (int)(12*(bone_or_muscle[3*i]-1 - fixedbones.size()))+0, 1));
-                    boneC_trips.push_back(Trip(3*i+1, (int)(12*(bone_or_muscle[3*i]-1 - fixedbones.size()))+1, 1));
-                    boneC_trips.push_back(Trip(3*i+2, (int)(12*(bone_or_muscle[3*i]-1 - fixedbones.size()))+2, 1));
-
-                    boneC_trips.push_back(Trip(3*i+0, (int)(12*(bone_or_muscle[3*i]-1 - fixedbones.size()))+3, 1));
-                    boneC_trips.push_back(Trip(3*i+1, (int)(12*(bone_or_muscle[3*i]-1 - fixedbones.size()))+4, 1));
-                    boneC_trips.push_back(Trip(3*i+2, (int)(12*(bone_or_muscle[3*i]-1 - fixedbones.size()))+5, 1));
-
-                    boneC_trips.push_back(Trip(3*i+0, (int)(12*(bone_or_muscle[3*i]-1 - fixedbones.size()))+6, 1));
-                    boneC_trips.push_back(Trip(3*i+1, (int)(12*(bone_or_muscle[3*i]-1 - fixedbones.size()))+7, 1));
-                    boneC_trips.push_back(Trip(3*i+2, (int)(12*(bone_or_muscle[3*i]-1 - fixedbones.size()))+8, 1));
-
-                    boneC_trips.push_back(Trip(3*i+0, (int)(12*(bone_or_muscle[3*i]-1 - fixedbones.size()))+9, 1));
-                    boneC_trips.push_back(Trip(3*i+1, (int)(12*(bone_or_muscle[3*i]-1 - fixedbones.size()))+10, 1));
-                    boneC_trips.push_back(Trip(3*i+2, (int)(12*(bone_or_muscle[3*i]-1 - fixedbones.size()))+11, 1));
-                }
-        }
-        SparseMatrix<double> boneC;
-        boneC.resize(3*mV.rows(), 12*(ibones.size() - fixedbones.size()));
-        boneC.setFromTriplets(boneC_trips.begin(), boneC_trips.end());
-
-
-        int hingejoints = 0; //joints.size();
-        int socketjoints = 0;//joints.size();
-        for(int i=0; i<joints.size(); i++){
-            if(joints[i].rows()>1){
-                hingejoints +=1;
-            }else{
-                socketjoints +=1;
-            }
-        }
+    void setJointConstraintMatrix(SparseMatrix<double>& jointsY, std::vector<VectorXi>& ibones, std::vector<VectorXi>& imuscle, std::vector<std::string> fixedbones, std::vector< std::pair<std::vector<std::string>, MatrixXd>>& joints_bones_verts){
+        int hingejoints = 0;
+        int socketjoints = 0;
 
         std::vector<Trip> joint_trips;
-        for(int i=0; i<1; i++){
-           
-            if(joints[i].rows()>1){
-                RowVector3d p1 = joints[i].row(0);
-                joint_trips.push_back(Trip(6*i+0, (int)12*0+0, p1[0]));
-                joint_trips.push_back(Trip(6*i+1, (int)12*0+1, p1[0]));
-                joint_trips.push_back(Trip(6*i+2, (int)12*0+2, p1[0]));
+        for(int i=0; i<joints_bones_verts.size(); i++){ 
+            MatrixXd joint = joints_bones_verts[i].second;
+            int bone1ind = mbone_name_index_map[joints_bones_verts[i].first[0]];
+            int bone2ind = mbone_name_index_map[joints_bones_verts[i].first[1]];
+            cout<<"bones: "<<bone1ind<<", "<<bone2ind<<endl;
+            if(joint.rows()>1){
+                hingejoints +=1;
+                RowVector3d p1 = joint.row(0);
+                RowVector3d p2 = joint.row(1);
 
-                joint_trips.push_back(Trip(6*i+0, (int)12*0+3, p1[1]));
-                joint_trips.push_back(Trip(6*i+1, (int)12*0+4, p1[1]));
-                joint_trips.push_back(Trip(6*i+2, (int)12*0+5, p1[1]));
+                if(bone1ind>=fixedbones.size()){
 
-                joint_trips.push_back(Trip(6*i+0, (int)12*0+6, p1[2]));
-                joint_trips.push_back(Trip(6*i+1, (int)12*0+7, p1[2]));
-                joint_trips.push_back(Trip(6*i+2, (int)12*0+8, p1[2]));
+                    joint_trips.push_back(Trip(6*i+0, (int)12*(bone1ind-fixedbones.size())+0, p1[0]));
+                    joint_trips.push_back(Trip(6*i+1, (int)12*(bone1ind-fixedbones.size())+1, p1[0]));
+                    joint_trips.push_back(Trip(6*i+2, (int)12*(bone1ind-fixedbones.size())+2, p1[0]));
 
-                joint_trips.push_back(Trip(6*i+0, (int)12*0+9, 1));
-                joint_trips.push_back(Trip(6*i+1, (int)12*0+10, 1));
-                joint_trips.push_back(Trip(6*i+2, (int)12*0+11, 1));
+                    joint_trips.push_back(Trip(6*i+0, (int)12*(bone1ind-fixedbones.size())+3, p1[1]));
+                    joint_trips.push_back(Trip(6*i+1, (int)12*(bone1ind-fixedbones.size())+4, p1[1]));
+                    joint_trips.push_back(Trip(6*i+2, (int)12*(bone1ind-fixedbones.size())+5, p1[1]));
 
-                RowVector3d p2 = joints[i].row(1);
-                joint_trips.push_back(Trip(6*i+3, (int)12*0+0, p2[0]));
-                joint_trips.push_back(Trip(6*i+4, (int)12*0+1, p2[0]));
-                joint_trips.push_back(Trip(6*i+5, (int)12*0+2, p2[0]));
+                    joint_trips.push_back(Trip(6*i+0, (int)12*(bone1ind-fixedbones.size())+6, p1[2]));
+                    joint_trips.push_back(Trip(6*i+1, (int)12*(bone1ind-fixedbones.size())+7, p1[2]));
+                    joint_trips.push_back(Trip(6*i+2, (int)12*(bone1ind-fixedbones.size())+8, p1[2]));
 
-                joint_trips.push_back(Trip(6*i+3, (int)12*0+3, p2[1]));
-                joint_trips.push_back(Trip(6*i+4, (int)12*0+4, p2[1]));
-                joint_trips.push_back(Trip(6*i+5, (int)12*0+5, p2[1]));
+                    joint_trips.push_back(Trip(6*i+0, (int)12*(bone1ind-fixedbones.size())+9, 1));
+                    joint_trips.push_back(Trip(6*i+1, (int)12*(bone1ind-fixedbones.size())+10, 1));
+                    joint_trips.push_back(Trip(6*i+2, (int)12*(bone1ind-fixedbones.size())+11, 1));
 
-                joint_trips.push_back(Trip(6*i+3, (int)12*0+6, p2[2]));
-                joint_trips.push_back(Trip(6*i+4, (int)12*0+7, p2[2]));
-                joint_trips.push_back(Trip(6*i+5, (int)12*0+8, p2[2]));
+                    joint_trips.push_back(Trip(6*i+3, (int)12*(bone1ind-fixedbones.size())+0, p2[0]));
+                    joint_trips.push_back(Trip(6*i+4, (int)12*(bone1ind-fixedbones.size())+1, p2[0]));
+                    joint_trips.push_back(Trip(6*i+5, (int)12*(bone1ind-fixedbones.size())+2, p2[0]));
 
-                joint_trips.push_back(Trip(6*i+3, (int)12*0+9, 1));
-                joint_trips.push_back(Trip(6*i+4, (int)12*0+10, 1));
-                joint_trips.push_back(Trip(6*i+5, (int)12*0+11, 1));
+                    joint_trips.push_back(Trip(6*i+3, (int)12*(bone1ind-fixedbones.size())+3, p2[1]));
+                    joint_trips.push_back(Trip(6*i+4, (int)12*(bone1ind-fixedbones.size())+4, p2[1]));
+                    joint_trips.push_back(Trip(6*i+5, (int)12*(bone1ind-fixedbones.size())+5, p2[1]));
 
+                    joint_trips.push_back(Trip(6*i+3, (int)12*(bone1ind-fixedbones.size())+6, p2[2]));
+                    joint_trips.push_back(Trip(6*i+4, (int)12*(bone1ind-fixedbones.size())+7, p2[2]));
+                    joint_trips.push_back(Trip(6*i+5, (int)12*(bone1ind-fixedbones.size())+8, p2[2]));
+
+                    joint_trips.push_back(Trip(6*i+3, (int)12*(bone1ind-fixedbones.size())+9, 1));
+                    joint_trips.push_back(Trip(6*i+4, (int)12*(bone1ind-fixedbones.size())+10, 1));
+                    joint_trips.push_back(Trip(6*i+5, (int)12*(bone1ind-fixedbones.size())+11, 1));
+                }
+                if(bone2ind>=fixedbones.size()){
+                    joint_trips.push_back(Trip(6*i+0, (int)12*(bone2ind - fixedbones.size())+0, -p1[0]));
+                    joint_trips.push_back(Trip(6*i+1, (int)12*(bone2ind - fixedbones.size())+1, -p1[0]));
+                    joint_trips.push_back(Trip(6*i+2, (int)12*(bone2ind - fixedbones.size())+2, -p1[0]));
+
+                    joint_trips.push_back(Trip(6*i+0, (int)12*(bone2ind - fixedbones.size())+3, -p1[1]));
+                    joint_trips.push_back(Trip(6*i+1, (int)12*(bone2ind - fixedbones.size())+4, -p1[1]));
+                    joint_trips.push_back(Trip(6*i+2, (int)12*(bone2ind - fixedbones.size())+5, -p1[1]));
+
+                    joint_trips.push_back(Trip(6*i+0, (int)12*(bone2ind - fixedbones.size())+6, -p1[2]));
+                    joint_trips.push_back(Trip(6*i+1, (int)12*(bone2ind - fixedbones.size())+7, -p1[2]));
+                    joint_trips.push_back(Trip(6*i+2, (int)12*(bone2ind - fixedbones.size())+8, -p1[2]));
+
+                    joint_trips.push_back(Trip(6*i+0, (int)12*(bone2ind - fixedbones.size())+9, -1));
+                    joint_trips.push_back(Trip(6*i+1, (int)12*(bone2ind - fixedbones.size())+10,-1));
+                    joint_trips.push_back(Trip(6*i+2, (int)12*(bone2ind - fixedbones.size())+11,-1));
+
+                    joint_trips.push_back(Trip(6*i+3, (int)12*(bone2ind - fixedbones.size())+0, -p2[0]));
+                    joint_trips.push_back(Trip(6*i+4, (int)12*(bone2ind - fixedbones.size())+1, -p2[0]));
+                    joint_trips.push_back(Trip(6*i+5, (int)12*(bone2ind - fixedbones.size())+2, -p2[0]));
+
+                    joint_trips.push_back(Trip(6*i+3, (int)12*(bone2ind - fixedbones.size())+3, -p2[1]));
+                    joint_trips.push_back(Trip(6*i+4, (int)12*(bone2ind - fixedbones.size())+4, -p2[1]));
+                    joint_trips.push_back(Trip(6*i+5, (int)12*(bone2ind - fixedbones.size())+5, -p2[1]));
+
+                    joint_trips.push_back(Trip(6*i+3, (int)12*(bone2ind - fixedbones.size())+6, -p2[2]));
+                    joint_trips.push_back(Trip(6*i+4, (int)12*(bone2ind - fixedbones.size())+7, -p2[2]));
+                    joint_trips.push_back(Trip(6*i+5, (int)12*(bone2ind - fixedbones.size())+8, -p2[2]));
+
+                    joint_trips.push_back(Trip(6*i+3, (int)12*(bone2ind - fixedbones.size())+9, -1));
+                    joint_trips.push_back(Trip(6*i+4, (int)12*(bone2ind - fixedbones.size())+10,-1));
+                    joint_trips.push_back(Trip(6*i+5, (int)12*(bone2ind - fixedbones.size())+11,-1));
+                }
             }else{
-                RowVector3d p1 = joints[i].row(0);
-                joint_trips.push_back(Trip(3*i+0, (int)12*0+0, p1[0]));
-                joint_trips.push_back(Trip(3*i+1, (int)12*0+1, p1[0]));
-                joint_trips.push_back(Trip(3*i+2, (int)12*0+2, p1[0]));
+                socketjoints +=1;
+                RowVector3d p1 = joint.row(0);
+                if(bone1ind>=fixedbones.size()){
+                    joint_trips.push_back(Trip(3*i+0, (int)12*(bone1ind - fixedbones.size())+0, p1[0]));
+                    joint_trips.push_back(Trip(3*i+1, (int)12*(bone1ind - fixedbones.size())+1, p1[0]));
+                    joint_trips.push_back(Trip(3*i+2, (int)12*(bone1ind - fixedbones.size())+2, p1[0]));
 
-                joint_trips.push_back(Trip(3*i+0, (int)12*0+3, p1[1]));
-                joint_trips.push_back(Trip(3*i+1, (int)12*0+4, p1[1]));
-                joint_trips.push_back(Trip(3*i+2, (int)12*0+5, p1[1]));
+                    joint_trips.push_back(Trip(3*i+0, (int)12*(bone1ind - fixedbones.size())+3, p1[1]));
+                    joint_trips.push_back(Trip(3*i+1, (int)12*(bone1ind - fixedbones.size())+4, p1[1]));
+                    joint_trips.push_back(Trip(3*i+2, (int)12*(bone1ind - fixedbones.size())+5, p1[1]));
 
-                joint_trips.push_back(Trip(3*i+0, (int)12*0+6, p1[2]));
-                joint_trips.push_back(Trip(3*i+1, (int)12*0+7, p1[2]));
-                joint_trips.push_back(Trip(3*i+2, (int)12*0+8, p1[2]));
+                    joint_trips.push_back(Trip(3*i+0, (int)12*(bone1ind - fixedbones.size())+6, p1[2]));
+                    joint_trips.push_back(Trip(3*i+1, (int)12*(bone1ind - fixedbones.size())+7, p1[2]));
+                    joint_trips.push_back(Trip(3*i+2, (int)12*(bone1ind - fixedbones.size())+8, p1[2]));
 
-                joint_trips.push_back(Trip(3*i+0, (int)12*0+9, 1));
-                joint_trips.push_back(Trip(3*i+1, (int)12*0+10, 1));
-                joint_trips.push_back(Trip(3*i+2, (int)12*0+11, 1));
+                    joint_trips.push_back(Trip(3*i+0, (int)12*(bone1ind - fixedbones.size())+9, 1));
+                    joint_trips.push_back(Trip(3*i+1, (int)12*(bone1ind - fixedbones.size())+10,1));
+                    joint_trips.push_back(Trip(3*i+2, (int)12*(bone1ind - fixedbones.size())+11,1));
+
+                }
+                if(bone2ind>=fixedbones.size()){
+                    joint_trips.push_back(Trip(3*i+0, (int)12*(bone2ind - fixedbones.size())+0, -p1[0]));
+                    joint_trips.push_back(Trip(3*i+1, (int)12*(bone2ind - fixedbones.size())+1, -p1[0]));
+                    joint_trips.push_back(Trip(3*i+2, (int)12*(bone2ind - fixedbones.size())+2, -p1[0]));
+
+                    joint_trips.push_back(Trip(3*i+0, (int)12*(bone2ind - fixedbones.size())+3, -p1[1]));
+                    joint_trips.push_back(Trip(3*i+1, (int)12*(bone2ind - fixedbones.size())+4, -p1[1]));
+                    joint_trips.push_back(Trip(3*i+2, (int)12*(bone2ind - fixedbones.size())+5, -p1[1]));
+
+                    joint_trips.push_back(Trip(3*i+0, (int)12*(bone2ind - fixedbones.size())+6, -p1[2]));
+                    joint_trips.push_back(Trip(3*i+1, (int)12*(bone2ind - fixedbones.size())+7, -p1[2]));
+                    joint_trips.push_back(Trip(3*i+2, (int)12*(bone2ind - fixedbones.size())+8, -p1[2]));
+
+                    joint_trips.push_back(Trip(3*i+0, (int)12*(bone2ind - fixedbones.size())+9, -1));
+                    joint_trips.push_back(Trip(3*i+1, (int)12*(bone2ind - fixedbones.size())+10,-1));
+                    joint_trips.push_back(Trip(3*i+2, (int)12*(bone2ind - fixedbones.size())+11,-1));                    
+                }
             }
         }
 
-        jointsY.resize(6*hingejoints + 3*socketjoints, boneC.cols());
+        jointsY.resize(6*hingejoints + 3*socketjoints, 3*mV.rows());
         jointsY.setFromTriplets(joint_trips.begin(), joint_trips.end());
 
-        // mJ = MatrixXd(jointsY)*boneC.transpose()*mG;
     }
     void setN(std::vector<VectorXi> bones){
         //TODO make this work for reduced skinning
@@ -894,7 +905,7 @@ public:
     VectorXi& r_elem_cluster_map(){ return mr_elem_cluster_map; }
     VectorXd& bones(){ return mbones; }
     std::vector<VectorXi> muscle_vecs() { return mmuscles; }
-    std::vector<MatrixXd> joints(){ return mjoints; }
+    // std::vector<MatrixXd> joints(){ return mjoints; }
     MatrixXd& sW(){ 
         if(mred_s.size()== 6*mT.rows() && reduced==false){
             print("skinning is unreduced, don't call this function");

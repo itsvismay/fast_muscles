@@ -10,7 +10,6 @@
 #include <json.hpp>
 #include <igl/Timer.h>
 
-
 #include "mesh.h"
 #include "redArap.h"
 #include "elastic.h"
@@ -30,15 +29,72 @@ RowVector3d green(0,1,0);
 RowVector3d black(0,0,0);
 MatrixXd Colors;
 
-void removeRow(Eigen::MatrixXi& matrix, unsigned int rowToRemove)
-{
-    unsigned int numRows = matrix.rows()-1;
-    unsigned int numCols = matrix.cols();
+void readConfigFile(MatrixXd& V, 
+    MatrixXi& T, MatrixXi& F, MatrixXd& Uvec, 
+    std::map<std::string, int>& bone_name_index_map,
+    std::map<std::string, int>& muscle_name_index_map,
+    std::vector< std::pair<std::vector<std::string>, MatrixXd>>& joint_bones_verts,
+    std::vector<VectorXi>& bone_tets,
+    std::vector<VectorXi>& muscle_tets,
+    std::vector<std::string>& fix_bones){
+    std::string datafile = j_input["data"];
 
-    if( rowToRemove < numRows )
-        matrix.block(rowToRemove,0,numRows-rowToRemove,numCols) = matrix.block(rowToRemove+1,0,numRows-rowToRemove,numCols);
+    //Read Mesh
+    igl::readDMAT(datafile+"/generated_files/tet_mesh_V.dmat", V);
+    igl::readDMAT(datafile+"/generated_files/tet_mesh_T.dmat", T);
+    igl::readDMAT(datafile+"/generated_files/combined_fiber_directions.dmat", Uvec);
 
-    matrix.conservativeResize(numRows,numCols);
+    //Read Geometry
+    json j_geometries;
+    std::ifstream muscle_config_file(datafile+"/config.json");
+    muscle_config_file >> j_geometries;
+
+    json j_muscles = j_geometries["muscles"];
+    json j_bones = j_geometries["bones"];
+    json j_joints = j_geometries["joints"];
+
+    std::vector<std::string> fixed = j_input["fix_bones"];
+    fix_bones.insert(fix_bones.end(), fixed.begin(), fixed.end());
+
+    //these bones are fixed, store them at the front of the
+    //vector and save (names, index)
+    int count_index =0;
+    for(int i=0; i<fix_bones.size(); i++){
+        VectorXi bone_i;
+        igl::readDMAT(datafile+"/generated_files/"+fix_bones[i]+"_bone_indices.dmat", bone_i);
+        bone_tets.push_back(bone_i);
+        bone_name_index_map[fix_bones[i]]  = count_index;
+        j_bones.erase(fix_bones[i]);
+        count_index +=1;
+    }
+
+    for(json::iterator it = j_bones.begin(); it != j_bones.end(); ++it){
+        VectorXi bone_i;
+        igl::readDMAT(datafile+"/generated_files/"+it.key()+"_bone_indices.dmat", bone_i);
+        bone_tets.push_back(bone_i);
+        bone_name_index_map[it.key()] = count_index;
+        count_index +=1;
+    }
+
+    count_index = 0;
+    for(json::iterator it = j_muscles.begin(); it != j_muscles.end(); ++it){
+        VectorXi muscle_i;
+        igl::readDMAT(datafile+"/generated_files/"+it.key()+"_muscle_indices.dmat", muscle_i);
+        muscle_tets.push_back(muscle_i);
+        muscle_name_index_map[it.key()] = count_index;
+        count_index +=1;
+    }
+
+    count_index =0;
+    for(json::iterator it = j_joints.begin(); it!= j_joints.end(); ++it){
+        MatrixXd joint_i;
+        MatrixXi joint_f;
+        std::string joint_name = it.value()["location_obj"];
+        igl::readOBJ(datafile+"/objs/"+joint_name, joint_i, joint_f);
+        std::vector<std::string> bones = it.value()["bones"];
+        joint_bones_verts.push_back(std::make_pair( bones, joint_i));
+    }
+
 }
 
 int main(int argc, char *argv[])
@@ -53,64 +109,29 @@ int main(int argc, char *argv[])
     MatrixXd Uvec;
     std::vector<int> mov = {};
     
-    std::vector<VectorXi> bones = {};
-    std::vector<VectorXi> muscles = {};
-    std::vector<MatrixXd> joints = {};
+    std::vector<std::string> fix_bones = {};
+    std::vector<VectorXi> bone_tets = {};
+    std::vector<VectorXi> muscle_tets = {};
+    std::map<std::string, int> bone_name_index_map;
+    std::map<std::string, int> muscle_name_index_map;
+    std::vector< std::pair<std::vector<std::string>, MatrixXd>> joint_bones_verts;
 
-    std::string datafile = j_input["data"];
-    std::string outputfile = j_input["output"];
-    std::string namestring = j_input["name"];
-
-    igl::readDMAT(datafile+"/generated_files/tet_mesh_V.dmat", V);
-    igl::readDMAT(datafile+"/generated_files/tet_mesh_T.dmat", T);
-    igl::readDMAT(datafile+"/generated_files/combined_fiber_directions.dmat", Uvec);
-
-        json j_muscle_geometry_config;
-        std::ifstream muscle_config_file(datafile+"/config.json");
-        muscle_config_file >> j_muscle_geometry_config;
-
-        json j_muscles = j_muscle_geometry_config["muscles"];
-        json j_bones = j_muscle_geometry_config["bones"];
-        json j_joints = j_muscle_geometry_config["joints"];
-
-         // Remove joints from tetmesh
-        VectorXi joints_ind;
-        igl::readDMAT(datafile+"/generated_files/joint_indices.dmat", joints_ind);
-        // cout<<joints_ind.transpose()<<endl;
-        // for(int i=0; i<joints_ind.size(); i++){
-        //     removeRow(T, joints_ind[i]);
-        // }
-
-        for (json::iterator it = j_bones.begin(); it != j_bones.end(); ++it) {
-            VectorXi bone_i;
-            std::cout << it.key() << "\n";
-            igl::readDMAT(datafile+"/generated_files/"+it.key()+"_bone_indices.dmat", bone_i);
-            bones.push_back(bone_i);
-        }
-
-        for (json::iterator it = j_muscles.begin(); it != j_muscles.end(); ++it) {
-            std::cout << it.key() << "\n";
-            VectorXi muscle_i;
-            igl::readDMAT(datafile+"/generated_files/"+it.key()+"_muscle_indices.dmat", muscle_i);
-            muscles.push_back(muscle_i);
-        }
-
-        for(json::iterator it = j_joints.begin(); it!= j_joints.end(); ++it){
-            std::cout<<it.key()<<"\n";
-            std::string joint_name = it.value()["location_obj"];
-            cout<<joint_name<<endl;
-            MatrixXd joint_i;
-            MatrixXi joint_f;
-            igl::readOBJ(datafile+"/objs/"+joint_name, joint_i, joint_f);
-            joints.push_back(joint_i);
-        }
+    readConfigFile(V, T, F, Uvec, bone_name_index_map, muscle_name_index_map, joint_bones_verts, bone_tets, muscle_tets, fix_bones);  
        
-
-    std::vector<int> fix_bones = j_input["fix_bones_alphabet_order"];
-
+    
     igl::boundary_facets(T, F);
     std::cout<<"-----Mesh-------"<<std::endl;
-    Mesh* mesh = new Mesh(T, V, fix_bones, mov, bones, muscles, joints, Uvec,  j_input);
+    Mesh* mesh = new Mesh(
+        V, 
+        T, 
+        Uvec, 
+        fix_bones, 
+        bone_tets, 
+        muscle_tets, 
+        bone_name_index_map, 
+        muscle_name_index_map, 
+        joint_bones_verts,  
+        j_input);
     
     std::cout<<"-----ARAP-----"<<std::endl;
     Reduced_Arap* arap = new Reduced_Arap(*mesh);
@@ -140,6 +161,8 @@ int main(int argc, char *argv[])
     cout<<"NSH: "<<j_input["number_skinning_handles"]<<endl;
     cout<<"NRC: "<<j_input["number_rot_clusters"]<<endl;
     cout<<"MODES: "<<j_input["number_modes"]<<endl;
+    std::string outputfile = j_input["output"];
+    std::string namestring = j_input["name"];
     igl::Timer timer;
 
     // int run =0;
@@ -242,22 +265,22 @@ int main(int argc, char *argv[])
             std::cout<<std::endl;
             MatrixXd& discV = mesh->discontinuousV();
             MatrixXi& discT = mesh->discontinuousT();
-            for(int i=0; i<joints_ind.size(); i++){
-                Vector4i e = discT.row(joints_ind[i]);
-                // std::cout<<discT.row(i)<<std::endl<<std::endl;
-                // std::cout<<discV(Eigen::placeholders::all, discT.row(i))<<std::endl;
-                Matrix<double, 1,3> p0 = discV.row(e[0]);
-                Matrix<double, 1,3> p1 = discV.row(e[1]);
-                Matrix<double, 1,3> p2 = discV.row(e[2]);
-                Matrix<double, 1,3> p3 = discV.row(e[3]);
+            // for(int i=0; i<joints_ind.size(); i++){
+            //     Vector4i e = discT.row(joints_ind[i]);
+            //     // std::cout<<discT.row(i)<<std::endl<<std::endl;
+            //     // std::cout<<discV(Eigen::placeholders::all, discT.row(i))<<std::endl;
+            //     Matrix<double, 1,3> p0 = discV.row(e[0]);
+            //     Matrix<double, 1,3> p1 = discV.row(e[1]);
+            //     Matrix<double, 1,3> p2 = discV.row(e[2]);
+            //     Matrix<double, 1,3> p3 = discV.row(e[3]);
 
-                viewer.data().add_edges(p0,p1,Eigen::RowVector3d(1,0,1));
-                viewer.data().add_edges(p0,p2,Eigen::RowVector3d(1,0,1));
-                viewer.data().add_edges(p0,p3,Eigen::RowVector3d(1,0,1));
-                viewer.data().add_edges(p1,p2,Eigen::RowVector3d(1,0,1));
-                viewer.data().add_edges(p1,p3,Eigen::RowVector3d(1,0,1));
-                viewer.data().add_edges(p2,p3,Eigen::RowVector3d(1,0,1));
-            }
+            //     viewer.data().add_edges(p0,p1,Eigen::RowVector3d(1,0,1));
+            //     viewer.data().add_edges(p0,p2,Eigen::RowVector3d(1,0,1));
+            //     viewer.data().add_edges(p0,p3,Eigen::RowVector3d(1,0,1));
+            //     viewer.data().add_edges(p1,p2,Eigen::RowVector3d(1,0,1));
+            //     viewer.data().add_edges(p1,p3,Eigen::RowVector3d(1,0,1));
+            //     viewer.data().add_edges(p2,p3,Eigen::RowVector3d(1,0,1));
+            // }
             
         }
         
@@ -269,11 +292,11 @@ int main(int argc, char *argv[])
         }
 
         //Draw joint points
-        for(int i=0; i<joints.size(); i++){
-            RowVector3d p1 = joints[i].row(0);//js.segment<3>(0);
+        for(int i=0; i<joint_bones_verts.size(); i++){
+            RowVector3d p1 = joint_bones_verts[i].second.row(0);//js.segment<3>(0);
             viewer.data().add_points(p1, Eigen::RowVector3d(0,0,0));
-            if(joints[i].rows()>1){
-                RowVector3d p2 = joints[i].row(1);//js.segment<3>(3);
+            if(joint_bones_verts[i].second.rows()>1){
+                RowVector3d p2 = joint_bones_verts[i].second.row(1);//js.segment<3>(3);
                 viewer.data().add_points(p2, Eigen::RowVector3d(0,0,0));
                 viewer.data().add_edges(p1, p2, Eigen::RowVector3d(0,0,0));
                 

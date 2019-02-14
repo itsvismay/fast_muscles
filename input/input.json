@@ -1,8 +1,8 @@
 {
   "name": "test",
-  "data": "/home/vismay/recode/fast_muscles/data/simple_joint",
-  "output": "/home/vismay/recode/fast_muscles/data/simple_joint",
-  "fix_bones_alphabet_order": [1],  
+  "data": "/home/vismay/recode/fast_muscles/data/realistic_biceps",
+  "output": "/home/vismay/recode/fast_muscles/data/realistic_biceps",
+  "fix_bones": ["scapula"],  
   "muscle_starting_strength": 10000,
   "QS_steps": 5,
   "multiplier_strength_each_step": 2,
@@ -18,7 +18,7 @@
   "reduced_x": true,
   "number_skinning_handles": 10,
   "number_rot_clusters": 10,
-  "number_modes": 100,
+  "number_modes": 70,
   "fd_eps": 1e-2,
   "alpha_arap": 1e4,
   "alpha_neo":1
