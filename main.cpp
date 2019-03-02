@@ -9,6 +9,8 @@
 #include <igl/boundary_facets.h>
 #include <json.hpp>
 #include <igl/Timer.h>
+#include <sstream>
+#include <iomanip>
 
 #include "mesh.h"
 #include "redArap.h"
@@ -117,8 +119,22 @@ int main(int argc, char *argv[])
     std::vector< std::pair<std::vector<std::string>, MatrixXd>> joint_bones_verts;
 
     readConfigFile(V, T, F, Uvec, bone_name_index_map, muscle_name_index_map, joint_bones_verts, bone_tets, muscle_tets, fix_bones);  
-       
     
+    cout<<"---Record Mesh Setup Info"<<endl;
+    cout<<"V size: "<<V.rows()<<endl;
+    cout<<"T size: "<<T.rows()<<endl;
+    cout<<"F size: "<<F.rows()<<endl;
+    if(argc>1){
+        j_input["number_modes"] =  stoi(argv[1]);
+        j_input["number_rot_clusters"] =  stoi(argv[2]);
+        j_input["number_skinning_handles"] =  stoi(argv[3]);
+    }
+    cout<<"NSH: "<<j_input["number_skinning_handles"]<<endl;
+    cout<<"NRC: "<<j_input["number_rot_clusters"]<<endl;
+    cout<<"MODES: "<<j_input["number_modes"]<<endl;
+    std::string outputfile = j_input["output"];
+    std::string namestring = to_string((int)j_input["number_modes"])+"modes"+to_string((int)j_input["number_rot_clusters"])+"clusters"+to_string((int)j_input["number_skinning_handles"])+"handles";
+        
     igl::boundary_facets(T, F);
     std::cout<<"-----Mesh-------"<<std::endl;
     Mesh* mesh = new Mesh(
@@ -154,23 +170,17 @@ int main(int argc, char *argv[])
     param.linesearch = LBFGSpp::LBFGS_LINESEARCH_BACKTRACKING_ARMIJO;
     LBFGSSolver<double> solver(param);
 
-    cout<<"---Record Mesh Setup Info"<<endl;
-    cout<<"V size: "<<V.rows()<<endl;
-    cout<<"T size: "<<T.rows()<<endl;
-    cout<<"F size: "<<F.rows()<<endl;
-    cout<<"NSH: "<<j_input["number_skinning_handles"]<<endl;
-    cout<<"NRC: "<<j_input["number_rot_clusters"]<<endl;
-    cout<<"MODES: "<<j_input["number_modes"]<<endl;
-    std::string outputfile = j_input["output"];
-    std::string namestring = j_input["name"];
+
     igl::Timer timer;
 
     // int run =0;
     // for(int run=0; run<j_input["QS_steps"]; run++){
     //     MatrixXd newV = mesh->continuousV();
     //     string datafile = j_input["data"];
-    //     igl::writeOBJ(outputfile+"/"+namestring+"animation"+to_string(run)+".obj",newV, F);
-    //     igl::writeDMAT(outputfile+"/"+namestring+"animation"+to_string(run)+".dmat",newV);
+    //     ostringstream out;
+    //     out << std::internal << std::setfill('0') << std::setw(3) << run;
+    //     igl::writeOBJ(outputfile+"/"+namestring+"/"+namestring+"animation"+out.str()+".obj",newV, F);
+    //     igl::writeDMAT(outputfile+"/"+namestring+"/"+namestring+"animation"+out.str()+".dmat",newV);
     //     cout<<"     ---Quasi-Newton Step Info"<<endl;
     //     double fx =0;
     //     VectorXd ns = mesh->N().transpose()*mesh->red_s();
@@ -190,9 +200,9 @@ int main(int argc, char *argv[])
 
     std::cout<<"-----Display-------"<<std::endl;
     igl::opengl::glfw::Viewer viewer;
-    MatrixXd Colors = MatrixXd::Random(100,3); // 3x3 Matrix filled with random numbers between (-1,1)
-    Colors = (Colors + MatrixXd::Constant(100,3,1.))*(1-1e-6)/2.; // add 1 to the matrix to have values between 0 and 2; multiply with range/2
-    Colors = (Colors + MatrixXd::Constant(100,3,1e-6)); //set LO as the lower bound (offset)
+    MatrixXd Colors = MatrixXd::Random(1000,3); // 3x3 Matrix filled with random numbers between (-1,1)
+    Colors = (Colors + MatrixXd::Constant(1000,3,1.))*(1-1e-6)/2.; // add 1 to the matrix to have values between 0 and 2; multiply with range/2
+    Colors = (Colors + MatrixXd::Constant(1000,3,1e-6)); //set LO as the lower bound (offset)
     MatrixXd SETCOLORSMAT = MatrixXd::Zero(V.rows(), 3);
     for(int c=0; c<mesh->red_w().size()/3; c++){
         std::vector<int> cluster_elem = mesh->r_cluster_elem_map()[c];
@@ -225,7 +235,8 @@ int main(int argc, char *argv[])
         viewer.data().clear();
         if(key=='A'){
             cout<<"here"<<endl;
-            neo->changeFiberMag(j_input["multiplier_strength_each_step"]);
+            // neo->changeFiberMag(j_input["multiplier_strength_each_step"]);
+            f.update_arap_alpha(j_input["multiplier_strength_each_step"]);
         }
 
 
@@ -250,6 +261,7 @@ int main(int argc, char *argv[])
                 mesh->red_s()[i] = reds[i];
             }
             cout<<"****QSsteptime: "<<timer.getElapsedTimeInMicroSec()<<", "<<niter<<endl;
+            // arap->minimize(*mesh);
         }
 
         // //Draw continuous mesh
@@ -265,22 +277,22 @@ int main(int argc, char *argv[])
             std::cout<<std::endl;
             MatrixXd& discV = mesh->discontinuousV();
             MatrixXi& discT = mesh->discontinuousT();
-            // for(int i=0; i<joints_ind.size(); i++){
-            //     Vector4i e = discT.row(joints_ind[i]);
-            //     // std::cout<<discT.row(i)<<std::endl<<std::endl;
-            //     // std::cout<<discV(Eigen::placeholders::all, discT.row(i))<<std::endl;
-            //     Matrix<double, 1,3> p0 = discV.row(e[0]);
-            //     Matrix<double, 1,3> p1 = discV.row(e[1]);
-            //     Matrix<double, 1,3> p2 = discV.row(e[2]);
-            //     Matrix<double, 1,3> p3 = discV.row(e[3]);
+            for(int i=0; i<muscle_tets[0].size(); i++){
+                Vector4i e = discT.row(muscle_tets[0][i]);
+                // std::cout<<discT.row(i)<<std::endl<<std::endl;
+                // std::cout<<discV(Eigen::placeholders::all, discT.row(i))<<std::endl;
+                Matrix<double, 1,3> p0 = discV.row(e[0]);
+                Matrix<double, 1,3> p1 = discV.row(e[1]);
+                Matrix<double, 1,3> p2 = discV.row(e[2]);
+                Matrix<double, 1,3> p3 = discV.row(e[3]);
 
-            //     viewer.data().add_edges(p0,p1,Eigen::RowVector3d(1,0,1));
-            //     viewer.data().add_edges(p0,p2,Eigen::RowVector3d(1,0,1));
-            //     viewer.data().add_edges(p0,p3,Eigen::RowVector3d(1,0,1));
-            //     viewer.data().add_edges(p1,p2,Eigen::RowVector3d(1,0,1));
-            //     viewer.data().add_edges(p1,p3,Eigen::RowVector3d(1,0,1));
-            //     viewer.data().add_edges(p2,p3,Eigen::RowVector3d(1,0,1));
-            // }
+                viewer.data().add_edges(p0,p1,Eigen::RowVector3d(1,0,1));
+                viewer.data().add_edges(p0,p2,Eigen::RowVector3d(1,0,1));
+                viewer.data().add_edges(p0,p3,Eigen::RowVector3d(1,0,1));
+                viewer.data().add_edges(p1,p2,Eigen::RowVector3d(1,0,1));
+                viewer.data().add_edges(p1,p3,Eigen::RowVector3d(1,0,1));
+                viewer.data().add_edges(p2,p3,Eigen::RowVector3d(1,0,1));
+            }
             
         }
         
@@ -292,16 +304,16 @@ int main(int argc, char *argv[])
         }
 
         //Draw joint points
-        for(int i=0; i<joint_bones_verts.size(); i++){
-            RowVector3d p1 = joint_bones_verts[i].second.row(0);//js.segment<3>(0);
-            viewer.data().add_points(p1, Eigen::RowVector3d(0,0,0));
-            if(joint_bones_verts[i].second.rows()>1){
-                RowVector3d p2 = joint_bones_verts[i].second.row(1);//js.segment<3>(3);
-                viewer.data().add_points(p2, Eigen::RowVector3d(0,0,0));
-                viewer.data().add_edges(p1, p2, Eigen::RowVector3d(0,0,0));
+        // for(int i=0; i<joint_bones_verts.size(); i++){
+        //     RowVector3d p1 = joint_bones_verts[i].second.row(0);//js.segment<3>(0);
+        //     viewer.data().add_points(p1, Eigen::RowVector3d(0,0,0));
+        //     if(joint_bones_verts[i].second.rows()>1){
+        //         RowVector3d p2 = joint_bones_verts[i].second.row(1);//js.segment<3>(3);
+        //         viewer.data().add_points(p2, Eigen::RowVector3d(0,0,0));
+        //         viewer.data().add_edges(p1, p2, Eigen::RowVector3d(0,0,0));
                 
-            }
-        }
+        //     }
+        // }
         
         viewer.data().set_colors(SETCOLORSMAT);
         return false;

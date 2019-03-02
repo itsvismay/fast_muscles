@@ -5,6 +5,7 @@
 #include <iostream>
 #include <igl/writeDMAT.h>
 #include <unsupported/Eigen/KroneckerProduct>
+#include <json.hpp>
 
 #include <MatOp/SparseSymMatProd.h>
 #include <MatOp/SparseCholesky.h>
@@ -16,7 +17,9 @@ using namespace Eigen;
 using namespace std;
 typedef Eigen::Triplet<double> Trip;
 
-void setup_modes(int nummodes, bool reduced, SparseMatrix<double>& mP, SparseMatrix<double>& mA, SparseMatrix<double> mConstrained, SparseMatrix<double> mFree, SparseMatrix<double> mY, MatrixXd& mV, const MatrixXi& mT, VectorXd& mmass_diag, MatrixXd& mG){
+using json = nlohmann::json;
+
+void setup_modes(json& j_input, int nummodes, bool reduced, SparseMatrix<double>& mP, SparseMatrix<double>& mA, SparseMatrix<double> mConstrained, SparseMatrix<double> mFree, SparseMatrix<double> mY, MatrixXd& mV, const MatrixXi& mT, VectorXd& mmass_diag, MatrixXd& mG){
         if(nummodes==0 && reduced==false){
             //Unreduced just dont use G
             return;
@@ -75,7 +78,6 @@ void setup_modes(int nummodes, bool reduced, SparseMatrix<double>& mP, SparseMat
                 evsCorrected.col(ii) /= sqrt(geigs.eigenvectors().col(ii).transpose()*M1*geigs.eigenvectors().col(ii));
             }
 
-            // igl::writeDMAT(to_string(nummodes)+"simplejoint.dmat", evsCorrected);
         }
         else
         {
@@ -86,6 +88,8 @@ void setup_modes(int nummodes, bool reduced, SparseMatrix<double>& mP, SparseMat
         cout<<"     eig4"<<endl;
         // eigenvalues.head(eigenvalues.size() - 3));
         mG = evsCorrected.leftCols(nummodes-25);
+        std::string outputfile = j_input["output"];
+        igl::writeDMAT(outputfile+"/"+to_string((int)j_input["number_modes"])+"modes.dmat", evsCorrected);
         cout<<"-EIG SOLVE"<<endl;
         return;
 

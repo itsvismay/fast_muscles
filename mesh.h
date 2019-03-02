@@ -11,21 +11,6 @@
 #include "PreProcessing/setup_rotation_cluster.h"
 #include "PreProcessing/setup_skinning_handles.h"
 
-// #include <GaussIncludes.h>
-// #include <FEMIncludes.h>
-// #include <UtilitiesEigen.h>
-// //Any extra things I need such as constraints
-// #include <ConstraintFixedPoint.h>
-// #include <TimeStepperLinearModes.h>
-
-// using namespace Gauss;
-// using namespace FEM;
-// using namespace ParticleSystem; //For Force Spring
-
-
-
-
-
 
 using namespace Eigen;
 using namespace std;
@@ -172,12 +157,11 @@ public:
         
         print("step 12");
         MatrixXd temp1;
-        if(num_modes == 1){
-            igl::readDMAT("325simplejoint.dmat", temp1);
-        }else{
+        std::string outputfile = j_input["output"];
+        igl::readDMAT(outputfile+"/"+to_string((int)j_input["number_modes"])+"modes.dmat", temp1);
+        if(temp1.rows() == 0){
+            setup_modes(j_input, num_modes, reduced, mP, mA, mConstrained, mFree, mY, mV, mT, mmass_diag, temp1);
 
-            setup_modes(num_modes, reduced, mP, mA, mConstrained, mFree, mY, mV, mT, mmass_diag, temp1);
-            
         }
         mG = mY*temp1;
 

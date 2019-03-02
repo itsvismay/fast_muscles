@@ -233,4 +233,8 @@ public:
 
         return fx;
     }
+
+    void update_arap_alpha(double mult){
+        alpha_arap *= mult;
+    }
 };

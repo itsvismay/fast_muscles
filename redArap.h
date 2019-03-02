@@ -996,14 +996,14 @@ public:
 		double oldE = Energy(m);
 		double newE;
 		for(int i=1; i< 1000; i++){
-			atimer.start();
+			// atimer.start();
 			itT(m);
-			atimer.stop();
-			itTTimes += atimer.getElapsedTimeInMicroSec();
-			atimer.start();
+			// atimer.stop();
+			// itTTimes += atimer.getElapsedTimeInMicroSec();
+			// atimer.start();
 			itR(m);
-			atimer.stop();
-			itRTimes += atimer.getElapsedTimeInMicroSec();
+			// atimer.stop();
+			// itRTimes += atimer.getElapsedTimeInMicroSec();
 			// m.constTimeFPAx0(aFPAx0);
 
 			newE = Energy(m);
@@ -1019,13 +1019,13 @@ public:
 			
 			if(fabs(newE - oldE)<5e-6){
 				// m.constTimeFPAx0(aFPAx0);
-				std::cout<<"		ItTtime: "<<itTTimes<<", ItRtime: "<<itRTimes<<", Iterations: "<<i<<endl;
+				// std::cout<<"		ItTtime: "<<itTTimes<<", ItRtime: "<<itRTimes<<", Iterations: "<<i<<endl;
 				return true;
 			}
 			
 			oldE = newE;
 		}
-		std::cout<<"		ItTtime: "<<itTTimes<<", ItRtime: "<<itRTimes<<", Iterations: "<<1000<<endl;
+		// std::cout<<"		ItTtime: "<<itTTimes<<", ItRtime: "<<itRTimes<<", Iterations: "<<1000<<endl;
 		
 		// std::cout<<"		NotConvergedARAPDiffInEnergy: "<<Energy(m)-previous5ItE<<std::endl;
 		// m.constTimeFPAx0(aFPAx0);
