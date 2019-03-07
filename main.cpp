@@ -235,8 +235,8 @@ int main(int argc, char *argv[])
         viewer.data().clear();
         if(key=='A'){
             cout<<"here"<<endl;
-            // neo->changeFiberMag(j_input["multiplier_strength_each_step"]);
-            f.update_arap_alpha(j_input["multiplier_strength_each_step"]);
+            neo->changeFiberMag(j_input["multiplier_strength_each_step"]);
+            // f.update_arap_alpha(j_input["multiplier_strength_each_step"]);
         }
 
 
