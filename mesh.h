@@ -37,7 +37,7 @@ protected:
     VectorXi melemType, mr_elem_cluster_map, ms_handles_ind;
     VectorXd mcontx, mx, mx0, mred_s, melemYoungs, 
     melemPoissons, mred_r, mred_x, mred_w, mPAx0, mFPAx;
-    MatrixXd mR, mG, msW, mUvecs, mJ;
+    MatrixXd mR, mG, msW, mUvecs, mJ, m_U;
     VectorXd mmass_diag, mbones;
 
     std::vector<int> mfix, mmov;
@@ -190,6 +190,7 @@ public:
         mJ = MatrixXd(jointsY)*temp1;
 
         print("step 14");
+        m_U.resize(3*mT.rows(), 3);
         setGlobalF(false, false, true);
         print("step 15");
         setN(ibone_tets);
@@ -715,32 +716,33 @@ public:
 
             for(int i=0; i<mT.rows(); i++){
                 Matrix3d r = Map<Matrix3d>(mred_r.segment<9>(9*mr_elem_cluster_map[i]).data()).transpose();
+                Matrix3d u = m_U.block<3,3>(3*i,0);
                 Matrix3d s;
                 s<< ms[6*i + 0], ms[6*i + 3], ms[6*i + 4],
                     ms[6*i + 3], ms[6*i + 1], ms[6*i + 5],
                     ms[6*i + 4], ms[6*i + 5], ms[6*i + 2];
 
-                Matrix3d rs = r*s;
-                iFPAx0.segment<3>(12*i+0) = rs*mPAx0.segment<3>(12*i+0);
-                iFPAx0.segment<3>(12*i+3) = rs*mPAx0.segment<3>(12*i+3);
-                iFPAx0.segment<3>(12*i+6) = rs*mPAx0.segment<3>(12*i+6);
-                iFPAx0.segment<3>(12*i+9) = rs*mPAx0.segment<3>(12*i+9);
+                iFPAx0.segment<3>(12*i+0) = r*u*s*u.transpose()*mPAx0.segment<3>(12*i+0);
+                iFPAx0.segment<3>(12*i+3) = r*u*s*u.transpose()*mPAx0.segment<3>(12*i+3);
+                iFPAx0.segment<3>(12*i+6) = r*u*s*u.transpose()*mPAx0.segment<3>(12*i+6);
+                iFPAx0.segment<3>(12*i+9) = r*u*s*u.transpose()*mPAx0.segment<3>(12*i+9);
             }
 
 
         }else{
             for(int i=0; i<mT.rows(); i++){
                 Matrix3d r = Map<Matrix3d>(mred_r.segment<9>(9*mr_elem_cluster_map[i]).data()).transpose();
+                Matrix3d u = m_U.block<3,3>(3*i,0);
                 Matrix3d s;
                 s<< mred_s[6*i + 0], mred_s[6*i + 3], mred_s[6*i + 4],
                     mred_s[6*i + 3], mred_s[6*i + 1], mred_s[6*i + 5],
                     mred_s[6*i + 4], mred_s[6*i + 5], mred_s[6*i + 2];
 
-                Matrix3d rs = r*s;
-                iFPAx0.segment<3>(12*i+0) = rs*mPAx0.segment<3>(12*i+0);
-                iFPAx0.segment<3>(12*i+3) = rs*mPAx0.segment<3>(12*i+3);
-                iFPAx0.segment<3>(12*i+6) = rs*mPAx0.segment<3>(12*i+6);
-                iFPAx0.segment<3>(12*i+9) = rs*mPAx0.segment<3>(12*i+9);
+                Matrix3d rusut = r*u*s*u.transpose();
+                iFPAx0.segment<3>(12*i+0) = rusut*mPAx0.segment<3>(12*i+0);
+                iFPAx0.segment<3>(12*i+3) = rusut*mPAx0.segment<3>(12*i+3);
+                iFPAx0.segment<3>(12*i+6) = rusut*mPAx0.segment<3>(12*i+6);
+                iFPAx0.segment<3>(12*i+9) = rusut*mPAx0.segment<3>(12*i+9);
             }
         }
     }
@@ -757,97 +759,19 @@ public:
                     b = Vector3d::UnitY();
                     mUvecs.row(t) = b;
                 }
+                Vector3d v = a.cross(b);
+                v = v/v.norm();
+                double theta = (a.dot(b))/(a.norm()*b.norm());
+                double s = sin(theta);
+                double c = cos(theta);
+                Matrix3d r;
+                r<<v[0]*v[0]*(1-c)+c, v[0]*v[1]*(1-c)-s*v[2], v[0]*v[2]*(1-c) +s*v[1],
+                    v[0]*v[1]*(1-c)+s*v[2], v[1]*v[1]*(1-c)+c, v[1]*v[2]*(1-c)-s*v[0],
+                    v[0]*v[2]*(1-c)-s*v[1], v[1]*v[2]*(1-c) +s*v[0], v[2]*v[2]*(1-c)+c; 
+                
+                m_U.block<3,3>(3*t, 0) = r;
             }
         }
-
-        // if(updateR){
-        //     mGR.setZero();
-        //     //iterate through rotation clusters
-        //     Matrix3d ri = Matrix3d::Zero();
-        //     Matrix3d r;
-        //     vector<Trip> gr_trips;
-        //     gr_trips.reserve(9*4*mT.rows());
-
-        //     for (int t=0; t<mred_r.size()/9; t++){
-        //         //dont use the RotBLOCK matrix like I did in python. 
-        //         //Insert manually into elements within
-        //         //the rotation cluster
-        //         ri(0,0) = mred_r[9*t+0];
-        //         ri(0,1) = mred_r[9*t+1];
-        //         ri(0,2) = mred_r[9*t+2];
-        //         ri(1,0) = mred_r[9*t+3];
-        //         ri(1,1) = mred_r[9*t+4];
-        //         ri(1,2) = mred_r[9*t+5];
-        //         ri(2,0) = mred_r[9*t+6];
-        //         ri(2,1) = mred_r[9*t+7];
-        //         ri(2,2) = mred_r[9*t+8];
-
-        //         // % Rodrigues formula %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        //         Vector3d w;
-        //         w<<mred_w(3*t+0),mred_w(3*t+1),mred_w(3*t+2);
-        //         double wlen = w.norm();
-        //         if (wlen>1e-9){
-        //             double wX = w(0);
-        //             double wY = w(1);
-        //             double wZ = w(2);
-        //             Matrix3d cross;
-        //             cross<<0, -wZ, wY,
-        //                     wZ, 0, -wX,
-        //                     -wY, wX, 0;
-        //             Matrix3d Rot = cross.exp();
-        //             r = ri*Rot;
-        //         }else{
-        //             r = ri;
-        //         }
-        //         // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-        //         for(int c=0; c<mr_cluster_elem_map[t].size(); c++){
-        //             for(int j=0; j<4; j++){
-        //                 gr_trips.push_back(Trip(3*j+12*mr_cluster_elem_map[t][c] + 0, 3*j+12*mr_cluster_elem_map[t][c] + 0, r(0 ,0)));
-        //                 gr_trips.push_back(Trip(3*j+12*mr_cluster_elem_map[t][c] + 0, 3*j+12*mr_cluster_elem_map[t][c] + 1, r(0 ,1)));
-        //                 gr_trips.push_back(Trip(3*j+12*mr_cluster_elem_map[t][c] + 0, 3*j+12*mr_cluster_elem_map[t][c] + 2, r(0 ,2)));
-        //                 gr_trips.push_back(Trip(3*j+12*mr_cluster_elem_map[t][c] + 1, 3*j+12*mr_cluster_elem_map[t][c] + 0, r(1 ,0)));
-        //                 gr_trips.push_back(Trip(3*j+12*mr_cluster_elem_map[t][c] + 1, 3*j+12*mr_cluster_elem_map[t][c] + 1, r(1 ,1)));
-        //                 gr_trips.push_back(Trip(3*j+12*mr_cluster_elem_map[t][c] + 1, 3*j+12*mr_cluster_elem_map[t][c] + 2, r(1 ,2)));
-        //                 gr_trips.push_back(Trip(3*j+12*mr_cluster_elem_map[t][c] + 2, 3*j+12*mr_cluster_elem_map[t][c] + 0, r(2 ,0)));
-        //                 gr_trips.push_back(Trip(3*j+12*mr_cluster_elem_map[t][c] + 2, 3*j+12*mr_cluster_elem_map[t][c] + 1, r(2 ,1)));
-        //                 gr_trips.push_back(Trip(3*j+12*mr_cluster_elem_map[t][c] + 2, 3*j+12*mr_cluster_elem_map[t][c] + 2, r(2 ,2)));
-        //             }
-        //         }
-        //     }
-        //     mGR.setFromTriplets(gr_trips.begin(), gr_trips.end());
-        // }
-
-        // if(updateS){
-        //     mGS.setZero();
-        //     vector<Trip> gs_trips;
-        //     gs_trips.reserve(9*4*mT.rows());
-
-        //     VectorXd ms;
-        //     if(6*mT.rows()==mred_s.size()){
-        //         ms = mred_s;
-        //     }else{
-        //         ms = msW*mred_s;
-        //     }
-
-        //     //iterate through skinning handles
-        //     for(int t = 0; t<mT.rows(); t++){
-        //         for(int j = 0; j<4; j++){
-        //             gs_trips.push_back(Trip(3*j+12*t + 0, 3*j+12*t + 0, ms[6*t + 0]));
-        //             gs_trips.push_back(Trip(3*j+12*t + 0, 3*j+12*t + 1, ms[6*t + 3]));
-        //             gs_trips.push_back(Trip(3*j+12*t + 0, 3*j+12*t + 2, ms[6*t + 4]));
-        //             gs_trips.push_back(Trip(3*j+12*t + 1, 3*j+12*t + 0, ms[6*t + 3]));
-        //             gs_trips.push_back(Trip(3*j+12*t + 1, 3*j+12*t + 1, ms[6*t + 1]));
-        //             gs_trips.push_back(Trip(3*j+12*t + 1, 3*j+12*t + 2, ms[6*t + 5]));
-        //             gs_trips.push_back(Trip(3*j+12*t + 2, 3*j+12*t + 0, ms[6*t + 4]));
-        //             gs_trips.push_back(Trip(3*j+12*t + 2, 3*j+12*t + 1, ms[6*t + 5]));
-        //             gs_trips.push_back(Trip(3*j+12*t + 2, 3*j+12*t + 2, ms[6*t + 2]));
-        //         }
-        //     }
-        //     mGS.setFromTriplets(gs_trips.begin(), gs_trips.end());
-        // }
-
-        // mGF = mGR*mGU*mGS*mGU.transpose();
     }
 
     double get_volume(Vector3d p1, Vector3d p2, Vector3d p3, Vector3d p4){
@@ -880,6 +804,7 @@ public:
     SparseMatrix<double>& AB(){ return mConstrained; }
     VectorXd& red_r(){ return mred_r; }
     VectorXd& red_w(){ return mred_w; }
+    MatrixXd& U() { return m_U; }
     VectorXd& eYoungs(){ return melemYoungs; }
     VectorXd& ePoissons(){ return melemPoissons; }
     VectorXd& x0(){ return mx0; }
