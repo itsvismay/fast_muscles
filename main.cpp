@@ -173,30 +173,30 @@ int main(int argc, char *argv[])
 
     igl::Timer timer;
 
-    // int run =0;
-    // for(int run=0; run<j_input["QS_steps"]; run++){
-    //     MatrixXd newV = mesh->continuousV();
-    //     string datafile = j_input["data"];
-    //     ostringstream out;
-    //     out << std::internal << std::setfill('0') << std::setw(3) << run;
-    //     igl::writeOBJ(outputfile+"/"+namestring+"/"+namestring+"animation"+out.str()+".obj",newV, F);
-    //     igl::writeDMAT(outputfile+"/"+namestring+"/"+namestring+"animation"+out.str()+".dmat",newV);
-    //     cout<<"     ---Quasi-Newton Step Info"<<endl;
-    //     double fx =0;
-    //     VectorXd ns = mesh->N().transpose()*mesh->red_s();
-    //     timer.start();
-    //     int niter = solver.minimize(f, ns, fx);
-    //     timer.stop();
-    //     cout<<"     BFGSIters: "<<niter<<endl;
-    //     cout<<"     QSsteptime: "<<timer.getElapsedTimeInMicroSec()<<endl;
-    //     VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
-    //     for(int i=0; i<reds.size(); i++){
-    //         mesh->red_s()[i] = reds[i];
-    //     }
+    int run =0;
+    for(int run=0; run<j_input["QS_steps"]; run++){
+        MatrixXd newV = mesh->continuousV();
+        string datafile = j_input["data"];
+        ostringstream out;
+        out << std::internal << std::setfill('0') << std::setw(3) << run;
+        igl::writeOBJ(outputfile+"/"+namestring+"/"+namestring+"animation"+out.str()+".obj",newV, F);
+        igl::writeDMAT(outputfile+"/"+namestring+"/"+namestring+"animation"+out.str()+".dmat",newV);
+        cout<<"     ---Quasi-Newton Step Info"<<endl;
+        double fx =0;
+        VectorXd ns = mesh->N().transpose()*mesh->red_s();
+        timer.start();
+        int niter = solver.minimize(f, ns, fx);
+        timer.stop();
+        cout<<"     BFGSIters: "<<niter<<endl;
+        cout<<"     QSsteptime: "<<timer.getElapsedTimeInMicroSec()<<endl;
+        VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
+        for(int i=0; i<reds.size(); i++){
+            mesh->red_s()[i] = reds[i];
+        }
         
-    //     neo->changeFiberMag(j_input["multiplier_strength_each_step"]);
-    // }
-    // exit(0);
+        neo->changeFiberMag(j_input["multiplier_strength_each_step"]);
+    }
+    exit(0);
 
     std::cout<<"-----Display-------"<<std::endl;
     igl::opengl::glfw::Viewer viewer;

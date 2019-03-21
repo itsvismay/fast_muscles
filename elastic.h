@@ -186,44 +186,189 @@ public:
 		VectorXd& rs = mesh.red_s();
 		VectorXd& bones = mesh.bones();
 
-		
-		// for(int q=0; q<contract_muscles.size(); q++){
-		// 	if(contract_muscles[q]>=mesh.muscle_vecs().size()){
-		// 		continue;
-		// 	}	
-		// 	for(int i=0; i<mesh.muscle_vecs()[contract_muscles[q]].size(); i++){
-		// 		int t = mesh.muscle_vecs()[contract_muscles[q]][i];
-		// 		// if(bones[t]>=0){
-		// 		// 	continue;
-		// 		// }
-	 //            Vector3d u = mesh.Uvecs().row(t);
-	 //            if(rs.size()==6*mesh.T().rows()){
-		// 			sW1[6*t+0] += 1;
-		// 			sW2[6*t+1] += 1;
-		// 			sW3[6*t+2] += 1;
-		// 			sW4[6*t+3] += 1;
-		// 			sW5[6*t+4] += 1;
-		// 			sW6[6*t+5] += 1;
-		//         	MuscleElementForce(muscle_forces, sW1,sW2,sW3,sW4,sW5,sW6, rs, u);
-		//         	sW1[6*t+0] -= 1;
-		// 			sW2[6*t+1] -= 1;
-		// 			sW3[6*t+2] -= 1;
-		// 			sW4[6*t+3] -= 1;
-		// 			sW5[6*t+4] -= 1;
-		// 			sW6[6*t+5] -= 1;
-		// 		}else{
-	 //            	MuscleElementForce(muscle_forces, mesh.sW().row(6*t+0),mesh.sW().row(6*t+1),mesh.sW().row(6*t+2),mesh.sW().row(6*t+3),mesh.sW().row(6*t+4),mesh.sW().row(6*t+5), rs, u);
-	 //        	}
-  //       	}
-  //   	}
-
     	for(int q=0; q<contract_muscles.size(); q++){
 			if(contract_muscles[q]>=mesh.muscle_vecs().size()){
 				continue;
 			}
 			muscle_forces += muscle_fibre_mag*aFastMuscles[contract_muscles[q]]*mesh.red_s();
 		}
+	}
 
+	double StableNeoEnergy(Mesh& mesh){
+		double En = 0;
+		VectorXd& eY = mesh.eYoungs();
+		VectorXd& eP = mesh.ePoissons();
+		VectorXd& bones = mesh.bones();
+		VectorXd& rs = mesh.red_s();
+
+		#pragma omp parallel for
+		for(int t =0; t<mesh.T().rows(); t++){
+			if(mesh.bones()[t]>=0){
+				continue;
+			}
+            double C1 = eY[t]/(2.0*(1.0+eP[t]));
+            double D1 = (eY[t]*eP[t])/((1.0+eP[t])*(1.0-2.0*eP[t]));
+            if(rs.size()==6*mesh.T().rows()){
+				sW1[6*t+0] += 1;
+				sW2[6*t+1] += 1;
+				sW3[6*t+2] += 1;
+				sW4[6*t+3] += 1;
+				sW5[6*t+4] += 1;
+				sW6[6*t+5] += 1;
+	        	En += StableNeoElementEnergy(sW1,sW2,sW3,sW4,sW5,sW6, rs, C1, D1);
+	        	sW1[6*t+0] -= 1;
+				sW2[6*t+1] -= 1;
+				sW3[6*t+2] -= 1;
+				sW4[6*t+3] -= 1;
+				sW5[6*t+4] -= 1;
+				sW6[6*t+5] -= 1;
+			}else{
+            	En += StableNeoElementEnergy(mesh.sW().row(6*t+0),mesh.sW().row(6*t+1),mesh.sW().row(6*t+2),mesh.sW().row(6*t+3),mesh.sW().row(6*t+4),mesh.sW().row(6*t+5), rs, C1, D1);
+			}
+		}
+		return En;
+	}
+
+	double StableNeoElementEnergy(const VectorXd& w0, const VectorXd& w1, const VectorXd& w2, const VectorXd& w3, const VectorXd& w4, const VectorXd& w5,  const VectorXd& rs, double C1, double D1){
+		double s0 = w0.dot(rs);
+		double s1 = w1.dot(rs);
+		double s2 = w2.dot(rs);
+		double s3 = w3.dot(rs);
+		double s4 = w4.dot(rs);
+		double s5 = w5.dot(rs);
+		
+		double I1 = s0*s0 + s1*s1 + s2*s2 + 2*s3*s3 + 2*s4*s4 + 2*s5*s5;
+		double J = s0*s1*s2 - s2*s3*s3 - s1*s4*s4 + 2*s3*s4*s5 - s0*s5*s5;
+
+
+		if(s0<0 || s1<0 || s2<0 || J< 0){
+			return 1e40;
+		}
+
+		double alpha = (1 + (C1/D1) - (C1/(D1*4)));
+		double W = 0.5*C1*(I1 -3) + 0.5*D1*(J-alpha)*(J-alpha) - 0.5*C1*log(I1 + 1);
+		
+		// if(W<-1e-5){
+		// 	std::cout<<"Stable Neo: Negative  energy"<<std::endl;
+		// 	std::cout<<"W: "<<W<<std::endl;
+		// 	std::cout<<"S: "<<s0<<", "<<s1<<", "<<s2<<", "<<s3<<", "<<s4<<", "<<s5<<std::endl;
+		// 	std::cout<<"I1, J, log(I1 +1): "<<I1<<", "<<J<<", "<<log(I1+1)<<std::endl;
+		// 	std::cout<<"Term1: "<<0.5*C1*(I1 -3)<<std::endl;
+		// 	std::cout<<"Term2: "<<0.5*D1*(J-alpha)*(J-alpha)<<std::endl;
+		// 	std::cout<<"Term3: "<<0.5*C1*log(I1 + 1)<<std::endl;
+		// 	exit(0);
+		// }else if(W<0){
+		// 	return 0;
+		// }
+
+		if (W!=W){
+			cout<<"NAN in Stable Neo energy"<<endl;
+			cout<<I1<<endl;
+			cout<<J<<endl;
+			cout<<w0.transpose()<<endl;
+			cout<<w1.transpose()<<endl;
+			cout<<w2.transpose()<<endl;
+			cout<<w3.transpose()<<endl;
+			cout<<w4.transpose()<<endl;
+			cout<<w5.transpose()<<endl;
+			exit(0);
+		}
+		return W;
+	}
+
+	double StableNeoElementForce(VectorXd& force, const VectorXd& w0, const VectorXd& w1, const VectorXd& w2, const VectorXd& w3, const VectorXd& w4, const VectorXd& w5,  const VectorXd& rs, double C1, double D1){
+		
+		double alpha = (1 + (C1/D1) - (C1/(D1*4)));
+
+		double t_0 = w0.dot(rs);
+		double t_1 = w1.dot(rs);
+		double t_2 = w2.dot(rs);
+		double t_3 = w3.dot(rs);
+		double t_4 = w4.dot(rs);
+		double t_5 = w5.dot(rs);
+		double t_6 = (2 * t_3);
+		double t_7 = (t_0 * t_0);
+		double t_8 = (t_1 * t_1);
+		double t_9 = (t_2 * t_2);
+		double t_10 = (t_6 * t_3);
+		double t_11 = ((2 * t_4) * t_4);
+		double t_12 = ((2 * t_5) * t_5);
+		double t_13 = (2 * C1);
+		double t_14 = rs.dot(w0);
+		double t_15 = rs.dot(w1);
+		double t_16 = rs.dot(w2);
+		double t_17 = rs.dot(w3);
+		double t_18 = rs.dot(w4);
+		double t_19 = rs.dot(w5);
+		double t_20 = (2 * t_17);
+		double t_21 = (((((((t_14 * t_15) * t_16) - (t_16 * (t_17 * t_17))) - (t_15 * (t_18 * t_18))) + (t_20 * (t_18 * t_19))) - (t_14 * (t_19 * t_19))) - alpha);
+		double t_22 = (D1 * t_21);
+		double t_23 = (t_22 * t_14);
+		double t_24 = ((2 * D1) * t_21);
+		double t_25 = (t_24 * t_18);
+		double t_26 = (t_24 * t_19);
+		double t_27 = ((((((1 + (t_14 * t_14)) + (t_15 * t_15)) + (t_16 * t_16)) + (t_20 * t_17)) + ((2 * t_18) * t_18)) + ((2 * t_19) * t_19));
+		double t_28 = (C1 / t_27);
+		double t_29 = (t_13 / t_27);
+		double functionValue = ((((0.5 * C1) * ((((((t_7 - 3) + t_8) + t_9) + t_10) + t_11) + t_12)) + ((0.5 * D1) * std::pow((((((((t_0 * t_1) * t_2) - (t_2 * (t_3 * t_3))) - (t_1 * (t_4 * t_4))) + (t_6 * (t_4 * t_5))) - (t_0 * (t_5 * t_5))) - alpha), 2))) - (0.5 * (C1 * log(((((((1 + t_7) + t_8) + t_9) + t_10) + t_11) + t_12)))));
+	    force += (((((((((((((((((C1 * t_14) * w0) + ((C1 * t_15) * w1)) + ((C1 * t_16) * w2)) + ((t_13 * t_17) * w3)) + ((t_13 * t_18) * w4)) + ((t_13 * t_19) * w5)) + ((t_22 * t_15) * (t_16 * w0))) + (t_23 * (t_16 * w1))) + (t_23 * (t_15 * w2))) - (((t_22 * t_17) * (t_17 * w2)) + ((t_24 * t_17) * (t_16 * w3)))) - (((t_22 * t_18) * (t_18 * w1)) + (t_25 * (t_15 * w4)))) + (t_25 * (t_19 * w3))) + (t_26 * (t_17 * w4))) + (t_25 * (t_17 * w5))) - (((t_22 * t_19) * (t_19 * w0)) + (t_26 * (t_14 * w5)))) - (((((((t_28 * t_14) * w0) + ((t_28 * t_15) * w1)) + ((t_28 * t_16) * w2)) + ((t_29 * t_17) * w3)) + ((t_29 * t_18) * w4)) + ((t_29 * t_19) * w5)));
+
+
+
+		double s0 = w0.dot(rs);
+		double s1 = w1.dot(rs);
+		double s2 = w2.dot(rs);
+		double s3 = w3.dot(rs);
+		double s4 = w4.dot(rs);
+		double s5 = w5.dot(rs);
+		double I1 = s0*s0 + s1*s1 + s2*s2 + 2*s3*s3 + 2*s4*s4 + 2*s5*s5;
+		double J = s0*s1*s2 - s2*s3*s3 - s1*s4*s4 + 2*s3*s4*s5 - s0*s5*s5;
+		if(s0<0 || s1<0 || s2<0 || J< 0){
+			return 1e40;
+		}
+		double W = 0.5*C1*(I1 -3) + 0.5*D1*(J-alpha)*(J-alpha) - 0.5*C1*log(I1 + 1);
+		if(fabs(W- functionValue) > 1e-5){
+			cout<<"Energy values dont agree"<<endl;
+			cout<<"W: "<<W<<endl;
+			cout<<"func: "<<functionValue<<endl;
+			exit(0);
+		}
+		
+	}
+
+	double StableNeoForce(Mesh& mesh){
+		elastic_forces.setZero();
+		VectorXd& eY = mesh.eYoungs();
+		VectorXd& eP = mesh.ePoissons();
+		VectorXd& bones = mesh.bones();
+		VectorXd& rs = mesh.red_s();
+
+		Matrix3d c;
+		#pragma omp parallel for
+		for(int t =0; t<mesh.T().rows(); t++){
+			if(mesh.bones()[t]>=0){
+				continue;
+			}
+            double C1 = eY[t]/(2.0*(1.0+eP[t]));
+            double D1 = (eY[t]*eP[t])/((1.0+eP[t])*(1.0-2.0*eP[t]));
+            if(rs.size()==6*mesh.T().rows()){
+				sW1[6*t+0] += 1;
+				sW2[6*t+1] += 1;
+				sW3[6*t+2] += 1;
+				sW4[6*t+3] += 1;
+				sW5[6*t+4] += 1;
+				sW6[6*t+5] += 1;
+	        	StableNeoElementForce(elastic_forces, sW1,sW2,sW3,sW4,sW5,sW6, rs, C1, D1);
+	        	sW1[6*t+0] -= 1;
+				sW2[6*t+1] -= 1;
+				sW3[6*t+2] -= 1;
+				sW4[6*t+3] -= 1;
+				sW5[6*t+4] -= 1;
+				sW6[6*t+5] -= 1;
+			}else{
+            	StableNeoElementForce(elastic_forces, mesh.sW().row(6*t+0),mesh.sW().row(6*t+1),mesh.sW().row(6*t+2),mesh.sW().row(6*t+3),mesh.sW().row(6*t+4),mesh.sW().row(6*t+5), rs, C1, D1);
+			}
+		}
 	}
 
 	double WikipediaElementEnergy(const VectorXd& w0, const VectorXd& w1, const VectorXd& w2, const VectorXd& w3, const VectorXd& w4, const VectorXd& w5,  const VectorXd& rs, double C1, double D1){
@@ -400,13 +545,13 @@ public:
 	}
 
 	double Energy(Mesh& m){
-		double Elas =  WikipediaEnergy(m);
+		double Elas =  StableNeoEnergy(m);
 		double Muscle = MuscleEnergy(m);
 		return Elas + Muscle;
 	}
 
 	VectorXd PEGradient(Mesh& m){
-		WikipediaForce(m);
+		StableNeoForce(m);
 		MuscleForce(m);
 		return muscle_forces+elastic_forces;
 	}
