@@ -176,6 +176,7 @@ void compute_indices(
 	// For each tet, find the first mesh (in listed order) that contains its center
 	// TODO: This isn't guaranteed to assign all tets. Could have NaNs or other edge cases.
 	for(int i = 0; i < tet_mesh.T.rows(); i++) {
+		bool assigned_tet = false;
 		bool found_bone = false;
 		// bones
 		for(const auto &el : bone_dists) {
@@ -183,6 +184,7 @@ void compute_indices(
 			if(dists(i) <= 0.0) {
 				bone_indices[el.first].push_back(i);
 				found_bone = true;
+				assigned_tet = true;
 				break;
 			}
 		}
@@ -192,9 +194,22 @@ void compute_indices(
 				const VectorXd &dists = el.second;
 				if(dists(i) <= 0.0) {
 					muscle_indices[el.first].push_back(i);
+					assigned_tet = true;
 					break;
 				}
 			}
+		}
+
+		if(!assigned_tet) {
+			for(const auto &el : muscle_dists) {
+				const VectorXd &dists = el.second;
+				std::cout << dists(i) << std::endl;
+			}
+			for(const auto &el : bone_dists) {
+				const VectorXd &dists = el.second;
+				std::cout << dists(i) << std::endl;
+			}
+			std::cout << std::endl;
 		}
 	}
 }
