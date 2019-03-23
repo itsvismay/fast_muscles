@@ -340,7 +340,7 @@ public:
             MatrixXd joint = joints_bones_verts[i].second;
             int bone1ind = mbone_name_index_map[joints_bones_verts[i].first[0]];
             int bone2ind = mbone_name_index_map[joints_bones_verts[i].first[1]];
-            cout<<"bones: "<<bone1ind<<", "<<bone2ind<<endl;
+            cout<<"bones: "<<bone1ind<<", "<<bone2ind<<", "<<joint.rows()<<", "<<endl;
             if(joint.rows()>1){
                 hingejoints +=1;
                 RowVector3d p1 = joint.row(0);

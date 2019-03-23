@@ -202,28 +202,32 @@ public:
 		VectorXd& rs = mesh.red_s();
 
 		#pragma omp parallel for
-		for(int t =0; t<mesh.T().rows(); t++){
-			if(mesh.bones()[t]>=0){
+		for(int q=0; q<contract_muscles.size(); q++){
+			if(contract_muscles[q]>=mesh.muscle_vecs().size()){
 				continue;
 			}
-            double C1 = eY[t]/(2.0*(1.0+eP[t]));
-            double D1 = (eY[t]*eP[t])/((1.0+eP[t])*(1.0-2.0*eP[t]));
-            if(rs.size()==6*mesh.T().rows()){
-				sW1[6*t+0] += 1;
-				sW2[6*t+1] += 1;
-				sW3[6*t+2] += 1;
-				sW4[6*t+3] += 1;
-				sW5[6*t+4] += 1;
-				sW6[6*t+5] += 1;
-	        	En += StableNeoElementEnergy(sW1,sW2,sW3,sW4,sW5,sW6, rs, C1, D1);
-	        	sW1[6*t+0] -= 1;
-				sW2[6*t+1] -= 1;
-				sW3[6*t+2] -= 1;
-				sW4[6*t+3] -= 1;
-				sW5[6*t+4] -= 1;
-				sW6[6*t+5] -= 1;
-			}else{
-            	En += StableNeoElementEnergy(mesh.sW().row(6*t+0),mesh.sW().row(6*t+1),mesh.sW().row(6*t+2),mesh.sW().row(6*t+3),mesh.sW().row(6*t+4),mesh.sW().row(6*t+5), rs, C1, D1);
+			for(int i=0; i<mesh.muscle_vecs()[contract_muscles[q]].size(); i++){
+				int t = mesh.muscle_vecs()[contract_muscles[q]][i];
+			
+	            double C1 = eY[t]/(2.0*(1.0+eP[t]));
+	            double D1 = (eY[t]*eP[t])/((1.0+eP[t])*(1.0-2.0*eP[t]));
+	            if(rs.size()==6*mesh.T().rows()){
+					sW1[6*t+0] += 1;
+					sW2[6*t+1] += 1;
+					sW3[6*t+2] += 1;
+					sW4[6*t+3] += 1;
+					sW5[6*t+4] += 1;
+					sW6[6*t+5] += 1;
+		        	En += StableNeoElementEnergy(sW1,sW2,sW3,sW4,sW5,sW6, rs, C1, D1);
+		        	sW1[6*t+0] -= 1;
+					sW2[6*t+1] -= 1;
+					sW3[6*t+2] -= 1;
+					sW4[6*t+3] -= 1;
+					sW5[6*t+4] -= 1;
+					sW6[6*t+5] -= 1;
+				}else{
+	            	En += StableNeoElementEnergy(mesh.sW().row(6*t+0),mesh.sW().row(6*t+1),mesh.sW().row(6*t+2),mesh.sW().row(6*t+3),mesh.sW().row(6*t+4),mesh.sW().row(6*t+5), rs, C1, D1);
+				}
 			}
 		}
 		return En;
@@ -345,28 +349,32 @@ public:
 
 		Matrix3d c;
 		#pragma omp parallel for
-		for(int t =0; t<mesh.T().rows(); t++){
-			if(mesh.bones()[t]>=0){
+		for(int q=0; q<contract_muscles.size(); q++){
+			if(contract_muscles[q]>=mesh.muscle_vecs().size()){
 				continue;
 			}
-            double C1 = eY[t]/(2.0*(1.0+eP[t]));
-            double D1 = (eY[t]*eP[t])/((1.0+eP[t])*(1.0-2.0*eP[t]));
-            if(rs.size()==6*mesh.T().rows()){
-				sW1[6*t+0] += 1;
-				sW2[6*t+1] += 1;
-				sW3[6*t+2] += 1;
-				sW4[6*t+3] += 1;
-				sW5[6*t+4] += 1;
-				sW6[6*t+5] += 1;
-	        	StableNeoElementForce(elastic_forces, sW1,sW2,sW3,sW4,sW5,sW6, rs, C1, D1);
-	        	sW1[6*t+0] -= 1;
-				sW2[6*t+1] -= 1;
-				sW3[6*t+2] -= 1;
-				sW4[6*t+3] -= 1;
-				sW5[6*t+4] -= 1;
-				sW6[6*t+5] -= 1;
-			}else{
-            	StableNeoElementForce(elastic_forces, mesh.sW().row(6*t+0),mesh.sW().row(6*t+1),mesh.sW().row(6*t+2),mesh.sW().row(6*t+3),mesh.sW().row(6*t+4),mesh.sW().row(6*t+5), rs, C1, D1);
+			for(int i=0; i<mesh.muscle_vecs()[contract_muscles[q]].size(); i++){
+				int t = mesh.muscle_vecs()[contract_muscles[q]][i];
+			
+	            double C1 = eY[t]/(2.0*(1.0+eP[t]));
+	            double D1 = (eY[t]*eP[t])/((1.0+eP[t])*(1.0-2.0*eP[t]));
+	            if(rs.size()==6*mesh.T().rows()){
+					sW1[6*t+0] += 1;
+					sW2[6*t+1] += 1;
+					sW3[6*t+2] += 1;
+					sW4[6*t+3] += 1;
+					sW5[6*t+4] += 1;
+					sW6[6*t+5] += 1;
+		        	StableNeoElementForce(elastic_forces, sW1,sW2,sW3,sW4,sW5,sW6, rs, C1, D1);
+		        	sW1[6*t+0] -= 1;
+					sW2[6*t+1] -= 1;
+					sW3[6*t+2] -= 1;
+					sW4[6*t+3] -= 1;
+					sW5[6*t+4] -= 1;
+					sW6[6*t+5] -= 1;
+				}else{
+	            	StableNeoElementForce(elastic_forces, mesh.sW().row(6*t+0),mesh.sW().row(6*t+1),mesh.sW().row(6*t+2),mesh.sW().row(6*t+3),mesh.sW().row(6*t+4),mesh.sW().row(6*t+5), rs, C1, D1);
+				}
 			}
 		}
 	}
