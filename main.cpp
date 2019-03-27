@@ -217,105 +217,105 @@ int main(int argc, char *argv[])
     int kkkk = 0;
     double tttt = 0;
     viewer.callback_pre_draw = [&](igl::opengl::glfw::Viewer & viewer){   
-        if(viewer.core.is_animating){
-            if(kkkk<mesh->G().cols()){
-                VectorXd x = 10*sin(tttt)*mesh->G().col(kkkk) + mesh->x0();
-                Eigen::Map<Eigen::MatrixXd> newV(x.data(), V.cols(), V.rows());
-                viewer.data().set_mesh(newV.transpose(), F);
-                tttt+= 0.1;
-            }
-    	}
+     //    if(viewer.core.is_animating){
+     //        if(kkkk<mesh->G().cols()){
+     //            VectorXd x = 10*sin(tttt)*mesh->G().col(kkkk) + mesh->x0();
+     //            Eigen::Map<Eigen::MatrixXd> newV(x.data(), V.cols(), V.rows());
+     //            viewer.data().set_mesh(newV.transpose(), F);
+     //            tttt+= 0.1;
+     //        }
+    	// }
         return false;
     };
 
     viewer.callback_key_down = [&](igl::opengl::glfw::Viewer & viewer, unsigned char key, int modifiers){   
         
         kkkk +=1;
-        // std::cout<<"Key down, "<<key<<std::endl;
-        // viewer.data().clear();
-        // if(key=='A'){
-        //     cout<<"here"<<endl;
-        //     neo->changeFiberMag(j_input["multiplier_strength_each_step"]);
+        std::cout<<"Key down, "<<key<<std::endl;
+        viewer.data().clear();
+        if(key=='A'){
+            cout<<"here"<<endl;
+            neo->changeFiberMag(j_input["multiplier_strength_each_step"]);
 
-        // }
+        }
 
 
-        // if(key==' '){
+        if(key==' '){
             
-        //     // VectorXd ns = mesh->N().transpose()*mesh->red_s();
-        //     // for(int i=0; i<ns.size()/6; i++){
-        //     //     ns[6*i+1] -= 0.2;
-        //     //     ns[6*i+2] += 0.2;
-        //     //     ns[6*i+0] += 0.2;
-        //     // }
-        //     // arap->minimize(*mesh);
+            // VectorXd ns = mesh->N().transpose()*mesh->red_s();
+            // for(int i=0; i<ns.size()/6; i++){
+            //     ns[6*i+1] -= 0.2;
+            //     ns[6*i+2] += 0.2;
+            //     ns[6*i+0] += 0.2;
+            // }
+            // arap->minimize(*mesh);
 
-        //     double fx =0;
-        //     VectorXd ns = mesh->N().transpose()*mesh->red_s();
-        //     timer.start();
-        //     int niter = solver.minimize(f, ns, fx);
-        //     timer.stop();
-        //     VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
+            double fx =0;
+            VectorXd ns = mesh->N().transpose()*mesh->red_s();
+            timer.start();
+            int niter = solver.minimize(f, ns, fx);
+            timer.stop();
+            VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
             
-        //     for(int i=0; i<reds.size(); i++){
-        //         mesh->red_s()[i] = reds[i];
-        //     }
-        //     cout<<"****QSsteptime: "<<timer.getElapsedTimeInMicroSec()<<", "<<niter<<endl;
-        //     // arap->minimize(*mesh);
-        // }
+            for(int i=0; i<reds.size(); i++){
+                mesh->red_s()[i] = reds[i];
+            }
+            cout<<"****QSsteptime: "<<timer.getElapsedTimeInMicroSec()<<", "<<niter<<endl;
+            // arap->minimize(*mesh);
+        }
 
-        // // //Draw continuous mesh
-        // MatrixXd newV = mesh->continuousV();
-        // viewer.data().set_mesh(newV, F);
+        // //Draw continuous mesh
+        MatrixXd newV = mesh->continuousV();
+        viewer.data().set_mesh(newV, F);
 
-        // viewer.data().compute_normals();
+        viewer.data().compute_normals();
         
 
-        // if(key=='D'){
+        if(key=='D'){
             
-        //     // Draw disc mesh
-        //     std::cout<<std::endl;
-        //     MatrixXd& discV = mesh->discontinuousV();
-        //     MatrixXi& discT = mesh->discontinuousT();
-        //     for(int i=0; i<muscle_tets[0].size(); i++){
-        //         Vector4i e = discT.row(muscle_tets[0][i]);
-        //         // std::cout<<discT.row(i)<<std::endl<<std::endl;
-        //         // std::cout<<discV(Eigen::placeholders::all, discT.row(i))<<std::endl;
-        //         Matrix<double, 1,3> p0 = discV.row(e[0]);
-        //         Matrix<double, 1,3> p1 = discV.row(e[1]);
-        //         Matrix<double, 1,3> p2 = discV.row(e[2]);
-        //         Matrix<double, 1,3> p3 = discV.row(e[3]);
+            // Draw disc mesh
+            std::cout<<std::endl;
+            MatrixXd& discV = mesh->discontinuousV();
+            MatrixXi& discT = mesh->discontinuousT();
+            for(int i=0; i<muscle_tets[0].size(); i++){
+                Vector4i e = discT.row(muscle_tets[0][i]);
+                // std::cout<<discT.row(i)<<std::endl<<std::endl;
+                // std::cout<<discV(Eigen::placeholders::all, discT.row(i))<<std::endl;
+                Matrix<double, 1,3> p0 = discV.row(e[0]);
+                Matrix<double, 1,3> p1 = discV.row(e[1]);
+                Matrix<double, 1,3> p2 = discV.row(e[2]);
+                Matrix<double, 1,3> p3 = discV.row(e[3]);
 
-        //         viewer.data().add_edges(p0,p1,Eigen::RowVector3d(1,0,1));
-        //         viewer.data().add_edges(p0,p2,Eigen::RowVector3d(1,0,1));
-        //         viewer.data().add_edges(p0,p3,Eigen::RowVector3d(1,0,1));
-        //         viewer.data().add_edges(p1,p2,Eigen::RowVector3d(1,0,1));
-        //         viewer.data().add_edges(p1,p3,Eigen::RowVector3d(1,0,1));
-        //         viewer.data().add_edges(p2,p3,Eigen::RowVector3d(1,0,1));
-        //     }
+                viewer.data().add_edges(p0,p1,Eigen::RowVector3d(1,0,1));
+                viewer.data().add_edges(p0,p2,Eigen::RowVector3d(1,0,1));
+                viewer.data().add_edges(p0,p3,Eigen::RowVector3d(1,0,1));
+                viewer.data().add_edges(p1,p2,Eigen::RowVector3d(1,0,1));
+                viewer.data().add_edges(p1,p3,Eigen::RowVector3d(1,0,1));
+                viewer.data().add_edges(p2,p3,Eigen::RowVector3d(1,0,1));
+            }
             
-        // }
+        }
         
-        // //---------------- 
+        //---------------- 
 
-        // //Draw fixed and moving points
-        // for(int i=0; i<mesh->fixed_verts().size(); i++){
-        //     viewer.data().add_points(mesh->V().row(mesh->fixed_verts()[i]),Eigen::RowVector3d(1,0,0));
-        // }
+        //Draw fixed and moving points
+        for(int i=0; i<mesh->fixed_verts().size(); i++){
+            viewer.data().add_points(mesh->V().row(mesh->fixed_verts()[i]),Eigen::RowVector3d(1,0,0));
+        }
 
-        // //Draw joint points
-        // // for(int i=0; i<joint_bones_verts.size(); i++){
-        // //     RowVector3d p1 = joint_bones_verts[i].second.row(0);//js.segment<3>(0);
-        // //     viewer.data().add_points(p1, Eigen::RowVector3d(0,0,0));
-        // //     if(joint_bones_verts[i].second.rows()>1){
-        // //         RowVector3d p2 = joint_bones_verts[i].second.row(1);//js.segment<3>(3);
-        // //         viewer.data().add_points(p2, Eigen::RowVector3d(0,0,0));
-        // //         viewer.data().add_edges(p1, p2, Eigen::RowVector3d(0,0,0));
+        //Draw joint points
+        // for(int i=0; i<joint_bones_verts.size(); i++){
+        //     RowVector3d p1 = joint_bones_verts[i].second.row(0);//js.segment<3>(0);
+        //     viewer.data().add_points(p1, Eigen::RowVector3d(0,0,0));
+        //     if(joint_bones_verts[i].second.rows()>1){
+        //         RowVector3d p2 = joint_bones_verts[i].second.row(1);//js.segment<3>(3);
+        //         viewer.data().add_points(p2, Eigen::RowVector3d(0,0,0));
+        //         viewer.data().add_edges(p1, p2, Eigen::RowVector3d(0,0,0));
                 
-        // //     }
-        // // }
+        //     }
+        // }
         
-        // viewer.data().set_colors(SETCOLORSMAT);
+        viewer.data().set_colors(SETCOLORSMAT);
         return false;
     };
 
