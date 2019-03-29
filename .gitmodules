@@ -1,0 +1,15 @@
+[submodule "json"]
+	path = ThirdParty/json
+	url = https://github.com/nlohmann/json
+[submodule "ThirdParty/LBFGSpp"]
+	path = ThirdParty/LBFGSpp
+	url = https://github.com/yixuan/LBFGSpp
+[submodule "ThirdParty/libigl"]
+	path = ThirdParty/libigl
+	url = https://github.com/libigl/libigl.git
+[submodule "build/ThirdParty/spectra"]
+	path = build/ThirdParty/spectra
+	url = https://github.com/yixuan/spectra.git
+[submodule "ThirdParty/Spectra"]
+	path = ThirdParty/Spectra
+	url = https://github.com/yixuan/spectra.git
