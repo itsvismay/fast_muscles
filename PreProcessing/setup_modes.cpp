@@ -7,10 +7,10 @@
 #include <unsupported/Eigen/KroneckerProduct>
 #include <json.hpp>
 
-#include <MatOp/SparseSymMatProd.h>
-#include <MatOp/SparseCholesky.h>
-#include <SymGEigsSolver.h>
-#include <GenEigsSolver.h>
+// #include <MatOp/SparseSymMatProd.h>
+// #include <MatOp/SparseCholesky.h>
+// #include <SymGEigsSolver.h>
+// #include <GenEigsSolver.h>
 #include <igl/cotmatrix.h>
 
 using namespace Eigen;
