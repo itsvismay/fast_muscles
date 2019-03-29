@@ -13,6 +13,7 @@ set(CMAKE_CXX_FLAGS "-O3")
 # libigl
 option(LIBIGL_WITH_OPENGL           "Use OpenGL"         ON)
 option(LIBIGL_WITH_OPENGL_GLFW      "Use GLFW"           ON)
+option(LIBIGL_WITH_OPENGL_GLFW_IMGUI      "Use IMGUI"           ON)
 
 find_package(LIBIGL REQUIRED QUIET)
 find_package(SUITESPARSE REQUIRED QUIET)
@@ -40,6 +41,6 @@ add_executable(reduced "reduced.cpp" ${HEADFILES} ${SRCFILES} ${EXTERNALS})
 #target_link_libraries(unreduced -lglfw igl::core igl::opengl igl::opengl_glfw -fopenmp ${OpenCV_LIBS})
 target_link_libraries(redfd -lglfw igl::core igl::opengl igl::opengl_glfw -fopenmp ${OpenCV_LIBS})
 target_link_libraries(fd -lglfw igl::core igl::opengl igl::opengl_glfw -fopenmp  ${OpenCV_LIBS})
-target_link_libraries(${PROJECT_NAME} -lglfw igl::core igl::opengl igl::opengl_glfw -fopenmp ${OpenCV_LIBS})
+target_link_libraries(${PROJECT_NAME} -lglfw igl::core igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui -fopenmp ${OpenCV_LIBS})
 target_link_libraries(reduced -lglfw igl::core igl::opengl igl::opengl_glfw -fopenmp ${OpenCV_LIBS})
  
