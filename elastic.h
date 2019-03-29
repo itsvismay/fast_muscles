@@ -206,6 +206,7 @@ public:
 			if(contract_muscles[q]>=mesh.muscle_vecs().size()){
 				continue;
 			}
+			cout<<"contracting "<< contract_muscles[q]<<endl;
 			for(int i=0; i<mesh.muscle_vecs()[contract_muscles[q]].size(); i++){
 				int t = mesh.muscle_vecs()[contract_muscles[q]][i];
 			

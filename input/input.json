@@ -1,7 +1,7 @@
 {
-  "data": "/home/vismay/recode/fast_muscles/data/simple_muscle",
-  "output": "/home/vismay/recode/fast_muscles/data/simple_muscle",
-  "fix_bones": ["top_bone"],  
+  "data": "/home/vismay/recode/fast_muscles/data/realistic_upper",
+  "output": "/home/vismay/recode/fast_muscles/data/realistic_upper",
+  "fix_bones": ["scapula"],  
   "muscle_starting_strength": 10000,
   "QS_steps": 50,
   "multiplier_strength_each_step": 1.1,
