@@ -332,12 +332,12 @@ public:
 			return 1e40;
 		}
 		double W = 0.5*C1*(I1 -3) + 0.5*D1*(J-alpha)*(J-alpha) - 0.5*C1*log(I1 + 1);
-		if(fabs(W- functionValue) > 1e-5){
-			cout<<"Energy values dont agree"<<endl;
-			cout<<"W: "<<W<<endl;
-			cout<<"func: "<<functionValue<<endl;
-			exit(0);
-		}
+		// if(fabs(W- functionValue) > 1e-5){
+		// 	cout<<"Energy values dont agree"<<endl;
+		// 	cout<<"W: "<<W<<endl;
+		// 	cout<<"func: "<<functionValue<<endl;
+		// 	exit(0);
+		// }
 		
 	}
 

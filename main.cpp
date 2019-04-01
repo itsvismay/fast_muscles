@@ -42,14 +42,16 @@ void readConfigFile(MatrixXd& V,
     std::vector< std::pair<std::vector<std::string>, MatrixXd>>& joint_bones_verts,
     std::vector<VectorXi>& bone_tets,
     std::vector<VectorXi>& muscle_tets,
-    std::vector<std::string>& fix_bones){
+    std::vector<std::string>& fix_bones,
+    VectorXd& relativeStiffness){
     std::string datafile = j_input["data"];
 
     //Read Mesh
     igl::readDMAT(datafile+"/generated_files/tet_mesh_V.dmat", V);
     igl::readDMAT(datafile+"/generated_files/tet_mesh_T.dmat", T);
     igl::readDMAT(datafile+"/generated_files/combined_fiber_directions.dmat", Uvec);
-
+    igl::readDMAT(datafile+"/generated_files/combined_relative_stiffness.dmat", relativeStiffness);
+    
     //Read Geometry
     json j_geometries;
     std::ifstream muscle_config_file(datafile+"/config.json");
@@ -112,6 +114,13 @@ int main(int argc, char *argv[])
     MatrixXd V;
     MatrixXi T;
     MatrixXi F;
+
+    std::string datafile = j_input["data"];
+    //Read Mesh
+    igl::readDMAT(datafile+"/generated_files/tet_mesh_V.dmat", V);
+    igl::readDMAT(datafile+"/generated_files/tet_mesh_T.dmat", T);
+    igl::boundary_facets(T, F);
+    
     MatrixXd Uvec;
     std::vector<int> mov = {};
     
@@ -121,8 +130,8 @@ int main(int argc, char *argv[])
     std::map<std::string, int> bone_name_index_map;
     std::map<std::string, int> muscle_name_index_map;
     std::vector< std::pair<std::vector<std::string>, MatrixXd>> joint_bones_verts;
-
-    readConfigFile(V, T, F, Uvec, bone_name_index_map, muscle_name_index_map, joint_bones_verts, bone_tets, muscle_tets, fix_bones);  
+    VectorXd relativeStiffness;
+    readConfigFile(V, T, F, Uvec, bone_name_index_map, muscle_name_index_map, joint_bones_verts, bone_tets, muscle_tets, fix_bones, relativeStiffness);  
     
     cout<<"---Record Mesh Setup Info"<<endl;
     cout<<"V size: "<<V.rows()<<endl;
@@ -138,8 +147,10 @@ int main(int argc, char *argv[])
     cout<<"MODES: "<<j_input["number_modes"]<<endl;
     std::string outputfile = j_input["output"];
     std::string namestring = to_string((int)j_input["number_modes"])+"modes"+to_string((int)j_input["number_rot_clusters"])+"clusters"+to_string((int)j_input["number_skinning_handles"])+"handles";
-        
+
     igl::boundary_facets(T, F);
+
+
     std::cout<<"-----Mesh-------"<<std::endl;
     Mesh* mesh = new Mesh(
         V, 
@@ -150,29 +161,30 @@ int main(int argc, char *argv[])
         muscle_tets, 
         bone_name_index_map, 
         muscle_name_index_map, 
-        joint_bones_verts,  
+        joint_bones_verts,
+        relativeStiffness,  
         j_input);
     
-    std::cout<<"-----ARAP-----"<<std::endl;
-    Reduced_Arap* arap = new Reduced_Arap(*mesh);
+    // std::cout<<"-----ARAP-----"<<std::endl;
+    // Reduced_Arap* arap = new Reduced_Arap(*mesh);
 
-    std::cout<<"-----Neo-------"<<std::endl;
-    double start_strength = j_input["muscle_starting_strength"];
-    std::vector<int> contract_muscles_at_ind = j_input["contract_muscles_at_index"];
-    Elastic* neo = new Elastic(*mesh, start_strength, contract_muscles_at_ind);
+    // std::cout<<"-----Neo-------"<<std::endl;
+    // double start_strength = j_input["muscle_starting_strength"];
+    // std::vector<int> contract_muscles_at_ind = j_input["contract_muscles_at_index"];
+    // Elastic* neo = new Elastic(*mesh, start_strength, contract_muscles_at_ind);
 
-    std::cout<<"-----Solver-------"<<std::endl;
-    int DIM = mesh->red_s().size();
-    RedSolver f(DIM, mesh, arap, neo, j_input);
-    LBFGSParam<double> param;
-    param.epsilon = 1e-1;
-    if(j_input["bfgs_convergence_crit_fast"]){
-        param.delta = 1e-5;
-        param.past = 1;
-    }
+    // std::cout<<"-----Solver-------"<<std::endl;
+    // int DIM = mesh->red_s().size();
+    // RedSolver f(DIM, mesh, arap, neo, j_input);
+    // LBFGSParam<double> param;
+    // param.epsilon = 1e-1;
+    // if(j_input["bfgs_convergence_crit_fast"]){
+    //     param.delta = 1e-5;
+    //     param.past = 1;
+    // }
 
-    param.linesearch = LBFGSpp::LBFGS_LINESEARCH_BACKTRACKING_ARMIJO;
-    LBFGSSolver<double> solver(param);
+    // param.linesearch = LBFGSpp::LBFGS_LINESEARCH_BACKTRACKING_ARMIJO;
+    // LBFGSSolver<double> solver(param);
 
 
     igl::Timer timer;
@@ -208,15 +220,7 @@ int main(int argc, char *argv[])
     Colors = (Colors + MatrixXd::Constant(1000,3,1.))*(1-1e-6)/2.; // add 1 to the matrix to have values between 0 and 2; multiply with range/2
     Colors = (Colors + MatrixXd::Constant(1000,3,1e-6)); //set LO as the lower bound (offset)
     MatrixXd SETCOLORSMAT = MatrixXd::Zero(V.rows(), 3);
-    for(int c=0; c<mesh->red_w().size()/3; c++){
-        std::vector<int> cluster_elem = mesh->r_cluster_elem_map()[c];
-        for(int e=0; e<cluster_elem.size(); e++){
-            SETCOLORSMAT.row(mesh->T().row(cluster_elem[e])[0]) = Colors.row(c);
-            SETCOLORSMAT.row(mesh->T().row(cluster_elem[e])[1]) = Colors.row(c);
-            SETCOLORSMAT.row(mesh->T().row(cluster_elem[e])[2]) = Colors.row(c);
-            SETCOLORSMAT.row(mesh->T().row(cluster_elem[e])[3]) = Colors.row(c);
-        }
-    }
+    
 
     int kkkk = 0;
     double tttt = 0;
@@ -237,36 +241,36 @@ int main(int argc, char *argv[])
         kkkk +=1;
         std::cout<<"Key down, "<<key<<std::endl;
         viewer.data().clear();
-        if(key=='A'){
-            cout<<"here"<<endl;
-            neo->changeFiberMag(j_input["multiplier_strength_each_step"]);
+        // if(key=='A'){
+        //     cout<<"here"<<endl;
+        //     neo->changeFiberMag(j_input["multiplier_strength_each_step"]);
 
-        }
+        // }
 
 
-        if(key==' '){
+        // if(key==' '){
             
-            // VectorXd ns = mesh->N().transpose()*mesh->red_s();
-            // for(int i=0; i<ns.size()/6; i++){
-            //     ns[6*i+1] -= 0.2;
-            //     ns[6*i+2] += 0.2;
-            //     ns[6*i+0] += 0.2;
-            // }
-            // arap->minimize(*mesh);
+        //     // VectorXd ns = mesh->N().transpose()*mesh->red_s();
+        //     // for(int i=0; i<ns.size()/6; i++){
+        //     //     ns[6*i+1] -= 0.2;
+        //     //     ns[6*i+2] += 0.2;
+        //     //     ns[6*i+0] += 0.2;
+        //     // }
+        //     // arap->minimize(*mesh);
 
-            double fx =0;
-            VectorXd ns = mesh->N().transpose()*mesh->red_s();
-            timer.start();
-            int niter = solver.minimize(f, ns, fx);
-            timer.stop();
-            VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
+        //     double fx =0;
+        //     VectorXd ns = mesh->N().transpose()*mesh->red_s();
+        //     timer.start();
+        //     int niter = solver.minimize(f, ns, fx);
+        //     timer.stop();
+        //     VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
             
-            for(int i=0; i<reds.size(); i++){
-                mesh->red_s()[i] = reds[i];
-            }
-            cout<<"****QSsteptime: "<<timer.getElapsedTimeInMicroSec()<<", "<<niter<<endl;
-            // arap->minimize(*mesh);
-        }
+        //     for(int i=0; i<reds.size(); i++){
+        //         mesh->red_s()[i] = reds[i];
+        //     }
+        //     cout<<"****QSsteptime: "<<timer.getElapsedTimeInMicroSec()<<", "<<niter<<endl;
+        //     // arap->minimize(*mesh);
+        // }
 
         // //Draw continuous mesh
         MatrixXd newV = mesh->continuousV();
@@ -300,6 +304,31 @@ int main(int argc, char *argv[])
             
         }
         
+
+        if(key=='R'){
+            for(int c=0; c<mesh->red_w().size()/3; c++){
+                std::vector<int> cluster_elem = mesh->r_cluster_elem_map()[c];
+                for(int e=0; e<cluster_elem.size(); e++){
+                    SETCOLORSMAT.row(mesh->T().row(cluster_elem[e])[0]) = Colors.row(c);
+                    SETCOLORSMAT.row(mesh->T().row(cluster_elem[e])[1]) = Colors.row(c);
+                    SETCOLORSMAT.row(mesh->T().row(cluster_elem[e])[2]) = Colors.row(c);
+                    SETCOLORSMAT.row(mesh->T().row(cluster_elem[e])[3]) = Colors.row(c);
+                }
+            }
+        }
+
+        if(key=='S'){
+            cout<<"nsh "<<mesh->s_handle_elem_map().size()<<endl;
+            for(int c=0; c<mesh->s_handle_elem_map().size(); c++){
+                std::vector<int> cluster_elem = mesh->s_handle_elem_map()[c];
+                for(int e=0; e<cluster_elem.size(); e++){
+                    SETCOLORSMAT.row(mesh->T().row(cluster_elem[e])[0]) = Colors.row(2*c);
+                    SETCOLORSMAT.row(mesh->T().row(cluster_elem[e])[1]) = Colors.row(2*c);
+                    SETCOLORSMAT.row(mesh->T().row(cluster_elem[e])[2]) = Colors.row(2*c);
+                    SETCOLORSMAT.row(mesh->T().row(cluster_elem[e])[3]) = Colors.row(2*c);
+                }
+            }   
+        }
         //---------------- 
 
         //Draw fixed and moving points

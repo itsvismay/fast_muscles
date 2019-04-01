@@ -8,8 +8,17 @@
 using namespace Eigen;
 void kmeans_clustering(VectorXi& idx, int clusters, std::vector<VectorXi>& ibones, std::vector<VectorXi>& imuscle, MatrixXd& mG, SparseMatrix<double>& mC, SparseMatrix<double>& mA, VectorXd& mx0){
         MatrixXd Centroids;
-        idx.resize(mC.rows()/12);
+        int tot_meshT_size = 0;
+        for(int b=0; b<ibones.size(); b++){
+            tot_meshT_size += ibones[b].size();
+        }
+        for(int m=0; m<imuscle.size(); m++){
+            tot_meshT_size += imuscle[m].size();
+        }
+        idx.resize(tot_meshT_size);
         idx.setZero();
+        std::cout<<"        kmeans0 un "<<tot_meshT_size <<std::endl;
+
 
         for(int b=0; b<ibones.size(); b++){
             for(int i=0; i<ibones[b].size(); i++){
@@ -31,7 +40,7 @@ void kmeans_clustering(VectorXi& idx, int clusters, std::vector<VectorXi>& ibone
                 Data.row(i) = RowVector3d(CAx0[12*imuscle[m][i]+0],CAx0[12*imuscle[m][i]+1],CAx0[12*imuscle[m][i]+2]);
             }
 
-            std::cout<<"     kmeans3 un"<<std::endl;
+            std::cout<<"     kmeans3 do clustering"<<std::endl;
             if(m==imuscle.size()-1){
                 //deal with remainder clusters
                 ocv_kmeans(Data, clusters, 1000, Centroids, labels);
@@ -39,13 +48,15 @@ void kmeans_clustering(VectorXi& idx, int clusters, std::vector<VectorXi>& ibone
                 ocv_kmeans(Data, clusters_per_muscle, 1000, Centroids, labels);
             }
 
-            std::cout<<"     kmeans4 un"<<std::endl;
+            std::cout<<"     kmeans4 create element_cluster_map"<<std::endl;
             for(int q=0; q<imuscle[m].size(); q++){
                 idx[imuscle[m][q]] = clusters_per_muscle*m + labels[q];
             }
             clusters = clusters - clusters_per_muscle;
 
         }
+        std::cout<<"    kmeans5 un"<<std::endl;
+
         assert(clusters==0);
         return;
     }
