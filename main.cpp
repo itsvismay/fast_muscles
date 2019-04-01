@@ -216,8 +216,16 @@ int main(int argc, char *argv[])
     Colors = (Colors + MatrixXd::Constant(1000,3,1.))*(1-1e-6)/2.; // add 1 to the matrix to have values between 0 and 2; multiply with range/2
     Colors = (Colors + MatrixXd::Constant(1000,3,1e-6)); //set LO as the lower bound (offset)
     MatrixXd SETCOLORSMAT = MatrixXd::Zero(V.rows(), 3);
-    
-
+    // for(int c=0; c<mesh->red_w().size()/3; c++){
+    //     std::vector<int> cluster_elem = mesh->r_cluster_elem_map()[c];
+    //     for(int e=0; e<cluster_elem.size(); e++){
+    //         SETCOLORSMAT.row(mesh->T().row(cluster_elem[e])[0]) = Colors.row(c);
+    //         SETCOLORSMAT.row(mesh->T().row(cluster_elem[e])[1]) = Colors.row(c);
+    //         SETCOLORSMAT.row(mesh->T().row(cluster_elem[e])[2]) = Colors.row(c);
+    //         SETCOLORSMAT.row(mesh->T().row(cluster_elem[e])[3]) = Colors.row(c);
+    //     }
+    // }
+  
     int kkkk = 0;
     double tttt = 0;
     viewer.callback_pre_draw = [&](igl::opengl::glfw::Viewer & viewer){   
@@ -233,7 +241,7 @@ int main(int argc, char *argv[])
     };
 
     viewer.callback_key_down = [&](igl::opengl::glfw::Viewer & viewer, unsigned char key, int modifiers){   
-        
+ 
         std::cout<<"Key down, "<<key<<std::endl;
         viewer.data().clear();
         if(key=='Q'){
@@ -344,7 +352,19 @@ int main(int argc, char *argv[])
             viewer.data().add_points(mesh->V().row(mesh->fixed_verts()[i]),Eigen::RowVector3d(1,0,0));
         }
 
+        if(key=='S'){
+            SETCOLORSMAT.setZero();
+            for(int i=0; i<mesh->T().rows(); i++){
+                if(mesh->sW().col(6*kkkk)[6*i] > 0){
+                    SETCOLORSMAT.row(mesh->T().row(i)[0]) = Colors.row(10);
+                    SETCOLORSMAT.row(mesh->T().row(i)[1]) = Colors.row(10);
+                    SETCOLORSMAT.row(mesh->T().row(i)[2]) = Colors.row(10);
+                    SETCOLORSMAT.row(mesh->T().row(i)[3]) = Colors.row(10);
 
+                }
+            }
+        }
+      
         //Draw joint points
         // for(int i=0; i<joint_bones_verts.size(); i++){
         //     RowVector3d p1 = joint_bones_verts[i].second.row(0);//js.segment<3>(0);
