@@ -42,6 +42,7 @@ protected:
 
     std::vector<int> mfix, mmov;
     std::map<int, std::vector<int>> mr_cluster_elem_map;
+    std::map<int, std::vector<int>> ms_handle_elem_map;
     std::vector<SparseMatrix<double>> mRotationBLOCK;
     std::vector<VectorXi> mmuscles;
     std::vector<MatrixXd> mjoints;
@@ -68,6 +69,7 @@ public:
         std::map<std::string, int>& ibone_name_index_map,
         std::map<std::string, int>& imuscle_name_index_map,
         std::vector< std::pair<std::vector<std::string>, MatrixXd>>& ijoint_bones_verts,
+        VectorXd& relativeStiffness,
         json& j_input,
         std::vector<int> fd_fix = {},
         std::vector<int> imov = {})
@@ -145,7 +147,8 @@ public:
         setHandleModesMatrix(ibone_tets, imuscle_tets, ifix_bones);
         
         print("step 8");
-        setElemWiseYoungsPoissons(youngs, poissons);
+        setElemWiseYoungsPoissons(youngs, poissons, relativeStiffness);
+        
         print("step 9");
         setDiscontinuousMeshT();
 
@@ -153,7 +156,7 @@ public:
         setup_rotation_cluster(nrc, reduced, mT, mV, ibone_tets, imuscle_tets, mred_x, mred_r, mred_w, mC, mA, mG, mx0, mRotationBLOCK, mr_cluster_elem_map, mr_elem_cluster_map);
 
         print("step 11");
-        setup_skinning_handles(nsh, reduced, mT, mV, ibone_tets, imuscle_tets, mC, mA, mG, mx0, mred_s, msW);
+        setup_skinning_handles(nsh, reduced, mT, mV, ibone_tets, imuscle_tets, mC, mA, mG, mx0, mred_s, msW, ms_handle_elem_map);
         
         print("step 12");
         MatrixXd temp1;
@@ -185,9 +188,14 @@ public:
         mGS.resize(12*mT.rows(), 12*mT.rows());
 
         print("step 13.5");
-        SparseMatrix<double> jointsY;
-        setJointConstraintMatrix(jointsY, ibone_tets, imuscle_tets, ifix_bones, mjoint_bones_verts);
-        mJ = MatrixXd(jointsY)*temp1;
+        if(ijoint_bones_verts.size()>0){
+            SparseMatrix<double> jointsY;
+            setJointConstraintMatrix(jointsY, ibone_tets, imuscle_tets, ifix_bones, mjoint_bones_verts);
+            cout<<jointsY.rows()<<", "<<jointsY.cols()<<endl;
+            cout<<temp1.rows()<<", "<<temp1.cols()<<endl;
+            mJ = MatrixXd(jointsY)*temp1;
+
+        }
 
         print("step 14");
         setGlobalF(false, false, true);
@@ -206,7 +214,7 @@ public:
     }
 
 
-    void setElemWiseYoungsPoissons(double youngs, double poissons){
+    void setElemWiseYoungsPoissons(double youngs, double poissons, VectorXd& relativeStiffness){
         melemYoungs.resize(mT.rows());
         melemPoissons.resize(mT.rows());
         for(int i=0; i<mT.rows(); i++){
@@ -215,7 +223,11 @@ public:
                 melemYoungs[i] = youngs*100;
 
             }else{
-                melemYoungs[i] = youngs; 
+                if(relativeStiffness[i]>20000){
+                    melemYoungs[i] = youngs*20000; 
+                }else{
+                    melemYoungs[i] = youngs*relativeStiffness[i];
+                }
             }
             melemPoissons[i] = poissons;
         }
@@ -454,7 +466,7 @@ public:
             }
         }
 
-        jointsY.resize(6*hingejoints + 3*socketjoints, 3*mV.rows());
+        jointsY.resize(6*hingejoints + 3*socketjoints, mY.cols());
         jointsY.setFromTriplets(joint_trips.begin(), joint_trips.end());
 
     }
@@ -886,6 +898,7 @@ public:
     VectorXd& red_s(){return mred_s; }
     std::vector<int>& fixed_verts(){ return mfix; }
     std::map<int, std::vector<int>>& r_cluster_elem_map(){ return mr_cluster_elem_map; }
+    std::map<int, std::vector<int>>& s_handle_elem_map(){ return ms_handle_elem_map; }
     VectorXi& r_elem_cluster_map(){ return mr_elem_cluster_map; }
     VectorXd& bones(){ return mbones; }
     std::vector<VectorXi> muscle_vecs() { return mmuscles; }
