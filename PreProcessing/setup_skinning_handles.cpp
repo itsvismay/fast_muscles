@@ -157,7 +157,11 @@ MatrixXd setup_skinning_helper(int indx,
       
         handles_ind[k] = minind;
     }
-    
+
+
+    for(int i =0; i<handles_ind.size(); i++){
+        std::cout<<tet_center(mT, mV, handles_ind[i])<<std::endl;
+    }
   
     return bbw_strain_skinning_matrix(handles_ind, mV, mT);
 

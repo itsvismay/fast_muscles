@@ -191,7 +191,10 @@ public:
         if(ijoint_bones_verts.size()>0){
             SparseMatrix<double> jointsY;
             setJointConstraintMatrix(jointsY, ibone_tets, imuscle_tets, ifix_bones, mjoint_bones_verts);
+            cout<<jointsY.rows()<<", "<<jointsY.cols()<<endl;
+            cout<<temp1.rows()<<", "<<temp1.cols()<<endl;
             mJ = MatrixXd(jointsY)*temp1;
+
         }
 
         print("step 14");
@@ -463,7 +466,7 @@ public:
             }
         }
 
-        jointsY.resize(6*hingejoints + 3*socketjoints, 3*mV.rows());
+        jointsY.resize(6*hingejoints + 3*socketjoints, mY.cols());
         jointsY.setFromTriplets(joint_trips.begin(), joint_trips.end());
 
     }

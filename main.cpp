@@ -51,6 +51,9 @@ void readConfigFile(MatrixXd& V,
     igl::readDMAT(datafile+"/generated_files/tet_mesh_T.dmat", T);
     igl::readDMAT(datafile+"/generated_files/combined_fiber_directions.dmat", Uvec);
     igl::readDMAT(datafile+"/generated_files/combined_relative_stiffness.dmat", relativeStiffness);
+    if(relativeStiffness.size()==0){
+        relativeStiffness = VectorXd::Ones(T.rows());
+    }
     
     //Read Geometry
     json j_geometries;
@@ -113,14 +116,7 @@ int main(int argc, char *argv[])
     
     MatrixXd V;
     MatrixXi T;
-    MatrixXi F;
-
-    std::string datafile = j_input["data"];
-    //Read Mesh
-    igl::readDMAT(datafile+"/generated_files/tet_mesh_V.dmat", V);
-    igl::readDMAT(datafile+"/generated_files/tet_mesh_T.dmat", T);
-    igl::boundary_facets(T, F);
-    
+    MatrixXi F;    
     MatrixXd Uvec;
     std::vector<int> mov = {};
     
@@ -238,9 +234,12 @@ int main(int argc, char *argv[])
 
     viewer.callback_key_down = [&](igl::opengl::glfw::Viewer & viewer, unsigned char key, int modifiers){   
         
-        kkkk +=1;
         std::cout<<"Key down, "<<key<<std::endl;
         viewer.data().clear();
+        if(key=='Q'){
+            kkkk +=1;
+            cout<<kkkk<<endl;
+        }
         // if(key=='A'){
         //     cout<<"here"<<endl;
         //     neo->changeFiberMag(j_input["multiplier_strength_each_step"]);
@@ -272,11 +271,7 @@ int main(int argc, char *argv[])
         //     // arap->minimize(*mesh);
         // }
 
-        // //Draw continuous mesh
-        MatrixXd newV = mesh->continuousV();
-        viewer.data().set_mesh(newV, F);
-
-        viewer.data().compute_normals();
+        
         
 
         if(key=='D'){
@@ -301,7 +296,20 @@ int main(int argc, char *argv[])
                 viewer.data().add_edges(p1,p3,Eigen::RowVector3d(1,0,1));
                 viewer.data().add_edges(p2,p3,Eigen::RowVector3d(1,0,1));
             }
-            
+            viewer.data().add_points(Eigen::RowVector3d(-4.43164,-5.41006,0.745269), Eigen::RowVector3d(0,0,1));
+            viewer.data().add_points(Eigen::RowVector3d(-1.08315,-3.25799,0.768346), Eigen::RowVector3d(0,0,1));
+            viewer.data().add_points(Eigen::RowVector3d( 2.78361,-1.22904,0.615455), Eigen::RowVector3d(0,0,1));
+            viewer.data().add_points(Eigen::RowVector3d( 4.99299,0.755414,0.878948), Eigen::RowVector3d(0,0,1));
+            viewer.data().add_points(Eigen::RowVector3d(-6.34126,-6.59147,0.581683), Eigen::RowVector3d(0,0,1));
+            viewer.data().add_points(Eigen::RowVector3d(0.862945,-2.24792,0.687048), Eigen::RowVector3d(0,0,1));
+            viewer.data().add_points(Eigen::RowVector3d(-2.92221,-4.40623,0.764268), Eigen::RowVector3d(0,0,1));
+  
+        }else{
+            // //Draw continuous mesh
+            MatrixXd newV = mesh->continuousV();
+            viewer.data().set_mesh(newV, F);
+
+            viewer.data().compute_normals();
         }
         
 
@@ -318,16 +326,16 @@ int main(int argc, char *argv[])
         }
 
         if(key=='S'){
-            cout<<"nsh "<<mesh->s_handle_elem_map().size()<<endl;
-            for(int c=0; c<mesh->s_handle_elem_map().size(); c++){
-                std::vector<int> cluster_elem = mesh->s_handle_elem_map()[c];
-                for(int e=0; e<cluster_elem.size(); e++){
-                    SETCOLORSMAT.row(mesh->T().row(cluster_elem[e])[0]) = Colors.row(2*c);
-                    SETCOLORSMAT.row(mesh->T().row(cluster_elem[e])[1]) = Colors.row(2*c);
-                    SETCOLORSMAT.row(mesh->T().row(cluster_elem[e])[2]) = Colors.row(2*c);
-                    SETCOLORSMAT.row(mesh->T().row(cluster_elem[e])[3]) = Colors.row(2*c);
+            SETCOLORSMAT.setZero();
+            for(int i=0; i<mesh->T().rows(); i++){
+                if(mesh->sW().col(6*kkkk)[6*i] > 0){
+                    SETCOLORSMAT.row(mesh->T().row(i)[0]) = Colors.row(5);
+                    SETCOLORSMAT.row(mesh->T().row(i)[1]) = Colors.row(5);
+                    SETCOLORSMAT.row(mesh->T().row(i)[2]) = Colors.row(5);
+                    SETCOLORSMAT.row(mesh->T().row(i)[3]) = Colors.row(5);
+
                 }
-            }   
+            }
         }
         //---------------- 
 
@@ -335,6 +343,7 @@ int main(int argc, char *argv[])
         for(int i=0; i<mesh->fixed_verts().size(); i++){
             viewer.data().add_points(mesh->V().row(mesh->fixed_verts()[i]),Eigen::RowVector3d(1,0,0));
         }
+
 
         //Draw joint points
         // for(int i=0; i<joint_bones_verts.size(); i++){
