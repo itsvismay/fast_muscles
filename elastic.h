@@ -50,6 +50,9 @@ public:
 			std::vector<Trip> uS_trips;
 			for(int i=0; i<mesh.muscle_vecs()[m].size(); i++){
 				int t = mesh.muscle_vecs()[m][i];
+				if(mesh.relativeStiffness()[t]>100){
+					continue;
+				}
 				Vector3d u = mesh.Uvecs().row(t);
 				uS_trips.push_back(Trip(3*t+0, 6*t+0 , u[0]));
 				uS_trips.push_back(Trip(3*t+0, 6*t+3 , u[1]));
@@ -356,7 +359,7 @@ public:
 			}
 			for(int i=0; i<mesh.muscle_vecs()[contract_muscles[q]].size(); i++){
 				int t = mesh.muscle_vecs()[contract_muscles[q]][i];
-			
+				
 	            double C1 = eY[t]/(2.0*(1.0+eP[t]));
 	            double D1 = (eY[t]*eP[t])/((1.0+eP[t])*(1.0-2.0*eP[t]));
 	            if(rs.size()==6*mesh.T().rows()){

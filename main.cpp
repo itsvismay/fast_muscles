@@ -5,6 +5,7 @@
 #include <igl/readDMAT.h>
 #include <igl/writeDMAT.h>
 #include <igl/readOBJ.h>
+#include <igl/jet.h>
 #include <igl/slice.h>
 #include <igl/boundary_facets.h>
 #include <json.hpp>
@@ -53,6 +54,15 @@ void readConfigFile(MatrixXd& V,
     igl::readDMAT(datafile+"/generated_files/combined_relative_stiffness.dmat", relativeStiffness);
     if(relativeStiffness.size()==0){
         relativeStiffness = VectorXd::Ones(T.rows());
+    }else{
+        relativeStiffness = relativeStiffness/1e12;
+        for(int i=0; i<relativeStiffness.size(); i++){
+            if(relativeStiffness[i]>5){
+                relativeStiffness[i] = 1000;//*relativeStiffness[i]*relativeStiffness[i];
+            }else{
+                relativeStiffness[i] = 1;
+            }
+        }
     }
     
     //Read Geometry
@@ -161,53 +171,53 @@ int main(int argc, char *argv[])
         relativeStiffness,  
         j_input);
     
-    // std::cout<<"-----ARAP-----"<<std::endl;
-    // Reduced_Arap* arap = new Reduced_Arap(*mesh);
+    std::cout<<"-----ARAP-----"<<std::endl;
+    Reduced_Arap* arap = new Reduced_Arap(*mesh);
 
-    // std::cout<<"-----Neo-------"<<std::endl;
-    // double start_strength = j_input["muscle_starting_strength"];
-    // std::vector<int> contract_muscles_at_ind = j_input["contract_muscles_at_index"];
-    // Elastic* neo = new Elastic(*mesh, start_strength, contract_muscles_at_ind);
+    std::cout<<"-----Neo-------"<<std::endl;
+    double start_strength = j_input["muscle_starting_strength"];
+    std::vector<int> contract_muscles_at_ind = j_input["contract_muscles_at_index"];
+    Elastic* neo = new Elastic(*mesh, start_strength, contract_muscles_at_ind);
 
-    // std::cout<<"-----Solver-------"<<std::endl;
-    // int DIM = mesh->red_s().size();
-    // RedSolver f(DIM, mesh, arap, neo, j_input);
-    // LBFGSParam<double> param;
-    // param.epsilon = 1e-1;
-    // if(j_input["bfgs_convergence_crit_fast"]){
-    //     param.delta = 1e-5;
-    //     param.past = 1;
-    // }
+    std::cout<<"-----Solver-------"<<std::endl;
+    int DIM = mesh->red_s().size();
+    RedSolver f(DIM, mesh, arap, neo, j_input);
+    LBFGSParam<double> param;
+    param.epsilon = 1e-1;
+    if(j_input["bfgs_convergence_crit_fast"]){
+        param.delta = 1e-5;
+        param.past = 1;
+    }
 
-    // param.linesearch = LBFGSpp::LBFGS_LINESEARCH_BACKTRACKING_ARMIJO;
-    // LBFGSSolver<double> solver(param);
+    param.linesearch = LBFGSpp::LBFGS_LINESEARCH_BACKTRACKING_ARMIJO;
+    LBFGSSolver<double> solver(param);
 
 
     igl::Timer timer;
 
-    // int run =0;
-    // for(int run=0; run<j_input["QS_steps"]; run++){
-    //     MatrixXd newV = mesh->continuousV();
-    //     string datafile = j_input["data"];
-    //     ostringstream out;
-    //     out << std::internal << std::setfill('0') << std::setw(3) << run;
-    //     igl::writeOBJ(outputfile+"/"+namestring+"/"+namestring+"animation"+out.str()+".obj",newV, F);
-    //     igl::writeDMAT(outputfile+"/"+namestring+"/"+namestring+"animation"+out.str()+".dmat",newV);
-    //     cout<<"     ---Quasi-Newton Step Info"<<endl;
-    //     double fx =0;
-    //     VectorXd ns = mesh->N().transpose()*mesh->red_s();
-    //     timer.start();
-    //     int niter = solver.minimize(f, ns, fx);
-    //     timer.stop();
-    //     cout<<"     BFGSIters: "<<niter<<endl;
-    //     cout<<"     QSsteptime: "<<timer.getElapsedTimeInMicroSec()<<endl;
-    //     VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
-    //     for(int i=0; i<reds.size(); i++){
-    //         mesh->red_s()[i] = reds[i];
-    //     }
+    int run =0;
+    for(int run=0; run<j_input["QS_steps"]; run++){
+        MatrixXd newV = mesh->continuousV();
+        string datafile = j_input["data"];
+        ostringstream out;
+        out << std::internal << std::setfill('0') << std::setw(3) << run;
+        igl::writeOBJ(outputfile+"/"+namestring+"/"+namestring+"animation"+out.str()+".obj",newV, F);
+        igl::writeDMAT(outputfile+"/"+namestring+"/"+namestring+"animation"+out.str()+".dmat",newV);
+        cout<<"     ---Quasi-Newton Step Info"<<endl;
+        double fx =0;
+        VectorXd ns = mesh->N().transpose()*mesh->red_s();
+        timer.start();
+        int niter = solver.minimize(f, ns, fx);
+        timer.stop();
+        cout<<"     BFGSIters: "<<niter<<endl;
+        cout<<"     QSsteptime: "<<timer.getElapsedTimeInMicroSec()<<endl;
+        VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
+        for(int i=0; i<reds.size(); i++){
+            mesh->red_s()[i] = reds[i];
+        }
         
-    //     neo->changeFiberMag(j_input["multiplier_strength_each_step"]);
-    // }
+        neo->changeFiberMag(j_input["multiplier_strength_each_step"]);
+    }
     // exit(0);
 
     std::cout<<"-----Display-------"<<std::endl;
@@ -216,15 +226,6 @@ int main(int argc, char *argv[])
     Colors = (Colors + MatrixXd::Constant(1000,3,1.))*(1-1e-6)/2.; // add 1 to the matrix to have values between 0 and 2; multiply with range/2
     Colors = (Colors + MatrixXd::Constant(1000,3,1e-6)); //set LO as the lower bound (offset)
     MatrixXd SETCOLORSMAT = MatrixXd::Zero(V.rows(), 3);
-    // for(int c=0; c<mesh->red_w().size()/3; c++){
-    //     std::vector<int> cluster_elem = mesh->r_cluster_elem_map()[c];
-    //     for(int e=0; e<cluster_elem.size(); e++){
-    //         SETCOLORSMAT.row(mesh->T().row(cluster_elem[e])[0]) = Colors.row(c);
-    //         SETCOLORSMAT.row(mesh->T().row(cluster_elem[e])[1]) = Colors.row(c);
-    //         SETCOLORSMAT.row(mesh->T().row(cluster_elem[e])[2]) = Colors.row(c);
-    //         SETCOLORSMAT.row(mesh->T().row(cluster_elem[e])[3]) = Colors.row(c);
-    //     }
-    // }
   
     int kkkk = 0;
     double tttt = 0;
@@ -248,6 +249,7 @@ int main(int argc, char *argv[])
             kkkk +=1;
             cout<<kkkk<<endl;
         }
+
         // if(key=='A'){
         //     cout<<"here"<<endl;
         //     neo->changeFiberMag(j_input["multiplier_strength_each_step"]);
@@ -280,8 +282,6 @@ int main(int argc, char *argv[])
         // }
 
         
-        
-
         if(key=='D'){
             
             // Draw disc mesh
@@ -312,13 +312,13 @@ int main(int argc, char *argv[])
             viewer.data().add_points(Eigen::RowVector3d(0.862945,-2.24792,0.687048), Eigen::RowVector3d(0,0,1));
             viewer.data().add_points(Eigen::RowVector3d(-2.92221,-4.40623,0.764268), Eigen::RowVector3d(0,0,1));
   
-        }else{
-            // //Draw continuous mesh
-            MatrixXd newV = mesh->continuousV();
-            viewer.data().set_mesh(newV, F);
-
-            viewer.data().compute_normals();
         }
+        // //Draw continuous mesh
+        MatrixXd newV = mesh->continuousV();
+        viewer.data().set_mesh(newV, F);
+
+        viewer.data().compute_normals();
+    
         
 
         if(key=='R'){
@@ -331,38 +331,45 @@ int main(int argc, char *argv[])
                     SETCOLORSMAT.row(mesh->T().row(cluster_elem[e])[3]) = Colors.row(c);
                 }
             }
+            viewer.data().set_colors(SETCOLORSMAT);
         }
 
         if(key=='S'){
             SETCOLORSMAT.setZero();
+            if(kkkk==mesh->sW().cols()/6){
+                kkkk=0;
+            }
             for(int i=0; i<mesh->T().rows(); i++){
-                if(mesh->sW().col(6*kkkk)[6*i] > 0){
-                    SETCOLORSMAT.row(mesh->T().row(i)[0]) = Colors.row(5);
-                    SETCOLORSMAT.row(mesh->T().row(i)[1]) = Colors.row(5);
-                    SETCOLORSMAT.row(mesh->T().row(i)[2]) = Colors.row(5);
-                    SETCOLORSMAT.row(mesh->T().row(i)[3]) = Colors.row(5);
+                double weight = mesh->sW().col(6*kkkk)[6*i];
+                if(weight > 0){
+                    SETCOLORSMAT.row(mesh->T().row(i)[0]) = weight*Colors.row(5);
+                    SETCOLORSMAT.row(mesh->T().row(i)[1]) = weight*Colors.row(5);
+                    SETCOLORSMAT.row(mesh->T().row(i)[2]) = weight*Colors.row(5);
+                    SETCOLORSMAT.row(mesh->T().row(i)[3]) = weight*Colors.row(5);
 
                 }
             }
+            viewer.data().set_colors(SETCOLORSMAT);
+        }
+        if(key=='V'){
+            //Display tendon areas
+            MatrixXd COLRS;
+            // cout<<relativeStiffness.transpose()<<endl;
+            VectorXd zz = VectorXd::Zero(mesh->V().rows());
+            for(int i=0; i<mesh->T().rows(); i++){
+                zz[mesh->T().row(i)[0]] = relativeStiffness[i];
+                zz[mesh->T().row(i)[1]] = relativeStiffness[i];
+                zz[mesh->T().row(i)[2]] = relativeStiffness[i];
+                zz[mesh->T().row(i)[3]] = relativeStiffness[i];
+            }
+            igl::jet(zz, true, COLRS);
+            viewer.data().set_colors(COLRS);
         }
         //---------------- 
 
         //Draw fixed and moving points
         for(int i=0; i<mesh->fixed_verts().size(); i++){
             viewer.data().add_points(mesh->V().row(mesh->fixed_verts()[i]),Eigen::RowVector3d(1,0,0));
-        }
-
-        if(key=='S'){
-            SETCOLORSMAT.setZero();
-            for(int i=0; i<mesh->T().rows(); i++){
-                if(mesh->sW().col(6*kkkk)[6*i] > 0){
-                    SETCOLORSMAT.row(mesh->T().row(i)[0]) = Colors.row(10);
-                    SETCOLORSMAT.row(mesh->T().row(i)[1]) = Colors.row(10);
-                    SETCOLORSMAT.row(mesh->T().row(i)[2]) = Colors.row(10);
-                    SETCOLORSMAT.row(mesh->T().row(i)[3]) = Colors.row(10);
-
-                }
-            }
         }
       
         //Draw joint points
@@ -377,7 +384,6 @@ int main(int argc, char *argv[])
         //     }
         // }
         
-        viewer.data().set_colors(SETCOLORSMAT);
         return false;
     };
 
@@ -387,7 +393,7 @@ int main(int argc, char *argv[])
     viewer.core.is_animating = false;
     viewer.data().face_based = true;
     viewer.core.background_color = Eigen::Vector4f(1,1,1,0);
-    viewer.data().set_colors(SETCOLORSMAT);
+    // viewer.data().set_colors(SETCOLORSMAT);
 
     viewer.launch();
     return EXIT_SUCCESS;

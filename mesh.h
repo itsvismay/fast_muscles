@@ -38,7 +38,7 @@ protected:
     VectorXd mcontx, mx, mx0, mred_s, melemYoungs, 
     melemPoissons, mred_r, mred_x, mred_w, mPAx0, mFPAx;
     MatrixXd mR, mG, msW, mUvecs, mJ;
-    VectorXd mmass_diag, mbones;
+    VectorXd mmass_diag, mbones, m_relativeStiffness;
 
     std::vector<int> mfix, mmov;
     std::map<int, std::vector<int>> mr_cluster_elem_map;
@@ -148,6 +148,7 @@ public:
         
         print("step 8");
         setElemWiseYoungsPoissons(youngs, poissons, relativeStiffness);
+        m_relativeStiffness = relativeStiffness;
         
         print("step 9");
         setDiscontinuousMeshT();
@@ -220,14 +221,11 @@ public:
         for(int i=0; i<mT.rows(); i++){
             if(mbones[i]>0.5){
                 //if bone, give it higher youngs
-                melemYoungs[i] = youngs*100;
+                melemYoungs[i] = youngs*10000;
 
             }else{
-                if(relativeStiffness[i]>20000){
-                    melemYoungs[i] = youngs*20000; 
-                }else{
-                    melemYoungs[i] = youngs*relativeStiffness[i];
-                }
+                melemYoungs[i] = youngs*relativeStiffness[i];
+                
             }
             melemPoissons[i] = poissons;
         }
@@ -900,6 +898,7 @@ public:
     std::map<int, std::vector<int>>& r_cluster_elem_map(){ return mr_cluster_elem_map; }
     std::map<int, std::vector<int>>& s_handle_elem_map(){ return ms_handle_elem_map; }
     VectorXi& r_elem_cluster_map(){ return mr_elem_cluster_map; }
+    VectorXd& relativeStiffness() { return m_relativeStiffness;}
     VectorXd& bones(){ return mbones; }
     std::vector<VectorXi> muscle_vecs() { return mmuscles; }
     // std::vector<MatrixXd> joints(){ return mjoints; }

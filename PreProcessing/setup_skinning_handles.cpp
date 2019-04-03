@@ -17,6 +17,7 @@ using namespace std;
 MatrixXd bbw_strain_skinning_matrix(VectorXi& handles, const MatrixXd& mV, MatrixXi& mT){
     std::set<int> unique_vertex_handles;
     std::set<int>::iterator it;
+    //from the tet handle indexes, get the unique verts that can act as handles
     for(int i=0; i<handles.size(); i++){
         unique_vertex_handles.insert(mT(handles[i], 0));
         unique_vertex_handles.insert(mT(handles[i], 1));
@@ -59,7 +60,7 @@ MatrixXd bbw_strain_skinning_matrix(VectorXi& handles, const MatrixXd& mV, Matri
     // compute BBW weights matrix
     igl::BBWData bbw_data;
     // only a few iterations for sake of demo
-    bbw_data.active_set_params.max_iter = 8;
+    bbw_data.active_set_params.max_iter = 100;
     bbw_data.verbosity = 2;
     
     MatrixXd W, M;
@@ -254,9 +255,6 @@ void setup_skinning_handles(int nsh, bool reduced, const MatrixXi& mT, const Mat
         MatrixXd sWi = setup_skinning_helper(maxnsh-1- insert_index , 1, componentT, componentV, mC, mA, mx0, ms_handle_elem_map);
         
         MatrixXd sWslice = MatrixXd::Zero(mT.rows(), sWi.cols());
-        cout<<sWi.rows()<<", "<<sWi.cols()<<endl;
-        cout<<ibones[b].size()<<endl;
-
         igl::slice_into(sWi , ibones[b], 1, sWslice);
         sW.block(0,insert_index, mT.rows(), sWi.cols()) = sWslice;
         nsh = nsh - 1; //bone skinning handle has been made, so decrease nsh by 1
@@ -285,8 +283,7 @@ void setup_skinning_handles(int nsh, bool reduced, const MatrixXi& mT, const Mat
         }
 
         MatrixXd sWslice = MatrixXd::Zero(mT.rows(), sWi.cols());
-        cout<<sWi.rows()<<", "<<sWi.cols()<<endl;
-        cout<<imuscle[m].size()<<endl;
+        
         igl::slice_into(sWi , imuscle[m], 1, sWslice);
         sW.block(0,insert_index, mT.rows(), sWi.cols()) = sWslice;
         insert_index += number_handles_per_muscle;
