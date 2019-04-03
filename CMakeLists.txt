@@ -16,13 +16,13 @@ option(LIBIGL_WITH_OPENGL_GLFW      "Use GLFW"           ON)
 option(LIBIGL_WITH_OPENGL_GLFW_IMGUI      "Use IMGUI"           ON)
 
 find_package(LIBIGL REQUIRED QUIET)
-find_package(SUITESPARSE REQUIRED QUIET)
+#find_package(SUITESPARSE REQUIRED QUIET)
 find_package(OpenCV REQUIRED)
 
 include_directories(${JSON_HPP_SRC_DIR})
 include_directories(${SPECTRA_DIR})
 include_directories(${NEW_BFGSB_SRC_DIR})
-include_directories(${SUITESPARSE_INCLUDE_DIRS})
+#include_directories(${SUITESPARSE_INCLUDE_DIRS})
 include_directories(${OpenCV_INCLUDE_DIRS})
 
 
