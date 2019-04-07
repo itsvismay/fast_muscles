@@ -37,3 +37,5 @@
 *.app
 
 muscle_gen/build/
+
+*.DS_Store

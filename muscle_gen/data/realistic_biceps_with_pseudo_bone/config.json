@@ -1,0 +1,54 @@
+{
+	"muscles": {
+		"biceps": {
+			"surface_obj": "biceps.obj",
+			"mass_g": 300.0
+		}
+	},
+
+	"bones": {
+		"humerus": {
+			"surface_obj": "humerus.obj",
+			"mass_g": 100.0
+		},
+		"forearm": {
+			"surface_obj": "forearm.obj",
+			"mass_g": 100.0
+		},
+		"scapula": {
+			"surface_obj": "scapula.obj",
+			"mass_g": 100.0
+		},
+		"pseudo_bone_shoulder": {
+			"surface_obj": "pseudo_bone_shoulder.obj",
+			"mass_g": 100.0
+		},
+		"pseudo_bone_forearm": {
+			"surface_obj": "pseudo_bone_forearm.obj",
+			"mass_g": 100.0
+		}
+	},
+
+	"joints": {
+		"shoulder": {
+			"type": "ball",
+			"location_obj": "shoulder_joint.obj",
+			"bones": ["scapula", "humerus"]
+		},
+		"elbow": {
+			"type": "hinge",
+			"location_obj": "elbow_joint.obj",
+			"bones": ["forearm", "humerus"]
+		},
+		"pseudo_joint_shoulder": {
+			"type": "ball",
+			"location_obj": "pseudo_joint_shoulder.obj",
+			"bones": ["pseudo_bone_shoulder", "scapula"]
+		},
+		"pseudo_joint_forearm": {
+			"type": "ball",
+			"location_obj": "pseudo_joint_forearm.obj",
+			"bones": ["pseudo_bone_forearm", "forearm"]
+		}
+	}
+}
