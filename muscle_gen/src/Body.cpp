@@ -20,7 +20,11 @@ void Body::write(const std::string &out_dir) {
 	string V_path = lf::path::join(out_dir, "tet_mesh_V.dmat");
 	igl::writeDMAT(V_path, tet_mesh.V, false);
 
+	string combined_relative_stiffness_path = lf::path::join(out_dir, "combined_relative_stiffness.dmat");
+	igl::writeDMAT(combined_relative_stiffness_path, combined_relative_stiffness, false);
+
 	string combined_fiber_directions_path = lf::path::join(out_dir, "combined_fiber_directions.dmat");
+	combined_fiber_directions.rowwise().normalize();
 	igl::writeDMAT(combined_fiber_directions_path, combined_fiber_directions, false);
 
 	string joint_indices_path = lf::path::join(out_dir, "joint_indices.dmat");

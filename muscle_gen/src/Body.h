@@ -19,6 +19,7 @@ namespace muscle_gen {
 		
 		Eigen::MatrixXd combined_fiber_directions; // |T| x 3 (Zeros for bones)
 		Eigen::MatrixXd harmonic_boundary_verts;
+		Eigen::VectorXd combined_relative_stiffness;
 
 
 		std::vector<int> joint_indices; // All tets belonging to joints

@@ -115,6 +115,7 @@ Mesh combine_surfs(map<string, Mesh> &bone_surfs, map<string, Mesh> &muscle_surf
 TetMesh tetrahedralize_mesh(const Mesh &surf_mesh) {
 	TetMesh combined_tet_mesh;
 	tetwild::Args tetwild_args;
+	tetwild_args.initial_edge_len_rel = tetwild_args.initial_edge_len_rel*0.5;
 
 	VectorXd A;
 	tetwild::tetrahedralization(surf_mesh.V, surf_mesh.F, combined_tet_mesh.V, combined_tet_mesh.T, A, tetwild_args);
@@ -300,7 +301,7 @@ void compute_muscle_fibers(const Body &body, MatrixXd &combined_fiber_directions
 		igl::grad(muscle_tet_mesh.V, muscle_tet_mesh.T, G);
 
 		MatrixXd fiber_directions = Map<const MatrixXd>((G*W).eval().data(), muscle_tet_mesh.T.rows(), 3);
-		fiber_directions.rowwise().normalize();
+		//fiber_directions.rowwise().normalize();
 
 		// Map them back to the combined mesh
 		for(int i = 0; i < fiber_directions.rows(); i++) {
@@ -308,6 +309,22 @@ void compute_muscle_fibers(const Body &body, MatrixXd &combined_fiber_directions
 		}
 	}
 	igl::list_to_matrix(harmonic_boundary_verts_vec, harmonic_boundary_verts);
+}
+
+void compute_element_stiffness(const Body& body, VectorXd& combined_relative_stiffness){
+	combined_relative_stiffness = VectorXd::Ones(body.tet_mesh.T.rows());
+
+	for(const auto &el: body.muscle_indices){
+		VectorXd grad_norms = VectorXd::Zero(el.second.size());
+		for(int i=0; i<grad_norms.size(); i++){
+			grad_norms[i] = body.combined_fiber_directions.row(el.second[i]).norm();
+		}
+		double min_grad_norm = grad_norms.minCoeff();
+		grad_norms = (1/min_grad_norm)*grad_norms;
+		for(int i = 0; i < grad_norms.size(); i++){
+			combined_relative_stiffness[el.second[i]] = grad_norms[i];
+		}
+	}
 }
 
 
@@ -391,7 +408,9 @@ void generate_body_from_config(const string &body_dir, bool load_existing_tets, 
 
 	compute_muscle_fibers(body, body.combined_fiber_directions, body.harmonic_boundary_verts);
 	
-	add_joints(config, obj_dir, body);
+	compute_element_stiffness(body, body.combined_relative_stiffness);
+
+	// add_joints(config, obj_dir, body);
 }
 
 
