@@ -185,6 +185,7 @@ void compute_indices(
 		// bones
 		for(const auto &el : bone_dists) {
 			const VectorXd &dists = el.second;
+			// We check against eps_absolute because this is what tetwild guarantees as tolerance
 			if(dists(i) <= eps_absolute) {
 				bone_indices[el.first].push_back(i);
 				found_bone = true;
