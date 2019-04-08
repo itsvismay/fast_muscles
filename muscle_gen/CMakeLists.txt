@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 ### ---- libIGL options: choose between header only and compiled static library
-option(LIBIGL_USE_STATIC_LIBRARY     "Use libigl as static library" OFF) # TODO is this even working?
+option(LIBIGL_USE_STATIC_LIBRARY     "Use libigl as static library" ON) # TODO is this even working?
 option(LIBIGL_WITH_CGAL              "Use CGAL"                     ON)
 option(LIBIGL_WITH_COMISO            "Use CoMiso"                   OFF)
 option(LIBIGL_WITH_CORK              "Use Cork"                     OFF)

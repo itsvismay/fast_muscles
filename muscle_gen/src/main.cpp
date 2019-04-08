@@ -12,6 +12,7 @@
 
 #include <igl/barycenter.h>
 #include <igl/boundary_facets.h>
+#include <igl/bounding_box_diagonal.h>
 #include <igl/combine.h>
 #include <igl/grad.h>
 #include <igl/harmonic.h>
@@ -112,14 +113,14 @@ Mesh combine_surfs(map<string, Mesh> &bone_surfs, map<string, Mesh> &muscle_surf
 }
 
 
-TetMesh tetrahedralize_mesh(const Mesh &surf_mesh) {
+TetMesh tetrahedralize_mesh(const Mesh &surf_mesh, double eps_rel) {
 	TetMesh combined_tet_mesh;
 	tetwild::Args tetwild_args;
 	tetwild_args.initial_edge_len_rel = tetwild_args.initial_edge_len_rel*0.5;
+	tetwild_args.eps_rel = eps_rel; // Tetwild default is 0.1
 
 	VectorXd A;
 	tetwild::tetrahedralization(surf_mesh.V, surf_mesh.F, combined_tet_mesh.V, combined_tet_mesh.T, A, tetwild_args);
-
 	return combined_tet_mesh;
 }
 
@@ -151,6 +152,7 @@ void save_body_tet_mesh(const string &body_dir, const TetMesh &tet_mesh) {
 
 
 void compute_indices(
+	double eps_absolute, // Computed from tetwild relative epsilon
 	const TetMesh &tet_mesh,
 	const map<string, Mesh> &bone_surfs,
 	const map<string, Mesh> &muscle_surfs,
@@ -176,13 +178,14 @@ void compute_indices(
 
 	// For each tet, find the first mesh (in listed order) that contains its center
 	// TODO: This isn't guaranteed to assign all tets. Could have NaNs or other edge cases.
+	int unassigned_tets = 0;
 	for(int i = 0; i < tet_mesh.T.rows(); i++) {
 		bool assigned_tet = false;
 		bool found_bone = false;
 		// bones
 		for(const auto &el : bone_dists) {
 			const VectorXd &dists = el.second;
-			if(dists(i) <= 0.0) {
+			if(dists(i) <= eps_absolute) {
 				bone_indices[el.first].push_back(i);
 				found_bone = true;
 				assigned_tet = true;
@@ -193,7 +196,7 @@ void compute_indices(
 		if(!found_bone) {
 			for(const auto &el : muscle_dists) {
 				const VectorXd &dists = el.second;
-				if(dists(i) <= 0.0) {
+				if(dists(i) <= eps_absolute) {
 					muscle_indices[el.first].push_back(i);
 					assigned_tet = true;
 					break;
@@ -202,6 +205,7 @@ void compute_indices(
 		}
 
 		if(!assigned_tet) {
+			unassigned_tets++;
 			for(const auto &el : muscle_dists) {
 				const VectorXd &dists = el.second;
 				std::cout << dists(i) << std::endl;
@@ -213,6 +217,8 @@ void compute_indices(
 			std::cout << std::endl;
 		}
 	}
+	std::cout << "# Unassigned tets: " << unassigned_tets << std::endl;
+	std::cout << "eps_absolute: " << eps_absolute << std::endl;
 }
 
 
@@ -394,15 +400,18 @@ void generate_body_from_config(const string &body_dir, bool load_existing_tets, 
 
 	body.surf_mesh = combine_surfs(body.bone_surfs, body.muscle_surfs);
 
-	// This is just to speed up development, saved files remain unused
+	double eps_rel = 0.1; // This is the tetwild epsilon. Default is 0.1
 	if(load_existing_tets) {
+		// This is just to speed up development, saved files remain unused
 		body.tet_mesh = load_body_tet_mesh(body_dir);
 	} else {
-		body.tet_mesh = tetrahedralize_mesh(body.surf_mesh);
+		body.tet_mesh = tetrahedralize_mesh(body.surf_mesh, eps_rel);
 		save_body_tet_mesh(body_dir, body.tet_mesh);
 	}
 
-	compute_indices(body.tet_mesh, body.bone_surfs, body.muscle_surfs, body.bone_indices, body.muscle_indices);
+	// Need to use this when assigning tets to correct mesh component
+	double eps_absolute = igl::bounding_box_diagonal(body.surf_mesh.V) * eps_rel / 100.0; // Taken from Tetwild State.h
+	compute_indices(eps_absolute, body.tet_mesh, body.bone_surfs, body.muscle_surfs, body.bone_indices, body.muscle_indices);
 
 	split_tet_meshes(body.tet_mesh, body.bone_indices, body.muscle_indices, body.split_tet_meshes);
 
