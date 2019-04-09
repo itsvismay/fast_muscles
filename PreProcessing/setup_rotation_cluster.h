@@ -22,5 +22,6 @@ void setup_rotation_cluster(int nrc,
 	VectorXd& mx0, 
 	std::vector<SparseMatrix<double>>& mRotationBLOCK, 
 	std::map<int, std::vector<int>>& mr_cluster_elem_map, 
-	VectorXi& mr_elem_cluster_map);
+	VectorXi& mr_elem_cluster_map,
+	VectorXd& relStiff);
 #endif

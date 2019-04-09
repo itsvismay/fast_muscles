@@ -13,7 +13,8 @@ void setup_rotation_cluster(int nrc, bool reduced, const MatrixXi& mT,
     const MatrixXd& mV, std::vector<VectorXi>& ibones, std::vector<VectorXi>& imuscle, 
     VectorXd& mred_x, VectorXd& mred_r, VectorXd& mred_w,
 	SparseMatrix<double>& mC, SparseMatrix<double>& mA, MatrixXd& mG, VectorXd& mx0, 
-	std::vector<SparseMatrix<double>>& mRotationBLOCK, std::map<int, std::vector<int>>& mr_cluster_elem_map, VectorXi& mr_elem_cluster_map){
+	std::vector<SparseMatrix<double>>& mRotationBLOCK, std::map<int, std::vector<int>>& mr_cluster_elem_map, 
+    VectorXi& mr_elem_cluster_map, VectorXd& relStiff){
     std::cout<<"+ Rotation Clusters"<<std::endl;
     if(nrc==0){
         //unreduced
@@ -37,7 +38,7 @@ void setup_rotation_cluster(int nrc, bool reduced, const MatrixXi& mT,
                    mr_elem_cluster_map[i] = i;
                 }  
             }else{
-                kmeans_clustering(mr_elem_cluster_map, nrc, ibones, imuscle, mG, mC, mA, mx0);
+                kmeans_clustering(mr_elem_cluster_map, nrc, 2, ibones, imuscle, mG, mC, mA, mx0, relStiff);
             }
         }
 

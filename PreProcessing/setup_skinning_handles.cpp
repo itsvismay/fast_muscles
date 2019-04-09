@@ -6,11 +6,13 @@
 #include <igl/boundary_conditions.h>
 #include <igl/lbs_matrix.h>
 #include <igl/bbw.h>
+#include <igl/harmonic.h>
 #include <unsupported/Eigen/KroneckerProduct>
 #include <igl/slice_into.h>
 #include <igl/remove_unreferenced.h>
 #include <igl/normalize_row_sums.h>
 #include <igl/writeOBJ.h>
+#include <igl/list_to_matrix.h>
 
 using namespace Eigen;
 using namespace std;
@@ -65,12 +67,21 @@ MatrixXd bbw_strain_skinning_matrix(VectorXi& handles, const MatrixXd& mV, Matri
     
     MatrixXd W, M;
     cout<<"---------1--------"<<endl;
+    if(handles.size()==1){
+        return MatrixXd::Ones(mT.rows(), handles.size());
+    }
     if(!igl::bbw(mV, mT, b, bc, bbw_data, W))
     {
         std::cout<<"EXIT: Error here"<<std::endl;
         exit(0);
         return MatrixXd();
     }
+    // if(!igl::harmonic(mV, mT, b, bc, 1, W))
+    // {
+    //     std::cout<<"EXIT: Error here"<<std::endl;
+    //     exit(0);
+    //     return MatrixXd();
+    // }
     cout<<"---------2--------"<<endl;
 
     // Normalize weights to sum to one
@@ -158,20 +169,17 @@ MatrixXd setup_skinning_helper(int indx,
       
         handles_ind[k] = minind;
     }
-
-
-    for(int i =0; i<handles_ind.size(); i++){
-        std::cout<<tet_center(mT, mV, handles_ind[i])<<std::endl;
-    }
+    
   
     return bbw_strain_skinning_matrix(handles_ind, mV, mT);
 
 }
 
 void setup_skinning_handles(int nsh, bool reduced, const MatrixXi& mT, const MatrixXd& mV, std::vector<VectorXi>& ibones, std::vector<VectorXi>& imuscle,
-	SparseMatrix<double>& mC, SparseMatrix<double>& mA, MatrixXd& mG, VectorXd& mx0, VectorXd& mred_s, MatrixXd& msW, std::map<int, std::vector<int>>& ms_handle_elem_map){
+    SparseMatrix<double>& mC, SparseMatrix<double>& mA, MatrixXd& mG, VectorXd& mx0, VectorXd& mred_s, MatrixXd& msW, std::map<int, std::vector<int>>& ms_handle_elem_map, VectorXd& relStiff){
     
     std::cout<<"+ Skinning Handles"<<std::endl;
+    int handles_per_tendon=2;
     VectorXi skinning_elem_cluster_map;
     std::map<int, std::vector<int>> skinning_cluster_elem_map;
 
@@ -192,7 +200,7 @@ void setup_skinning_handles(int nsh, bool reduced, const MatrixXi& mT, const Mat
             skinning_elem_cluster_map[i] = i;
         }   
     }else{
-        kmeans_clustering(skinning_elem_cluster_map, nsh, ibones, imuscle, mG, mC, mA, mx0);
+        kmeans_clustering(skinning_elem_cluster_map, nsh, handles_per_tendon, ibones, imuscle, mG, mC, mA, mx0, relStiff);
     }
 
 
@@ -264,12 +272,52 @@ void setup_skinning_handles(int nsh, bool reduced, const MatrixXi& mT, const Mat
     cout<<"----------MUSCLE HANDLES----"<<nsh<<"---"<<insert_index<<"-----"<<endl;
     int number_handles_per_muscle = nsh/imuscle.size();
     for(int m=0; m<imuscle.size(); m++){ //through muscle vector
+        std::vector<int> tendon_elements_list;
+        std::vector<int> muscle_elements_list;
+        for(int i=0; i<imuscle[m].size(); i++){
+            if(relStiff[imuscle[m][i]]>10){
+                tendon_elements_list.push_back(imuscle[m][i]);
+            }else{
+                muscle_elements_list.push_back(imuscle[m][i]);
+            }
+        }
+      
+        VectorXi muscle_els, tendon_els;
+        igl::list_to_matrix(tendon_elements_list, tendon_els);
+        igl::list_to_matrix(muscle_elements_list, muscle_els);
+
+        //Tendon skinning handles---------------------------
+        if(tendon_els.size()>0){
+            
+            MatrixXi TcomponentT;
+            MatrixXd TcomponentV;
+            MatrixXi TsubT(tendon_els.size(), 4);
+            VectorXi TJ;
+            for(int i=0; i<tendon_els.size() ; i++){
+                TsubT.row(i) = mT.row(tendon_els[i]);
+            }
+            igl::remove_unreferenced(mV, TsubT, TcomponentV, TcomponentT, TJ);
+            std::string Tnam = "tendon"+to_string(m)+".obj";
+            igl::writeOBJ(Tnam, TcomponentV, TcomponentT);
+            MatrixXd TsWi;
+            if(m==imuscle.size() -1){
+                TsWi = setup_skinning_helper(maxnsh -1 - insert_index - nsh + handles_per_tendon, handles_per_tendon, TcomponentT, TcomponentV, mC, mA, mx0, ms_handle_elem_map);
+            }else{
+                TsWi = setup_skinning_helper(maxnsh -1 - insert_index - number_handles_per_muscle + handles_per_tendon, handles_per_tendon, TcomponentT, TcomponentV, mC, mA, mx0, ms_handle_elem_map);
+            }
+            MatrixXd TsWslice = MatrixXd::Zero(mT.rows(), TsWi.cols());
+            
+            igl::slice_into(TsWi , tendon_els, 1, TsWslice);
+            sW.block(0,insert_index, mT.rows(), TsWi.cols()) = TsWslice;
+        }
+
+        //Muscle skinning handles---------------------------
         MatrixXi componentT;
         MatrixXd componentV;
-        MatrixXi subT(imuscle[m].size(), 4);
+        MatrixXi subT(muscle_els.size(), 4);
         VectorXi J;
-        for(int i=0; i<imuscle[m].size() ; i++){
-            subT.row(i) = mT.row(imuscle[m][i]);
+        for(int i=0; i<muscle_els.size() ; i++){
+            subT.row(i) = mT.row(muscle_els[i]);
         }
         igl::remove_unreferenced(mV, subT, componentV, componentT, J);
         std::string nam = "muscle"+to_string(m)+".obj";
@@ -277,15 +325,15 @@ void setup_skinning_handles(int nsh, bool reduced, const MatrixXi& mT, const Mat
         MatrixXd sWi;
         if(m==imuscle.size()-1){
             //Deal with remainder handles
-            sWi = setup_skinning_helper(maxnsh - 1 - insert_index, nsh, componentT, componentV, mC, mA, mx0, ms_handle_elem_map);
+            sWi = setup_skinning_helper(maxnsh - 1 - insert_index, nsh - handles_per_tendon, componentT, componentV, mC, mA, mx0, ms_handle_elem_map);
         }else{
-            sWi = setup_skinning_helper(maxnsh - 1 - insert_index, number_handles_per_muscle, componentT, componentV, mC, mA, mx0, ms_handle_elem_map );
+            sWi = setup_skinning_helper(maxnsh - 1 - insert_index, number_handles_per_muscle - handles_per_tendon, componentT, componentV, mC, mA, mx0, ms_handle_elem_map );
         }
 
         MatrixXd sWslice = MatrixXd::Zero(mT.rows(), sWi.cols());
         
-        igl::slice_into(sWi , imuscle[m], 1, sWslice);
-        sW.block(0,insert_index, mT.rows(), sWi.cols()) = sWslice;
+        igl::slice_into(sWi , muscle_els, 1, sWslice);
+        sW.block(0,insert_index+handles_per_tendon, mT.rows(), sWi.cols()) = sWslice;
         insert_index += number_handles_per_muscle;
         nsh =  nsh - number_handles_per_muscle;
     }

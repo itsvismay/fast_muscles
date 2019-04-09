@@ -82,6 +82,7 @@ public:
         mmuscle_name_index_map = imuscle_name_index_map;
         mbone_name_index_map = ibone_name_index_map;
         mjoint_bones_verts = ijoint_bones_verts;
+        m_relativeStiffness = relativeStiffness;
 
         double youngs = j_input["youngs"];
         double poissons = j_input["poissons"];
@@ -148,16 +149,15 @@ public:
         
         print("step 8");
         setElemWiseYoungsPoissons(youngs, poissons, relativeStiffness);
-        m_relativeStiffness = relativeStiffness;
         
         print("step 9");
         setDiscontinuousMeshT();
 
         print("step 10");
-        setup_rotation_cluster(nrc, reduced, mT, mV, ibone_tets, imuscle_tets, mred_x, mred_r, mred_w, mC, mA, mG, mx0, mRotationBLOCK, mr_cluster_elem_map, mr_elem_cluster_map);
+        setup_rotation_cluster(nrc, reduced, mT, mV, ibone_tets, imuscle_tets, mred_x, mred_r, mred_w, mC, mA, mG, mx0, mRotationBLOCK, mr_cluster_elem_map, mr_elem_cluster_map, relativeStiffness);
 
         print("step 11");
-        setup_skinning_handles(nsh, reduced, mT, mV, ibone_tets, imuscle_tets, mC, mA, mG, mx0, mred_s, msW, ms_handle_elem_map);
+        setup_skinning_handles(nsh, reduced, mT, mV, ibone_tets, imuscle_tets, mC, mA, mG, mx0, mred_s, msW, ms_handle_elem_map, relativeStiffness);
         
         print("step 12");
         MatrixXd temp1;
@@ -165,7 +165,6 @@ public:
         igl::readDMAT(outputfile+"/"+to_string((int)j_input["number_modes"])+"modes.dmat", temp1);
         if(temp1.rows() == 0){
             setup_modes(j_input, num_modes, reduced, mP, mA, mConstrained, mFree, mY, mV, mT, mmass_diag, temp1);
-
         }
         mG = mY*temp1;
 
@@ -471,12 +470,13 @@ public:
     void setN(std::vector<VectorXi> bones){
         //TODO make this work for reduced skinning
         int nsh_bones = bones.size();
-        mN.resize(mred_s.size(), mred_s.size() - 6*nsh_bones); //#nsh x nsh for muscles (project out bones handles)
+        int handles_per_tendon=2;
+        mN.resize(mred_s.size(), mred_s.size() - 6*nsh_bones - handles_per_tendon*6); //#nsh x nsh for muscles (project out bones handles)
         mN.setZero();
 
         int j=0;
         for(int i=0; i<mN.rows()/6; i++){
-            if(i<bones.size()){
+            if(i<bones.size()+handles_per_tendon){
                 continue;
             }
             mN.coeffRef(6*i+0, 6*j+0) = 1;
@@ -488,12 +488,11 @@ public:
             j++;
         }
 
-        mAN.resize(mred_s.size(), 6*nsh_bones); //#nsh x nsh for muscles (project out muscle handles)
+        mAN.resize(mred_s.size(), 6*nsh_bones + handles_per_tendon*6); //#nsh x nsh for muscles (project out muscle handles)
         mAN.setZero();
-
         j=0;
         for(int i=0; i<mAN.rows()/6; i++){
-            if(i>=bones.size()){
+            if(i>=bones.size()+handles_per_tendon){
                 continue;
             }
             mAN.coeffRef(6*i+0, 6*j+0) = 1;
@@ -502,8 +501,11 @@ public:
             mAN.coeffRef(6*i+3, 6*j+3) = 1;
             mAN.coeffRef(6*i+4, 6*j+4) = 1;
             mAN.coeffRef(6*i+5, 6*j+5) = 1;
+
             j++;
         }
+
+
     }
  
     void setP(){
@@ -519,8 +521,8 @@ public:
 
         for(int i=0; i<mT.rows(); i++){
             double weight = 1;
-            if(mbones[i]==1){
-                weight = 1;
+            if(m_relativeStiffness[i]>10){
+                weight = 100;
             }
             for(int j=0; j<3; j++){
                 triplets.push_back(Trip(12*i+0+j, 12*i+0+j, weight*p(0,0)/4));

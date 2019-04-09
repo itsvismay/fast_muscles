@@ -50,7 +50,7 @@ public:
 			std::vector<Trip> uS_trips;
 			for(int i=0; i<mesh.muscle_vecs()[m].size(); i++){
 				int t = mesh.muscle_vecs()[m][i];
-				if(mesh.relativeStiffness()[t]>100){
+				if(mesh.relativeStiffness()[t]>10){
 					continue;
 				}
 				Vector3d u = mesh.Uvecs().row(t);
@@ -198,7 +198,8 @@ public:
 	}
 
 	double StableNeoEnergy(Mesh& mesh){
-		double En = 0;
+		double EnMuscle = 0;
+		double EnTendon = 0;
 		VectorXd& eY = mesh.eYoungs();
 		VectorXd& eP = mesh.ePoissons();
 		VectorXd& bones = mesh.bones();
@@ -222,7 +223,7 @@ public:
 					sW4[6*t+3] += 1;
 					sW5[6*t+4] += 1;
 					sW6[6*t+5] += 1;
-		        	En += StableNeoElementEnergy(sW1,sW2,sW3,sW4,sW5,sW6, rs, C1, D1);
+		        	EnMuscle += StableNeoElementEnergy(sW1,sW2,sW3,sW4,sW5,sW6, rs, C1, D1);
 		        	sW1[6*t+0] -= 1;
 					sW2[6*t+1] -= 1;
 					sW3[6*t+2] -= 1;
@@ -230,11 +231,18 @@ public:
 					sW5[6*t+4] -= 1;
 					sW6[6*t+5] -= 1;
 				}else{
-	            	En += StableNeoElementEnergy(mesh.sW().row(6*t+0),mesh.sW().row(6*t+1),mesh.sW().row(6*t+2),mesh.sW().row(6*t+3),mesh.sW().row(6*t+4),mesh.sW().row(6*t+5), rs, C1, D1);
+	            	double En = StableNeoElementEnergy(mesh.sW().row(6*t+0),mesh.sW().row(6*t+1),mesh.sW().row(6*t+2),mesh.sW().row(6*t+3),mesh.sW().row(6*t+4),mesh.sW().row(6*t+5), rs, C1, D1);
+					if(mesh.relativeStiffness()[t]>100){
+						EnTendon += En;
+					}else{
+						EnMuscle += En;
+					}
 				}
 			}
 		}
-		return En;
+		std::cout<<"Muscle Energy: "<<EnMuscle<<std::endl;
+		std::cout<<"Tendon Energy: "<<EnTendon<<std::endl;
+		return EnMuscle + EnTendon;
 	}
 
 	double StableNeoElementEnergy(const VectorXd& w0, const VectorXd& w1, const VectorXd& w2, const VectorXd& w3, const VectorXd& w4, const VectorXd& w5,  const VectorXd& rs, double C1, double D1){
@@ -556,9 +564,11 @@ public:
 		}
 	}
 
+
 	double Energy(Mesh& m){
 		double Elas =  StableNeoEnergy(m);
 		double Muscle = MuscleEnergy(m);
+		cout<<"Muscle Energy: "<< Muscle<<endl;
 		return Elas + Muscle;
 	}
 
@@ -569,7 +579,7 @@ public:
 	}
 
 	void changeFiberMag(double multiplier){
-		muscle_fibre_mag *= multiplier;
+		muscle_fibre_mag += multiplier;
 		cout<<"muscle fiber mag"<<endl;
 		cout<<muscle_fibre_mag<<endl;
 	}

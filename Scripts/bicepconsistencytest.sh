@@ -1,19 +1,19 @@
 #!/bin/bash
-m=250
-for c in 5;
+m=50
+for c in 4 5 6;
 do
-	for s in 5 10 15 20;
+	for s in 4 5 6;
 	do
-		f="../data/realistic_biceps/${m}modes${c}clusters${s}handles";
+		f="../data/simple_muscle/${m}modes${c}clusters${s}handles";
 		mkdir $f
 	done
 done
 
-for c in 5;
+for c in 4 5 6;
 do
-	for s in 5 10 15 20;
+	for s in 4 5 6;
 	do
-		t="../data/realistic_biceps/${m}modes${c}clusters${s}handles/${m}modes${c}clusters${s}handles.txt";
+		t="../data/simple_muscle/${m}modes${c}clusters${s}handles/${m}modes${c}clusters${s}handles.txt";
 		./../release/elastic $m $c $s &
 	done
 done

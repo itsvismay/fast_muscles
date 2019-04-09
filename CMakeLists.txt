@@ -24,6 +24,7 @@ include_directories(${SPECTRA_DIR})
 include_directories(${NEW_BFGSB_SRC_DIR})
 #include_directories(${SUITESPARSE_INCLUDE_DIRS})
 include_directories(${OpenCV_INCLUDE_DIRS})
+message(${OpenCV_INCLUDE_DIRS})
 
 
 # Add your project files
