@@ -387,7 +387,174 @@ int main(int argc, char *argv[])
         return false;
     };
 
-	viewer.data().set_mesh(V,F);
+    //////////////////****GUI Menu Part****/////////////////////
+    // Attach a menu plugin
+    igl::opengl::glfw::imgui::ImGuiMenu menu;
+    viewer.plugins.push_back(&menu);
+
+    // Customize the menu
+    double input_box_max_muscle_strength = 0.1f; // Shared between two menus
+    float slider_muscle_activiation = 0.1f; // 
+    
+    // Add content to the default menu window
+    menu.callback_draw_viewer_menu = [&]()
+    {
+
+        // Add new group
+        if (ImGui::CollapsingHeader("Tool Box", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+		// Expose variable directly ...
+		ImGui::InputDouble("Muscle Strength", &input_box_max_muscle_strength, 0, 0, "%.4f");
+		
+		//Sliding Bar
+		ImGui::SliderFloat("Activation level", &slider_muscle_activiation, 0.f, 1.f, "%.4f", 1.f);
+
+		// Add buttons for keys Q
+		if (ImGui::Button("Key Q", ImVec2(-1,0)))
+		{
+		    viewer.data().clear();
+
+		    kkkk +=1;
+            	    cout<<"BUTTON Q"<<endl;
+
+		    //Draw continuous mesh
+		    MatrixXd newV = mesh->continuousV();
+		    viewer.data().set_mesh(newV, F);
+
+		    viewer.data().compute_normals();
+    
+		    for(int i=0; i<mesh->fixed_verts().size(); i++){
+		        viewer.data().add_points(mesh->V().row(mesh->fixed_verts()[i]),Eigen::RowVector3d(1,0,0));
+		    }
+		}
+
+		// Add buttons for keys D
+		if (ImGui::Button("Key D", ImVec2(-1,0)))
+		{
+		    viewer.data().clear();
+
+	            cout<<"BUTTON D"<<endl;
+		    std::cout<<std::endl;
+            	    MatrixXd& discV = mesh->discontinuousV();
+                    MatrixXi& discT = mesh->discontinuousT();
+                    for(int i=0; i<muscle_tets[0].size(); i++){
+                	Vector4i e = discT.row(muscle_tets[0][i]);
+                	Matrix<double, 1,3> p0 = discV.row(e[0]);
+                	Matrix<double, 1,3> p1 = discV.row(e[1]);
+                	Matrix<double, 1,3> p2 = discV.row(e[2]);
+                	Matrix<double, 1,3> p3 = discV.row(e[3]);
+
+                	viewer.data().add_edges(p0,p1,Eigen::RowVector3d(1,0,1));
+                	viewer.data().add_edges(p0,p2,Eigen::RowVector3d(1,0,1));
+                	viewer.data().add_edges(p0,p3,Eigen::RowVector3d(1,0,1));
+                	viewer.data().add_edges(p1,p2,Eigen::RowVector3d(1,0,1));
+                	viewer.data().add_edges(p1,p3,Eigen::RowVector3d(1,0,1));
+                	viewer.data().add_edges(p2,p3,Eigen::RowVector3d(1,0,1));
+           	    }
+            	    viewer.data().add_points(Eigen::RowVector3d(-4.43164,-5.41006,0.745269), Eigen::RowVector3d(0,0,1));
+            	    viewer.data().add_points(Eigen::RowVector3d(-1.08315,-3.25799,0.768346), Eigen::RowVector3d(0,0,1));
+                    viewer.data().add_points(Eigen::RowVector3d( 2.78361,-1.22904,0.615455), Eigen::RowVector3d(0,0,1));
+                    viewer.data().add_points(Eigen::RowVector3d( 4.99299,0.755414,0.878948), Eigen::RowVector3d(0,0,1));
+                    viewer.data().add_points(Eigen::RowVector3d(-6.34126,-6.59147,0.581683), Eigen::RowVector3d(0,0,1));
+                    viewer.data().add_points(Eigen::RowVector3d(0.862945,-2.24792,0.687048), Eigen::RowVector3d(0,0,1));
+                    viewer.data().add_points(Eigen::RowVector3d(-2.92221,-4.40623,0.764268), Eigen::RowVector3d(0,0,1));
+		
+		    //Draw continuous mesh
+		    MatrixXd newV = mesh->continuousV();
+		    viewer.data().set_mesh(newV, F);
+
+		    viewer.data().compute_normals();
+		     
+		    for(int i=0; i<mesh->fixed_verts().size(); i++){
+		        viewer.data().add_points(mesh->V().row(mesh->fixed_verts()[i]),Eigen::RowVector3d(1,0,0));
+		    }
+		}
+
+		// Add buttons for keys R
+		if (ImGui::Button("Key R", ImVec2(-1,0)))
+		{
+		    viewer.data().clear();	
+		    MatrixXd newV = mesh->continuousV();
+            	    viewer.data().set_mesh(newV, F);
+		    viewer.data().compute_normals();
+		    cout<<"BUTTON R"<<endl;
+
+		    for(int c=0; c<mesh->red_w().size()/3; c++){
+		        std::vector<int> cluster_elem = mesh->r_cluster_elem_map()[c];
+		        for(int e=0; e<cluster_elem.size(); e++){
+		            SETCOLORSMAT.row(mesh->T().row(cluster_elem[e])[0]) = Colors.row(c);
+		            SETCOLORSMAT.row(mesh->T().row(cluster_elem[e])[1]) = Colors.row(c);
+		            SETCOLORSMAT.row(mesh->T().row(cluster_elem[e])[2]) = Colors.row(c);
+		            SETCOLORSMAT.row(mesh->T().row(cluster_elem[e])[3]) = Colors.row(c);
+		        }
+		    }
+
+		    for(int i=0; i<mesh->fixed_verts().size(); i++){
+		        viewer.data().add_points(mesh->V().row(mesh->fixed_verts()[i]),Eigen::RowVector3d(1,0,0));
+		    }
+
+		    viewer.data().set_colors(SETCOLORSMAT);
+		}
+
+		// Add buttons for keys S
+		if (ImGui::Button("Key S", ImVec2(-1,0)))
+		{
+		    viewer.data().clear();
+		    MatrixXd newV = mesh->continuousV();
+            	    viewer.data().set_mesh(newV, F);
+		    viewer.data().compute_normals();
+
+		    cout<<"BUTTON S"<<endl;
+		    SETCOLORSMAT.setZero();
+		    for(int i=0; i<mesh->T().rows(); i++){
+		        if(mesh->sW().col(6*kkkk)[6*i] > 0){
+		            SETCOLORSMAT.row(mesh->T().row(i)[0]) = Colors.row(5);
+		            SETCOLORSMAT.row(mesh->T().row(i)[1]) = Colors.row(5);
+		            SETCOLORSMAT.row(mesh->T().row(i)[2]) = Colors.row(5);
+		            SETCOLORSMAT.row(mesh->T().row(i)[3]) = Colors.row(5);
+
+		        }
+		    }
+		    viewer.data().set_colors(SETCOLORSMAT);
+		    for(int i=0; i<mesh->fixed_verts().size(); i++){
+		        viewer.data().add_points(mesh->V().row(mesh->fixed_verts()[i]),Eigen::RowVector3d(1,0,0));
+		    }
+
+		}
+
+		// Add buttons for keys V
+		if (ImGui::Button("Key V", ImVec2(-1,0)))
+		{
+		    viewer.data().clear();
+		    MatrixXd newV = mesh->continuousV();
+            	    viewer.data().set_mesh(newV, F);
+		    viewer.data().compute_normals();
+
+		    cout<<"BUTTON S"<<endl;
+		    //Display tendon areas
+		    MatrixXd COLRS;
+		    // cout<<relativeStiffness.transpose()<<endl;
+		    VectorXd zz = VectorXd::Zero(mesh->V().rows());
+		    for(int i=0; i<mesh->T().rows(); i++){
+		        zz[mesh->T().row(i)[0]] = relativeStiffness[i];
+		        zz[mesh->T().row(i)[1]] = relativeStiffness[i];
+		        zz[mesh->T().row(i)[2]] = relativeStiffness[i];
+		        zz[mesh->T().row(i)[3]] = relativeStiffness[i];
+		    }
+		    igl::jet(zz, true, COLRS);
+		    viewer.data().set_colors(COLRS);
+		    for(int i=0; i<mesh->fixed_verts().size(); i++){
+		        viewer.data().add_points(mesh->V().row(mesh->fixed_verts()[i]),Eigen::RowVector3d(1,0,0));
+		    }
+
+		}
+		//status windows?
+		
+	  }
+    };
+    //////////////////****GUI Menu Part****/////////////////////
+
+    viewer.data().set_mesh(V,F);
     viewer.data().show_lines = false;
     viewer.data().invert_normals = true;
     viewer.core.is_animating = false;
