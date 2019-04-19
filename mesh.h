@@ -79,6 +79,7 @@ public:
         mT = iT;
         mmov = imov;
         mmuscles = imuscle_tets;
+	cout << "**************** Threre are "<< mmuscles.size()<<" muscles objs ****************"<<endl;
         mmuscle_name_index_map = imuscle_name_index_map;
         mbone_name_index_map = ibone_name_index_map;
         mjoint_bones_verts = ijoint_bones_verts;
@@ -93,6 +94,7 @@ public:
 
         cout<<"if it fails here, make sure indexing is within bounds"<<endl;
         std::set<int> fix_verts_set;
+        cout<<"Mesh::Fixed Bone starts: "<<endl;
         for(int ii=0; ii<ifix_bones.size(); ii++){
             cout<<ifix_bones[ii]<<endl;
             int bone_ind = mbone_name_index_map[ifix_bones[ii]];
@@ -101,7 +103,7 @@ public:
             fix_verts_set.insert(mT.row(ibone_tets[bone_ind][10])[2]);
             fix_verts_set.insert(mT.row(ibone_tets[bone_ind][10])[3]);
         }
-
+	cout<<"Mesh::Fixed Bone ends."<<endl;
         mfix.assign(fix_verts_set.begin(), fix_verts_set.end());
         std::sort (mfix.begin(), mfix.end());
 
@@ -120,17 +122,27 @@ public:
 
         mbones.resize(mT.rows());
         mbones.setZero();
-
+	cout<<"Mesh::Tets Bone starts: "<<endl;
         for(int b=0; b<ibone_tets.size(); b++){
             for(int i=0; i<ibone_tets[b].size(); i++){
                 mbones[ibone_tets[b][i]] = 1;
             }
         }
+        cout<<"Mesh::Tets Bone ends."<<endl;
+	
+	//assumptions:
+	//imuscle_tets stores muscle's edges
+	//TODO
+        //configure muscle edges index and return its coordinates?
+	cout<<"Mesh::Muscle part starts: "<<endl;
+        cout<<"Mesh::Muscle tes number is: "<<imuscle_tets.size()<<endl;
         for(int m=0; m<imuscle_tets.size(); m++){
             for(int i=0; i<imuscle_tets[m].size(); i++){
+		//cout << i <<endl;
                 mbones[imuscle_tets[m][i]] -=1;
             }
         }
+	cout<<"Mesh::Muscle part ends."<<endl;
 
         print("step 2");
         setP();

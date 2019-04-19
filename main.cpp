@@ -36,6 +36,7 @@ RowVector3d green(0,1,0);
 RowVector3d black(0,0,0);
 MatrixXd Colors;
 
+
 void readConfigFile(MatrixXd& V, 
     MatrixXi& T, MatrixXi& F, MatrixXd& Uvec, 
     std::map<std::string, int>& bone_name_index_map,
@@ -96,16 +97,18 @@ void readConfigFile(MatrixXd& V,
         bone_name_index_map[it.key()] = count_index;
         count_index +=1;
     }
-
+    cout<<"Number of bone edges: "<< count_index<<endl;
     count_index = 0;
+    cout<<"Reading Configue::for muscle parts"<<endl;
     for(json::iterator it = j_muscles.begin(); it != j_muscles.end(); ++it){
         VectorXi muscle_i;
         igl::readDMAT(datafile+"/generated_files/"+it.key()+"_muscle_indices.dmat", muscle_i);
         muscle_tets.push_back(muscle_i);
         muscle_name_index_map[it.key()] = count_index;
+        cout<<"Muscle part: "<<it.key()<<" inserted!"<<endl;
         count_index +=1;
     }
-
+    cout<<"Reading Configue ends"<<endl;
     count_index =0;
     for(json::iterator it = j_joints.begin(); it!= j_joints.end(); ++it){
         MatrixXd joint_i;
@@ -115,6 +118,7 @@ void readConfigFile(MatrixXd& V,
         std::vector<std::string> bones = it.value()["bones"];
         joint_bones_verts.push_back(std::make_pair( bones, joint_i));
     }
+    cout<<"Number of joint edges: "<< count_index<<endl;
 
 }
 
@@ -137,6 +141,9 @@ int main(int argc, char *argv[])
     std::map<std::string, int> muscle_name_index_map;
     std::vector< std::pair<std::vector<std::string>, MatrixXd>> joint_bones_verts;
     VectorXd relativeStiffness;
+
+    //para
+    //(MatrixXd& V, MatrixXi& T, MatrixXi& F, MatrixXd& Uvec, std::map<std::string, int>& bone_name_index_map, std::map<std::string, int>& muscle_name_index_map, std::vector< std::pair<std::vector<std::string>, MatrixXd>>& joint_bones_verts, std::vector<VectorXi>& bone_tets, std::vector<VectorXi>& muscle_tets, std::vector<std::string>& fix_bones, VectorXd& relativeStiffness)
     readConfigFile(V, T, F, Uvec, bone_name_index_map, muscle_name_index_map, joint_bones_verts, bone_tets, muscle_tets, fix_bones, relativeStiffness);  
     
     cout<<"---Record Mesh Setup Info"<<endl;
@@ -157,6 +164,7 @@ int main(int argc, char *argv[])
     igl::boundary_facets(T, F);
 
 
+    //Creating Meshes
     std::cout<<"-----Mesh-------"<<std::endl;
     Mesh* mesh = new Mesh(
         V, 
@@ -171,6 +179,18 @@ int main(int argc, char *argv[])
         relativeStiffness,  
         j_input);
     
+    //MatrixXd is point
+    //MatrixXi is edges(store two poinits index)
+    /* Example of Bounding Box
+    	for (unsigned i=0;i<E_box.rows(); ++i)
+	    viewer.data().add_edges
+	    (
+	      V_box.row(E_box(i,0)),
+	      V_box.row(E_box(i,1)),
+	      Eigen::RowVector3d(1,0,0)
+	    );
+    */
+	
     std::cout<<"-----ARAP-----"<<std::endl;
     Reduced_Arap* arap = new Reduced_Arap(*mesh);
 
@@ -184,6 +204,7 @@ int main(int argc, char *argv[])
     RedSolver f(DIM, mesh, arap, neo, j_input);
     LBFGSParam<double> param;
     param.epsilon = 1e-1;
+    
     if(j_input["bfgs_convergence_crit_fast"]){
         param.delta = 1e-5;
         param.past = 1;
@@ -195,6 +216,7 @@ int main(int argc, char *argv[])
 
     igl::Timer timer;
 
+    //write something here
     int run =0;
     for(int run=0; run<j_input["QS_steps"]; run++){
         MatrixXd newV = mesh->continuousV();
@@ -229,18 +251,63 @@ int main(int argc, char *argv[])
   
     int kkkk = 0;
     double tttt = 0;
+
+    //////////////////****Pre-Draw****///////////////////
     viewer.callback_pre_draw = [&](igl::opengl::glfw::Viewer & viewer){   
-     //    if(viewer.core.is_animating){
-     //        if(kkkk<mesh->G().cols()){
-     //            VectorXd x = 10*sin(tttt)*mesh->G().col(kkkk) + mesh->x0();
-     //            Eigen::Map<Eigen::MatrixXd> newV(x.data(), V.cols(), V.rows());
-     //            viewer.data().set_mesh(newV.transpose(), F);
-     //            tttt+= 0.1;
-     //        }
-    	// }
+        if(viewer.core.is_animating){
+            if(kkkk<mesh->G().cols()){
+                VectorXd x = 10*sin(tttt)*mesh->G().col(kkkk) + mesh->x0();
+                Eigen::Map<Eigen::MatrixXd> newV(x.data(), V.cols(), V.rows());
+                viewer.data().set_mesh(newV.transpose(), F);
+                tttt+= 0.1;
+            }
+    	}
+        //cout<<"Im here"<<endl;
         return false;
     };
 
+    //////////////////****GUI Mouse Part****/////////////////////
+    viewer.callback_mouse_down = [&](igl::opengl::glfw::Viewer & viewer, unsigned char m_key, int modifiers)
+    {
+
+        if (m_key == 0)
+        {
+ 	    cout<<"Left"<<endl;
+
+            // find the position of bone/muscle
+	    // highlight if area is valid
+	    // TODO
+	    // mouse axies & bounding box?
+            // bone_name_index_map / muscle_name_index_map
+            // highlight colors
+	    
+            // Questions:
+	    // loading bone and joint info from dictionaries?
+		
+	    //figure out position
+	    //cout<<viewer.down_mouse_x<<" "<<viewer.down_mouse_y<<" "<<viewer.current_mouse_x<<" "<<viewer.current_mouse_y<<endl; 
+	    // muscle_name_index_map: dictionary key names value index  
+            // muscle_tets: vector index and vector of edges  
+	    
+        }
+        else if (m_key == 1)
+        {
+            cout<<"Middle"<<endl;
+	    // Deselect everything
+            // TODO
+            // restore colors
+        }
+        else 
+        {
+    	    cout<<"Right"<<endl;
+	    //TBD
+
+        }
+        return false;
+    };
+    
+
+    //////////////////****Key Part****/////////////////////
     viewer.callback_key_down = [&](igl::opengl::glfw::Viewer & viewer, unsigned char key, int modifiers){   
  
         std::cout<<"Key down, "<<key<<std::endl;
@@ -387,12 +454,16 @@ int main(int argc, char *argv[])
         return false;
     };
 
+
     //////////////////****GUI Menu Part****/////////////////////
     // Attach a menu plugin
     igl::opengl::glfw::imgui::ImGuiMenu menu;
     viewer.plugins.push_back(&menu);
 
     // Customize the menu
+    // TODO
+    // link to somewhere
+    // probably fix to neo->changeFiberMag?
     double input_box_max_muscle_strength = 0.1f; // Shared between two menus
     float slider_muscle_activiation = 0.1f; // 
     
@@ -406,6 +477,8 @@ int main(int argc, char *argv[])
 		// Expose variable directly ...
 		ImGui::InputDouble("Muscle Strength", &input_box_max_muscle_strength, 0, 0, "%.4f");
 		
+		//ImGui::InputFloat("Activation level", &slider_muscle_activiation, 0, 0, "%.4f");
+
 		//Sliding Bar
 		ImGui::SliderFloat("Activation level", &slider_muscle_activiation, 0.f, 1.f, "%.4f", 1.f);
 
@@ -548,12 +621,22 @@ int main(int argc, char *argv[])
 		    }
 
 		}
+
+		// Add buttons for keys Space
+		if (ImGui::Button("Key Space", ImVec2(-1,0)))
+		{
+		    viewer.data().clear();
+            	    viewer.data().set_mesh(V, F);
+		    //viewer.data().compute_normals();
+		    cout<<"BUTTON Space"<<endl;
+		}
 		//status windows?
 		
 	  }
     };
-    //////////////////****GUI Menu Part****/////////////////////
+    
 
+    //////////////////****Viewer Init Part****/////////////////////
     viewer.data().set_mesh(V,F);
     viewer.data().show_lines = false;
     viewer.data().invert_normals = true;
