@@ -183,26 +183,29 @@ void setup_skinning_handles(int nsh, bool reduced, const MatrixXi& mT, const Mat
     VectorXi skinning_elem_cluster_map;
     std::map<int, std::vector<int>> skinning_cluster_elem_map;
 
+    if(nsh==0){
+        nsh = mT.rows();
+    } 
+
     if(nsh<(ibones.size()+imuscle.size())){
         std::cout<<"Too few skinning handles, too many components"<<std::endl;
         exit(0);
     }
 
-    if(nsh==0){
-        nsh = mT.rows();
-    } 
     
 
     //-----------------------------------------------------
     if(nsh==mT.rows() && reduced==false){
-    //unreduced
+        //unreduced
+        std::cout<<"here"<<std::endl;
+        skinning_elem_cluster_map.resize(mT.rows());
+        skinning_elem_cluster_map.setZero();
         for(int i=0; i<mT.rows(); i++){
             skinning_elem_cluster_map[i] = i;
-        }   
+        }
     }else{
         kmeans_clustering(skinning_elem_cluster_map, nsh, handles_per_tendon, ibones, imuscle, mG, mC, mA, mx0, relStiff);
     }
-
 
     for(int i=0; i<mT.rows(); i++){
         ms_handle_elem_map[skinning_elem_cluster_map[i]].push_back(i);
@@ -219,6 +222,7 @@ void setup_skinning_handles(int nsh, bool reduced, const MatrixXi& mT, const Mat
             mred_s[6*i+4] = 0; 
             mred_s[6*i+5] = 0;
         }
+        std::cout<<"- Skinning Handles"<<std::endl;
         return;
     
     }
@@ -272,44 +276,46 @@ void setup_skinning_handles(int nsh, bool reduced, const MatrixXi& mT, const Mat
     cout<<"----------MUSCLE HANDLES----"<<nsh<<"---"<<insert_index<<"-----"<<endl;
     int number_handles_per_muscle = nsh/imuscle.size();
     for(int m=0; m<imuscle.size(); m++){ //through muscle vector
-        std::vector<int> tendon_elements_list;
-        std::vector<int> muscle_elements_list;
-        for(int i=0; i<imuscle[m].size(); i++){
-            if(relStiff[imuscle[m][i]]>10){
-                tendon_elements_list.push_back(imuscle[m][i]);
-            }else{
-                muscle_elements_list.push_back(imuscle[m][i]);
-            }
-        }
+        // std::vector<int> tendon_elements_list;
+        // std::vector<int> muscle_elements_list;
+        // for(int i=0; i<imuscle[m].size(); i++){
+        //     if(relStiff[imuscle[m][i]]>10){
+        //         tendon_elements_list.push_back(imuscle[m][i]);
+        //     }else{
+        //         muscle_elements_list.push_back(imuscle[m][i]);
+        //     }
+        // }
       
         VectorXi muscle_els, tendon_els;
-        igl::list_to_matrix(tendon_elements_list, tendon_els);
-        igl::list_to_matrix(muscle_elements_list, muscle_els);
+        muscle_els = imuscle[m];
+        // igl::list_to_matrix(tendon_elements_list, tendon_els);
+        // igl::list_to_matrix(muscle_elements_list, muscle_els);
 
-        //Tendon skinning handles---------------------------
-        if(tendon_els.size()>0){
+        // //Tendon skinning handles---------------------------
+        // if(tendon_els.size()>0){
             
-            MatrixXi TcomponentT;
-            MatrixXd TcomponentV;
-            MatrixXi TsubT(tendon_els.size(), 4);
-            VectorXi TJ;
-            for(int i=0; i<tendon_els.size() ; i++){
-                TsubT.row(i) = mT.row(tendon_els[i]);
-            }
-            igl::remove_unreferenced(mV, TsubT, TcomponentV, TcomponentT, TJ);
-            std::string Tnam = "tendon"+to_string(m)+".obj";
-            igl::writeOBJ(Tnam, TcomponentV, TcomponentT);
-            MatrixXd TsWi;
-            if(m==imuscle.size() -1){
-                TsWi = setup_skinning_helper(maxnsh -1 - insert_index - nsh + handles_per_tendon, handles_per_tendon, TcomponentT, TcomponentV, mC, mA, mx0, ms_handle_elem_map);
-            }else{
-                TsWi = setup_skinning_helper(maxnsh -1 - insert_index - number_handles_per_muscle + handles_per_tendon, handles_per_tendon, TcomponentT, TcomponentV, mC, mA, mx0, ms_handle_elem_map);
-            }
-            MatrixXd TsWslice = MatrixXd::Zero(mT.rows(), TsWi.cols());
+        //     MatrixXi TcomponentT;
+        //     MatrixXd TcomponentV;
+        //     MatrixXi TsubT(tendon_els.size(), 4);
+        //     VectorXi TJ;
+        //     for(int i=0; i<tendon_els.size() ; i++){
+        //         TsubT.row(i) = mT.row(tendon_els[i]);
+        //     }
+        //     igl::remove_unreferenced(mV, TsubT, TcomponentV, TcomponentT, TJ);
+        //     std::string Tnam = "tendon"+to_string(m)+".obj";
+        //     igl::writeOBJ(Tnam, TcomponentV, TcomponentT);
+        //     MatrixXd TsWi;
+        //     if(m==imuscle.size() -1){
+        //         TsWi = setup_skinning_helper(maxnsh -1 - insert_index - nsh + handles_per_tendon, handles_per_tendon, TcomponentT, TcomponentV, mC, mA, mx0, ms_handle_elem_map);
+        //     }else{
+        //         TsWi = setup_skinning_helper(maxnsh -1 - insert_index - number_handles_per_muscle + handles_per_tendon, handles_per_tendon, TcomponentT, TcomponentV, mC, mA, mx0, ms_handle_elem_map);
+        //     }
+        //     MatrixXd TsWslice = MatrixXd::Zero(mT.rows(), TsWi.cols());
             
-            igl::slice_into(TsWi , tendon_els, 1, TsWslice);
-            sW.block(0,insert_index, mT.rows(), TsWi.cols()) = TsWslice;
-        }
+        //     igl::slice_into(TsWi , tendon_els, 1, TsWslice);
+        //     sW.block(0,insert_index, mT.rows(), TsWi.cols()) = TsWslice;
+        // }
+        handles_per_tendon=0;
 
         //Muscle skinning handles---------------------------
         MatrixXi componentT;
