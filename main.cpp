@@ -18,7 +18,7 @@
 
 
 #include "mesh.h"
-#include "redArap.h"
+#include "redUArap.h"
 #include "elastic.h"
 #include "redSolver.h"
 
@@ -281,19 +281,19 @@ int main(int argc, char *argv[])
             cout<<kkkk<<endl;
         }
 
-        if(key=='A'){
-            cout<<"here"<<endl;
-            neo->changeFiberMag(j_input["multiplier_strength_each_step"]);
-        }
+        // if(key=='A'){
+        //     cout<<"here"<<endl;
+        //     neo->changeFiberMag(j_input["multiplier_strength_each_step"]);
+        // }
 
 
         if(key==' '){
             
             // VectorXd ns = mesh->N().transpose()*mesh->red_s();
             // for(int i=0; i<ns.size()/6; i++){
-            //     ns[6*i+0] -= 0.2;
-            //     ns[6*i+1] -= 0.2;
-            //     ns[6*i+2] -= 0.2;
+            //     // ns[6*i+0] -= 0.2;
+            //     ns[6*i+1] += 0.2;
+            //     // ns[6*i+2] -= 0.2;
             // }
             // VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
             // for(int i=0; i<reds.size(); i++){
@@ -313,6 +313,7 @@ int main(int argc, char *argv[])
             for(int i=0; i<reds.size(); i++){
                 mesh->red_s()[i] = reds[i];
             }
+            arap->minimize(*mesh);
             cout<<"****QSsteptime: "<<timer.getElapsedTimeInMicroSec()<<", "<<niter<<endl;
         
         }
@@ -324,10 +325,10 @@ int main(int argc, char *argv[])
             std::cout<<std::endl;
             MatrixXd& discV = mesh->discontinuousV();
             MatrixXi& discT = mesh->discontinuousT();
-            for(int m=0; m< T.rows()/10; m++){
+            for(int m=0; m< T.rows(); m++){
                 // for(int i=0; i<muscle_tets[m].size()/10; i++){
                     // int t = muscle_tets[m][i];
-                    int t= 10*m;
+                    int t= m;
                     Vector4i e = discT.row(t);
                     // std::cout<<discT.row(i)<<std::endl<<std::endl;
                     // std::cout<<discV(Eigen::placeholders::all, discT.row(i))<<std::endl;
@@ -351,7 +352,7 @@ int main(int argc, char *argv[])
         viewer.data().set_mesh(newV, F);
 
         viewer.data().compute_normals();
-        igl::writeOBJ("fullmesh.obj", newV, F);
+        igl::writeOBJ("reduced.obj", newV, F);
         
 
         if(key=='R'){

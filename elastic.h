@@ -55,7 +55,9 @@ public:
 				if(mesh.relativeStiffness()[t]>10){
 					continue;
 				}
-				Vector3d u = mesh.Uvecs().row(t);
+				Matrix3d U = mesh.U().block<3,3>(3*t, 0);
+				Vector3d u = U.transpose()*(mesh.Uvecs().row(t)).transpose();
+
 				uS_trips.push_back(Trip(3*t+0, 6*t+0 , u[0]));
 				uS_trips.push_back(Trip(3*t+0, 6*t+3 , u[1]));
 				uS_trips.push_back(Trip(3*t+0, 6*t+4 , u[2]));
@@ -275,8 +277,8 @@ public:
 				}
 			}
 		}
-		std::cout<<"Muscle Energy: "<<EnMuscle<<std::endl;
-		std::cout<<"Tendon Energy: "<<EnTendon<<std::endl;
+		std::cout<<"Muscle Neo Energy: "<<EnMuscle<<std::endl;
+		std::cout<<"Tendon Neo Energy: "<<EnTendon<<std::endl;
 		return EnMuscle + EnTendon;
 	}
 

@@ -105,7 +105,7 @@ public:
 
 	double Energy(Mesh& m){
 		VectorXd PAx = aPA*m.red_x() + aPAx0;
-		// m.constTimeFPAx0(aFPAx0);
+		m.constTimeFPAx0(aFPAx0);
 		double En= 0.5*(PAx - aFPAx0).squaredNorm();
 		return En;
 	}
@@ -550,15 +550,16 @@ public:
 		aEs.setZero();
 		for(int t=0; t<m.T().rows(); t++){
 			Matrix3d rt = Map<Matrix3d>(m.red_r().segment<9>(9*m.r_elem_cluster_map()[t]).data());
+			Matrix3d ut = m.U().block<3,3>(3*t,0).transpose();
 			Matrix3d s;
 			s<< ms[6*t + 0], ms[6*t + 3], ms[6*t + 4],
 				ms[6*t + 3], ms[6*t + 1], ms[6*t + 5],
 				ms[6*t + 4], ms[6*t + 5], ms[6*t + 2];
 
-			Matrix3d p1 = s*aPAx0.segment<3>(12*t+0)*aPAx0.segment<3>(12*t+0).transpose() - (rt*PAg.segment<3>(12*t+0))*aPAx0.segment<3>(12*t+0).transpose();
-			Matrix3d p2 = s*aPAx0.segment<3>(12*t+3)*aPAx0.segment<3>(12*t+3).transpose() - (rt*PAg.segment<3>(12*t+3))*aPAx0.segment<3>(12*t+3).transpose();
-			Matrix3d p3 = s*aPAx0.segment<3>(12*t+6)*aPAx0.segment<3>(12*t+6).transpose() - (rt*PAg.segment<3>(12*t+6))*aPAx0.segment<3>(12*t+6).transpose();
-			Matrix3d p4 = s*aPAx0.segment<3>(12*t+9)*aPAx0.segment<3>(12*t+9).transpose() - (rt*PAg.segment<3>(12*t+9))*aPAx0.segment<3>(12*t+9).transpose();
+			Matrix3d p1 = s*ut*aPAx0.segment<3>(12*t+0)*(ut*aPAx0.segment<3>(12*t+0)).transpose() - (ut*rt*PAg.segment<3>(12*t+0))*(ut*aPAx0.segment<3>(12*t+0)).transpose();
+			Matrix3d p2 = s*ut*aPAx0.segment<3>(12*t+3)*(ut*aPAx0.segment<3>(12*t+3)).transpose() - (ut*rt*PAg.segment<3>(12*t+3))*(ut*aPAx0.segment<3>(12*t+3)).transpose();
+			Matrix3d p3 = s*ut*aPAx0.segment<3>(12*t+6)*(ut*aPAx0.segment<3>(12*t+6)).transpose() - (ut*rt*PAg.segment<3>(12*t+6))*(ut*aPAx0.segment<3>(12*t+6)).transpose();
+			Matrix3d p4 = s*ut*aPAx0.segment<3>(12*t+9)*(ut*aPAx0.segment<3>(12*t+9)).transpose() - (ut*rt*PAg.segment<3>(12*t+9))*(ut*aPAx0.segment<3>(12*t+9)).transpose();
 			
 			double Es1 = p1(0,0) + p2(0,0) + p3(0,0) + p4(0,0);
 			double Es2 = p1(1,1) + p2(1,1) + p3(1,1) + p4(1,1);
@@ -574,7 +575,7 @@ public:
 			aEs[6*t+5] = Es6;
 
 		}
-
+		
 		return aEs;
 	}
 
@@ -653,12 +654,13 @@ public:
 		VectorXd ms = m.red_s();
 		VectorXd USUtPAx0 = VectorXd::Zero(12*m.T().rows());
 		for(int t =0; t<m.T().rows(); t++){
+			Matrix3d u = m.U().block<3,3>(3*t,0);
 			Matrix3d s;
 			s<< ms[6*t + 0], ms[6*t + 3], ms[6*t + 4],
 				ms[6*t + 3], ms[6*t + 1], ms[6*t + 5],
 				ms[6*t + 4], ms[6*t + 5], ms[6*t + 2];
 			for(int j=0; j<4; j++){
-				USUtPAx0.segment<3>(12*t+3*j) =s*aPAx0.segment<3>(12*t+3*j);
+				USUtPAx0.segment<3>(12*t+3*j) = u*s*u.transpose()*aPAx0.segment<3>(12*t+3*j);
 			}
 		}
 

@@ -7,6 +7,7 @@
 #include <igl/lbs_matrix.h>
 #include <igl/bbw.h>
 #include <igl/harmonic.h>
+#include <igl/biharmonic_coordinates.h>
 #include <unsupported/Eigen/KroneckerProduct>
 #include <igl/slice_into.h>
 #include <igl/remove_unreferenced.h>
@@ -46,8 +47,10 @@ MatrixXd bbw_strain_skinning_matrix(VectorXi& handles, const MatrixXd& mV, Matri
     
     MatrixXd C = MatrixXd::Zero(unique_vertex_handles.size(), 3);
     VectorXi P = VectorXi::Zero(unique_vertex_handles.size());
+    VectorXi HandleIndexes = VectorXi::Zero(unique_vertex_handles.size());
     i=0;
     for (it=unique_vertex_handles.begin(); it!=unique_vertex_handles.end(); ++it){
+        HandleIndexes[i] =  *it;
         C.row(i) = mV.row(*it);
         P(i) = i;
         i++;
@@ -70,18 +73,34 @@ MatrixXd bbw_strain_skinning_matrix(VectorXi& handles, const MatrixXd& mV, Matri
     if(handles.size()==1){
         return MatrixXd::Ones(mT.rows(), handles.size());
     }
-    if(!igl::bbw(mV, mT, b, bc, bbw_data, W))
-    {
-        std::cout<<"EXIT: Error here"<<std::endl;
-        exit(0);
-        return MatrixXd();
-    }
+
+    // if(!igl::bbw(mV, mT, b, bc, bbw_data, W))
+    // {
+    //     std::cout<<"EXIT: Error here"<<std::endl;
+    //     exit(0);
+    //     return MatrixXd();
+    // }
     // if(!igl::harmonic(mV, mT, b, bc, 1, W))
     // {
     //     std::cout<<"EXIT: Error here"<<std::endl;
     //     exit(0);
     //     return MatrixXd();
     // }
+
+    std::vector<std::vector<int> > S;
+    igl::matrix_to_list(HandleIndexes,S);
+ 
+    cout<<"Computing weights for "<<HandleIndexes.size()<<" handles at "<<mV.rows()<<" vertices..."<<endl;
+    // Technically k should equal 3 for smooth interpolation in 3d, but 2 is
+    // faster and looks OK
+    const int k = 3;
+    igl::biharmonic_coordinates(mV,mT,S,k,W);
+
+
+
+
+
+
     cout<<"---------2--------"<<endl;
 
     // Normalize weights to sum to one
@@ -139,7 +158,7 @@ MatrixXd setup_skinning_helper(int indx,
     VectorXd& mx0, 
     std::map<int, std::vector<int>>& ms_handle_elem_map){
 
-
+    //---------BBW Skinning Handles ---------
     VectorXi handles_ind = VectorXi::Zero(nsh_on_component);
     VectorXd CAx0 = mC*mA*mx0;
 
@@ -169,9 +188,8 @@ MatrixXd setup_skinning_helper(int indx,
       
         handles_ind[k] = minind;
     }
-    
-  
     return bbw_strain_skinning_matrix(handles_ind, mV, mT);
+    
 
 }
 
@@ -183,6 +201,7 @@ void setup_skinning_handles(int nsh, bool reduced, const MatrixXi& mT, const Mat
     VectorXi skinning_elem_cluster_map;
     std::map<int, std::vector<int>> skinning_cluster_elem_map;
 
+    std::cout<<nsh<<std::endl;
     if(nsh==0){
         nsh = mT.rows();
     } 
@@ -241,10 +260,27 @@ void setup_skinning_handles(int nsh, bool reduced, const MatrixXi& mT, const Mat
         mred_s[6*i+5] = 0;
     }
 
-
-    //blocked construction of full skinning weights matrix
+    MatrixXd Id6 = MatrixXd::Identity(6, 6);
     MatrixXd sW = MatrixXd::Zero(mT.rows(), nsh);
     sW.setZero();
+    std::cout<<"nsh: "<<nsh<<std::endl;
+    std::cout<<ms_handle_elem_map.size()<<std::endl;
+    // //Constant weights of 1 for each handle region
+    // for(int h=0; h<ms_handle_elem_map.size(); h++){
+    //   std::vector<int> mshem =  ms_handle_elem_map[ms_handle_elem_map.size() - h - 1];
+    //   MatrixXd ones_vec = VectorXd::Ones(mshem.size());
+    //   MatrixXd sWslice = MatrixXd::Zero(mT.rows(), 1);
+    //   VectorXi handles_elem_vec;
+    //   igl::list_to_matrix(mshem, handles_elem_vec);
+    //   igl::slice_into(ones_vec , handles_elem_vec, 1, sWslice);
+    //   sW.block(0, h, mT.rows(), 1) = sWslice;
+    // }
+    // msW =  Eigen::kroneckerProduct(sW, Id6);
+ 
+    // return;
+
+
+    //blocked construction of full skinning weights matrix
     int maxnsh = nsh;
     cout<<"----------Bone HANDLES------------"<<maxnsh<<"--"<<ms_handle_elem_map.size()<<endl;
     int insert_index = 0;
@@ -345,7 +381,7 @@ void setup_skinning_handles(int nsh, bool reduced, const MatrixXi& mT, const Mat
     }
     assert(nsh==0);
 
-    MatrixXd Id6 = MatrixXd::Identity(6, 6);
+    // MatrixXd Id6 = MatrixXd::Identity(6, 6);
     msW =  Eigen::kroneckerProduct(sW, Id6);
  
     std::cout<<"- Skinning Handles"<<std::endl;

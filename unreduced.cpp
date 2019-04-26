@@ -160,7 +160,7 @@ int main(int argc, char *argv[])
     std::vector< std::pair<std::vector<std::string>, MatrixXd>> joint_bones_verts;
     VectorXd relativeStiffness;
     readConfigFile(V, T, F, Uvec, bone_name_index_map, muscle_name_index_map, joint_bones_verts, bone_tets, muscle_tets, fix_bones, relativeStiffness);  
-    
+        
     cout<<"---Record Mesh Setup Info"<<endl;
     cout<<"V size: "<<V.rows()<<endl;
     cout<<"T size: "<<T.rows()<<endl;
@@ -195,7 +195,9 @@ int main(int argc, char *argv[])
 
 
     std::cout<<"-----Neo-------"<<std::endl;
-    Elastic* neo = new Elastic(*mesh);
+    double start_strength = j_input["muscle_starting_strength"];
+    std::vector<int> contract_muscles_at_ind = j_input["contract_muscles_at_index"];
+    Elastic* neo = new Elastic(*mesh, start_strength, contract_muscles_at_ind);;
 
     std::cout<<"-----ARAP-----"<<std::endl;
     Arap* arap = new Arap(*mesh);
@@ -203,9 +205,6 @@ int main(int argc, char *argv[])
     std::cout<<"-----Solver-------"<<std::endl;
     int DIM = mesh->red_s().size();
     Rosenbrock f(DIM, mesh, arap, neo, j_input, false);
-
-  
-
   
     LBFGSParam<double> param;
     param.epsilon = 1e-1;
@@ -275,9 +274,9 @@ int main(int argc, char *argv[])
             
             // VectorXd ns = mesh->N().transpose()*mesh->red_s();
             // for(int i=0; i<ns.size()/6; i++){
-            //     ns[6*i+0] -= 0.2;
+            //     ns[6*i+0] += 0.2;
             //     ns[6*i+1] -= 0.2;
-            //     ns[6*i+2] -= 0.2;
+            //     ns[6*i+2] += 0.2;
             // }
             // VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
             // for(int i=0; i<reds.size(); i++){
@@ -308,10 +307,10 @@ int main(int argc, char *argv[])
             std::cout<<std::endl;
             MatrixXd& discV = mesh->discontinuousV();
             MatrixXi& discT = mesh->discontinuousT();
-            for(int m=0; m< T.rows()/10; m++){
+            for(int m=0; m< T.rows(); m++){
                 // for(int i=0; i<muscle_tets[m].size()/10; i++){
                     // int t = muscle_tets[m][i];
-                    int t= 10*m;
+                    int t= m;
                     Vector4i e = discT.row(t);
                     // std::cout<<discT.row(i)<<std::endl<<std::endl;
                     // std::cout<<discV(Eigen::placeholders::all, discT.row(i))<<std::endl;

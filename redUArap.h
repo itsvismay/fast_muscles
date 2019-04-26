@@ -126,190 +126,7 @@ public:
 			aeUSUtPAx0.push_back(MatrixXd::Zero(4*cluster_elem.size(), 3));
 		}
 	}
-
-	void setupFastEnergyTerms(Mesh& m){
-		aPAx0squaredNorm = aPAx0.transpose()*aPAx0;
-		aPAx0tPAG = aPAx0.transpose()*aPAG;
-
-			std::vector<Trip> SPAx0_trips;
-			for(int t=0; t<m.T().rows(); t++){
-				for(int j=0; j<4; j++){
-					Vector3d PAx0 = aPAx0.segment<3>(12*t + 3*j);
-					SPAx0_trips.push_back(Trip( 12*t+3*j+0, 6*t+0 , PAx0[0]));
-					SPAx0_trips.push_back(Trip( 12*t+3*j+0, 6*t+3 , PAx0[1]));
-					SPAx0_trips.push_back(Trip( 12*t+3*j+0, 6*t+4 , PAx0[2]));
-
-					SPAx0_trips.push_back(Trip( 12*t+3*j+1, 6*t+3 , PAx0[0]));
-					SPAx0_trips.push_back(Trip( 12*t+3*j+1, 6*t+1 , PAx0[1]));
-					SPAx0_trips.push_back(Trip( 12*t+3*j+1, 6*t+5 , PAx0[2]));
-
-					SPAx0_trips.push_back(Trip( 12*t+3*j+2, 6*t+4 , PAx0[0]));
-					SPAx0_trips.push_back(Trip( 12*t+3*j+2, 6*t+5 , PAx0[1]));
-					SPAx0_trips.push_back(Trip( 12*t+3*j+2, 6*t+2 , PAx0[2]));
-					
-				}
-			}
-			SparseMatrix<double> SMPAx0(12*m.T().rows(), 6*m.T().rows());
-			SMPAx0.setFromTriplets(SPAx0_trips.begin(), SPAx0_trips.end());
-		aRSPAx0tRSPAx0 = (SMPAx0*m.sW()).transpose()*(SMPAx0*m.sW());
-
 	
-			std::vector<Trip> PAx0tR_trips;
-			for(int t=0; t<m.T().rows(); t++){
-				for(int j=0; j<4; j++){
-					Vector3d PAx0 = aPAx0.segment<3>(12*t + 3*j);
-					PAx0tR_trips.push_back(Trip(12*t+3*j+0, 9*t+0, PAx0[0]));
-					PAx0tR_trips.push_back(Trip(12*t+3*j+0, 9*t+3, PAx0[1]));
-					PAx0tR_trips.push_back(Trip(12*t+3*j+0, 9*t+6, PAx0[2]));
-
-					PAx0tR_trips.push_back(Trip(12*t+3*j+1, 9*t+1, PAx0[0]));
-					PAx0tR_trips.push_back(Trip(12*t+3*j+1, 9*t+4, PAx0[1]));
-					PAx0tR_trips.push_back(Trip(12*t+3*j+1, 9*t+7, PAx0[2]));
-
-					PAx0tR_trips.push_back(Trip(12*t+3*j+2, 9*t+2, PAx0[0]));
-					PAx0tR_trips.push_back(Trip(12*t+3*j+2, 9*t+5, PAx0[1]));
-					PAx0tR_trips.push_back(Trip(12*t+3*j+2, 9*t+8, PAx0[2]));
-				}
-			}
-			SparseMatrix<double> RMPAx0(12*m.T().rows(), 9*m.T().rows());
-			RMPAx0.setFromTriplets(PAx0tR_trips.begin(), PAx0tR_trips.end());
-		aPAx0tRSPAx0 = (RMPAx0*a_Wr).transpose()*(SMPAx0*m.sW());
-	}
-
-	void setupFASTARAPTerms(Mesh& m){
-		print("setupFASTARAPTerms");
-
-		VectorXd AtPtPAx0 = (aPAG).transpose()*(aPAx0);
-		aFASTARAPDenseTerms.push_back(AtPtPAx0);
-		std::vector<Trip> PAx0_trips;
-		for(int t=0; t<m.T().rows(); t++){
-			for(int j=0; j<4; j++){
-				Vector3d PAx0 = aPAx0.segment<3>(12*t + 3*j);
-				PAx0_trips.push_back(Trip( 12*t+3*j+0, 6*t+0 , PAx0[0]));
-				PAx0_trips.push_back(Trip( 12*t+3*j+0, 6*t+3 , PAx0[1]));
-				PAx0_trips.push_back(Trip( 12*t+3*j+0, 6*t+4 , PAx0[2]));
-
-				PAx0_trips.push_back(Trip( 12*t+3*j+1, 6*t+1 , PAx0[1]));
-				PAx0_trips.push_back(Trip( 12*t+3*j+1, 6*t+3 , PAx0[0]));
-				PAx0_trips.push_back(Trip( 12*t+3*j+1, 6*t+5 , PAx0[2]));
-
-				PAx0_trips.push_back(Trip( 12*t+3*j+2, 6*t+2 , PAx0[2]));
-				PAx0_trips.push_back(Trip( 12*t+3*j+2, 6*t+4 , PAx0[0]));
-				PAx0_trips.push_back(Trip( 12*t+3*j+2, 6*t+5 , PAx0[1]));
-				
-			}
-		}
-		SparseMatrix<double> MPAx0(12*m.T().rows(), 6*m.T().rows());
-		MPAx0.setFromTriplets(PAx0_trips.begin(), PAx0_trips.end());
-		MatrixXd MPAx0sW = MPAx0*m.sW();
-
-
-		MatrixXd& sW = m.sW();
-		for(int s=0; s<sW.cols(); s++){
-			VectorXd p = MPAx0sW.col(s);
-			std::vector<Trip> BigCube_s_trips;
-			for(int t=0; t<m.T().rows(); t++){
-				for(int jj=0; jj<4; jj++){
-					BigCube_s_trips.push_back(Trip(12*t+3*jj+0, 9*t+0, p[12*t+3*jj+0]));
-					BigCube_s_trips.push_back(Trip(12*t+3*jj+0, 9*t+1, p[12*t+3*jj+1]));
-					BigCube_s_trips.push_back(Trip(12*t+3*jj+0, 9*t+2, p[12*t+3*jj+2]));
-
-					BigCube_s_trips.push_back(Trip(12*t+3*jj+1, 9*t+3, p[12*t+3*jj+0]));
-					BigCube_s_trips.push_back(Trip(12*t+3*jj+1, 9*t+4, p[12*t+3*jj+1]));
-					BigCube_s_trips.push_back(Trip(12*t+3*jj+1, 9*t+5, p[12*t+3*jj+2]));
-
-					BigCube_s_trips.push_back(Trip(12*t+3*jj+2, 9*t+6, p[12*t+3*jj+0]));
-					BigCube_s_trips.push_back(Trip(12*t+3*jj+2, 9*t+7, p[12*t+3*jj+1]));
-					BigCube_s_trips.push_back(Trip(12*t+3*jj+2, 9*t+8, p[12*t+3*jj+2]));
-				}
-			}
-
-
-			SparseMatrix<double> BigCube_s(12*m.T().rows(), 9*m.T().rows());
-			BigCube_s.setFromTriplets(BigCube_s_trips.begin(), BigCube_s_trips.end());
-
-			MatrixXd ClusteredCube_s = (aPAG).transpose()*BigCube_s*a_Wr;
-			aFASTARAPCubeGtAtPtRSPAx0.push_back(ClusteredCube_s);
-		}
-
-
-		for(int g=0; g<m.red_r().size()/9; g++){
-			std::vector<Trip> try_trips1;
-			std::vector<Trip> try_trips2;
-			std::vector<Trip> try_trips3;
-			SparseMatrix<double>& B = m.RotBLOCK()[g];
-			for(int i=0; i< B.cols()/3; i++){
-				try_trips1.push_back(Trip(i, 3*i+0, 1));
-				try_trips2.push_back(Trip(i, 3*i+1, 1));
-				try_trips3.push_back(Trip(i, 3*i+2, 1));
-
-			}
-
-			SparseMatrix<double> try1(B.cols()/3, B.cols());
-			SparseMatrix<double> try2(B.cols()/3, B.cols());
-			SparseMatrix<double> try3(B.cols()/3, B.cols());
-			try1.setFromTriplets(try_trips1.begin(), try_trips1.end());
-			try2.setFromTriplets(try_trips2.begin(), try_trips2.end());
-			try3.setFromTriplets(try_trips3.begin(), try_trips3.end());
-
-			MatrixXd BtPAG = B.transpose()*aPAG;
-			MatrixXd BtPAx0 = B.transpose()*aPAx0;
-			MatrixXd BtMPAx0sW = B.transpose()*MPAx0sW;
-
-			MatrixXd BtPAG1 = try1*BtPAG;
-			MatrixXd BtPAG2 = try2*BtPAG;
-			MatrixXd BtPAG3 = try3*BtPAG;
-
-			VectorXd BtPAx0_1 = try1*BtPAx0;
-			VectorXd BtPAx0_2 = try2*BtPAx0;
-			VectorXd BtPAx0_3 = try3*BtPAx0;
-
-			MatrixXd BtMPAx0sW1 = try1*BtMPAx0sW;
-			MatrixXd BtMPAx0sW2 = try2*BtMPAx0sW;
-			MatrixXd BtMPAx0sW3 = try3*BtMPAx0sW;
-
-			MatrixXd zs11 = BtPAG1.transpose()*BtMPAx0sW1;
-			MatrixXd zs12 = BtPAG1.transpose()*BtMPAx0sW2;
-			MatrixXd zs13 = BtPAG1.transpose()*BtMPAx0sW3;
-			MatrixXd zs21 = BtPAG2.transpose()*BtMPAx0sW1;
-			MatrixXd zs22 = BtPAG2.transpose()*BtMPAx0sW2;
-			MatrixXd zs23 = BtPAG2.transpose()*BtMPAx0sW3;
-			MatrixXd zs31 = BtPAG3.transpose()*BtMPAx0sW1;
-			MatrixXd zs32 = BtPAG3.transpose()*BtMPAx0sW2;
-			MatrixXd zs33 = BtPAG3.transpose()*BtMPAx0sW3;
-
-			VectorXd ps11 = BtPAx0_1.transpose()*BtMPAx0sW1;
-			VectorXd ps12 = BtPAx0_1.transpose()*BtMPAx0sW2;
-			VectorXd ps13 = BtPAx0_1.transpose()*BtMPAx0sW3;
-			VectorXd ps21 = BtPAx0_2.transpose()*BtMPAx0sW1;
-			VectorXd ps22 = BtPAx0_2.transpose()*BtMPAx0sW2;
-			VectorXd ps23 = BtPAx0_2.transpose()*BtMPAx0sW3;
-			VectorXd ps31 = BtPAx0_3.transpose()*BtMPAx0sW1;
-			VectorXd ps32 = BtPAx0_3.transpose()*BtMPAx0sW2;
-			VectorXd ps33 = BtPAx0_3.transpose()*BtMPAx0sW3;
-
-			aFASTARAPItRTerms1.push_back(zs11);
-			aFASTARAPItRTerms1.push_back(zs12);
-			aFASTARAPItRTerms1.push_back(zs13);
-			aFASTARAPItRTerms1.push_back(zs21);
-			aFASTARAPItRTerms1.push_back(zs22);
-			aFASTARAPItRTerms1.push_back(zs23);
-			aFASTARAPItRTerms1.push_back(zs31);
-			aFASTARAPItRTerms1.push_back(zs32);
-			aFASTARAPItRTerms1.push_back(zs33);
-
-			aFASTARAPItRTerms2.push_back(ps11);
-			aFASTARAPItRTerms2.push_back(ps12);
-			aFASTARAPItRTerms2.push_back(ps13);
-			aFASTARAPItRTerms2.push_back(ps21);
-			aFASTARAPItRTerms2.push_back(ps22);
-			aFASTARAPItRTerms2.push_back(ps23);
-			aFASTARAPItRTerms2.push_back(ps31);
-			aFASTARAPItRTerms2.push_back(ps32);
-			aFASTARAPItRTerms2.push_back(ps33);
-
-		}
-	}
 
 	void setupAdjointP(){
 		adjointP.resize(aExx.rows()+aErr.rows(), aExx.rows()+aErr.rows()+aCG.rows());
@@ -348,143 +165,6 @@ public:
 
 		a_Ww.resize( 3*m.T().rows(), m.red_w().size());
 		a_Ww.setFromTriplets(ww_trips.begin(), ww_trips.end());
-	}
-
-	void setupFastPAx0DSTerm(Mesh& m){
-		aPAx0DS = MatrixXd::Zero(aPAx0.size(), m.red_s().size());
-		for(int s=0; s<m.red_s().size()/6; s++){
-			VectorXd sWx = m.sW().col(6*s+0);
-			VectorXd sWy = m.sW().col(6*s+1);
-			VectorXd sWz = m.sW().col(6*s+2);
-			VectorXd sW01 = m.sW().col(6*s+3);
-			VectorXd sW02 = m.sW().col(6*s+4);
-			VectorXd sW12 = m.sW().col(6*s+5);
-
-			VectorXd diag_x = VectorXd::Zero(12*m.T().rows());
-			VectorXd diag_y = VectorXd::Zero(12*m.T().rows());
-			VectorXd diag_z = VectorXd::Zero(12*m.T().rows());
-			VectorXd diag_1 = VectorXd::Zero(12*m.T().rows());
-			VectorXd diag_2 = VectorXd::Zero(12*m.T().rows());
-			VectorXd diag_3 = VectorXd::Zero(12*m.T().rows());
-			for(int i=0; i<m.T().rows(); i++){
-				diag_x[12*i+0] = sWx[6*i];
-				diag_x[12*i+3] = sWx[6*i];
-				diag_x[12*i+6] = sWx[6*i];
-				diag_x[12*i+9] = sWx[6*i];
-
-				diag_y[12*i+0+1] = sWy[6*i+1];
-				diag_y[12*i+3+1] = sWy[6*i+1];
-				diag_y[12*i+6+1] = sWy[6*i+1];
-				diag_y[12*i+9+1] = sWy[6*i+1];
-
-				diag_z[12*i+0+2] = sWz[6*i+2];
-				diag_z[12*i+3+2] = sWz[6*i+2];
-				diag_z[12*i+6+2] = sWz[6*i+2];
-				diag_z[12*i+9+2] = sWz[6*i+2];
-
-				diag_1[12*i+0] = sW01[6*i+3];
-				diag_1[12*i+3] = sW01[6*i+3];
-				diag_1[12*i+6] = sW01[6*i+3];
-				diag_1[12*i+9] = sW01[6*i+3];
-
-				diag_2[12*i+0+1] = sW02[6*i+4];
-				diag_2[12*i+3+1] = sW02[6*i+4];
-				diag_2[12*i+6+1] = sW02[6*i+4];
-				diag_2[12*i+9+1] = sW02[6*i+4];
-
-				diag_3[12*i+0] = sW12[6*i+5];
-				diag_3[12*i+3] = sW12[6*i+5];
-				diag_3[12*i+6] = sW12[6*i+5];
-				diag_3[12*i+9] = sW12[6*i+5];
-			}
-
-			aPAx0DS.col(6*s+0) += aPAx0.cwiseProduct(diag_x);
-			aPAx0DS.col(6*s+1) += aPAx0.cwiseProduct(diag_y);
-			aPAx0DS.col(6*s+2) += aPAx0.cwiseProduct(diag_z);
-			
-			aPAx0DS.col(6*s+3).tail(aPAx0.size()-1) += aPAx0.head(aPAx0.size()-1).cwiseProduct(diag_1.head(aPAx0.size()-1));
-			aPAx0DS.col(6*s+3).head(aPAx0.size()-1) += aPAx0.tail(aPAx0.size()-1).cwiseProduct(diag_1.head(aPAx0.size()-1));
-
-			aPAx0DS.col(6*s+4).tail(aPAx0.size()-2) += aPAx0.head(aPAx0.size()-2).cwiseProduct(diag_3.head(aPAx0.size()-2)); 
-			aPAx0DS.col(6*s+4).head(aPAx0.size()-2) += aPAx0.tail(aPAx0.size()-2).cwiseProduct(diag_3.head(aPAx0.size()-2));
-
-			aPAx0DS.col(6*s+5).tail(aPAx0.size()-1) += aPAx0.head(aPAx0.size()-1).cwiseProduct(diag_2.head(aPAx0.size()-1));
-			aPAx0DS.col(6*s+5).head(aPAx0.size()-1) += aPAx0.tail(aPAx0.size()-1).cwiseProduct(diag_2.head(aPAx0.size()-1));
-		}
-	}
-
-	void setupFastEsTerms(Mesh& m){
-		std::vector<Trip> SPAx0_trips;
-		for(int t=0; t<m.T().rows(); t++){
-			for(int j=0; j<4; j++){
-				Vector3d PAx0 = aPAx0.segment<3>(12*t + 3*j);
-				SPAx0_trips.push_back(Trip( 12*t+3*j+0, 6*t+0 , PAx0[0]));
-				SPAx0_trips.push_back(Trip( 12*t+3*j+0, 6*t+3 , PAx0[1]));
-				SPAx0_trips.push_back(Trip( 12*t+3*j+0, 6*t+4 , PAx0[2]));
-
-				SPAx0_trips.push_back(Trip( 12*t+3*j+1, 6*t+1 , PAx0[1]));
-				SPAx0_trips.push_back(Trip( 12*t+3*j+1, 6*t+3 , PAx0[0]));
-				SPAx0_trips.push_back(Trip( 12*t+3*j+1, 6*t+5 , PAx0[2]));
-
-				SPAx0_trips.push_back(Trip( 12*t+3*j+2, 6*t+2 , PAx0[2]));
-				SPAx0_trips.push_back(Trip( 12*t+3*j+2, 6*t+4 , PAx0[0]));
-				SPAx0_trips.push_back(Trip( 12*t+3*j+2, 6*t+5 , PAx0[1]));
-				
-			}
-		}
-		SparseMatrix<double> SMPAx0(12*m.T().rows(), 6*m.T().rows());
-		SMPAx0.setFromTriplets(SPAx0_trips.begin(), SPAx0_trips.end());
-		MatrixXd SMPAx0sW = SMPAx0*m.sW();
-		aFastEsTerm1 = SMPAx0sW.transpose()*aPAx0DS;
-
-		std::vector<Trip> RtPAx0_trips;
-		for(int t=0; t<m.T().rows(); t++){
-			for(int j=0; j<4; j++){
-				Vector3d PAx0 = aPAx0.segment<3>(12*t + 3*j);
-				RtPAx0_trips.push_back(Trip( 12*t+3*j+0, 9*t+0 , PAx0[0]));
-				RtPAx0_trips.push_back(Trip( 12*t+3*j+0, 9*t+3 , PAx0[1]));
-				RtPAx0_trips.push_back(Trip( 12*t+3*j+0, 9*t+6 , PAx0[2]));
-
-				RtPAx0_trips.push_back(Trip( 12*t+3*j+1, 9*t+1 , PAx0[0]));
-				RtPAx0_trips.push_back(Trip( 12*t+3*j+1, 9*t+4 , PAx0[1]));
-				RtPAx0_trips.push_back(Trip( 12*t+3*j+1, 9*t+7 , PAx0[2]));
-
-				RtPAx0_trips.push_back(Trip( 12*t+3*j+2, 9*t+2 , PAx0[0]));
-				RtPAx0_trips.push_back(Trip( 12*t+3*j+2, 9*t+5 , PAx0[1]));
-				RtPAx0_trips.push_back(Trip( 12*t+3*j+2, 9*t+8 , PAx0[2]));
-				
-			}
-		}
-		SparseMatrix<double> RMPAx0(12*m.T().rows(), 9*m.T().rows());
-		RMPAx0.setFromTriplets(RtPAx0_trips.begin(), RtPAx0_trips.end());
-		SparseMatrix<double> RMPAx0Wr= RMPAx0*a_Wr;
-		aFastEsTerm2 = RMPAx0Wr.transpose()*aPAx0DS;
-
-		for(int g=0; g<m.red_x().size(); g++){
-			std::vector<Trip> RtPAGzi_trips;
-			for(int t=0; t<m.T().rows(); t++){
-				for(int j=0; j<4; j++){
-					Vector3d PAGi = aPAG.col(g).segment<3>(12*t + 3*j);
-					RtPAGzi_trips.push_back(Trip( 12*t+3*j+0, 9*t+0 , PAGi[0]));
-					RtPAGzi_trips.push_back(Trip( 12*t+3*j+0, 9*t+3 , PAGi[1]));
-					RtPAGzi_trips.push_back(Trip( 12*t+3*j+0, 9*t+6 , PAGi[2]));
-
-					RtPAGzi_trips.push_back(Trip( 12*t+3*j+1, 9*t+1 , PAGi[0]));
-					RtPAGzi_trips.push_back(Trip( 12*t+3*j+1, 9*t+4 , PAGi[1]));
-					RtPAGzi_trips.push_back(Trip( 12*t+3*j+1, 9*t+7 , PAGi[2]));
-
-					RtPAGzi_trips.push_back(Trip( 12*t+3*j+2, 9*t+2 , PAGi[0]));
-					RtPAGzi_trips.push_back(Trip( 12*t+3*j+2, 9*t+5 , PAGi[1]));
-					RtPAGzi_trips.push_back(Trip( 12*t+3*j+2, 9*t+8 , PAGi[2]));
-					
-				}
-			}
-			SparseMatrix<double> RMPAGzi(12*m.T().rows(), 9*m.T().rows());
-			RMPAGzi.setFromTriplets(RtPAGzi_trips.begin(), RtPAGzi_trips.end());
-			SparseMatrix<double> RMPAGzi0Wr= RMPAGzi*a_Wr;
-			MatrixXd EsTerm3 = RMPAGzi0Wr.transpose()*aPAx0DS;
-			aFastEsTerm3s.push_back(EsTerm3);
-		}
 	}
 
 	double Energy(Mesh& m){
@@ -621,6 +301,10 @@ public:
 
 	VectorXd fastEs(Mesh& m){
 		// print("		Es");
+		VectorXd PAg = aPAG*m.red_x() + aPAx0;
+		VectorXd ms = m.sW()*m.red_s();
+		VectorXd mr = a_Wr*m.red_r();
+
 		aEs_max.setZero();
 		for(int t=0; t<m.T().rows(); t++){
 			Matrix3d rt = Map<Matrix3d>(mr.segment<9>(9*t).data());
@@ -677,7 +361,7 @@ public:
 		m.red_x(gu);
  	}
 
-	void itR(Mesh& m){
+	void itR(Mesh& m, VectorXd& USUtPAx0){
 		
 		VectorXd PAx = aPAG*m.red_x() + aPAx0;
 		VectorXd& mr =m.red_r();
@@ -717,7 +401,20 @@ public:
 
 	bool minimize(Mesh& m){
 		print("		+ ARAP minimize");
-	
+		VectorXd ms = m.sW()*m.red_s();
+		VectorXd USUtPAx0 = VectorXd::Zero(12*m.T().rows());
+		for(int t =0; t<m.T().rows(); t++){
+			Matrix3d u = m.U().block<3,3>(3*t,0);
+			Matrix3d s;
+			s<< ms[6*t + 0], ms[6*t + 3], ms[6*t + 4],
+				ms[6*t + 3], ms[6*t + 1], ms[6*t + 5],
+				ms[6*t + 4], ms[6*t + 5], ms[6*t + 2];
+			for(int j=0; j<4; j++){
+				USUtPAx0.segment<3>(12*t+3*j) = u*s*u.transpose()*aPAx0.segment<3>(12*t+3*j);
+			}
+		}
+		m.constTimeFPAx0(aFPAx0);
+
 
 		double itRTimes = 0;
 		double itTTimes = 0;
@@ -731,10 +428,10 @@ public:
 			// atimer.stop();
 			// itTTimes += atimer.getElapsedTimeInMicroSec();
 			// atimer.start();
-			itR(m);
+			itR(m, USUtPAx0);
 			// atimer.stop();
 			// itRTimes += atimer.getElapsedTimeInMicroSec();
-			// m.constTimeFPAx0(aFPAx0);
+			m.constTimeFPAx0(aFPAx0);
 
 			newE = Energy(m);
 			// cout<<i<<", "<<newE-oldE<<endl;

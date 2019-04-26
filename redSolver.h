@@ -159,6 +159,8 @@ public:
 
         timer.start();
         double Earap = alpha_arap*arap->Energy(*mesh);
+        // VectorXd arapgrad = alpha_arap*mesh->N().transpose()*arap->fastEs(*mesh);
+        // double Earap = alpha_arap*arapgrad.squaredNorm();    
         timer.stop();
         double arap_energy_time = timer.getElapsedTimeInMicroSec();
         double fx = Eneo + Earap;

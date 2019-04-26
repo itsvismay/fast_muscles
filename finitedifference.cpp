@@ -429,7 +429,15 @@ int main(int argc, char *argv[]){
     VectorXi muscle1;
     MatrixXd Uvec;
     std::vector<VectorXi> muscles = {muscle1};
-    Mesh* mesh = new Mesh(T, V, fixedbones, mov, bones, muscles, Uvec, j_input, fix);
+    Mesh* mesh = new Mesh(V, 
+    					T, 
+						fixedbones, 
+						mov, 
+						bones, 
+						muscles, 
+						Uvec, 
+						j_input, 
+						fix);
 
     std::cout<<"-----ARAP-----"<<std::endl;
     Arap* arap = new Arap(*mesh);

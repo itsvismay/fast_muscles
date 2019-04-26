@@ -11,7 +11,7 @@
   "youngs": 60000,
   "poissons": 0.49,
   "fibre_mag": 0,
-  "reduced": false,
+  "reduced": true,
   "reduced_s": true,
   "reduced_r": true,
   "reduced_x": true,
@@ -19,6 +19,6 @@
   "number_rot_clusters": 0,
   "number_modes": 0,
   "fd_eps": 1e-2,
-  "alpha_arap": 1e4,
+  "alpha_arap": 0,
   "alpha_neo":1
 }
