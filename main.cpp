@@ -25,10 +25,10 @@
 
 
 using json = nlohmann::json;
+json j_input;
 
 using namespace Eigen;
 using namespace std;
-json j_input;
 
 RowVector3d red(1,0,0);
 RowVector3d purple(1,0,1);

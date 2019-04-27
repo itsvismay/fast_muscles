@@ -1,6 +1,6 @@
 {
-  "data": "/home/vismay/recode/fast_muscles/data/simple_muscle_bipennate2",
-  "output": "/home/vismay/recode/fast_muscles/data/simple_muscle_bipennate2",
+  "data": "/home/vismay/recode/fast_muscles/data/coarse_muscle",
+  "output": "/home/vismay/recode/fast_muscles/data/coarse_muscle",
   "fix_bones": ["top_bone"],  
   "muscle_starting_strength": 200000,
   "QS_steps": 100,
