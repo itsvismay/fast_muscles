@@ -42,7 +42,15 @@ void famu::read_config_files(Eigen::MatrixXd& V,
 
     std::vector<std::string> fixed = j_input["fix_bones"];
     fix_bones.insert(fix_bones.end(), fixed.begin(), fixed.end());
-
+    for(int t = 0; t<T.rows(); t++){
+        //TODO: update to be parametrized by input mU
+        Vector3d b = Uvec.row(t);
+        if(b!=b || b.norm()==0){
+            b = Vector3d::UnitY();
+            Uvec.row(t) = b;
+        }
+    }
+   
     //these bones are fixed, store them at the front of the
     //vector and save (names, index)
     int count_index =0;
