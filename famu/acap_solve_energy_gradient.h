@@ -2,8 +2,10 @@
 #define ACAP_SOLVE_ENERGY_GRADIENT
 
 #include "store.h"
+#include <igl/writeDMAT.h>
 
 using namespace famu;
+using namespace std;
 using Store = famu::Store;
 
 namespace famu
@@ -22,25 +24,25 @@ namespace famu
 			double E7 = 0.5*(store.dF*store.DSx0).transpose()*(store.dF*store.DSx0);
 			double E8 = E2+E3+E4+E5+E6+E7;
 			assert(fabs(E1 - E8)< 1e-6);
-			return E1;
+			return store.alpha_arap*E1;
 		}
 
 		double fastEnergy(Store& store){
-
-			double E2 = 0.5*store.x.transpose()*store.StDtDS*store.x;
-			double E3 = store.x0.transpose()*store.StDtDS*store.x;
-			double E4 = 0.5*store.x0.transpose()*store.StDtDS*store.x0;
-			double E5 = -store.x.transpose()*store.StDt_dF_DSx0*store.dFvec;
-			double E6 = -store.x0tStDt_dF_DSx0.dot(store.dFvec);
-			double E7 = 0.5*store.dFvec.transpose()*store.x0tStDt_dF_dF_DSx0*store.dFvec;
-			double E9 = E2+E3+E4+E5+E6+E7;
-			return E9;
+			double E1 = 0.5*store.x0tStDtDSx0;
+			double E2 = store.x0tStDtDSY.dot(store.x);
+			double E3 = 0.5*store.x.transpose()*store.YtStDtDSY*store.x;
+			double E4 = -store.x0tStDt_dF_DSx0.dot(store.dFvec);
+			double E5 = -store.x.transpose()*store.YtStDt_dF_DSx0*store.dFvec;
+			double E6 = 0.5*store.dFvec.transpose()*store.x0tStDt_dF_dF_DSx0*store.dFvec;
+		 
+			double E9 = E1+E2+E3+E4+E5+E6;
+			return store.alpha_arap*E9;
 		}
 
 		void fastGradient(Store& store, VectorXd& grad){
-			grad += -store.x.transpose()*store.StDt_dF_DSx0;
-			grad += -store.x0tStDt_dF_DSx0;
-			grad += store.dFvec.transpose()*store.x0tStDt_dF_dF_DSx0;
+			grad += -store.alpha_arap*store.x0tStDt_dF_DSx0;
+			grad += -store.alpha_arap*store.x.transpose()*store.YtStDt_dF_DSx0;
+			grad += store.alpha_arap*store.dFvec.transpose()*store.x0tStDt_dF_dF_DSx0;
 		}
 
 		VectorXd fd_gradient(Store& store){
@@ -62,13 +64,17 @@ namespace famu
 		}
 
 		void solve(Store& store){
-			VectorXd constrains = store.ConstrainProjection.transpose()*store.dx;
-			VectorXd top = store.StDt_dF_DSx0*store.dFvec - store.StDtDS*store.x0;
-			VectorXd KKT_right(top.size() + constrains.size());
-			KKT_right<<top, constrains;
+
+			VectorXd zer = VectorXd::Zero(store.JointConstraints.rows());
+			// VectorXd constrains = store.ConstrainProjection.transpose()*store.dx;
+			VectorXd top = store.YtStDt_dF_DSx0*store.dFvec - store.x0tStDtDSY;
+			VectorXd KKT_right(top.size() + zer.size());
+			KKT_right<<top, zer;
+			// igl::writeDMAT("rhs.dmat", KKT_right);
 
 			VectorXd result = store.SPLU.solve(KKT_right);
 			store.x = result.head(top.size());
+		
 		}
 	}
 }

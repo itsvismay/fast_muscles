@@ -8,6 +8,7 @@
 #include <igl/Timer.h>
 #include <Eigen/LU>
 #include <Eigen/UmfPackSupport>
+typedef Eigen::Triplet<double> Trip;
 
 namespace famu{
 
@@ -16,6 +17,8 @@ namespace famu{
 		igl::Timer timer;
 
 		Eigen::VectorXd muscle_mag;
+		double alpha_arap = 1e3;
+		double alpha_neo = 1;
 
 		Eigen::MatrixXd V, discV;
 		Eigen::MatrixXi T, discT, F;
@@ -37,7 +40,8 @@ namespace famu{
 		Eigen::SparseMatrix<double> C;
 		Eigen::SparseMatrix<double> S;
 		Eigen::SparseMatrix<double> ConstrainProjection, UnconstrainProjection;
-		Eigen::SparseMatrix<double> StDtDS;
+		Eigen::SparseMatrix<double> JointConstraints;
+		Eigen::SparseMatrix<double> Y;
 
 		Eigen::VectorXd dFvec;
 		Eigen::VectorXd x, dx, x0;
@@ -46,11 +50,17 @@ namespace famu{
 		Eigen::UmfPackLU<Eigen::SparseMatrix<double>> SPLU;
 		
 		//Fast Terms
-		Eigen::VectorXd DSx0;
-		Eigen::SparseMatrix<double> DSx0_mat;
-		Eigen::SparseMatrix<double> StDt_dF_DSx0;
+		double x0tStDtDSx0;
+		Eigen::VectorXd x0tStDtDSY;
+		Eigen::SparseMatrix<double> YtStDtDSY;
 		Eigen::VectorXd x0tStDt_dF_DSx0;
+		Eigen::SparseMatrix<double> YtStDt_dF_DSx0;
 		Eigen::SparseMatrix<double> x0tStDt_dF_dF_DSx0;
+
+		Eigen::VectorXd DSx0;
+		Eigen::SparseMatrix<double> DSY;
+		Eigen::SparseMatrix<double> StDtDS;
+		Eigen::SparseMatrix<double> DSx0_mat;
 		Eigen::SparseMatrix<double> fastMuscles;
 
 	};

@@ -32,6 +32,8 @@
 #include "famu/draw_disc_mesh_functions.h"
 #include "famu/dfmatrix_vector_swap.h"
 #include "famu/full_solver.h"
+#include "famu/joint_constraint_matrix.h"
+#include "famu/fixed_bones_projection_matrix.h"
 
 
 using namespace Eigen;
@@ -41,7 +43,6 @@ using namespace LBFGSpp;
 using Store = famu::Store;
 json j_input;
 double alpha_arap = 1e6;
-typedef Eigen::Triplet<double> Trip;
 
 
 int main(int argc, char *argv[])
@@ -83,29 +84,32 @@ int main(int argc, char *argv[])
 		igl::boundary_facets(store.T, store.F);
 
 	cout<<"---Set Fixed Vertices"<<endl;
-		store.mfix = famu::getMaxVerts(store.V, 1);
-		store.mmov = {};//famu::getMinVerts(store.V, 1);
-		// cout<<"If it fails here, make sure indexing is within bounds"<<endl;
-	 //    std::set<int> fix_verts_set;
-	 //    for(int ii=0; ii<fix_bones.size(); ii++){
-	 //        cout<<fix_bones[ii]<<endl;
-	 //        int bone_ind = bone_name_index_map[fix_bones[ii]];
-	 //        fix_verts_set.insert(T.row(bone_tets[bone_ind][0])[0]);
-	 //        fix_verts_set.insert(T.row(bone_tets[bone_ind][0])[1]);
-	 //        fix_verts_set.insert(T.row(bone_tets[bone_ind][0])[2]);
-	 //        fix_verts_set.insert(T.row(bone_tets[bone_ind][0])[3]);
-	 //    }
-	 //    std::vector<int> mfix, mmov;
-	 //    mfix.assign(fix_verts_set.begin(), fix_verts_set.end());
-	 //    std::sort (mfix.begin(), mfix.end());
+		// store.mfix = famu::getMaxVerts(store.V, 1);
+		// store.mmov = {};//famu::getMinVerts(store.V, 1);
+		cout<<"If it fails here, make sure indexing is within bounds"<<endl;
+	    std::set<int> fix_verts_set;
+	    for(int ii=0; ii<store.fix_bones.size(); ii++){
+	        cout<<store.fix_bones[ii]<<endl;
+	        int bone_ind = store.bone_name_index_map[store.fix_bones[ii]];
+	        fix_verts_set.insert(store.T.row(store.bone_tets[bone_ind][0])[0]);
+	        fix_verts_set.insert(store.T.row(store.bone_tets[bone_ind][0])[1]);
+	        fix_verts_set.insert(store.T.row(store.bone_tets[bone_ind][0])[2]);
+	        fix_verts_set.insert(store.T.row(store.bone_tets[bone_ind][0])[3]);
+	    }
+	    store.mfix.assign(fix_verts_set.begin(), fix_verts_set.end());
+	    std::sort (store.mfix.begin(), store.mfix.end());
 	
 	cout<<"---Set YM and Poissons"<<endl;
-		store.eY = 9.1e9*VectorXd::Ones(store.T.rows());
-		store.eP = 0.49*VectorXd::Ones(store.T.rows());
+		store.eY = 9.1e11*VectorXd::Ones(store.T.rows());
+		store.eP = 0.45*VectorXd::Ones(store.T.rows());
 		store.muscle_mag = VectorXd::Zero(store.T.rows());
 		for(int m=0; m<store.muscle_tets.size(); m++){
 			for(int t=0; t<store.muscle_tets[m].size(); t++){
-				store.eY[store.muscle_tets[m][t]] = 60000;
+				if(store.relativeStiffness[store.muscle_tets[m][t]]>1){
+					store.eY[store.muscle_tets[m][t]] = 60000;
+				}else{
+					store.eY[store.muscle_tets[m][t]] = 60000;
+				}
 				store.muscle_mag[store.muscle_tets[m][t]] = j_input["muscle_starting_strength"];
 			}
 		}
@@ -114,7 +118,7 @@ int main(int argc, char *argv[])
 		famu::vertex_bc(store.mmov, store.mfix, store.UnconstrainProjection, store.ConstrainProjection, store.V);
 
 	cout<<"---Set Discontinuous Tet Centroid vector matrix"<<endl;
-		famu::discontinuous_edge_vectors(store.D, store._D, store.T);
+		famu::discontinuous_edge_vectors(store.D, store._D, store.T, store.muscle_tets);
 
 	cout<<"---Cont. to Discont. matrix"<<endl;
 		famu::cont_to_discont_tets(store.S, store.T, store.V);
@@ -126,12 +130,14 @@ int main(int argc, char *argv[])
 		famu::setDiscontinuousMeshT(store.T, store.discT);
 		store.discV.resize(4*store.T.rows(), 3);
 
+	cout<<"---Set Joints Constraint Matrix"<<endl;
+		famu::fixed_bones_projection_matrix(store, store.Y);
+		famu::joint_constraint_matrix(store, store.JointConstraints);
 
 	cout<<"---ACAP Solve KKT setup"<<endl;
 		SparseMatrix<double> KKT_left;
-		store.StDtDS = (store.D*store.S).transpose()*(store.D*store.S);
-		SparseMatrix<double> CPt = store.ConstrainProjection.transpose();
-		famu::construct_kkt_system_left(store.StDtDS, CPt, KKT_left);
+		store.YtStDtDSY = (store.D*store.S*store.Y).transpose()*(store.D*store.S*store.Y);
+		famu::construct_kkt_system_left(store.YtStDtDSY, store.JointConstraints, KKT_left);
 		store.SPLU.analyzePattern(KKT_left);
 		store.SPLU.factorize(KKT_left);
 
@@ -151,19 +157,21 @@ int main(int argc, char *argv[])
 			store.x0[3*i+1] = store.V(i,1); 
 			store.x0[3*i+2] = store.V(i,2);   
 	    }
-	    store.x = VectorXd::Zero(3*store.V.rows());
+	    store.x = VectorXd::Zero(store.Y.cols());
 	    store.dx = VectorXd::Zero(3*store.V.rows());
-    	for(int i=0; i<store.mmov.size(); i++){
-			store.dx[3*store.mmov[i]+1] -= 1;
-		}
 
 	cout<<"---Setup Fast ACAP energy"<<endl;
+		store.StDtDS = (store.D*store.S).transpose()*(store.D*store.S);
+		store.DSY = store.D*store.S*store.Y;
 		store.DSx0 = store.D*store.S*store.x0;
 		famu::dFMatrix_Vector_Swap(store.DSx0_mat, store.DSx0);
 		
-		store.StDt_dF_DSx0 = store.S.transpose()*store.D.transpose()*store.DSx0_mat;
+		store.x0tStDtDSx0 = store.DSx0.transpose()*store.DSx0;
+		store.x0tStDtDSY = store.DSx0.transpose()*store.DSY;
 		store.x0tStDt_dF_DSx0 = store.DSx0.transpose()*store.DSx0_mat;
+		store.YtStDt_dF_DSx0 = (store.DSY).transpose()*store.DSx0_mat;
 		store.x0tStDt_dF_dF_DSx0 = store.DSx0_mat.transpose()*store.DSx0_mat;
+
 
 		SparseMatrix<double> mat_uvec;
 		famu::muscle::setupFastMuscles(store, mat_uvec);
@@ -189,23 +197,53 @@ int main(int argc, char *argv[])
         std::cout<<"Key down, "<<key<<std::endl;
         viewer.data().clear();
 
+        if(key=='A'){
+        	store.muscle_mag *= 1.5;
+        }
         
         if(key==' '){
+        	// for(int i=0; i<store.dFvec.size()/9; i++){
+        	// 	store.dFvec[9*i+2] = 0.5;
+        	// 	store.dFvec[9*i+6] = 0.5;
+        	// }
+        	// for(int i=0; i<store.mmov.size(); i++){
+        	// 	store.dx[3*store.mmov[i]+0] += 0.5;
+        	// }
+
+        	// cout<<famu::acap::energy(store)<<endl;
+        	// cout<<famu::acap::fastEnergy(store)<<endl;
+        	// store.dFvec *= 2;
+        	// for(int i=0; i<store.bone_tets[1].size(); i++){
+        	// 	int t = store.bone_tets[1][i];
+        	// 	store.dFvec[9*t+0] = 0.7071;
+        	// 	store.dFvec[9*t+1] = 0.7071;
+        	// 	store.dFvec[9*t+2] = 0;
+
+        	// 	store.dFvec[9*t+3] = -0.7071;
+        	// 	store.dFvec[9*t+4] = 0.7071;
+        	// 	store.dFvec[9*t+5] = 0;
+
+        	// 	store.dFvec[9*t+6] = 0;
+        	// 	store.dFvec[9*t+7] = 0;
+        	// 	store.dFvec[9*t+8] = 1;
+
+        	// }
+        	// famu::acap::solve(store);
+
 			double fx = 0;
-		    timer.start();
- 			int niters = solver.minimize(fullsolver, store.dFvec, fx);
- 			timer.stop();
- 			cout<<"+++QS Step iterations: "<<niters<<", secs: "<<timer.getElapsedTimeInMicroSec()<<endl;
+			timer.start();
+			int niters = solver.minimize(fullsolver, store.dFvec, fx);
+			timer.stop();
+			cout<<"+++QS Step iterations: "<<niters<<", secs: "<<timer.getElapsedTimeInMicroSec()<<endl;
         	
         }
 
         if(key=='D'){
             
             // Draw disc mesh
-            std::cout<<std::endl;
             famu::discontinuousV(store);
-            for(int m=0; m<store.T.rows(); m++){
-                int t= m;
+            for(int m=0; m<store.discT.rows()/10; m++){
+                int t= 10*m;
                 Vector4i e = store.discT.row(t);
                 
                 Matrix<double, 1,3> p0 = store.discV.row(e[0]);
@@ -223,11 +261,39 @@ int main(int argc, char *argv[])
         
         }
 
-        Eigen::Map<Eigen::MatrixXd> newV(store.x.data(), store.V.cols(), store.V.rows());
+        VectorXd y = store.Y*store.x;
+        Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
         viewer.data().set_mesh((newV.transpose()+store.V), store.F);
         igl::writeOBJ("ACAP_unred.obj", (newV.transpose()+store.V), store.F);
-        for(int i=0; i<store.mfix.size(); i++){
+        
+        if(key=='V'){
+            //Display tendon areas
+            MatrixXd COLRS;
+            VectorXd zz = 100*VectorXd::Ones(store.V.rows());
+            // for(int i=0; i<mesh->T().rows(); i++){
+            //     zz[mesh->T().row(i)[0]] = relativeStiffness[i];
+            //     zz[mesh->T().row(i)[1]] = relativeStiffness[i];
+            //     zz[mesh->T().row(i)[2]] = relativeStiffness[i];
+            //     zz[mesh->T().row(i)[3]] = relativeStiffness[i];
+            // }
+            // igl::jet(zz, true, COLRS);
+            // viewer.data().set_colors(COLRS);
 
+            for(int m=0; m<store.T.rows(); m++){
+                Matrix3d F = Map<Matrix3d>(store.dFvec.segment<9>(9*m).data()).transpose();
+                double snorm = (F.transpose()*F - Matrix3d::Identity()).norm();
+               
+                zz[store.T.row(m)[0]] += snorm;
+                zz[store.T.row(m)[1]] += snorm;
+                zz[store.T.row(m)[2]] += snorm; 
+                zz[store.T.row(m)[3]] += snorm;
+            }
+            igl::jet(zz, true, COLRS);
+            viewer.data().set_colors(COLRS);
+        }
+        
+
+        for(int i=0; i<store.mfix.size(); i++){
         	viewer.data().add_points((newV.transpose().row(store.mfix[i]) + store.V.row(store.mfix[i])), Eigen::RowVector3d(1,0,0));
         }
 

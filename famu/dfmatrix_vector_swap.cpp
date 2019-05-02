@@ -9,15 +9,15 @@ void famu::dFMatrix_Vector_Swap(SparseMatrix<double>& mat, VectorXd& vec){
     	for(int j=0; j<4; j++){
 	    	Vector3d seg = vec.segment<3>(12*i + 3*j);
 	        mat_trips.push_back(Trip(12*i+3*j, 9*i+0, seg[0]));
-	        mat_trips.push_back(Trip(12*i+3*j, 9*i+1, seg[0]));
-	        mat_trips.push_back(Trip(12*i+3*j, 9*i+2, seg[0]));
+	        mat_trips.push_back(Trip(12*i+3*j, 9*i+1, seg[1]));
+	        mat_trips.push_back(Trip(12*i+3*j, 9*i+2, seg[2]));
 
-	        mat_trips.push_back(Trip(12*i+3*j+1, 9*i+3, seg[1]));
+	        mat_trips.push_back(Trip(12*i+3*j+1, 9*i+3, seg[0]));
 	        mat_trips.push_back(Trip(12*i+3*j+1, 9*i+4, seg[1]));
-	        mat_trips.push_back(Trip(12*i+3*j+1, 9*i+5, seg[1]));
+	        mat_trips.push_back(Trip(12*i+3*j+1, 9*i+5, seg[2]));
 
-	        mat_trips.push_back(Trip(12*i+3*j+2, 9*i+6, seg[2]));
-	        mat_trips.push_back(Trip(12*i+3*j+2, 9*i+7, seg[2]));
+	        mat_trips.push_back(Trip(12*i+3*j+2, 9*i+6, seg[0]));
+	        mat_trips.push_back(Trip(12*i+3*j+2, 9*i+7, seg[1]));
 	        mat_trips.push_back(Trip(12*i+3*j+2, 9*i+8, seg[2]));
 	        
     	}

@@ -3,8 +3,9 @@
 using namespace Eigen;
 using namespace std;
 
-void famu::discontinuous_edge_vectors(Eigen::SparseMatrix<double>& mP, Eigen::SparseMatrix<double>& m_P, Eigen::MatrixXi mT){
-	mP.resize(12*mT.rows(), 12*mT.rows());
+
+void famu::discontinuous_edge_vectors(Eigen::SparseMatrix<double>& mP, Eigen::SparseMatrix<double>& m_P, Eigen::MatrixXi mT, std::vector<Eigen::VectorXi>& muscle_tets){
+    mP.resize(12*mT.rows(), 12*mT.rows());
         Matrix4d p;
         p<< 3, -1, -1, -1,
             -1, 3, -1, -1,
@@ -14,19 +15,16 @@ void famu::discontinuous_edge_vectors(Eigen::SparseMatrix<double>& mP, Eigen::Sp
         vector<Trip> triplets;
         triplets.reserve(3*16*mT.rows());
         VectorXd arap_weights = VectorXd::Ones(mT.rows());
-        // for(int m=0; m<mmuscles.size(); m++){
-        //     for(int i=0; i<mmuscles[m].size(); i++){
-        //         double weight = 1;
-        //         int t = mmuscles[m][i];
-        //         double vol = tet_volume(t);
-        //         weight = 1.0/vol/10;
-        //         if(m_relativeStiffness[t]>10){
-        //             weight *= 10;
-        //         }
-        //         arap_weights[t] = weight;
-        //    }
-
-        // }
+       
+        for(int m=0; m<muscle_tets.size(); m++){
+            for(int i=0; i<muscle_tets[m].size(); i++){
+                int t = muscle_tets[m][i];
+                // double vol = tet_volume(t);
+                double weight = 2;
+                arap_weights[t] = weight;
+                
+           }
+        }
 
         for(int i=0; i<mT.rows(); i++){
 

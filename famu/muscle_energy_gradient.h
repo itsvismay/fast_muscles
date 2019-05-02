@@ -33,11 +33,11 @@ namespace famu
 
 		double fastEnergy(Store& store, VectorXd& dFvec){
 
-			return 0.5*dFvec.transpose()*store.fastMuscles*dFvec;
+			return store.alpha_neo*0.5*dFvec.transpose()*store.fastMuscles*dFvec;
 		}
 
 		void fastGradient(Store& store, VectorXd& grad){
-			grad += store.fastMuscles*store.dFvec;
+			grad += store.alpha_neo*store.fastMuscles*store.dFvec;
 		}
 
 		double energy(Store& store, VectorXd& dFvec){
@@ -51,7 +51,7 @@ namespace famu
 				double W = 0.5*store.muscle_mag[t]*(z.dot(z));
 				MuscleEnergy += W;
 			}
-			return MuscleEnergy;
+			return store.alpha_neo*MuscleEnergy;
 		}
 
 		void gradient(Store& store, VectorXd& grad){
@@ -86,7 +86,7 @@ namespace famu
 				tet_grad[7] = 0.5*a*(s7*u1*u2 + s9*u2*u3 + u2*(s7*u1 + 2*s8*u2 + s9*u3));
 				tet_grad[8] = 0.5*a*(s7*u1*u3 + s8*u2*u3 + u3*(s7*u1 + s8*u2 + 2*s9*u3));
 
-				grad.segment<9>(9*t) += tet_grad;
+				grad.segment<9>(9*t) += store.alpha_neo*tet_grad;
 			}
 		}
 

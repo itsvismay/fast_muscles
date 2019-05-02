@@ -20,7 +20,7 @@ double famu::stablenh::energy(Store& store, Eigen::VectorXd& dFvec){
 		stableNHEnergy += W;
 	}
 
-	return stableNHEnergy;
+	return store.alpha_neo*stableNHEnergy;
 }
 
 void famu::stablenh::gradient(Store& store, Eigen::VectorXd& grad){
@@ -61,7 +61,7 @@ void famu::stablenh::gradient(Store& store, Eigen::VectorXd& grad){
 		tet_grad[8] = 1.*C1*s9 - (1.*C1*s9)/(1 + std::pow(s1,2) + std::pow(s2,2) + std::pow(s3,2) + std::pow(s4,2) + std::pow(s5,2) + std::pow(s6,2) + std::pow(s7,2) + std::pow(s8,2) + std::pow(s9,2)) + 
     		1.*(s2*s4 - 1.*s1*s5)*(0.75*C1 + D1*(1 + s3*s5*s7 - 1.*s2*s6*s7 - 1.*s3*s4*s8 + s1*s6*s8 + s2*s4*s9 - 1.*s1*s5*s9));		
    
-		grad.segment<9>(9*t) += tet_grad;
+		grad.segment<9>(9*t) += store.alpha_neo*tet_grad;
 	}
 }
 

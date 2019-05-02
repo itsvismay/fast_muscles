@@ -10,7 +10,7 @@ using namespace Eigen;
 
 namespace famu
 {
-	void discontinuous_edge_vectors(Eigen::SparseMatrix<double>& mP, Eigen::SparseMatrix<double>& m_P, Eigen::MatrixXi mT);
+	void discontinuous_edge_vectors(Eigen::SparseMatrix<double>& mP, Eigen::SparseMatrix<double>& m_P, Eigen::MatrixXi mT, std::vector<Eigen::VectorXi>& muscle_tets);
 }
 
 #endif

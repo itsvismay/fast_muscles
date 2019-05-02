@@ -26,11 +26,11 @@ void famu::construct_kkt_system_left(Eigen::SparseMatrix<double>& H, Eigen::Spar
 	for(int i=0; i<C_trips.size(); i++){
 		int row = C_trips[i].row();
 		int col = C_trips[i].col();
-		int val = C_trips[i].value();
+		double val = C_trips[i].value();
 		HTrips.push_back(Trip(row+H.rows(), col, val));
 		HTrips.push_back(Trip(col, row+H.cols(), val));
 	}
-	HTrips.insert(HTrips.end(),C_trips.begin(), C_trips.end());
+	// HTrips.insert(HTrips.end(),C_trips.begin(), C_trips.end());
 	KKT_Left.setFromTriplets(HTrips.begin(), HTrips.end());
 
 }
