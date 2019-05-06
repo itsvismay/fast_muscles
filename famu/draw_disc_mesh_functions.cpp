@@ -1,4 +1,5 @@
 #include "draw_disc_mesh_functions.h"
+#include "dfmatrix_vector_swap.h"
 
 void famu::setDiscontinuousMeshT(Eigen::MatrixXi& mT, Eigen::MatrixXi& discT){
     discT.resize(mT.rows(), 4);
@@ -13,8 +14,10 @@ void famu::setDiscontinuousMeshT(Eigen::MatrixXi& mT, Eigen::MatrixXi& discT){
 void famu::discontinuousV(Store& store){
     //discV.resize(4*mT.rows(), 3);
     Eigen::VectorXd DAx = store._D*store.S*(store.Y*store.x+store.x0);
+    Eigen::SparseMatrix<double> M;
+    famu::dFMatrix_Vector_Swap(M, DAx);
     Eigen::VectorXd CAx = store.C*store.S*(store.Y*store.x+store.x0);
-    Eigen::VectorXd newx = store.dF*DAx+ CAx;
+    Eigen::VectorXd newx = M*store.ProjectF*store.dFvec+ CAx;
 
 	for(int t =0; t<store.T.rows(); t++){
         store.discV(4*t+0, 0) = newx[12*t+0];

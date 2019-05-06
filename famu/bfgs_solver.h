@@ -1,5 +1,5 @@
-#ifndef FULL_SOLVER
-#define FULL_SOLVER
+#ifndef BFGS_SOLVER
+#define BFGS_SOLVER
 
 #include "store.h"
 using Store = famu::Store;
@@ -13,6 +13,7 @@ namespace famu{
 	private:
 		Store* store;
 		bool mtest;
+		VectorXd muscle_grad, neo_grad, acap_grad;
 
 
 	public:
@@ -21,6 +22,9 @@ namespace famu{
 
 		 	store = istore;
 		 	mtest = test;
+		 	muscle_grad.resize(store->dFvec.size());
+		 	neo_grad.resize(store->dFvec.size());
+		 	acap_grad.resize(store->dFvec.size());
 
 		}
 
@@ -47,7 +51,7 @@ namespace famu{
 
 			double EM = famu::muscle::energy(store, store.dFvec);
 			double ENH = famu::stablenh::energy(store, store.dFvec);
-			double EACAP = famu::acap::fastEnergy(store);
+			double EACAP = famu::acap::fastEnergy(store, store.dFvec);
 
 			return EM + ENH + EACAP;
 		}
@@ -70,7 +74,7 @@ namespace famu{
 			return fake;
 		}
 
-		double operator()(const VectorXd& dFvec, VectorXd& graddFvec, bool computeGrad = true)
+		double operator()(const VectorXd& dFvec, VectorXd& graddFvec, int k=0, int v=0)
 		{
 			store->dFvec = dFvec;
 
@@ -78,15 +82,15 @@ namespace famu{
 			
 			double EM = famu::muscle::energy(*store, store->dFvec);
 			double ENH = famu::stablenh::energy(*store, store->dFvec);
-			double EACAP = famu::acap::fastEnergy(*store);
+			double EACAP = famu::acap::fastEnergy(*store, store->dFvec);
 			double E = EM + ENH + EACAP;
 
-			if(computeGrad){
+			if(true){
 				graddFvec.setZero();
-				famu::muscle::gradient(*store, graddFvec);
-				famu::stablenh::gradient(*store, graddFvec);
-				famu::acap::fastGradient(*store, graddFvec);
-
+				famu::muscle::gradient(*store, muscle_grad);
+				famu::stablenh::gradient(*store, neo_grad);
+				famu::acap::fastGradient(*store, acap_grad);
+				graddFvec = muscle_grad + neo_grad + acap_grad;
 				if(false){
 					setDF(store->dFvec, store->dF);
 					VectorXd fakeEMgrad = famu::muscle::fd_gradient(*store);// VectorXd::Zero(graddFvec.size());

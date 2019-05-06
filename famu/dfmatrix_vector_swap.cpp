@@ -25,4 +25,5 @@ void famu::dFMatrix_Vector_Swap(SparseMatrix<double>& mat, VectorXd& vec){
 
     mat.resize(vec.size(), 9*(vec.size()/12));
     mat.setFromTriplets(mat_trips.begin(), mat_trips.end());
+
 }

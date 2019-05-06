@@ -16,15 +16,15 @@ void famu::discontinuous_edge_vectors(Eigen::SparseMatrix<double>& mP, Eigen::Sp
         triplets.reserve(3*16*mT.rows());
         VectorXd arap_weights = VectorXd::Ones(mT.rows());
        
-        for(int m=0; m<muscle_tets.size(); m++){
-            for(int i=0; i<muscle_tets[m].size(); i++){
-                int t = muscle_tets[m][i];
-                // double vol = tet_volume(t);
-                double weight = 2;
-                arap_weights[t] = weight;
+        // for(int m=0; m<muscle_tets.size(); m++){
+        //     for(int i=0; i<muscle_tets[m].size(); i++){
+        //         int t = muscle_tets[m][i];
+        //         // double vol = tet_volume(t);
+        //         double weight = 1;
+        //         arap_weights[t] = weight;
                 
-           }
-        }
+        //    }
+        // }
 
         for(int i=0; i<mT.rows(); i++){
 
