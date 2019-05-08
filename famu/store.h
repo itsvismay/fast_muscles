@@ -18,7 +18,7 @@ namespace famu{
 
 		Eigen::VectorXd muscle_mag;
 		Eigen::VectorXi bone_or_muscle;
-		double alpha_arap = 1e6;
+		double alpha_arap = 1e4;
 		double alpha_neo = 1;
 
 		Eigen::MatrixXd V, discV;
@@ -40,7 +40,7 @@ namespace famu{
 		Eigen::SparseMatrix<double> D, _D;
 		Eigen::SparseMatrix<double> C;
 		Eigen::SparseMatrix<double> S;
-		Eigen::SparseMatrix<double> ProjectF, UnprojectF;
+		Eigen::SparseMatrix<double> ProjectF, PickBoneF;
 		Eigen::SparseMatrix<double> ConstrainProjection, UnconstrainProjection;
 		Eigen::SparseMatrix<double> JointConstraints;
 		Eigen::SparseMatrix<double> Y;
@@ -65,8 +65,7 @@ namespace famu{
 		Eigen::SparseMatrix<double> DSx0_mat;
 		Eigen::SparseMatrix<double> fastMuscles;
 
-		Eigen::MatrixXd JacdxdF;
-		Eigen::MatrixXd JacdlambdadF;
+		Eigen::SparseMatrix<double> JacdxdF;
 
 	};
 }

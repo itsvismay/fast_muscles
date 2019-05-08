@@ -45,7 +45,6 @@ using json = nlohmann::json;
 using namespace LBFGSpp;
 using Store = famu::Store;
 json j_input;
-double alpha_arap = 1e6;
 
 
 int main(int argc, char *argv[])
@@ -69,6 +68,8 @@ int main(int argc, char *argv[])
 								store.fix_bones, 
 								store.relativeStiffness, 
 								store.jinput);  
+		store.alpha_arap = store.jinput["alpha_arap"];
+		store.alpha_neo = store.jinput["alpha_neo"];
 
 	cout<<"---Record Mesh Setup Info"<<endl;
 		cout<<"V size: "<<store.V.rows()<<endl;
@@ -103,13 +104,13 @@ int main(int argc, char *argv[])
 	    std::sort (store.mfix.begin(), store.mfix.end());
 	
 	cout<<"---Set YM and Poissons"<<endl;
-		store.eY = 60000*VectorXd::Ones(store.T.rows());
-		store.eP = 0.499*VectorXd::Ones(store.T.rows());
+		store.eY = 1e9*VectorXd::Ones(store.T.rows());
+		store.eP = 0.45*VectorXd::Ones(store.T.rows());
 		store.muscle_mag = VectorXd::Zero(store.T.rows());
 		for(int m=0; m<store.muscle_tets.size(); m++){
 			for(int t=0; t<store.muscle_tets[m].size(); t++){
 				if(store.relativeStiffness[store.muscle_tets[m][t]]>1){
-					store.eY[store.muscle_tets[m][t]] = 60000;
+					store.eY[store.muscle_tets[m][t]] = 1.2e9;
 				}else{
 					store.eY[store.muscle_tets[m][t]] = 60000;
 				}
@@ -118,11 +119,11 @@ int main(int argc, char *argv[])
 		}
 
 		//start off all as -1
-		store.bone_or_muscle = -1*Eigen::VectorXi::Zero(store.T.rows());
+		store.bone_or_muscle = -1*Eigen::VectorXi::Ones(store.T.rows());
 		if(store.jinput["reduced"]){
 
 			// // // assign bone tets to 1 dF for each bone, starting at 0...bone_tets.size()
-			for(int i=0; i<store.bone_tets.size(); i++){ //go through in reverse so joints are part of the fixed bone
+			for(int i=0; i<store.bone_tets.size(); i++){
 		    	for(int j=0; j<store.bone_tets[i].size(); j++){
 		    		store.bone_or_muscle[store.bone_tets[i][j]] = i;
 		    	}
@@ -163,7 +164,7 @@ int main(int argc, char *argv[])
 	cout<<"---Set Joints Constraint Matrix"<<endl;
 		famu::fixed_bones_projection_matrix(store, store.Y);
 		famu::joint_constraint_matrix(store, store.JointConstraints);
-		famu::bone_def_grad_projection_matrix(store, store.ProjectF, store.UnprojectF);
+		famu::bone_def_grad_projection_matrix(store, store.ProjectF, store.PickBoneF);
 
 	cout<<"---ACAP Solve KKT setup"<<endl;
 		SparseMatrix<double> KKT_left;
@@ -226,7 +227,7 @@ int main(int argc, char *argv[])
 	    famu::FullSolver fullsolver(DIM, &store);
 	    LBFGSParam<double> param;
 	    param.epsilon = 1e-1;
-        param.delta = 1e-3;
+        param.delta = 1e-5;
         param.past = 1;
 	    
 	    param.linesearch = LBFGSpp::LBFGS_LINESEARCH_BACKTRACKING_ARMIJO;
@@ -258,14 +259,23 @@ int main(int argc, char *argv[])
     		// store.dFvec[9+6] = 0;
     		// store.dFvec[9+7] = 0;
     		// store.dFvec[9+8] = 1;
-      //   	famu::acap::solve(store);
+      //   	famu::acap::solve(store, store.dFvec);
 
         	
 
 			double fx = 0;
 			timer.start();
-			// int niters = solver.minimizeWithPreconditioner(fullsolver, store.dFvec, fx, LDLT);
-			int niters = famu::newton_static_solve(store);
+			int niters = 0;
+			if(store.jinput["BFGS"]){
+				if(store.jinput["Preconditioned"]){
+					// niters = solver.minimizeWithPreconditioner(fullsolver, store.dFvec, fx, LDLT);
+				}
+				else{
+					niters = solver.minimize(fullsolver, store.dFvec, fx);
+				}
+			}else{
+				niters = famu::newton_static_solve(store);
+			}
 			timer.stop();
 			cout<<"+++QS Step iterations: "<<niters<<", secs: "<<timer.getElapsedTimeInMicroSec()<<endl;
         	
@@ -275,8 +285,8 @@ int main(int argc, char *argv[])
             
             // Draw disc mesh
             famu::discontinuousV(store);
-            for(int m=0; m<store.discT.rows(); m++){
-                int t= m;
+            for(int m=0; m<store.discT.rows()/10; m++){
+                int t= 10*m;
                 Vector4i e = store.discT.row(t);
                 
                 Matrix<double, 1,3> p0 = store.discV.row(e[0]);
@@ -298,28 +308,50 @@ int main(int argc, char *argv[])
         viewer.data().set_mesh((newV.transpose()+store.V), store.F);
         igl::writeOBJ("ACAP_unred.obj", (newV.transpose()+store.V), store.F);
         
-        if(key=='V'){
-            //Display tendon areas
+        if(key=='V' || key=='S' || key=='E'){
             MatrixXd COLRS;
-            VectorXd zz = 100*VectorXd::Ones(store.V.rows());
-            // for(int i=0; i<mesh->T().rows(); i++){
-            //     zz[mesh->T().row(i)[0]] = relativeStiffness[i];
-            //     zz[mesh->T().row(i)[1]] = relativeStiffness[i];
-            //     zz[mesh->T().row(i)[2]] = relativeStiffness[i];
-            //     zz[mesh->T().row(i)[3]] = relativeStiffness[i];
-            // }
-            // igl::jet(zz, true, COLRS);
-            // viewer.data().set_colors(COLRS);
-            VectorXd fulldFvec = store.ProjectF*store.dFvec;
-            for(int m=0; m<store.T.rows(); m++){
-                Matrix3d F = Map<Matrix3d>(fulldFvec.segment<9>(9*m).data()).transpose();
-                double snorm = (F - Matrix3d::Identity()).norm();
-               
-                zz[store.T.row(m)[0]] += snorm;
-                zz[store.T.row(m)[1]] += snorm;
-                zz[store.T.row(m)[2]] += snorm; 
-                zz[store.T.row(m)[3]] += snorm;
+            VectorXd zz = VectorXd::Ones(store.V.rows());
+
+        	if(key=='V'){
+            //Display tendon areas
+	            for(int i=0; i<store.T.rows(); i++){
+	                zz[store.T.row(i)[0]] = store.relativeStiffness[i];
+	                zz[store.T.row(i)[1]] = store.relativeStiffness[i];
+	                zz[store.T.row(i)[2]] = store.relativeStiffness[i];
+	                zz[store.T.row(i)[3]] = store.relativeStiffness[i];
+	            }
             }
+            
+            if(key=='S'){
+            	//map strains
+	            VectorXd fulldFvec = store.ProjectF*store.dFvec;
+	            for(int m=0; m<store.T.rows(); m++){
+	                Matrix3d F = Map<Matrix3d>(fulldFvec.segment<9>(9*m).data()).transpose();
+	                double snorm = (F.transpose()*F - Matrix3d::Identity()).norm();
+	               
+	                zz[store.T.row(m)[0]] += snorm;
+	                zz[store.T.row(m)[1]] += snorm;
+	                zz[store.T.row(m)[2]] += snorm; 
+	                zz[store.T.row(m)[3]] += snorm;
+	            }
+            }
+
+            if(key=='E'){
+            	//map ACAP energy over the meseh
+            	VectorXd ls = store.DSY*store.x + store.DSx0;
+            	VectorXd rs = store.DSx0_mat*store.ProjectF*store.dFvec;
+            	for(int i=0; i<store.T.rows(); i++){
+            		double enorm = (ls.segment<12>(12*i) - rs.segment<12>(12*i)).norm();
+
+            		zz[store.T.row(i)[0]] += enorm;
+	                zz[store.T.row(i)[1]] += enorm;
+	                zz[store.T.row(i)[2]] += enorm; 
+	                zz[store.T.row(i)[3]] += enorm;
+
+            	}
+            }
+
+
             igl::jet(zz, true, COLRS);
             viewer.data().set_colors(COLRS);
         }

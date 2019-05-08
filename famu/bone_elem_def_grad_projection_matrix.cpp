@@ -26,6 +26,21 @@ void famu::bone_def_grad_projection_matrix(Store& store, Eigen::SparseMatrix<dou
     mN.resize(9*store.T.rows(), 9*(maxInd+1));
     mN.setFromTriplets(mN_trips.begin(), mN_trips.end());
 
+    for(int i=0; i<store.bone_tets.size(); i++){
+        mAN_trips.push_back(Trip(9*i+0, 9*i+0, 1.0));
+        mAN_trips.push_back(Trip(9*i+1, 9*i+1, 1.0));
+        mAN_trips.push_back(Trip(9*i+2, 9*i+2, 1.0));
+        mAN_trips.push_back(Trip(9*i+3, 9*i+3, 1.0));
+        mAN_trips.push_back(Trip(9*i+4, 9*i+4, 1.0));
+        mAN_trips.push_back(Trip(9*i+5, 9*i+5, 1.0));
+        mAN_trips.push_back(Trip(9*i+6, 9*i+6, 1.0));
+        mAN_trips.push_back(Trip(9*i+7, 9*i+7, 1.0));
+        mAN_trips.push_back(Trip(9*i+8, 9*i+8, 1.0));
+    }
+
+    mAN.resize(9*(maxInd+1), 9*store.bone_tets.size());
+    mAN.setFromTriplets(mAN_trips.begin(), mAN_trips.end());
+
     // int muscle_index = 0;
     // for(int i=0; i<store.bone_or_muscle.size(); i++){
     //     if(store.bone_or_muscle[i]<0.5){

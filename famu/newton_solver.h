@@ -45,17 +45,157 @@ namespace famu
 		}
 	}
 
+	void polar_dec(Store& store, VectorXd& dFvec){
+		if(store.jinput["polar_dec"]){
+					//project bones dF back to rotations
+					if(store.jinput["reduced"]){
+						for(int t =0; t < store.T.rows(); t++){
+							if(store.bone_or_muscle[t] < store.bone_tets.size()){
+								int b = store.bone_or_muscle[t];
+								Eigen::Matrix3d _r, _t;
+								Matrix3d dFb = Map<Matrix3d>(dFvec.segment<9>(9*b).data()).transpose();
+								igl::polar_dec(dFb, _r, _t);
+
+								dFvec[9*b+0] = _r(0,0);
+					      		dFvec[9*b+1] = _r(0,1);
+					      		dFvec[9*b+2] = _r(0,2);
+					      		dFvec[9*b+3] = _r(1,0);
+					      		dFvec[9*b+4] = _r(1,1);
+					      		dFvec[9*b+5] = _r(1,2);
+					      		dFvec[9*b+6] = _r(2,0);
+					      		dFvec[9*b+7] = _r(2,1);
+					      		dFvec[9*b+8] = _r(2,2);
+							}
+						}
+
+					}else{
+						for(int t = 0; t < store.bone_tets.size(); t++){
+							for(int i=0; i<store.bone_tets[t].size(); i++){
+								int b =store.bone_tets[t][i];
+
+								Eigen::Matrix3d _r, _t;
+								Matrix3d dFb = Map<Matrix3d>(dFvec.segment<9>(9*b).data()).transpose();
+								igl::polar_dec(dFb, _r, _t);
+
+								dFvec[9*b+0] = _r(0,0);
+					      		dFvec[9*b+1] = _r(0,1);
+					      		dFvec[9*b+2] = _r(0,2);
+					      		dFvec[9*b+3] = _r(1,0);
+					      		dFvec[9*b+4] = _r(1,1);
+					      		dFvec[9*b+5] = _r(1,2);
+					      		dFvec[9*b+6] = _r(2,0);
+					      		dFvec[9*b+7] = _r(2,1);
+					      		dFvec[9*b+8] = _r(2,2);
+							}
+						}
+					}
+				}
+	}
+
+	double line_search(Store& store, VectorXd& grad, VectorXd& drt){
+		// Decreasing and increasing factors
+		return 0.5;
+		VectorXd x = store.dFvec;
+		VectorXd xp = x;
+		double step = 10;
+        const double dec = 0.5;
+        const double inc = 2.1;
+        int pmax_linesearch = 100;
+        int plinesearch = 1;//1 for armijo, 2 for wolfe
+        double pftol = 1e-4;
+        double pwolfe = 0.9;
+        double pmax_step = 1e8;
+        double pmin_step = 1e-20;
+
+
+        // Check the value of step
+        if(step <= double(0))
+            std::invalid_argument("'step' must be positive");
+
+        polar_dec(store, x);
+        famu::acap::solve(store, x);
+        double EM = famu::muscle::energy(store, x);
+		double ENH = famu::stablenh::energy(store, x);
+		double EACAP = famu::acap::fastEnergy(store, x);
+        double fx = EM + ENH + EACAP;//f(x, grad, k, iter);
+        // Save the function value at the current x
+        const double fx_init = fx;
+        // Projection of gradient on the search direction
+        const double dg_init = grad.dot(drt);
+        // Make sure d points to a descent direction
+        if(dg_init > 0)
+            std::logic_error("the moving direction increases the objective function value");
+
+        const double dg_test = pftol * dg_init;
+        double width;
+
+        int iter;
+        for(iter = 0; iter < pmax_linesearch; iter++)
+        {
+            // x_{k+1} = x_k + step * d_k
+            x.noalias() = xp + step * drt;
+            polar_dec(store, x);
+            // Evaluate this candidate
+            famu::acap::solve(store, x);
+            double EM = famu::muscle::energy(store, x);
+			double ENH = famu::stablenh::energy(store, x);
+			double EACAP = famu::acap::fastEnergy(store, x);
+            fx = EM + ENH + EACAP;//f(x, grad, k, iter);
+
+            if(fx > fx_init + step * dg_test)
+            {
+                width = dec;
+            } else {
+                // Armijo condition is met
+                if(plinesearch == 1)
+                    break;
+
+                const double dg = grad.dot(drt);
+                if(dg < pwolfe * dg_init)
+                {
+                    width = inc;
+                } else {
+                    // Regular Wolfe condition is met
+                    if(plinesearch == 2)
+                        break;
+
+                    if(dg > -pwolfe * dg_init)
+                    {
+                        width = dec;
+                    } else {
+                        // Strong Wolfe condition is met
+                        break;
+                    }
+                }
+            }
+
+            if(iter >= pmax_linesearch)
+                throw std::runtime_error("the line search routine reached the maximum number of iterations");
+
+            if(step < pmin_step)
+                throw std::runtime_error("the line search step became smaller than the minimum value allowed");
+
+            if(step > pmax_step)
+                throw std::runtime_error("the line search step became larger than the maximum value allowed");
+
+            step *= width;
+        }
+        cout<<"		ls iters: "<<iter<<endl;
+        cout<<"		step: "<<step<<endl;
+        return step;
+	}
+
 	int newton_static_solve(Store& store){
 		VectorXd muscle_grad, neo_grad, acap_grad;
-		muscle_grad.resize(store.ProjectF.cols());
-		neo_grad.resize(store.ProjectF.cols());
-		acap_grad.resize(store.ProjectF.cols());
+		muscle_grad.resize(store.dFvec.size());
+		neo_grad.resize(store.dFvec.size());
+		acap_grad.resize(store.dFvec.size());
 
-		SparseMatrix<double> muscleHess(store.ProjectF.cols(), store.ProjectF.cols());
+		SparseMatrix<double> muscleHess(store.dFvec.size(), store.dFvec.size());
 		famu::muscle::fastHessian(store, muscleHess);
-		SparseMatrix<double> neoHess(store.ProjectF.cols(), store.ProjectF.cols());
+		SparseMatrix<double> neoHess(store.dFvec.size(), store.dFvec.size());
 		famu::stablenh::hessian(store, neoHess);
-		SparseMatrix<double> acapHess(store.ProjectF.cols(), store.ProjectF.cols());
+		SparseMatrix<double> acapHess(store.dFvec.size(), store.dFvec.size());
 		famu::acap::fastHessian(store, acapHess);
 
 		//check with FD
@@ -96,12 +236,14 @@ namespace famu
 		for(iter=0; iter<MAX_ITERS; iter++){
 			hessFvec.setZero();
 			graddFvec.setZero();
-			famu::acap::solve(store);
+			famu::acap::solve(store, store.dFvec);
 
 			graddFvec.setZero();
 			famu::muscle::gradient(store, muscle_grad);
 			famu::stablenh::gradient(store, neo_grad);
 			famu::acap::fastGradient(store, acap_grad);
+
+
 			cout<<"muscle grad: "<<muscle_grad.norm()<<endl;
 			cout<<"neo grad: "<<neo_grad.norm()<<endl;
 			cout<<"acap grad: "<<acap_grad.norm()<<endl;
@@ -115,7 +257,7 @@ namespace famu
 
 			// SPLU.compute(acapHess);
 			SPLU.factorize(hessFvec);
-			VectorXd delta_dFvec = -0.25*SPLU.solve(graddFvec);
+			VectorXd delta_dFvec = -1*SPLU.solve(graddFvec);
 
 			if(delta_dFvec != delta_dFvec){
 				cout<<"nans"<<endl;
@@ -123,49 +265,12 @@ namespace famu
 			}
 
 
-			store.dFvec += delta_dFvec;
-			//project bones dF back to rotations
-			if(store.jinput["reduced"]){
-				for(int t =0; t < store.T.rows(); t++){
-					if(store.bone_or_muscle[t] < store.bone_tets.size()){
-						int b = store.bone_or_muscle[t];
-						Eigen::Matrix3d _r, _t;
-						Matrix3d dFb = Map<Matrix3d>(store.dFvec.segment<9>(9*b).data()).transpose();
-						igl::polar_dec(dFb, _r, _t);
-
-						store.dFvec[9*b+0] = _r(0,0);
-			      		store.dFvec[9*b+1] = _r(0,1);
-			      		store.dFvec[9*b+2] = _r(0,2);
-			      		store.dFvec[9*b+3] = _r(1,0);
-			      		store.dFvec[9*b+4] = _r(1,1);
-			      		store.dFvec[9*b+5] = _r(1,2);
-			      		store.dFvec[9*b+6] = _r(2,0);
-			      		store.dFvec[9*b+7] = _r(2,1);
-			      		store.dFvec[9*b+8] = _r(2,2);
-					}
-				}
-
-			}else{
-				for(int t = 0; t < store.bone_tets.size(); t++){
-					for(int i=0; i<store.bone_tets[t].size(); i++){
-						int b =store.bone_tets[t][i];
-
-						Eigen::Matrix3d _r, _t;
-						Matrix3d dFb = Map<Matrix3d>(store.dFvec.segment<9>(9*b).data()).transpose();
-						igl::polar_dec(dFb, _r, _t);
-
-						store.dFvec[9*b+0] = _r(0,0);
-			      		store.dFvec[9*b+1] = _r(0,1);
-			      		store.dFvec[9*b+2] = _r(0,2);
-			      		store.dFvec[9*b+3] = _r(1,0);
-			      		store.dFvec[9*b+4] = _r(1,1);
-			      		store.dFvec[9*b+5] = _r(1,2);
-			      		store.dFvec[9*b+6] = _r(2,0);
-			      		store.dFvec[9*b+7] = _r(2,1);
-			      		store.dFvec[9*b+8] = _r(2,2);
-					}
-				}
-			}
+			
+			//line search
+			double alpha = line_search(store, graddFvec, delta_dFvec);
+			store.dFvec += alpha*delta_dFvec;
+			polar_dec(store, store.dFvec);
+			
 
 			if(graddFvec.squaredNorm()/graddFvec.size()<1e-4){
 				break;

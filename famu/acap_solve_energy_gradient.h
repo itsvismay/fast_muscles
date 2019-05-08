@@ -13,6 +13,16 @@ namespace famu
 {
 	namespace acap
 	{
+		std::vector<Eigen::Triplet<double>> to_triplets(Eigen::SparseMatrix<double> & M){
+			std::vector<Eigen::Triplet<double>> v;
+			for(int i = 0; i < M.outerSize(); i++){
+				for(typename Eigen::SparseMatrix<double>::InnerIterator it(M,i); it; ++it){	
+					v.emplace_back(it.row(),it.col(),it.value());
+				}
+			}
+			return v;
+		}
+
 		double energy(Store& store){
 			SparseMatrix<double> DS = store.D*store.S;
 			double E1 =  0.5*(store.D*store.S*(store.x+store.x0) - store.dF*store.DSx0).squaredNorm();
@@ -47,20 +57,23 @@ namespace famu
 		}
 
 		void fastHessian(Store& store, SparseMatrix<double>& hess){
-			SparseMatrix<double> spJac = store.JacdxdF.sparseView();
-			std::cout<<"here1: "<<spJac.nonZeros()<<std::endl;
+			// std::cout<<"here1: "<<spJac.nonZeros()<<std::endl;
+			// hess = store.x0tStDt_dF_dF_DSx0;
+			// std::cout<<"here2"<<std::endl;
+			// SparseMatrix<double> part = store.YtStDtDSY*spJac;
+			// std::cout<<"here2.5"<<std::endl;
+			// SparseMatrix<double> part2= part.transpose()*spJac;
+			// hess += part2;
+			// std::cout<<"here3"<<std::endl;
+			// // SparseMatrix<double> part3 = -store.YtStDt_dF_DSx0.transpose()*spJac;
+			// // hess += part3.transpose();
+			// std::cout<<"here4"<<std::endl;
+			// hess += -2*store.YtStDt_dF_DSx0.transpose()*spJac;
+			// std::cout<<"here5"<<std::endl;
+
+			hess -= store.YtStDt_dF_DSx0.transpose()*store.JacdxdF;
+			// igl::writeDMAT("acap_hess.dmat",MatrixXd(hess));
 			hess = store.x0tStDt_dF_dF_DSx0;
-			std::cout<<"here2"<<std::endl;
-			SparseMatrix<double> part = store.YtStDtDSY*spJac;
-			std::cout<<"here2.5"<<std::endl;
-			SparseMatrix<double> part2= part.transpose()*spJac;
-			hess += part2;
-			std::cout<<"here3"<<std::endl;
-			// SparseMatrix<double> part3 = -store.YtStDt_dF_DSx0.transpose()*spJac;
-			// hess += part3.transpose();
-			std::cout<<"here4"<<std::endl;
-			hess += -2*store.YtStDt_dF_DSx0.transpose()*spJac;
-			std::cout<<"here5"<<std::endl;
 			hess *= store.alpha_arap;
 		}
 
@@ -108,11 +121,11 @@ namespace famu
 			return fake;
 		}
 
-		void solve(Store& store){
+		void solve(Store& store, VectorXd& dFvec){
 
 			VectorXd zer = VectorXd::Zero(store.JointConstraints.rows());
 			// VectorXd constrains = store.ConstrainProjection.transpose()*store.dx;
-			VectorXd top = store.YtStDt_dF_DSx0*store.dFvec - store.x0tStDtDSY;
+			VectorXd top = store.YtStDt_dF_DSx0*dFvec - store.x0tStDtDSY;
 			VectorXd KKT_right(top.size() + zer.size());
 			KKT_right<<top, zer;
 			// igl::writeDMAT("rhs.dmat", KKT_right);
@@ -129,21 +142,35 @@ namespace famu
 			// if(store.JacdxdF.rows()!=0){
 			// 	return;
 			// }
+			SparseMatrix<double> rhs = store.YtStDt_dF_DSx0.leftCols(9*store.bone_tets.size());
+			MatrixXd top = MatrixXd(rhs);
+			// MatrixXd zer = MatrixXd::Zero(store.JointConstraints.rows(), top.cols());
 
-			MatrixXd top = MatrixXd(store.YtStDt_dF_DSx0);
-			MatrixXd zer = MatrixXd::Zero(store.JointConstraints.rows(), top.cols());
+			// MatrixXd KKT_right(top.rows() + zer.rows(), top.cols());
+			// KKT_right<<top, zer;
 
-			MatrixXd KKT_right(top.rows() + zer.rows(), top.cols());
-			KKT_right<<top, zer;
+			UmfPackLU<SparseMatrix<double>> SPLU;
+			SPLU.compute(store.YtStDtDSY);
+			MatrixXd result = SPLU.solve(top);
 
-			MatrixXd result = store.SPLU.solve(KKT_right);
-			store.JacdxdF = result.topRows(top.rows());
-			store.JacdlambdadF = result.bottomRows(zer.rows());
+			SparseMatrix<double> spRes = result.sparseView();
+
+			std::vector<Trip> res_trips = to_triplets(spRes);
+			SparseMatrix<double> spJac(spRes.rows(), store.dFvec.size());
+			spJac.setFromTriplets(res_trips.begin(), res_trips.end());
+
+
+			store.JacdxdF = spJac;
+			cout<<"jac dims: "<<store.JacdxdF.rows()<<", "<<store.JacdxdF.cols()<<", "<<store.JacdxdF.nonZeros()<<endl;
 
 			// igl::writeDMAT(outputfile+"/dxdF.dmat", store.JacdxdF);
 			// igl::writeDMAT(outputfile+"/dlambdadF.dmat", store.JacdlambdadF);
+		
 		}
+
+		
 	}
+
 }
 
 #endif

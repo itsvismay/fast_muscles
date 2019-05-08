@@ -1,8 +1,8 @@
 {
-  "data": "/home/vismay/recode/fast_muscles/data/realistic_biceps",
-  "output": "/home/vismay/recode/fast_muscles/data/realistic_biceps",
-  "fix_bones": ["scapula"],  
-  "muscle_starting_strength": 10000,
+  "data": "/home/vismay/recode/fast_muscles/data/simple_joint",
+  "output": "/home/vismay/recode/fast_muscles/data/simple_joint",
+  "fix_bones": ["top_bone"],  
+  "muscle_starting_strength": 100000,
   "QS_steps": 100,
   "multiplier_strength_each_step": 1e4,
   "contract_muscles_at_index": [0],
@@ -19,6 +19,9 @@
   "number_rot_clusters": 0,
   "number_modes": 0,
   "fd_eps": 1e-2,
-  "alpha_arap": 1e6,
-  "alpha_neo":1
+  "alpha_arap": 1,
+  "alpha_neo":1,
+  "BFGS": false,
+  "Preconditioned": false,
+  "polar_dec": true
 }

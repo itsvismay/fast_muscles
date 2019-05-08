@@ -2,6 +2,7 @@
 #define BFGS_SOLVER
 
 #include "store.h"
+#include <igl/polar_dec.h>
 using Store = famu::Store;
 using namespace Eigen;
 using namespace std;
@@ -77,8 +78,50 @@ namespace famu{
 		double operator()(const VectorXd& dFvec, VectorXd& graddFvec, int k=0, int v=0)
 		{
 			store->dFvec = dFvec;
+			// //project bones dF back to rotations
+			// if(store->jinput["reduced"]){
+			// 	for(int t =0; t < store->T.rows(); t++){
+			// 		if(store->bone_or_muscle[t] < store->bone_tets.size()){
+			// 			int b = store->bone_or_muscle[t];
+			// 			Eigen::Matrix3d _r, _t;
+			// 			Matrix3d dFb = Map<Matrix3d>(store->dFvec.segment<9>(9*b).data()).transpose();
+			// 			igl::polar_dec(dFb, _r, _t);
 
-			famu::acap::solve(*store);
+			// 			store->dFvec[9*b+0] = _r(0,0);
+			//       		store->dFvec[9*b+1] = _r(0,1);
+			//       		store->dFvec[9*b+2] = _r(0,2);
+			//       		store->dFvec[9*b+3] = _r(1,0);
+			//       		store->dFvec[9*b+4] = _r(1,1);
+			//       		store->dFvec[9*b+5] = _r(1,2);
+			//       		store->dFvec[9*b+6] = _r(2,0);
+			//       		store->dFvec[9*b+7] = _r(2,1);
+			//       		store->dFvec[9*b+8] = _r(2,2);
+			// 		}
+			// 	}
+
+			// }else{
+			// 	for(int t = 0; t < store->bone_tets.size(); t++){
+			// 		for(int i=0; i<store->bone_tets[t].size(); i++){
+			// 			int b =store->bone_tets[t][i];
+
+			// 			Eigen::Matrix3d _r, _t;
+			// 			Matrix3d dFb = Map<Matrix3d>(store->dFvec.segment<9>(9*b).data()).transpose();
+			// 			igl::polar_dec(dFb, _r, _t);
+
+			// 			store->dFvec[9*b+0] = _r(0,0);
+			//       		store->dFvec[9*b+1] = _r(0,1);
+			//       		store->dFvec[9*b+2] = _r(0,2);
+			//       		store->dFvec[9*b+3] = _r(1,0);
+			//       		store->dFvec[9*b+4] = _r(1,1);
+			//       		store->dFvec[9*b+5] = _r(1,2);
+			//       		store->dFvec[9*b+6] = _r(2,0);
+			//       		store->dFvec[9*b+7] = _r(2,1);
+			//       		store->dFvec[9*b+8] = _r(2,2);
+			// 		}
+			// 	}
+			// }
+
+			famu::acap::solve(*store, store->dFvec);
 			
 			double EM = famu::muscle::energy(*store, store->dFvec);
 			double ENH = famu::stablenh::energy(*store, store->dFvec);

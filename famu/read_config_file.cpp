@@ -120,9 +120,9 @@ void famu::read_config_files(Eigen::MatrixXd& V,
             for(int i=0; i<muscle_tets[m].size(); i++){
                 int t= muscle_tets[m][i];
                 if(fabs(V.row(T.row(t)[0])[axis] - maxs) < 3.5){
-                    relativeStiffness[t] = 2;
+                    relativeStiffness[t] = 1;
                 }else if(fabs(V.row(T.row(t)[0])[axis] - mins) < 3){
-                    relativeStiffness[t] = 2;
+                    relativeStiffness[t] = 1;
                 }else{
                     relativeStiffness[t] = 1;
                 }
