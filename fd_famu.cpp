@@ -12,6 +12,7 @@
 #include <igl/opengl/glfw/imgui/ImGuiHelpers.h>
 #include <igl/list_to_matrix.h>
 #include <imgui/imgui.h>
+#include <igl/null.h>
 #include <json.hpp>
 #include <LBFGS.h>
 #include <Eigen/SparseCholesky>
@@ -37,6 +38,7 @@
 #include "famu/joint_constraint_matrix.h"
 #include "famu/fixed_bones_projection_matrix.h"
 #include "famu/bone_elem_def_grad_projection_matrix.h"
+#include "famu/setup_hessian_modes.h"
 
 
 using namespace Eigen;
@@ -104,8 +106,8 @@ int main(int argc, char *argv[])
 	    std::sort (store.mfix.begin(), store.mfix.end());
 	
 	cout<<"---Set YM and Poissons"<<endl;
-		store.eY = 1e9*VectorXd::Ones(store.T.rows());
-		store.eP = 0.45*VectorXd::Ones(store.T.rows());
+		store.eY = 1e10*VectorXd::Ones(store.T.rows());
+		store.eP = 0.49*VectorXd::Ones(store.T.rows());
 		store.muscle_mag = VectorXd::Zero(store.T.rows());
 		for(int m=0; m<store.muscle_tets.size(); m++){
 			for(int t=0; t<store.muscle_tets[m].size(); t++){
@@ -149,7 +151,7 @@ int main(int argc, char *argv[])
 		famu::vertex_bc(store.mmov, store.mfix, store.UnconstrainProjection, store.ConstrainProjection, store.V);
 
 	cout<<"---Set Discontinuous Tet Centroid vector matrix"<<endl;
-		famu::discontinuous_edge_vectors(store.D, store._D, store.T, store.muscle_tets);
+		famu::discontinuous_edge_vectors(store, store.D, store._D, store.T, store.muscle_tets);
 
 	cout<<"---Cont. to Discont. matrix"<<endl;
 		famu::cont_to_discont_tets(store.S, store.T, store.V);
@@ -165,13 +167,28 @@ int main(int argc, char *argv[])
 		famu::fixed_bones_projection_matrix(store, store.Y);
 		famu::joint_constraint_matrix(store, store.JointConstraints);
 		famu::bone_def_grad_projection_matrix(store, store.ProjectF, store.PickBoneF);
+		MatrixXd nullJ;
+		igl::null(MatrixXd(store.JointConstraints), nullJ);
+		store.NullJ = nullJ.sparseView();
+	
+	
 
 	cout<<"---ACAP Solve KKT setup"<<endl;
 		SparseMatrix<double> KKT_left;
 		store.YtStDtDSY = (store.D*store.S*store.Y).transpose()*(store.D*store.S*store.Y);
 		famu::construct_kkt_system_left(store.YtStDtDSY, store.JointConstraints, KKT_left);
+		
 		store.SPLU.analyzePattern(KKT_left);
 		store.SPLU.factorize(KKT_left);
+
+		if(store.SPLU.info()!=Success){
+			cout<<"1. ACAP Jacobian solve failed"<<endl;
+			cout<<"2. numerical issue: "<<(store.SPLU.info()==NumericalIssue)<<endl;
+			cout<<"3. invalid input: "<<(store.SPLU.info()==InvalidInput)<<endl;
+			// cout<<SPLU.isSymmetric()<<endl;
+			exit(0);
+		}
+
 
 	cout<<"---Setup dFvec and dF"<<endl;
 		store.dFvec = VectorXd::Zero(store.ProjectF.cols());
@@ -210,6 +227,15 @@ int main(int argc, char *argv[])
 		famu::muscle::setupFastMuscles(store, mat_uvec);
 		store.fastMuscles = mat_uvec.transpose()*mat_uvec;
 
+	cout<<"--- Setup Modes"<<endl;
+        MatrixXd temp1;
+        SparseMatrix<double> NjtYtStDtDSYNj = store.NullJ.transpose()*store.Y.transpose()*store.S.transpose()*store._D.transpose()*store._D*store.S*store.Y*store.NullJ;
+        igl::readDMAT(outputfile+"/"+to_string((int)j_input["number_modes"])+"modes.dmat", temp1);
+        if(temp1.rows() == 0){
+			famu::setup_hessian_modes(store, NjtYtStDtDSYNj, temp1);
+		}
+		store.G = temp1;
+
 	cout<<"--- ACAP Hessians"<<endl;
 		famu::acap::setJacobian(store);
 		SparseMatrix<double> muscleHess(store.dFvec.size(), store.dFvec.size());
@@ -219,8 +245,26 @@ int main(int argc, char *argv[])
 		SparseMatrix<double> acapHess(store.dFvec.size(), store.dFvec.size());
 		famu::acap::fastHessian(store, acapHess);
 		SparseMatrix<double> hess = acapHess + muscleHess + neoHess;
+	
+	cout<<"--- Setup woodbury matrices"<<endl;
+		store.WoodB = -store.YtStDt_dF_DSx0.transpose()*store.G;
+		store.WoodD = store.WoodB.transpose();
+		store.InvC = store.G.transpose()*store.YtStDtDSY*store.G;
+
 		// Eigen::SimplicialLDLT<SparseMatrix<double>> LDLT;
 		// LDLT.compute(hess);
+		
+		// igl::writeDMAT("D.dmat", MatrixXd(store.D));
+		// igl::writeDMAT("S.dmat", MatrixXd(store.S));
+		// igl::writeDMAT("P.dmat", MatrixXd(store.ProjectF));
+		// igl::writeDMAT("J.dmat", MatrixXd(store.JointConstraints));
+		// igl::writeDMAT("Y.dmat", MatrixXd(store.Y));
+		// igl::writeDMAT("Z.dmat", MatrixXd(store.DSx0_mat));
+		// igl::writeDMAT("x0.dmat", MatrixXd(store.x0));
+		// igl::writeDMAT("acapHess.dmat", MatrixXd(acapHess));
+		// igl::writeDMAT("dxdF.dmat", MatrixXd(store.JacdxdF));
+		// igl::writeDMAT("dFvec.dmat", MatrixXd());
+		// exit(0);
 
     cout<<"---Setup Solver"<<endl;
 	    int DIM = store.dFvec.size();
@@ -237,10 +281,28 @@ int main(int argc, char *argv[])
 	std::cout<<"-----Display-------"<<std::endl;
     igl::opengl::glfw::Viewer viewer;
     igl::Timer timer;
+    int kkkk =0;
+    double tttt =0;
+    // MatrixXd modes = store.Y*store.G;
+    // viewer.callback_pre_draw = [&](igl::opengl::glfw::Viewer & viewer){   
+    //     if(viewer.core.is_animating){
+    //         if(kkkk < store.G.cols()){
+    //             VectorXd x = 50*sin(tttt)*modes.col(kkkk) + store.x0;
+    //             Eigen::Map<Eigen::MatrixXd> newV(x.data(), store.V.cols(), store.V.rows());
+    //             viewer.data().set_mesh(newV.transpose(), store.F);
+    //             tttt+= 0.1;
+    //         }
+    // 	}
+    //     return false;
+    // };
+
     viewer.callback_key_down = [&](igl::opengl::glfw::Viewer & viewer, unsigned char key, int modifiers){   
  
         std::cout<<"Key down, "<<key<<std::endl;
         viewer.data().clear();
+        if(key =='K'){
+        	kkkk ++;
+        }
 
         if(key=='A'){
         	store.muscle_mag *= 1.5;

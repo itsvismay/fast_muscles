@@ -76,3 +76,9 @@ void famu::bone_def_grad_projection_matrix(Store& store, Eigen::SparseMatrix<dou
     // mAN.setFromTriplets(mAN_trips.begin(), mAN_trips.end());
 
 }
+
+void famu::bone_continuous_constraints(Store& store, SparseMatrix<double>& B){
+
+    // B.resize( 12*store.T.rows());
+    // B.setFromTriplets(b_trips.begin(), b_trips.end())
+}

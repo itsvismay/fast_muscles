@@ -4,6 +4,8 @@
 #include "store.h"
 #include <igl/writeDMAT.h>
 #include <igl/readDMAT.h>
+#include<Eigen/LU>
+
 
 using namespace famu;
 using namespace std;
@@ -70,10 +72,11 @@ namespace famu
 			// std::cout<<"here4"<<std::endl;
 			// hess += -2*store.YtStDt_dF_DSx0.transpose()*spJac;
 			// std::cout<<"here5"<<std::endl;
-
-			hess -= store.YtStDt_dF_DSx0.transpose()*store.JacdxdF;
-			// igl::writeDMAT("acap_hess.dmat",MatrixXd(hess));
+			hess.setZero();
 			hess = store.x0tStDt_dF_dF_DSx0;
+			hess -= store.YtStDt_dF_DSx0.transpose()*store.JacdxdF;
+
+			// igl::writeDMAT("acap_hess.dmat",MatrixXd(hess));
 			hess *= store.alpha_arap;
 		}
 
@@ -142,30 +145,59 @@ namespace famu
 			// if(store.JacdxdF.rows()!=0){
 			// 	return;
 			// }
-			SparseMatrix<double> rhs = store.YtStDt_dF_DSx0.leftCols(9*store.bone_tets.size());
-			MatrixXd top = MatrixXd(rhs);
-			// MatrixXd zer = MatrixXd::Zero(store.JointConstraints.rows(), top.cols());
 
-			// MatrixXd KKT_right(top.rows() + zer.rows(), top.cols());
-			// KKT_right<<top, zer;
+			//Sparse jacobian
+			if(store.jinput["sparseJac"]){
 
-			UmfPackLU<SparseMatrix<double>> SPLU;
-			SPLU.compute(store.YtStDtDSY);
-			MatrixXd result = SPLU.solve(top);
+				SparseMatrix<double> rhs = store.YtStDt_dF_DSx0.leftCols(9*store.bone_tets.size());
+				MatrixXd top = MatrixXd(rhs);
+				MatrixXd zer = MatrixXd(store.JointConstraints.rows(), top.cols());
+				MatrixXd KKT_right(top.rows() + zer.rows(), top.cols());
+				KKT_right<<top,zer;
 
-			SparseMatrix<double> spRes = result.sparseView();
+				MatrixXd result = store.SPLU.solve(KKT_right).topRows(top.rows());
+				if(result!=result){
+					cout<<"ACAP Jacobian result has nans"<<endl;
+					exit(0);
+				}
+				SparseMatrix<double> spRes = result.sparseView();
 
-			std::vector<Trip> res_trips = to_triplets(spRes);
-			SparseMatrix<double> spJac(spRes.rows(), store.dFvec.size());
-			spJac.setFromTriplets(res_trips.begin(), res_trips.end());
+				std::vector<Trip> res_trips = to_triplets(spRes);
+				SparseMatrix<double> spJac(spRes.rows(), store.dFvec.size());
+				spJac.setFromTriplets(res_trips.begin(), res_trips.end());
+				store.JacdxdF = spJac;
+				cout<<"jac dims: "<<store.JacdxdF.rows()<<", "<<store.JacdxdF.cols()<<", "<<store.JacdxdF.nonZeros()<<endl;
 
 
-			store.JacdxdF = spJac;
-			cout<<"jac dims: "<<store.JacdxdF.rows()<<", "<<store.JacdxdF.cols()<<", "<<store.JacdxdF.nonZeros()<<endl;
+			}else{
 
-			// igl::writeDMAT(outputfile+"/dxdF.dmat", store.JacdxdF);
-			// igl::writeDMAT(outputfile+"/dlambdadF.dmat", store.JacdlambdadF);
-		
+				// MatrixXd rhs = MatrixXd(store.YtStDt_dF_DSx0);
+
+				// UmfPackLU<SparseMatrix<double>> SPLU;
+				// SPLU.compute(store.YtStDtDSY);
+				// MatrixXd result = SPLU.solve(rhs);
+				// cout<<result.rows()<<", "<<result.cols()<<endl;
+				// SparseMatrix<double> spRes = (result).sparseView();
+				// store.JacdxdF = spRes;
+				// cout<<"jac dims: "<<store.JacdxdF.rows()<<", "<<store.JacdxdF.cols()<<", "<<store.JacdxdF.nonZeros()<<endl;
+
+				// MatrixXd GtYtStDtDSYG = store.G.transpose()*store.YtStDtDSY*store.G;
+				// MatrixXd rhs = store.G.transpose()*store.YtStDt_dF_DSx0;
+
+				// // UmfPackLU<SparseMatrix<double>> SPLU;
+				// FullPivLU<MatrixXd> SPLU;
+				// SPLU.compute(GtYtStDtDSYG);
+				// MatrixXd result = SPLU.solve(rhs);
+				// cout<<store.G.rows()<<", "<<store.G.cols()<<endl;
+				// cout<<result.rows()<<", "<<result.cols()<<endl;
+				// SparseMatrix<double> spG = store.G.sparseView();
+				// SparseMatrix<double> spRes = (result).sparseView();
+				// store.JacdxdF = spG*spRes;
+				// cout<<"jac dims: "<<store.JacdxdF.rows()<<", "<<store.JacdxdF.cols()<<", "<<store.JacdxdF.nonZeros()<<endl;
+
+				// exit(0);
+			}
+
 		}
 
 		

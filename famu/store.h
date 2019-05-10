@@ -42,8 +42,9 @@ namespace famu{
 		Eigen::SparseMatrix<double> S;
 		Eigen::SparseMatrix<double> ProjectF, PickBoneF;
 		Eigen::SparseMatrix<double> ConstrainProjection, UnconstrainProjection;
-		Eigen::SparseMatrix<double> JointConstraints;
+		Eigen::SparseMatrix<double> JointConstraints, NullJ;
 		Eigen::SparseMatrix<double> Y;
+		Eigen::MatrixXd G;
 
 		Eigen::VectorXd dFvec;
 		Eigen::VectorXd x, dx, x0;
@@ -66,6 +67,14 @@ namespace famu{
 		Eigen::SparseMatrix<double> fastMuscles;
 
 		Eigen::SparseMatrix<double> JacdxdF;
+
+		//woodbury matrices
+		//(A + BCD)-1
+		//A = Hneo + Hmuscle + P'Z'ZP
+		//B = -P'Z'DSYG
+		//C = Inv(GtYtStDtDSYG)
+		//D = G'Y'S'D'ZP
+		Eigen::MatrixXd WoodB, WoodD, InvC;
 
 	};
 }

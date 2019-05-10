@@ -3,6 +3,7 @@
 #include "store.h"
 #include <Eigen/UmfPackSupport>
 #include <igl/polar_dec.h>
+#include <Eigen/LU>
 
 using Store = famu::Store;
 using namespace Eigen;
@@ -94,10 +95,9 @@ namespace famu
 
 	double line_search(Store& store, VectorXd& grad, VectorXd& drt){
 		// Decreasing and increasing factors
-		return 0.5;
 		VectorXd x = store.dFvec;
 		VectorXd xp = x;
-		double step = 10;
+		double step = 1;
         const double dec = 0.5;
         const double inc = 2.1;
         int pmax_linesearch = 100;
@@ -227,11 +227,12 @@ namespace famu
 			sum += store.bone_tets[b].size();
 		}
 
-		int MAX_ITERS = 20;
+		int MAX_ITERS = store.jinput["NM_MAX_ITERS"];
 		UmfPackLU<SparseMatrix<double>> SPLU;
 		VectorXd graddFvec = VectorXd::Zero(store.dFvec.size());
 		SparseMatrix<double> hessFvec = neoHess + acapHess + muscleHess;
-		SPLU.analyzePattern(hessFvec);
+		FullPivLU<MatrixXd>  WoodburyDenseSolve;
+		
 		int iter =0;
 		for(iter=0; iter<MAX_ITERS; iter++){
 			hessFvec.setZero();
@@ -249,21 +250,54 @@ namespace famu
 			cout<<"acap grad: "<<acap_grad.norm()<<endl;
 			graddFvec = muscle_grad + neo_grad + acap_grad;
 			cout<<"tot grad: "<<graddFvec.norm()<<endl;
-
-
-			famu::stablenh::hessian(store, neoHess);
-			hessFvec = neoHess + acapHess + muscleHess;
-
-
-			// SPLU.compute(acapHess);
-			SPLU.factorize(hessFvec);
-			VectorXd delta_dFvec = -1*SPLU.solve(graddFvec);
-
-			if(delta_dFvec != delta_dFvec){
-				cout<<"nans"<<endl;
+			if(graddFvec != graddFvec){
+				cout<<"Error: nans in grad"<<endl;
 				exit(0);
 			}
 
+			famu::stablenh::hessian(store, neoHess);
+			VectorXd delta_dFvec;
+
+			if(!store.jinput["woodbury"]){
+				hessFvec = neoHess + muscleHess + acapHess;
+				SPLU.compute(hessFvec);
+				if(SPLU.info()!=Success){
+					cout<<"SOLVER FAILED"<<endl;
+					cout<<SPLU.info()<<endl;
+				}
+				cout<<"4"<<endl;
+				delta_dFvec = -1*SPLU.solve(graddFvec);
+			
+			}else{
+				SparseMatrix<double> A = neoHess + muscleHess + store.x0tStDt_dF_dF_DSx0;
+				SPLU.compute(A);
+				if(SPLU.info()!=Success){
+					cout<<"SOLVER FAILED"<<endl;
+					cout<<SPLU.info()<<endl;
+				}
+				VectorXd InvAg = SPLU.solve(graddFvec);
+
+				MatrixXd CDAB = store.InvC + store.WoodD*SPLU.solve(store.WoodB);
+				WoodburyDenseSolve.compute(CDAB);
+				VectorXd temp = WoodburyDenseSolve.solve(store.WoodD*InvAg);
+				VectorXd temp1 = store.WoodB*temp;
+
+				VectorXd InvAtemp1 = SPLU.solve(temp1);
+
+				delta_dFvec = -InvAg - InvAtemp1;
+			}
+
+
+
+
+			// SPLU.compute(acapHess);
+			
+			cout<<"5"<<endl;
+			if(delta_dFvec != delta_dFvec){
+				cout<<"Error: nans"<<endl;
+				exit(0);
+			}
+			cout<<"6"<<endl;
 
 			
 			//line search
