@@ -246,7 +246,7 @@ int main(int argc, char *argv[])
 
 	cout<<"--- Setup Modes"<<endl;
         MatrixXd temp1;
-        SparseMatrix<double> NjtYtStDtDSYNj = store.NullJ.transpose()*store.Y.transpose()*store.S.transpose()*store._D.transpose()*store._D*store.S*store.Y*store.NullJ;
+        SparseMatrix<double> NjtYtStDtDSYNj = store.NullJ.transpose()*store.Y.transpose()*store.S.transpose()*store.D.transpose()*store.D*store.S*store.Y*store.NullJ;
         igl::readDMAT(outputfile+"/"+to_string((int)j_input["number_modes"])+"modes.dmat", temp1);
         if(temp1.rows() == 0 && !store.jinput["sparseJac"]){
 			famu::setup_hessian_modes(store, NjtYtStDtDSYNj, temp1);
@@ -354,6 +354,7 @@ int main(int argc, char *argv[])
         if(key=='A'){
         	store.muscle_mag *= 1.5;
         	famu::muscle::setupFastMuscles(store);
+        	famu::muscle::fastHessian(store, store.muscleHess);
         }
         
         if(key==' '){

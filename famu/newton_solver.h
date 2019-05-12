@@ -186,13 +186,26 @@ namespace famu
 	}
 
 	int newton_static_solve(Store& store){
-		int MAX_ITERS = store.jinput["NM_MAX_ITERS"];
+		SparseMatrix<double> hessFvec(store.dFvec.size(), store.dFvec.size());
 		
+		// store.neoHess.resize(store.dFvec.size(), store.dFvec.size());
+		// famu::stablenh::hessian(store, store.neoHess);
+		
+		// store.muscleHess.resize(store.dFvec.size(), store.dFvec.size());
+		// famu::muscle::fastHessian(store, store.muscleHess);
+
+		// store.acapHess.resize(store.dFvec.size(), store.dFvec.size());
+		// famu::acap::fastHessian(store, store.acapHess);
+		// hessFvec = store.neoHess + store.acapHess + store.muscleHess;
+		// Eigen::UmfPackLU<Eigen::SparseMatrix<double>> store.NM_SPLU;
+
+
+		int MAX_ITERS = store.jinput["NM_MAX_ITERS"];
+
 		VectorXd muscle_grad, neo_grad, acap_grad;
 		muscle_grad.resize(store.dFvec.size());
 		neo_grad.resize(store.dFvec.size());
 		acap_grad.resize(store.dFvec.size());
-		SparseMatrix<double> hessFvec(store.dFvec.size(), store.dFvec.size());
 
 
 		
