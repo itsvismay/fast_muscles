@@ -17,14 +17,14 @@
   "reduced_x": true,
   "number_skinning_handles": 0,
   "number_rot_clusters": 0,
-  "number_modes": 25,
+  "number_modes": 50,
   "fd_eps": 1e-2,
   "alpha_arap": 1,
   "alpha_neo":1,
   "BFGS": false,
   "Preconditioned": false,
   "polar_dec": true,
-  "sparseJac": true,
-  "NM_MAX_ITERS": 20,
+  "sparseJac": false,
+  "NM_MAX_ITERS": 100,
   "woodbury": true
 }

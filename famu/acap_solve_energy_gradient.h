@@ -56,6 +56,7 @@ namespace famu
 			grad = -store.alpha_arap*store.x0tStDt_dF_DSx0;
 			grad += -store.alpha_arap*store.x.transpose()*store.YtStDt_dF_DSx0;
 			grad += store.alpha_arap*store.dFvec.transpose()*store.x0tStDt_dF_dF_DSx0;
+			grad += store.alpha_arap*store.Bf.transpose()*store.lambda2;
 		}
 
 		void fastHessian(Store& store, SparseMatrix<double>& hess){
@@ -74,8 +75,9 @@ namespace famu
 			// std::cout<<"here5"<<std::endl;
 			hess.setZero();
 			hess = store.x0tStDt_dF_dF_DSx0;
-			hess -= store.YtStDt_dF_DSx0.transpose()*store.JacdxdF;
-
+			if(!store.jinput["woodbury"]){
+				hess -= store.YtStDt_dF_DSx0.transpose()*store.JacdxdF;
+			}
 			// igl::writeDMAT("acap_hess.dmat",MatrixXd(hess));
 			hess *= store.alpha_arap;
 		}
@@ -126,15 +128,17 @@ namespace famu
 
 		void solve(Store& store, VectorXd& dFvec){
 
-			VectorXd zer = VectorXd::Zero(store.JointConstraints.rows());
-			// VectorXd constrains = store.ConstrainProjection.transpose()*store.dx;
 			VectorXd top = store.YtStDt_dF_DSx0*dFvec - store.x0tStDtDSY;
-			VectorXd KKT_right(top.size() + zer.size());
-			KKT_right<<top, zer;
+			VectorXd zer = VectorXd::Zero(store.JointConstraints.rows());
+			VectorXd bone_def = store.Bf*store.dFvec + store.BfI0;
+
+			VectorXd KKT_right(top.size() + zer.size() + bone_def.size());
+			KKT_right<<top, zer, bone_def;
 			// igl::writeDMAT("rhs.dmat", KKT_right);
 
 			VectorXd result = store.SPLU.solve(KKT_right);
 			store.x = result.head(top.size());
+			store.lambda2 = result.tail(bone_def.size());
 		
 		}
 
@@ -152,8 +156,9 @@ namespace famu
 				SparseMatrix<double> rhs = store.YtStDt_dF_DSx0.leftCols(9*store.bone_tets.size());
 				MatrixXd top = MatrixXd(rhs);
 				MatrixXd zer = MatrixXd(store.JointConstraints.rows(), top.cols());
-				MatrixXd KKT_right(top.rows() + zer.rows(), top.cols());
-				KKT_right<<top,zer;
+				MatrixXd bone_def = MatrixXd(store.Bf);
+				MatrixXd KKT_right(top.rows() + zer.rows() + bone_def.rows(), top.cols());
+				KKT_right<<top,zer, bone_def;
 
 				MatrixXd result = store.SPLU.solve(KKT_right).topRows(top.rows());
 				if(result!=result){
@@ -171,15 +176,36 @@ namespace famu
 
 			}else{
 
-				// MatrixXd rhs = MatrixXd(store.YtStDt_dF_DSx0);
+				if(!store.jinput["woodbury"]){
 
-				// UmfPackLU<SparseMatrix<double>> SPLU;
-				// SPLU.compute(store.YtStDtDSY);
-				// MatrixXd result = SPLU.solve(rhs);
-				// cout<<result.rows()<<", "<<result.cols()<<endl;
-				// SparseMatrix<double> spRes = (result).sparseView();
-				// store.JacdxdF = spRes;
-				// cout<<"jac dims: "<<store.JacdxdF.rows()<<", "<<store.JacdxdF.cols()<<", "<<store.JacdxdF.nonZeros()<<endl;
+					SparseMatrix<double> rhs = store.YtStDt_dF_DSx0;
+					MatrixXd top = MatrixXd(rhs);
+					MatrixXd zer = MatrixXd(store.JointConstraints.rows(), top.cols());
+					MatrixXd bone_def = MatrixXd(store.Bf);
+					MatrixXd KKT_right(top.rows() + zer.rows()+ bone_def.rows(), top.cols());
+					KKT_right<<top,zer, bone_def;
+
+					MatrixXd result = store.SPLU.solve(KKT_right).topRows(top.rows());
+					if(result!=result){
+						cout<<"ACAP Jacobian result has nans"<<endl;
+						exit(0);
+					}
+					
+
+					// MatrixXd rhs = MatrixXd(store.YtStDt_dF_DSx0);
+					// UmfPackLU<SparseMatrix<double>> SPLU;
+					// SPLU.compute(store.YtStDtDSY);
+					// MatrixXd result = SPLU.solve(rhs);
+					// cout<<result.rows()<<", "<<result.cols()<<endl;
+					
+
+					SparseMatrix<double> spRes = (result).sparseView();
+					store.JacdxdF = spRes;
+					cout<<"jac dims: "<<store.JacdxdF.rows()<<", "<<store.JacdxdF.cols()<<", "<<store.JacdxdF.nonZeros()<<endl;
+
+				}
+				
+
 
 				// MatrixXd GtYtStDtDSYG = store.G.transpose()*store.YtStDtDSY*store.G;
 				// MatrixXd rhs = store.G.transpose()*store.YtStDt_dF_DSx0;

@@ -43,11 +43,11 @@ namespace famu{
 		Eigen::SparseMatrix<double> ProjectF, PickBoneF;
 		Eigen::SparseMatrix<double> ConstrainProjection, UnconstrainProjection;
 		Eigen::SparseMatrix<double> JointConstraints, NullJ;
-		Eigen::SparseMatrix<double> Y;
+		Eigen::SparseMatrix<double> Y, Bx, Bf;
 		Eigen::MatrixXd G;
 
-		Eigen::VectorXd dFvec;
-		Eigen::VectorXd x, dx, x0;
+		Eigen::VectorXd dFvec, BfI0;
+		Eigen::VectorXd x, dx, x0, lambda2;
 
 		// Eigen::SparseLU<Eigen::SparseMatrix<double>> SPLU;
 		Eigen::UmfPackLU<Eigen::SparseMatrix<double>> SPLU;
@@ -74,7 +74,8 @@ namespace famu{
 		//B = -P'Z'DSYG
 		//C = Inv(GtYtStDtDSYG)
 		//D = G'Y'S'D'ZP
-		Eigen::MatrixXd WoodB, WoodD, InvC;
+		Eigen::MatrixXd WoodB, WoodD, InvC, WoodC;
+		Eigen::VectorXd eigenvalues;
 
 	};
 }

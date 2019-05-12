@@ -105,7 +105,7 @@ int main(int argc, char *argv[])
 	    store.mfix.assign(fix_verts_set.begin(), fix_verts_set.end());
 	    std::sort (store.mfix.begin(), store.mfix.end());
 	
-	cout<<"---Set YM and Poissons"<<endl;
+	cout<<"---Set YM and Poissons"<<store.x.size()<<endl;
 		store.eY = 1e10*VectorXd::Ones(store.T.rows());
 		store.eP = 0.49*VectorXd::Ones(store.T.rows());
 		store.muscle_mag = VectorXd::Zero(store.T.rows());
@@ -145,41 +145,58 @@ int main(int argc, char *argv[])
 				store.bone_or_muscle[i] = i;
 			}
 	    }
-	    
+	cout<<"---Setup continuous mesh"<<store.x.size()<<endl;
+		store.x0.resize(3*store.V.rows());
+		for(int i=0; i<store.V.rows(); i++){
+			store.x0[3*i+0] = store.V(i,0); 
+			store.x0[3*i+1] = store.V(i,1); 
+			store.x0[3*i+2] = store.V(i,2);   
+	    }
+	    store.dx = VectorXd::Zero(3*store.V.rows());
 
-    cout<<"---Set Vertex Constraint Matrices"<<endl;
+
+	cout<<"---Cont. to Discont. matrix"<<store.x.size()<<endl;
+		famu::cont_to_discont_tets(store.S, store.T, store.V);
+	    
+    cout<<"---Set Vertex Constraint Matrices"<<store.x.size()<<endl;
 		famu::vertex_bc(store.mmov, store.mfix, store.UnconstrainProjection, store.ConstrainProjection, store.V);
 
-	cout<<"---Set Discontinuous Tet Centroid vector matrix"<<endl;
+	cout<<"---Set Discontinuous Tet Centroid vector matrix"<<store.x.size()<<endl;
 		famu::discontinuous_edge_vectors(store, store.D, store._D, store.T, store.muscle_tets);
 
-	cout<<"---Cont. to Discont. matrix"<<endl;
-		famu::cont_to_discont_tets(store.S, store.T, store.V);
-
-	cout<<"---Set Centroid Matrix"<<endl;
+	cout<<"---Set Centroid Matrix"<<store.x.size()<<endl;
 		famu::discontinuous_centroids_matrix(store.C, store.T);
 
-	cout<<"---Set Disc T and V"<<endl;
+	cout<<"---Set Disc T and V"<<store.x.size()<<endl;
 		famu::setDiscontinuousMeshT(store.T, store.discT);
 		store.discV.resize(4*store.T.rows(), 3);
 
-	cout<<"---Set Joints Constraint Matrix"<<endl;
+	cout<<"---Set Joints Constraint Matrix"<<store.x.size()<<endl;
 		famu::fixed_bones_projection_matrix(store, store.Y);
+	    store.x = VectorXd::Zero(store.Y.cols());
 		famu::joint_constraint_matrix(store, store.JointConstraints);
+
 		famu::bone_def_grad_projection_matrix(store, store.ProjectF, store.PickBoneF);
 		MatrixXd nullJ;
 		igl::null(MatrixXd(store.JointConstraints), nullJ);
 		store.NullJ = nullJ.sparseView();
 	
+		famu::bone_acap_deformation_constraints(store, store.Bx, store.Bf);
+	    store.lambda2 = VectorXd::Zero(store.Bf.rows());
 	
 
-	cout<<"---ACAP Solve KKT setup"<<endl;
+	cout<<"---ACAP Solve KKT setup"<<store.x.size()<<endl;
 		SparseMatrix<double> KKT_left;
 		store.YtStDtDSY = (store.D*store.S*store.Y).transpose()*(store.D*store.S*store.Y);
 		famu::construct_kkt_system_left(store.YtStDtDSY, store.JointConstraints, KKT_left);
+
+		SparseMatrix<double> KKT_left2;
+		famu::construct_kkt_system_left(KKT_left, store.Bx,  KKT_left2, 1); 
+		// MatrixXd Hkkt = MatrixXd(KKT_left2);
 		
-		store.SPLU.analyzePattern(KKT_left);
-		store.SPLU.factorize(KKT_left);
+
+		store.SPLU.analyzePattern(KKT_left2);
+		store.SPLU.factorize(KKT_left2);
 
 		if(store.SPLU.info()!=Success){
 			cout<<"1. ACAP Jacobian solve failed"<<endl;
@@ -197,17 +214,9 @@ int main(int argc, char *argv[])
 			store.dFvec[9*t + 4] = 1;
 			store.dFvec[9*t + 8] = 1;
 		}
-		// store.dF.resize(12*store.T.rows(), 12*store.T.rows());
+		store.BfI0 = store.Bf*store.dFvec;
 
-	cout<<"---Setup continuous mesh"<<endl;
-		store.x0.resize(3*store.V.rows());
-		for(int i=0; i<store.V.rows(); i++){
-			store.x0[3*i+0] = store.V(i,0); 
-			store.x0[3*i+1] = store.V(i,1); 
-			store.x0[3*i+2] = store.V(i,2);   
-	    }
-	    store.x = VectorXd::Zero(store.Y.cols());
-	    store.dx = VectorXd::Zero(3*store.V.rows());
+
 
 	cout<<"---Setup Fast ACAP energy"<<endl;
 		store.StDtDS = (store.D*store.S).transpose()*(store.D*store.S);
@@ -236,20 +245,33 @@ int main(int argc, char *argv[])
 		}
 		store.G = temp1;
 
-	cout<<"--- ACAP Hessians"<<endl;
-		famu::acap::setJacobian(store);
-		SparseMatrix<double> muscleHess(store.dFvec.size(), store.dFvec.size());
-		famu::muscle::fastHessian(store, muscleHess);
-		SparseMatrix<double> neoHess(store.dFvec.size(), store.dFvec.size());
-		famu::stablenh::hessian(store, neoHess);
-		SparseMatrix<double> acapHess(store.dFvec.size(), store.dFvec.size());
-		famu::acap::fastHessian(store, acapHess);
-		SparseMatrix<double> hess = acapHess + muscleHess + neoHess;
-	
-	cout<<"--- Setup woodbury matrices"<<endl;
-		store.WoodB = -store.YtStDt_dF_DSx0.transpose()*store.G;
-		store.WoodD = store.WoodB.transpose();
-		store.InvC = store.G.transpose()*store.YtStDtDSY*store.G;
+	if(!store.jinput["woodbury"]){
+
+		cout<<"--- ACAP Hessians"<<endl;
+			famu::acap::setJacobian(store);
+			SparseMatrix<double> muscleHess(store.dFvec.size(), store.dFvec.size());
+			famu::muscle::fastHessian(store, muscleHess);
+			SparseMatrix<double> neoHess(store.dFvec.size(), store.dFvec.size());
+			famu::stablenh::hessian(store, neoHess);
+			SparseMatrix<double> acapHess(store.dFvec.size(), store.dFvec.size());
+			famu::acap::fastHessian(store, acapHess);
+			SparseMatrix<double> hess = acapHess + muscleHess + neoHess;
+	}else{
+
+
+		cout<<"--- Setup woodbury matrices"<<endl;
+			store.WoodB = -store.YtStDt_dF_DSx0.transpose()*store.G;
+			store.WoodD = -1*store.WoodB.transpose();
+			MatrixXd zer = MatrixXd(store.JointConstraints.rows(), store.G.cols());
+			MatrixXd GtZero (store.G.rows() + zer.rows(), store.G.cols());
+			GtZero<<store.G, zer;
+
+			store.InvC = store.eigenvalues.asDiagonal();
+			store.WoodC = store.eigenvalues.asDiagonal().inverse();
+			// cout<<store.InvC<<endl;
+
+
+	}
 
 		// Eigen::SimplicialLDLT<SparseMatrix<double>> LDLT;
 		// LDLT.compute(hess);
@@ -277,6 +299,10 @@ int main(int argc, char *argv[])
 	    param.linesearch = LBFGSpp::LBFGS_LINESEARCH_BACKTRACKING_ARMIJO;
 	    LBFGSSolver<double> solver(param);
 
+
+
+	 cout<<store.Y.cols()<<endl;
+	 cout<<store.x.size()<<endl;
 
 	std::cout<<"-----Display-------"<<std::endl;
     igl::opengl::glfw::Viewer viewer;
@@ -412,6 +438,7 @@ int main(int argc, char *argv[])
 
             	}
             }
+	            cout<<zz.transpose()<<endl;
 
 
             igl::jet(zz, true, COLRS);

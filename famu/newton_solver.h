@@ -198,6 +198,8 @@ namespace famu
 		SparseMatrix<double> acapHess(store.dFvec.size(), store.dFvec.size());
 		famu::acap::fastHessian(store, acapHess);
 
+		
+
 		//check with FD
 		// MatrixXd fakeMuscleHess = famu::muscle::fd_hessian(store);
 		// cout<<fakeMuscleHess.rows()<<", "<<fakeMuscleHess.cols()<<endl;
@@ -283,8 +285,20 @@ namespace famu
 				VectorXd temp1 = store.WoodB*temp;
 
 				VectorXd InvAtemp1 = SPLU.solve(temp1);
+				delta_dFvec = -InvAg + InvAtemp1;
 
-				delta_dFvec = -InvAg - InvAtemp1;
+				
+				// SparseMatrix<double> A = neoHess + muscleHess + store.x0tStDt_dF_dF_DSx0;
+				// SparseMatrix<double> BCD = (store.WoodB*store.WoodC*store.WoodD).sparseView();
+				// SPLU.compute((A + BCD));
+				// if(SPLU.info()!=Success){
+				// 	cout<<"SOLVER FAILED"<<endl;
+				// 	cout<<SPLU.info()<<endl;
+				// }
+				// cout<<"4"<<endl;
+				// delta_dFvec = -1*SPLU.solve(graddFvec);
+
+
 			}
 
 

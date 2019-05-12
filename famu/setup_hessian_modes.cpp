@@ -76,6 +76,7 @@ void famu::setup_hessian_modes(Store& store, SparseMatrix<double>& A, MatrixXd& 
         cout<<"     eig4"<<endl;
         // eigenvalues.head(eigenvalues.size() - 3));
         mG = store.NullJ*evsCorrected;
+        store.eigenvalues = eigsCorrected;
         //std::string outputfile = store.jinput["output"];
         // igl::writeDMAT(outputfile+"/"+to_string((int)store.jinput["number_modes"])+"modes.dmat", evsCorrected);
         cout<<"-EIG SOLVE"<<endl;

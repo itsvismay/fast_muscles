@@ -16,7 +16,7 @@ std::vector<Eigen::Triplet<double>> to_triplets(Eigen::SparseMatrix<double> & M)
 	return v;
 }
 
-void famu::construct_kkt_system_left(Eigen::SparseMatrix<double>& H, Eigen::SparseMatrix<double>& C, Eigen::SparseMatrix<double>& KKT_Left){
+void famu::construct_kkt_system_left(Eigen::SparseMatrix<double>& H, Eigen::SparseMatrix<double>& C, Eigen::SparseMatrix<double>& KKT_Left, double constraint_stiffness){
 	KKT_Left.resize(H.rows()+C.rows(), H.rows()+C.rows());
 	KKT_Left.setZero();
 
@@ -30,7 +30,14 @@ void famu::construct_kkt_system_left(Eigen::SparseMatrix<double>& H, Eigen::Spar
 		HTrips.push_back(Trip(row+H.rows(), col, val));
 		HTrips.push_back(Trip(col, row+H.cols(), val));
 	}
-	// HTrips.insert(HTrips.end(),C_trips.begin(), C_trips.end());
+
+	if(constraint_stiffness != 0){
+		for(int i=0; i<C.rows(); i++){
+			int r = H.rows() + i;
+			HTrips.push_back(Trip( r,r, constraint_stiffness));
+		}
+	}
+
 	KKT_Left.setFromTriplets(HTrips.begin(), HTrips.end());
 
 }

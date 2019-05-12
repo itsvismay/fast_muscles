@@ -21,10 +21,11 @@ void famu::discontinuous_edge_vectors(Store& store, Eigen::SparseMatrix<double>&
             -1, 3, -1, -1,
             -1, -1, 3, -1,
             -1, -1, -1, 3;
+        // MatrixXd P = Eigen::KroneckerProduct(p, Matrix3d::Identity());
 
         vector<Trip> triplets;
         triplets.reserve(3*16*mT.rows());
-        VectorXd arap_weights = VectorXd::Ones(mT.rows());
+        VectorXd arap_weights = 1000*VectorXd::Ones(mT.rows());
        
         for(int m=0; m<muscle_tets.size(); m++){
             for(int i=0; i<muscle_tets[m].size(); i++){
@@ -41,9 +42,13 @@ void famu::discontinuous_edge_vectors(Store& store, Eigen::SparseMatrix<double>&
            }
         }
 
+        VectorXd Sx0 = store.S*store.x0;
+
         for(int i=0; i<mT.rows(); i++){
+            // VectorXd edges = P*Sx0.segment<12>(12*i);
 
             for(int j=0; j<3; j++){
+                // double d = edges.segment<3>()
                 triplets.push_back(Trip(12*i+0+j, 12*i+0+j, arap_weights[i]*p(0,0)/4));
                 triplets.push_back(Trip(12*i+0+j, 12*i+3+j, arap_weights[i]*p(0,1)/4));
                 triplets.push_back(Trip(12*i+0+j, 12*i+6+j, arap_weights[i]*p(0,2)/4));
