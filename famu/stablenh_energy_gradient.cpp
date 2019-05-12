@@ -270,6 +270,7 @@ void famu::stablenh::hessian(Store& store, Eigen::SparseMatrix<double>& hess){
 VectorXd famu::stablenh::fd_gradient(Store& store){
 	Eigen::VectorXd fake = Eigen::VectorXd::Zero(store.dFvec.size());
 	double eps = 0.00001;
+	
 	for(int i=0; i<store.dFvec.size(); i++){
 		store.dFvec[i] += 0.5*eps;
 		// setDF(store.dFvec, store.dF);

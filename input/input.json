@@ -1,11 +1,11 @@
 {
-  "data": "/home/vismay/recode/fast_muscles/data/realistic_biceps_coarse",
-  "output": "/home/vismay/recode/fast_muscles/data/realistic_biceps_coarse",
+  "data": "/home/vismay/recode/fast_muscles/data/realistic_upper_coarse",
+  "output": "/home/vismay/recode/fast_muscles/data/realistic_upper_coarse",
   "fix_bones": ["scapula"],  
   "muscle_starting_strength": 10000,
-  "QS_steps": 100,
+  "QS_steps": 10,
   "multiplier_strength_each_step": 1e4,
-  "contract_muscles_at_index": [0],
+  "contract_muscles_at_index": [1],
   "bfgs_convergence_crit_fast": true,
   "mesh_file": "/home/vismay/recode/fast_muscles/data/testbar/bar.1.mesh",
   "youngs": 60000,
@@ -25,6 +25,6 @@
   "Preconditioned": false,
   "polar_dec": true,
   "sparseJac": false,
-  "NM_MAX_ITERS": 100,
+  "NM_MAX_ITERS": 60,
   "woodbury": true
 }

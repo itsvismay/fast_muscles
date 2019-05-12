@@ -287,7 +287,7 @@ namespace famu
 				VectorXd InvAtemp1 = SPLU.solve(temp1);
 				delta_dFvec = -InvAg + InvAtemp1;
 
-				
+
 				// SparseMatrix<double> A = neoHess + muscleHess + store.x0tStDt_dF_dF_DSx0;
 				// SparseMatrix<double> BCD = (store.WoodB*store.WoodC*store.WoodD).sparseView();
 				// SPLU.compute((A + BCD));

@@ -52,6 +52,7 @@ json j_input;
 int main(int argc, char *argv[])
 {
 	std::cout<<"-----Configs-------"<<std::endl;
+    	igl::Timer timer;
 		std::ifstream input_file("../input/input.json");
 		input_file >> j_input;
 
@@ -72,6 +73,9 @@ int main(int argc, char *argv[])
 								store.jinput);  
 		store.alpha_arap = store.jinput["alpha_arap"];
 		store.alpha_neo = store.jinput["alpha_neo"];
+		std::vector<int> contract_muscles = store.jinput["contract_muscles_at_index"];
+		store.contract_muscles = contract_muscles;
+
 
 	cout<<"---Record Mesh Setup Info"<<endl;
 		cout<<"V size: "<<store.V.rows()<<endl;
@@ -177,9 +181,14 @@ int main(int argc, char *argv[])
 		famu::joint_constraint_matrix(store, store.JointConstraints);
 
 		famu::bone_def_grad_projection_matrix(store, store.ProjectF, store.PickBoneF);
-		MatrixXd nullJ;
-		igl::null(MatrixXd(store.JointConstraints), nullJ);
-		store.NullJ = nullJ.sparseView();
+		if(store.JointConstraints.rows() != 0){
+			MatrixXd nullJ;
+			igl::null(MatrixXd(store.JointConstraints), nullJ);
+			store.NullJ = nullJ.sparseView();
+		}else{
+			store.NullJ.resize(store.Y.cols(), store.Y.cols());
+			store.NullJ.setIdentity();
+		}
 	
 		famu::bone_acap_deformation_constraints(store, store.Bx, store.Bf);
 	    store.lambda2 = VectorXd::Zero(store.Bf.rows());
@@ -191,7 +200,7 @@ int main(int argc, char *argv[])
 		famu::construct_kkt_system_left(store.YtStDtDSY, store.JointConstraints, KKT_left);
 
 		SparseMatrix<double> KKT_left2;
-		famu::construct_kkt_system_left(KKT_left, store.Bx,  KKT_left2, 1); 
+		famu::construct_kkt_system_left(KKT_left, store.Bx,  KKT_left2, -1e-3); 
 		// MatrixXd Hkkt = MatrixXd(KKT_left2);
 		
 
@@ -231,19 +240,18 @@ int main(int argc, char *argv[])
 		store.YtStDt_dF_DSx0 = (store.DSY).transpose()*store.DSx0_mat*store.ProjectF;
 		store.x0tStDt_dF_dF_DSx0 = (store.DSx0_mat*store.ProjectF).transpose()*store.DSx0_mat*store.ProjectF;
 
+		famu::muscle::setupFastMuscles(store);
 
-		SparseMatrix<double> mat_uvec;
-		famu::muscle::setupFastMuscles(store, mat_uvec);
-		store.fastMuscles = mat_uvec.transpose()*mat_uvec;
 
 	cout<<"--- Setup Modes"<<endl;
         MatrixXd temp1;
         SparseMatrix<double> NjtYtStDtDSYNj = store.NullJ.transpose()*store.Y.transpose()*store.S.transpose()*store._D.transpose()*store._D*store.S*store.Y*store.NullJ;
         igl::readDMAT(outputfile+"/"+to_string((int)j_input["number_modes"])+"modes.dmat", temp1);
-        if(temp1.rows() == 0){
+        if(temp1.rows() == 0 && !store.jinput["sparseJac"]){
 			famu::setup_hessian_modes(store, NjtYtStDtDSYNj, temp1);
 		}
 		store.G = temp1;
+		cout<<store.G.rows()<<", "<<store.G.cols()<<endl;
 
 	if(!store.jinput["woodbury"]){
 
@@ -273,21 +281,6 @@ int main(int argc, char *argv[])
 
 	}
 
-		// Eigen::SimplicialLDLT<SparseMatrix<double>> LDLT;
-		// LDLT.compute(hess);
-		
-		// igl::writeDMAT("D.dmat", MatrixXd(store.D));
-		// igl::writeDMAT("S.dmat", MatrixXd(store.S));
-		// igl::writeDMAT("P.dmat", MatrixXd(store.ProjectF));
-		// igl::writeDMAT("J.dmat", MatrixXd(store.JointConstraints));
-		// igl::writeDMAT("Y.dmat", MatrixXd(store.Y));
-		// igl::writeDMAT("Z.dmat", MatrixXd(store.DSx0_mat));
-		// igl::writeDMAT("x0.dmat", MatrixXd(store.x0));
-		// igl::writeDMAT("acapHess.dmat", MatrixXd(acapHess));
-		// igl::writeDMAT("dxdF.dmat", MatrixXd(store.JacdxdF));
-		// igl::writeDMAT("dFvec.dmat", MatrixXd());
-		// exit(0);
-
     cout<<"---Setup Solver"<<endl;
 	    int DIM = store.dFvec.size();
 	    famu::FullSolver fullsolver(DIM, &store);
@@ -301,12 +294,41 @@ int main(int argc, char *argv[])
 
 
 
-	 cout<<store.Y.cols()<<endl;
-	 cout<<store.x.size()<<endl;
+	cout<<"--- Write Meshes"<<endl;
+		// int run =0;
+	    for(int run=0; run<store.jinput["QS_steps"]; run++){
+	        VectorXd y = store.Y*store.x;
+	        Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
+	        std::string datafile = j_input["data"];
+	        ostringstream out;
+	        out << std::internal << std::setfill('0') << std::setw(3) << run;
+	        igl::writeOBJ(outputfile+"/"+"animation"+out.str()+".obj",(newV.transpose()+store.V), store.F);
+	        igl::writeDMAT(outputfile+"/"+"animation"+out.str()+".dmat",(newV.transpose()+store.V));
+	        
+	        cout<<"     ---Quasi-Newton Step Info"<<endl;
+		        double fx = 0;
+				timer.start();
+				int niters = 0;
+				if(store.jinput["BFGS"]){
+					if(store.jinput["Preconditioned"]){
+						// niters = solver.minimizeWithPreconditioner(fullsolver, store.dFvec, fx, LDLT);
+					}
+					else{
+						niters = solver.minimize(fullsolver, store.dFvec, fx);
+					}
+				}else{
+					niters = famu::newton_static_solve(store);
+				}
+				timer.stop();
+				cout<<"+++QS Step iterations: "<<niters<<", secs: "<<timer.getElapsedTimeInMicroSec()<<endl;
+        	
+	        
+	        store.muscle_mag *= 1.5;
+	    }
+	    exit(0);
 
 	std::cout<<"-----Display-------"<<std::endl;
     igl::opengl::glfw::Viewer viewer;
-    igl::Timer timer;
     int kkkk =0;
     double tttt =0;
     // MatrixXd modes = store.Y*store.G;
@@ -438,7 +460,7 @@ int main(int argc, char *argv[])
 
             	}
             }
-	            cout<<zz.transpose()<<endl;
+	            // cout<<zz.transpose()<<endl;
 
 
             igl::jet(zz, true, COLRS);

@@ -56,7 +56,7 @@ namespace famu
 			grad = -store.alpha_arap*store.x0tStDt_dF_DSx0;
 			grad += -store.alpha_arap*store.x.transpose()*store.YtStDt_dF_DSx0;
 			grad += store.alpha_arap*store.dFvec.transpose()*store.x0tStDt_dF_dF_DSx0;
-			grad += store.alpha_arap*store.Bf.transpose()*store.lambda2;
+			grad -= store.alpha_arap*store.Bf.transpose()*store.lambda2;
 		}
 
 		void fastHessian(Store& store, SparseMatrix<double>& hess){
@@ -130,7 +130,7 @@ namespace famu
 
 			VectorXd top = store.YtStDt_dF_DSx0*dFvec - store.x0tStDtDSY;
 			VectorXd zer = VectorXd::Zero(store.JointConstraints.rows());
-			VectorXd bone_def = store.Bf*store.dFvec + store.BfI0;
+			VectorXd bone_def = store.Bf*store.dFvec - store.BfI0;
 
 			VectorXd KKT_right(top.size() + zer.size() + bone_def.size());
 			KKT_right<<top, zer, bone_def;
@@ -156,7 +156,7 @@ namespace famu
 				SparseMatrix<double> rhs = store.YtStDt_dF_DSx0.leftCols(9*store.bone_tets.size());
 				MatrixXd top = MatrixXd(rhs);
 				MatrixXd zer = MatrixXd(store.JointConstraints.rows(), top.cols());
-				MatrixXd bone_def = MatrixXd(store.Bf);
+				MatrixXd bone_def = MatrixXd(store.Bf.leftCols(9*store.bone_tets.size()));
 				MatrixXd KKT_right(top.rows() + zer.rows() + bone_def.rows(), top.cols());
 				KKT_right<<top,zer, bone_def;
 

@@ -64,7 +64,7 @@ namespace famu{
 		Eigen::SparseMatrix<double> DSY;
 		Eigen::SparseMatrix<double> StDtDS;
 		Eigen::SparseMatrix<double> DSx0_mat;
-		Eigen::SparseMatrix<double> fastMuscles;
+		std::vector<Eigen::SparseMatrix<double>> fastMuscles;
 
 		Eigen::SparseMatrix<double> JacdxdF;
 
@@ -76,6 +76,7 @@ namespace famu{
 		//D = G'Y'S'D'ZP
 		Eigen::MatrixXd WoodB, WoodD, InvC, WoodC;
 		Eigen::VectorXd eigenvalues;
+		std::vector<int> contract_muscles;
 
 	};
 }

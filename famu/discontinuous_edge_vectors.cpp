@@ -25,7 +25,7 @@ void famu::discontinuous_edge_vectors(Store& store, Eigen::SparseMatrix<double>&
 
         vector<Trip> triplets;
         triplets.reserve(3*16*mT.rows());
-        VectorXd arap_weights = 1000*VectorXd::Ones(mT.rows());
+        VectorXd arap_weights = VectorXd::Ones(mT.rows());
        
         for(int m=0; m<muscle_tets.size(); m++){
             for(int i=0; i<muscle_tets[m].size(); i++){
@@ -33,7 +33,7 @@ void famu::discontinuous_edge_vectors(Store& store, Eigen::SparseMatrix<double>&
                 // double vol = tet_volume(t);
                 double weight = 1;
                 if(store.relativeStiffness[t]>1){
-                    weight = 2;
+                    weight = 100;
                 }else{
                     weight =1;
                 }
