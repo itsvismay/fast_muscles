@@ -11,6 +11,8 @@ namespace famu
 	namespace muscle{
 
 		void setupFastMuscles(Store& store){
+			store.fastMuscles.clear();
+			
 			std::vector<Trip> mat_trips;
 			for(int i=0; i<store.muscle_tets.size(); i++){
 				SparseMatrix<double> mat;
@@ -43,14 +45,14 @@ namespace famu
 		double fastEnergy(Store& store, VectorXd& dFvec){
 			double W =0;
 			for(int i=0; i<store.contract_muscles.size(); i++){
-				W += store.alpha_neo*0.5*dFvec.transpose()*store.fastMuscles[store.contract_muscles[i]]*dFvec;
+				W += 0.5*dFvec.transpose()*store.fastMuscles[store.contract_muscles[i]]*dFvec;
 			}
 			return W;
 		}
 
 		void fastGradient(Store& store, VectorXd& grad){
 			for(int i=0; i<store.contract_muscles.size(); i++){
-				grad += store.alpha_neo*store.fastMuscles[store.contract_muscles[i]]*store.dFvec;
+				grad += store.fastMuscles[store.contract_muscles[i]]*store.dFvec;
 			}
 		}
 
@@ -68,7 +70,7 @@ namespace famu
 					MuscleEnergy += W;
 				}
 			}
-			return store.alpha_neo*MuscleEnergy;
+			return MuscleEnergy;
 		}
 
 		void gradient(Store& store, VectorXd& grad){
@@ -108,7 +110,7 @@ namespace famu
 					tet_grad[7] = 0.5*a*(s7*u1*u2 + s9*u2*u3 + u2*(s7*u1 + 2*s8*u2 + s9*u3));
 					tet_grad[8] = 0.5*a*(s7*u1*u3 + s8*u2*u3 + u3*(s7*u1 + s8*u2 + 2*s9*u3));
 
-					grad.segment<9>(9*f_index) += store.alpha_neo*tet_grad;
+					grad.segment<9>(9*f_index) += tet_grad;
 				}
 			}
 		}
@@ -116,7 +118,7 @@ namespace famu
 		void fastHessian(Store& store, SparseMatrix<double>& hess){
 			hess.setZero();
 			for(int i=0; i<store.contract_muscles.size(); i++){
-				hess += store.alpha_neo*store.fastMuscles[store.contract_muscles[i]];
+				hess += store.fastMuscles[store.contract_muscles[i]];
 			}
 		}
 

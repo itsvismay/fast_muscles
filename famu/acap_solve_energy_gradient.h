@@ -37,7 +37,7 @@ namespace famu
 			double E7 = 0.5*(store.dF*store.DSx0).transpose()*(store.dF*store.DSx0);
 			double E8 = E2+E3+E4+E5+E6+E7;
 			assert(fabs(E1 - E8)< 1e-6);
-			return store.alpha_arap*E1;
+			return E1;
 		}
 
 		double fastEnergy(Store& store, VectorXd& dFvec){
@@ -49,37 +49,24 @@ namespace famu
 			double E6 = 0.5*dFvec.transpose()*store.x0tStDt_dF_dF_DSx0*dFvec;
 		 
 			double E9 = E1+E2+E3+E4+E5+E6;
-			return store.alpha_arap*E9;
+			return E9;
 		}
 
 		void fastGradient(Store& store, VectorXd& grad){
-			grad = -store.alpha_arap*store.x0tStDt_dF_DSx0;
-			grad += -store.alpha_arap*store.x.transpose()*store.YtStDt_dF_DSx0;
-			grad += store.alpha_arap*store.dFvec.transpose()*store.x0tStDt_dF_dF_DSx0;
-			grad -= store.alpha_arap*store.Bf.transpose()*store.lambda2;
+			grad = -store.x0tStDt_dF_DSx0;
+			grad += -store.x.transpose()*store.YtStDt_dF_DSx0;
+			grad += store.dFvec.transpose()*store.x0tStDt_dF_dF_DSx0;
+			grad -= store.Bf.transpose()*store.lambda2;
 		}
 
 		void fastHessian(Store& store, SparseMatrix<double>& hess){
-			// std::cout<<"here1: "<<spJac.nonZeros()<<std::endl;
-			// hess = store.x0tStDt_dF_dF_DSx0;
-			// std::cout<<"here2"<<std::endl;
-			// SparseMatrix<double> part = store.YtStDtDSY*spJac;
-			// std::cout<<"here2.5"<<std::endl;
-			// SparseMatrix<double> part2= part.transpose()*spJac;
-			// hess += part2;
-			// std::cout<<"here3"<<std::endl;
-			// // SparseMatrix<double> part3 = -store.YtStDt_dF_DSx0.transpose()*spJac;
-			// // hess += part3.transpose();
-			// std::cout<<"here4"<<std::endl;
-			// hess += -2*store.YtStDt_dF_DSx0.transpose()*spJac;
-			// std::cout<<"here5"<<std::endl;
 			hess.setZero();
-			hess = store.x0tStDt_dF_dF_DSx0;
+			hess = store.x0tStDt_dF_dF_DSx0; //PtZtZP
+
 			if(!store.jinput["woodbury"]){
 				hess -= store.YtStDt_dF_DSx0.transpose()*store.JacdxdF;
 			}
-			// igl::writeDMAT("acap_hess.dmat",MatrixXd(hess));
-			hess *= store.alpha_arap;
+
 		}
 
 		VectorXd fd_gradient(Store& store){
@@ -136,7 +123,7 @@ namespace famu
 			KKT_right<<top, zer, bone_def;
 			// igl::writeDMAT("rhs.dmat", KKT_right);
 
-			VectorXd result = store.SPLU.solve(KKT_right);
+			VectorXd result = store.ACAP_KKT_SPLU.solve(KKT_right);
 			store.x = result.head(top.size());
 			store.lambda2 = result.tail(bone_def.size());
 		
@@ -160,7 +147,7 @@ namespace famu
 				MatrixXd KKT_right(top.rows() + zer.rows() + bone_def.rows(), top.cols());
 				KKT_right<<top,zer, bone_def;
 
-				MatrixXd result = store.SPLU.solve(KKT_right).topRows(top.rows());
+				MatrixXd result = store.ACAP_KKT_SPLU.solve(KKT_right).topRows(top.rows());
 				if(result!=result){
 					cout<<"ACAP Jacobian result has nans"<<endl;
 					exit(0);
@@ -185,7 +172,7 @@ namespace famu
 					MatrixXd KKT_right(top.rows() + zer.rows()+ bone_def.rows(), top.cols());
 					KKT_right<<top,zer, bone_def;
 
-					MatrixXd result = store.SPLU.solve(KKT_right).topRows(top.rows());
+					MatrixXd result = store.ACAP_KKT_SPLU.solve(KKT_right).topRows(top.rows());
 					if(result!=result){
 						cout<<"ACAP Jacobian result has nans"<<endl;
 						exit(0);

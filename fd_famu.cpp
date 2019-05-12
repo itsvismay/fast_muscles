@@ -123,6 +123,7 @@ int main(int argc, char *argv[])
 				store.muscle_mag[store.muscle_tets[m][t]] = j_input["muscle_starting_strength"];
 			}
 		}
+		igl::writeDMAT("youngs_per_tet.dmat", store.eY);
 
 		//start off all as -1
 		store.bone_or_muscle = -1*Eigen::VectorXi::Ones(store.T.rows());
@@ -204,14 +205,14 @@ int main(int argc, char *argv[])
 		// MatrixXd Hkkt = MatrixXd(KKT_left2);
 		
 
-		store.SPLU.analyzePattern(KKT_left2);
-		store.SPLU.factorize(KKT_left2);
+		store.ACAP_KKT_SPLU.analyzePattern(KKT_left2);
+		store.ACAP_KKT_SPLU.factorize(KKT_left2);
 
-		if(store.SPLU.info()!=Success){
+		if(store.ACAP_KKT_SPLU.info()!=Success){
 			cout<<"1. ACAP Jacobian solve failed"<<endl;
-			cout<<"2. numerical issue: "<<(store.SPLU.info()==NumericalIssue)<<endl;
-			cout<<"3. invalid input: "<<(store.SPLU.info()==InvalidInput)<<endl;
-			// cout<<SPLU.isSymmetric()<<endl;
+			cout<<"2. numerical issue: "<<(store.ACAP_KKT_SPLU.info()==NumericalIssue)<<endl;
+			cout<<"3. invalid input: "<<(store.ACAP_KKT_SPLU.info()==InvalidInput)<<endl;
+
 			exit(0);
 		}
 
@@ -253,33 +254,31 @@ int main(int argc, char *argv[])
 		store.G = temp1;
 		cout<<store.G.rows()<<", "<<store.G.cols()<<endl;
 
-	if(!store.jinput["woodbury"]){
+	cout<<"--- ACAP Hessians"<<endl;
+		famu::acap::setJacobian(store);
+		
+		store.neoHess.resize(store.dFvec.size(), store.dFvec.size());
+		famu::stablenh::hessian(store, store.neoHess);
+		
+		store.muscleHess.resize(store.dFvec.size(), store.dFvec.size());
+		famu::muscle::fastHessian(store, store.muscleHess);
 
-		cout<<"--- ACAP Hessians"<<endl;
-			famu::acap::setJacobian(store);
-			SparseMatrix<double> muscleHess(store.dFvec.size(), store.dFvec.size());
-			famu::muscle::fastHessian(store, muscleHess);
-			SparseMatrix<double> neoHess(store.dFvec.size(), store.dFvec.size());
-			famu::stablenh::hessian(store, neoHess);
-			SparseMatrix<double> acapHess(store.dFvec.size(), store.dFvec.size());
-			famu::acap::fastHessian(store, acapHess);
-			SparseMatrix<double> hess = acapHess + muscleHess + neoHess;
-	}else{
+		store.acapHess.resize(store.dFvec.size(), store.dFvec.size());
+		famu::acap::fastHessian(store, store.acapHess);
+		SparseMatrix<double> hessFvec = store.neoHess + store.acapHess + store.muscleHess;
+		store.NM_SPLU.analyzePattern(hessFvec);
+		store.NM_SPLU.factorize(hessFvec);
 
-
+			
+	if(store.jinput["woodbury"]){
 		cout<<"--- Setup woodbury matrices"<<endl;
 			store.WoodB = -store.YtStDt_dF_DSx0.transpose()*store.G;
 			store.WoodD = -1*store.WoodB.transpose();
-			MatrixXd zer = MatrixXd(store.JointConstraints.rows(), store.G.cols());
-			MatrixXd GtZero (store.G.rows() + zer.rows(), store.G.cols());
-			GtZero<<store.G, zer;
-
+		
 			store.InvC = store.eigenvalues.asDiagonal();
 			store.WoodC = store.eigenvalues.asDiagonal().inverse();
-			// cout<<store.InvC<<endl;
-
-
 	}
+
 
     cout<<"---Setup Solver"<<endl;
 	    int DIM = store.dFvec.size();
@@ -296,36 +295,36 @@ int main(int argc, char *argv[])
 
 	cout<<"--- Write Meshes"<<endl;
 		// int run =0;
-	    for(int run=0; run<store.jinput["QS_steps"]; run++){
-	        VectorXd y = store.Y*store.x;
-	        Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
-	        std::string datafile = j_input["data"];
-	        ostringstream out;
-	        out << std::internal << std::setfill('0') << std::setw(3) << run;
-	        igl::writeOBJ(outputfile+"/"+"animation"+out.str()+".obj",(newV.transpose()+store.V), store.F);
-	        igl::writeDMAT(outputfile+"/"+"animation"+out.str()+".dmat",(newV.transpose()+store.V));
+	   //  for(int run=0; run<store.jinput["QS_steps"]; run++){
+	   //      VectorXd y = store.Y*store.x;
+	   //      Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
+	   //      std::string datafile = j_input["data"];
+	   //      ostringstream out;
+	   //      out << std::internal << std::setfill('0') << std::setw(3) << run;
+	   //      igl::writeOBJ(outputfile+"/"+"animation"+out.str()+".obj",(newV.transpose()+store.V), store.F);
+	   //      igl::writeDMAT(outputfile+"/"+"animation"+out.str()+".dmat",(newV.transpose()+store.V));
 	        
-	        cout<<"     ---Quasi-Newton Step Info"<<endl;
-		        double fx = 0;
-				timer.start();
-				int niters = 0;
-				if(store.jinput["BFGS"]){
-					if(store.jinput["Preconditioned"]){
-						// niters = solver.minimizeWithPreconditioner(fullsolver, store.dFvec, fx, LDLT);
-					}
-					else{
-						niters = solver.minimize(fullsolver, store.dFvec, fx);
-					}
-				}else{
-					niters = famu::newton_static_solve(store);
-				}
-				timer.stop();
-				cout<<"+++QS Step iterations: "<<niters<<", secs: "<<timer.getElapsedTimeInMicroSec()<<endl;
+	   //      cout<<"     ---Quasi-Newton Step Info"<<endl;
+		  //       double fx = 0;
+				// timer.start();
+				// int niters = 0;
+				// if(store.jinput["BFGS"]){
+				// 	if(store.jinput["Preconditioned"]){
+				// 		// niters = solver.minimizeWithPreconditioner(fullsolver, store.dFvec, fx, LDLT);
+				// 	}
+				// 	else{
+				// 		niters = solver.minimize(fullsolver, store.dFvec, fx);
+				// 	}
+				// }else{
+				// 	niters = famu::newton_static_solve(store);
+				// }
+				// timer.stop();
+				// cout<<"+++QS Step iterations: "<<niters<<", secs: "<<timer.getElapsedTimeInMicroSec()<<endl;
         	
 	        
-	        store.muscle_mag *= 1.5;
-	    }
-	    exit(0);
+	   //      store.muscle_mag *= 1.5;
+	   //  }
+	   //  exit(0);
 
 	std::cout<<"-----Display-------"<<std::endl;
     igl::opengl::glfw::Viewer viewer;
@@ -354,6 +353,7 @@ int main(int argc, char *argv[])
 
         if(key=='A'){
         	store.muscle_mag *= 1.5;
+        	famu::muscle::setupFastMuscles(store);
         }
         
         if(key==' '){
@@ -361,17 +361,13 @@ int main(int argc, char *argv[])
     		// store.dFvec[9+0] = 0.7071;
     		// store.dFvec[9+1] = 0.7071;
     		// store.dFvec[9+2] = 0;
-
     		// store.dFvec[9+3] = -0.7071;
     		// store.dFvec[9+4] = 0.7071;
     		// store.dFvec[9+5] = 0;
-
     		// store.dFvec[9+6] = 0;
     		// store.dFvec[9+7] = 0;
     		// store.dFvec[9+8] = 1;
-      //   	famu::acap::solve(store, store.dFvec);
-
-        	
+			// famu::acap::solve(store, store.dFvec);        	
 
 			double fx = 0;
 			timer.start();

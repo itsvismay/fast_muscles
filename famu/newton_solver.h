@@ -186,53 +186,18 @@ namespace famu
 	}
 
 	int newton_static_solve(Store& store){
+		int MAX_ITERS = store.jinput["NM_MAX_ITERS"];
+		
 		VectorXd muscle_grad, neo_grad, acap_grad;
 		muscle_grad.resize(store.dFvec.size());
 		neo_grad.resize(store.dFvec.size());
 		acap_grad.resize(store.dFvec.size());
+		SparseMatrix<double> hessFvec(store.dFvec.size(), store.dFvec.size());
 
-		SparseMatrix<double> muscleHess(store.dFvec.size(), store.dFvec.size());
-		famu::muscle::fastHessian(store, muscleHess);
-		SparseMatrix<double> neoHess(store.dFvec.size(), store.dFvec.size());
-		famu::stablenh::hessian(store, neoHess);
-		SparseMatrix<double> acapHess(store.dFvec.size(), store.dFvec.size());
-		famu::acap::fastHessian(store, acapHess);
 
 		
 
-		//check with FD
-		// MatrixXd fakeMuscleHess = famu::muscle::fd_hessian(store);
-		// cout<<fakeMuscleHess.rows()<<", "<<fakeMuscleHess.cols()<<endl;
-		// MatrixXd realMuscleHess = MatrixXd(muscleHess);
-		// cout<<"check1: "<<endl;
-		// cout<<fakeMuscleHess.block<10,10>(0,0)<<endl;
-		// cout<<realMuscleHess.block<10,10>(0,0)<<endl;
-
-
-		// MatrixXd fakeNeoHess = famu::stablenh::fd_hessian(store);
-		// cout<<fakeNeoHess.rows()<<", "<<fakeNeoHess.cols()<<endl;
-		// MatrixXd realNeoHess = MatrixXd(neoHess);
-		// cout<<"check2: "<<endl;
-		// cout<<fakeNeoHess.block<10,10>(0,0)<<endl;
-		// cout<<realNeoHess.block<10,10>(0,0)<<endl;
-		
-
-		// MatrixXd fakeACAPHess = famu::acap::fd_hessian(store);
-		// MatrixXd realACAPHess =  MatrixXd(acapHess);
-		// cout<<fakeACAPHess.rows()<<", "<<fakeACAPHess.cols()<<endl;
-		// cout<<"check3: "<<endl;
-		// cout<<fakeACAPHess.block<10,10>(0,0)<<endl;
-		// cout<<realACAPHess.block<10,10>(0,0)<<endl;
-
-		int sum = 0;
-		for(int b=0; b<store.bone_tets.size(); b++){
-			sum += store.bone_tets[b].size();
-		}
-
-		int MAX_ITERS = store.jinput["NM_MAX_ITERS"];
-		UmfPackLU<SparseMatrix<double>> SPLU;
 		VectorXd graddFvec = VectorXd::Zero(store.dFvec.size());
-		SparseMatrix<double> hessFvec = neoHess + acapHess + muscleHess;
 		FullPivLU<MatrixXd>  WoodburyDenseSolve;
 		
 		int iter =0;
@@ -246,65 +211,62 @@ namespace famu
 			famu::stablenh::gradient(store, neo_grad);
 			famu::acap::fastGradient(store, acap_grad);
 
-
 			cout<<"muscle grad: "<<muscle_grad.norm()<<endl;
 			cout<<"neo grad: "<<neo_grad.norm()<<endl;
 			cout<<"acap grad: "<<acap_grad.norm()<<endl;
 			graddFvec = muscle_grad + neo_grad + acap_grad;
 			cout<<"tot grad: "<<graddFvec.norm()<<endl;
+			
 			if(graddFvec != graddFvec){
 				cout<<"Error: nans in grad"<<endl;
 				exit(0);
 			}
 
-			famu::stablenh::hessian(store, neoHess);
+			famu::stablenh::hessian(store, store.neoHess);
 			VectorXd delta_dFvec;
 
 			if(!store.jinput["woodbury"]){
-				hessFvec = neoHess + muscleHess + acapHess;
-				SPLU.compute(hessFvec);
-				if(SPLU.info()!=Success){
+				
+				hessFvec = store.neoHess + store.muscleHess + store.acapHess;
+				store.NM_SPLU.factorize(hessFvec);
+				if(store.NM_SPLU.info()!=Success){
 					cout<<"SOLVER FAILED"<<endl;
-					cout<<SPLU.info()<<endl;
+					cout<<store.NM_SPLU.info()<<endl;
 				}
 				cout<<"4"<<endl;
-				delta_dFvec = -1*SPLU.solve(graddFvec);
+				delta_dFvec = -1*store.NM_SPLU.solve(graddFvec);
 			
 			}else{
-				SparseMatrix<double> A = neoHess + muscleHess + store.x0tStDt_dF_dF_DSx0;
-				SPLU.compute(A);
-				if(SPLU.info()!=Success){
-					cout<<"SOLVER FAILED"<<endl;
-					cout<<SPLU.info()<<endl;
-				}
-				VectorXd InvAg = SPLU.solve(graddFvec);
 
-				MatrixXd CDAB = store.InvC + store.WoodD*SPLU.solve(store.WoodB);
+				SparseMatrix<double> A = store.neoHess + store.muscleHess + store.x0tStDt_dF_dF_DSx0;
+				store.NM_SPLU.factorize(A);
+				if(store.NM_SPLU.info()!=Success){
+					cout<<"SOLVER FAILED"<<endl;
+					cout<<store.NM_SPLU.info()<<endl;
+				}
+				VectorXd InvAg = store.NM_SPLU.solve(graddFvec);
+
+				MatrixXd CDAB = store.InvC + store.WoodD*store.NM_SPLU.solve(store.WoodB);
 				WoodburyDenseSolve.compute(CDAB);
 				VectorXd temp = WoodburyDenseSolve.solve(store.WoodD*InvAg);
 				VectorXd temp1 = store.WoodB*temp;
 
-				VectorXd InvAtemp1 = SPLU.solve(temp1);
+				VectorXd InvAtemp1 = store.NM_SPLU.solve(temp1);
 				delta_dFvec = -InvAg + InvAtemp1;
-
 
 				// SparseMatrix<double> A = neoHess + muscleHess + store.x0tStDt_dF_dF_DSx0;
 				// SparseMatrix<double> BCD = (store.WoodB*store.WoodC*store.WoodD).sparseView();
-				// SPLU.compute((A + BCD));
-				// if(SPLU.info()!=Success){
+				// store.NM_SPLU.compute((A + BCD));
+				// if(store.NM_SPLU.info()!=Success){
 				// 	cout<<"SOLVER FAILED"<<endl;
-				// 	cout<<SPLU.info()<<endl;
+				// 	cout<<store.NM_SPLU.info()<<endl;
 				// }
 				// cout<<"4"<<endl;
-				// delta_dFvec = -1*SPLU.solve(graddFvec);
-
+				// delta_dFvec = -1*store.NM_SPLU.solve(graddFvec);
 
 			}
 
-
-
-
-			// SPLU.compute(acapHess);
+			// store.NM_SPLU.compute(acapHess);
 			
 			cout<<"5"<<endl;
 			if(delta_dFvec != delta_dFvec){

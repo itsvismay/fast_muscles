@@ -50,7 +50,8 @@ namespace famu{
 		Eigen::VectorXd x, dx, x0, lambda2;
 
 		// Eigen::SparseLU<Eigen::SparseMatrix<double>> SPLU;
-		Eigen::UmfPackLU<Eigen::SparseMatrix<double>> SPLU;
+		Eigen::UmfPackLU<Eigen::SparseMatrix<double>> ACAP_KKT_SPLU;
+		Eigen::UmfPackLU<Eigen::SparseMatrix<double>> NM_SPLU;//TODO: optimize this away
 		
 		//Fast Terms
 		double x0tStDtDSx0;
@@ -65,8 +66,12 @@ namespace famu{
 		Eigen::SparseMatrix<double> StDtDS;
 		Eigen::SparseMatrix<double> DSx0_mat;
 		std::vector<Eigen::SparseMatrix<double>> fastMuscles;
-
 		Eigen::SparseMatrix<double> JacdxdF;
+
+		//Hessians
+		Eigen::SparseMatrix<double> acapHess;
+		Eigen::SparseMatrix<double> muscleHess;
+		Eigen::SparseMatrix<double> neoHess;
 
 		//woodbury matrices
 		//(A + BCD)-1
@@ -77,6 +82,9 @@ namespace famu{
 		Eigen::MatrixXd WoodB, WoodD, InvC, WoodC;
 		Eigen::VectorXd eigenvalues;
 		std::vector<int> contract_muscles;
+
+
+
 
 	};
 }
