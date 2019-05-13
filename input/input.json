@@ -5,7 +5,7 @@
   "muscle_starting_strength": 10000,
   "QS_steps": 10,
   "multiplier_strength_each_step": 1e4,
-  "contract_muscles_at_index": [1],
+  "contract_muscles_at_index": [0],
   "bfgs_convergence_crit_fast": true,
   "mesh_file": "/home/vismay/recode/fast_muscles/data/testbar/bar.1.mesh",
   "youngs": 60000,

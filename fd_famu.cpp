@@ -33,7 +33,6 @@
 #include "famu/acap_solve_energy_gradient.h"
 #include "famu/draw_disc_mesh_functions.h"
 #include "famu/dfmatrix_vector_swap.h"
-#include "famu/bfgs_solver.h"
 #include "famu/newton_solver.h"
 #include "famu/joint_constraint_matrix.h"
 #include "famu/fixed_bones_projection_matrix.h"
@@ -252,9 +251,12 @@ int main(int argc, char *argv[])
         igl::readDMAT(outputfile+"/"+to_string((int)j_input["number_modes"])+"modes.dmat", temp1);
         if(temp1.rows() == 0 && !store.jinput["sparseJac"]){
 			famu::setup_hessian_modes(store, NjtYtStDtDSYNj, temp1);
+		}else{
+			//read eigenvalues (for the woodbury solve)
+			igl::readDMAT(outputfile+"/"+to_string((int)store.jinput["number_modes"])+"eigs.dmat", store.eigenvalues);
 		}
-		store.G = temp1;
-		cout<<store.G.rows()<<", "<<store.G.cols()<<endl;
+		store.G = store.NullJ*temp1;
+		// cout<<store.G.rows()<<", "<<store.G.cols()<<endl;
 
 	cout<<"--- ACAP Hessians"<<endl;
 		famu::acap::setJacobian(store);
@@ -281,22 +283,15 @@ int main(int argc, char *argv[])
 		cout<<"--- Setup woodbury matrices"<<endl;
 			store.WoodB = -store.YtStDt_dF_DSx0.transpose()*store.G;
 			store.WoodD = -1*store.WoodB.transpose();
-		
+			
+
 			store.InvC = store.eigenvalues.asDiagonal();
 			store.WoodC = store.eigenvalues.asDiagonal().inverse();
 	}
 
 
     cout<<"---Setup Solver"<<endl;
-	    int DIM = store.dFvec.size();
-	    famu::FullSolver fullsolver(DIM, &store);
-	    LBFGSParam<double> param;
-	    param.epsilon = 1e-1;
-        param.delta = 1e-5;
-        param.past = 1;
-	    
-	    param.linesearch = LBFGSpp::LBFGS_LINESEARCH_BACKTRACKING_ARMIJO;
-	    LBFGSSolver<double> solver(param);
+    
 
 
 

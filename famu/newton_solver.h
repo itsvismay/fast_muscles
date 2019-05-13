@@ -303,9 +303,9 @@ namespace famu
 				// delta_dFvec =  -InvAg + InvAtemp1;
 
 				//Dense Woodbury code
-
 				fastWoodbury(store, hessFvec, graddFvec, X, BInvXDy, denseHess, delta_dFvec);
 				// cout<<"woodbury diff: "<<(delta_dFvec - test_drt).norm()<<endl;
+
 
 				//Naive dense woodbury test
 					// SparseMatrix<double> A = neoHess + muscleHess + store.x0tStDt_dF_dF_DSx0;
