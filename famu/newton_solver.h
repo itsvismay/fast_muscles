@@ -259,9 +259,9 @@ namespace famu
 			famu::stablenh::gradient(store, neo_grad);
 			famu::acap::fastGradient(store, acap_grad);
 
-			cout<<"muscle grad: "<<muscle_grad.norm()<<endl;
-			cout<<"neo grad: "<<neo_grad.norm()<<endl;
-			cout<<"acap grad: "<<acap_grad.norm()<<endl;
+			// cout<<"muscle grad: "<<muscle_grad.norm()<<endl;
+			// cout<<"neo grad: "<<neo_grad.norm()<<endl;
+			// cout<<"acap grad: "<<acap_grad.norm()<<endl;
 			graddFvec = muscle_grad + neo_grad + acap_grad;
 			cout<<"tot grad: "<<graddFvec.norm()<<endl;
 			

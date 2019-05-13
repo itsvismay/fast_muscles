@@ -14,7 +14,6 @@
 #include <imgui/imgui.h>
 #include <igl/null.h>
 #include <json.hpp>
-#include <LBFGS.h>
 #include <Eigen/SparseCholesky>
 
 #include <sstream>
@@ -43,7 +42,7 @@
 using namespace Eigen;
 using namespace std;
 using json = nlohmann::json;
-using namespace LBFGSpp;
+
 using Store = famu::Store;
 json j_input;
 
@@ -291,7 +290,7 @@ int main(int argc, char *argv[])
 
 
     cout<<"---Setup Solver"<<endl;
-    
+
 
 
 
@@ -310,16 +309,7 @@ int main(int argc, char *argv[])
 		  //       double fx = 0;
 				// timer.start();
 				// int niters = 0;
-				// if(store.jinput["BFGS"]){
-				// 	if(store.jinput["Preconditioned"]){
-				// 		// niters = solver.minimizeWithPreconditioner(fullsolver, store.dFvec, fx, LDLT);
-				// 	}
-				// 	else{
-				// 		niters = solver.minimize(fullsolver, store.dFvec, fx);
-				// 	}
-				// }else{
-				// 	niters = famu::newton_static_solve(store);
-				// }
+				// niters = famu::newton_static_solve(store);
 				// timer.stop();
 				// cout<<"+++QS Step iterations: "<<niters<<", secs: "<<timer.getElapsedTimeInMicroSec()<<endl;
         	
@@ -375,16 +365,9 @@ int main(int argc, char *argv[])
 			double fx = 0;
 			timer.start();
 			int niters = 0;
-			if(store.jinput["BFGS"]){
-				if(store.jinput["Preconditioned"]){
-					// niters = solver.minimizeWithPreconditioner(fullsolver, store.dFvec, fx, LDLT);
-				}
-				else{
-					niters = solver.minimize(fullsolver, store.dFvec, fx);
-				}
-			}else{
-				niters = famu::newton_static_solve(store);
-			}
+		
+			niters = famu::newton_static_solve(store);
+			
 			timer.stop();
 			cout<<"+++QS Step iterations: "<<niters<<", secs: "<<timer.getElapsedTimeInMicroSec()<<endl;
         	

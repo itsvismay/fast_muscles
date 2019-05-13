@@ -7,7 +7,7 @@ set(SPECTRA_DIR "ThirdParty/Spectra/include")
 #set(NEW_BFGSB_SRC_DIR "/home/vismay/recode/LBFGSpp/include")
 set(LIBIGL_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/libigl/include")
 set(SUITESPARSE_HINT "/home/vismay/recode/SuiteSparse")
-set(CMAKE_CXX_FLAGS "-O3")
+set(CMAKE_CXX_FLAGS "-O3 -g -mavx")
 
 
 # libigl
@@ -30,7 +30,7 @@ file(GLOB SRCFILES famu/*.cpp)
 
 add_executable(famu "fd_famu.cpp" ${SRCFILES} ${EXTERNALS})
 
-target_link_libraries(famu -lglfw -lumfpack -lamd igl::core igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui -fopenmp -g ${OpenCV_LIBS} ${SUITESPARSE_LIBRARIES})
+target_link_libraries(famu -lglfw -lumfpack -lamd igl::core igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui -fopenmp ${OpenCV_LIBS} ${SUITESPARSE_LIBRARIES})
 
 
 
