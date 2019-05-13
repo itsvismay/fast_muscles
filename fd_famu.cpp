@@ -225,6 +225,8 @@ int main(int argc, char *argv[])
 			store.dFvec[9*t + 8] = 1;
 		}
 		store.BfI0 = store.Bf*store.dFvec;
+		store.acap_solve_result.resize(KKT_left2.rows());
+		store.acap_solve_rhs = VectorXd::Zero(KKT_left2.rows());
 
 
 
@@ -349,9 +351,9 @@ int main(int argc, char *argv[])
     // };
 
     viewer.callback_key_down = [&](igl::opengl::glfw::Viewer & viewer, unsigned char key, int modifiers){   
- 
         std::cout<<"Key down, "<<key<<std::endl;
         viewer.data().clear();
+
         if(key =='K'){
         	kkkk ++;
         }

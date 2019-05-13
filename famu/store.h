@@ -47,7 +47,7 @@ namespace famu{
 		Eigen::MatrixXd G;
 
 		Eigen::VectorXd dFvec, BfI0;
-		Eigen::VectorXd x, dx, x0, lambda2;
+		Eigen::VectorXd x, dx, x0, lambda2, acap_solve_result, acap_solve_rhs;
 
 		
 		// Eigen::SparseLU<Eigen::SparseMatrix<double>> SPLU;
