@@ -15,7 +15,7 @@ namespace famu
 
 		void gradient(Store& store, VectorXd& grad);
 		
-		void hessian(Store& store, Eigen::SparseMatrix<double>& hess);
+		void hessian(Store& store, Eigen::SparseMatrix<double>& hess, Eigen::MatrixXd& denseHess);
 		
 		VectorXd fd_gradient(Store& store);
 

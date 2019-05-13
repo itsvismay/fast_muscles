@@ -59,11 +59,15 @@ namespace famu
 			grad -= store.Bf.transpose()*store.lambda2;
 		}
 
-		void fastHessian(Store& store, SparseMatrix<double>& hess){
+		void fastHessian(Store& store, SparseMatrix<double>& hess, Eigen::MatrixXd& denseHess){
 			hess.setZero();
 			hess = store.x0tStDt_dF_dF_DSx0; //PtZtZP
 
-			if(!store.jinput["woodbury"]){
+			if(store.jinput["woodbury"]){
+				//if woodbury, store PtZtZP as dense block diag hessian
+			
+			}else{
+				//else compute dense jacobian based hessian
 				hess -= store.YtStDt_dF_DSx0.transpose()*store.JacdxdF;
 			}
 

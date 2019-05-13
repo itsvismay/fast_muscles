@@ -71,7 +71,7 @@ void famu::stablenh::gradient(Store& store, Eigen::VectorXd& grad){
 	}
 }
 
-void famu::stablenh::hessian(Store& store, Eigen::SparseMatrix<double>& hess){
+void famu::stablenh::hessian(Store& store, Eigen::SparseMatrix<double>& hess, Eigen::MatrixXd& denseHess){
 	hess.setZero();
 	Eigen::MatrixXd ddw(9,9);
 	std::vector<Trip> hess_trips;
@@ -261,6 +261,9 @@ void famu::stablenh::hessian(Store& store, Eigen::SparseMatrix<double>& hess){
 			for(int j=0; j<ddw.cols(); j++){
 				hess_trips.push_back(Trip(9*f_index + i, 9*f_index + j, ddw(i,j)));
 			}
+		}
+		if(store.jinput["woodbury"]){
+			//set dense block diag hess if woodbury
 		}
 	}
 	hess.setFromTriplets(hess_trips.begin(), hess_trips.end());

@@ -49,9 +49,11 @@ namespace famu{
 		Eigen::VectorXd dFvec, BfI0;
 		Eigen::VectorXd x, dx, x0, lambda2;
 
+		
 		// Eigen::SparseLU<Eigen::SparseMatrix<double>> SPLU;
 		Eigen::UmfPackLU<Eigen::SparseMatrix<double>> ACAP_KKT_SPLU;
 		Eigen::UmfPackLU<Eigen::SparseMatrix<double>> NM_SPLU;//TODO: optimize this away
+		
 		
 		//Fast Terms
 		double x0tStDtDSx0;
@@ -69,9 +71,8 @@ namespace famu{
 		Eigen::SparseMatrix<double> JacdxdF;
 
 		//Hessians
-		Eigen::SparseMatrix<double> acapHess;
-		Eigen::SparseMatrix<double> muscleHess;
-		Eigen::SparseMatrix<double> neoHess;
+		Eigen::SparseMatrix<double> acapHess, muscleHess, neoHess;
+		Eigen::MatrixXd denseAcapHess, denseMuscleHess, denseNeoHess;
 
 		//woodbury matrices
 		//(A + BCD)-1

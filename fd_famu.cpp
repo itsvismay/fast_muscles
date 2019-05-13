@@ -257,14 +257,19 @@ int main(int argc, char *argv[])
 	cout<<"--- ACAP Hessians"<<endl;
 		famu::acap::setJacobian(store);
 		
+		store.denseNeoHess = MatrixXd::Zero(store.dFvec.size(), 9);
 		store.neoHess.resize(store.dFvec.size(), store.dFvec.size());
-		famu::stablenh::hessian(store, store.neoHess);
-		
-		store.muscleHess.resize(store.dFvec.size(), store.dFvec.size());
-		famu::muscle::fastHessian(store, store.muscleHess);
+		famu::stablenh::hessian(store, store.neoHess, store.denseNeoHess);
 
+		store.denseMuscleHess = MatrixXd::Zero(store.dFvec.size(), 9);
+		store.muscleHess.resize(store.dFvec.size(), store.dFvec.size());
+		famu::muscle::fastHessian(store, store.muscleHess, store.denseMuscleHess);
+
+		store.denseAcapHess = MatrixXd::Zero(store.dFvec.size(), 9);
 		store.acapHess.resize(store.dFvec.size(), store.dFvec.size());
-		famu::acap::fastHessian(store, store.acapHess);
+		famu::acap::fastHessian(store, store.acapHess, store.denseAcapHess);
+		
+
 		SparseMatrix<double> hessFvec = store.neoHess + store.acapHess + store.muscleHess;
 		store.NM_SPLU.analyzePattern(hessFvec);
 		store.NM_SPLU.factorize(hessFvec);
@@ -354,7 +359,7 @@ int main(int argc, char *argv[])
         if(key=='A'){
         	store.muscle_mag *= 1.5;
         	famu::muscle::setupFastMuscles(store);
-        	famu::muscle::fastHessian(store, store.muscleHess);
+        	famu::muscle::fastHessian(store, store.muscleHess, store.denseMuscleHess);
         }
         
         if(key==' '){

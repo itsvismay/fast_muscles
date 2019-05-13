@@ -115,10 +115,14 @@ namespace famu
 			}
 		}
 
-		void fastHessian(Store& store, SparseMatrix<double>& hess){
+		void fastHessian(Store& store, SparseMatrix<double>& hess, Eigen::MatrixXd& denseHess){
 			hess.setZero();
 			for(int i=0; i<store.contract_muscles.size(); i++){
 				hess += store.fastMuscles[store.contract_muscles[i]];
+			}
+			
+			if(store.jinput["woodbury"]){
+				//set dense block diag hess if woodbury
 			}
 		}
 
