@@ -38,7 +38,6 @@
 #include "famu/bone_elem_def_grad_projection_matrix.h"
 #include "famu/setup_hessian_modes.h"
 
-
 using namespace Eigen;
 using namespace std;
 using json = nlohmann::json;
@@ -84,6 +83,7 @@ int main(int argc, char *argv[])
 			j_input["number_rot_clusters"] =  stoi(argv[2]);
 			j_input["number_skinning_handles"] =  stoi(argv[3]);
 		}
+		store.jinput["number_modes"] = NUM_MODES;
 		cout<<"NSH: "<<j_input["number_skinning_handles"]<<endl;
 		cout<<"NRC: "<<j_input["number_rot_clusters"]<<endl;
 		cout<<"MODES: "<<j_input["number_modes"]<<endl;
@@ -199,7 +199,7 @@ int main(int argc, char *argv[])
 		famu::construct_kkt_system_left(store.YtStDtDSY, store.JointConstraints, KKT_left);
 
 		SparseMatrix<double> KKT_left2;
-		famu::construct_kkt_system_left(KKT_left, store.Bx,  KKT_left2, -1e-3); 
+		famu::construct_kkt_system_left(KKT_left, store.Bx,  KKT_left2, -1e-5); 
 		// MatrixXd Hkkt = MatrixXd(KKT_left2);
 		
 
@@ -247,7 +247,7 @@ int main(int argc, char *argv[])
 	cout<<"--- Setup Modes"<<endl;
         MatrixXd temp1;
         SparseMatrix<double> NjtYtStDtDSYNj = store.NullJ.transpose()*store.Y.transpose()*store.S.transpose()*store.D.transpose()*store.D*store.S*store.Y*store.NullJ;
-        igl::readDMAT(outputfile+"/"+to_string((int)j_input["number_modes"])+"modes.dmat", temp1);
+        igl::readDMAT(outputfile+"/"+to_string((int)store.jinput["number_modes"])+"modes.dmat", temp1);
         if(temp1.rows() == 0 && !store.jinput["sparseJac"]){
 			famu::setup_hessian_modes(store, NjtYtStDtDSYNj, temp1);
 		}else{
@@ -351,25 +351,31 @@ int main(int argc, char *argv[])
         
         if(key==' '){
         
-    		// store.dFvec[9+0] = 0.7071;
-    		// store.dFvec[9+1] = 0.7071;
-    		// store.dFvec[9+2] = 0;
-    		// store.dFvec[9+3] = -0.7071;
-    		// store.dFvec[9+4] = 0.7071;
-    		// store.dFvec[9+5] = 0;
-    		// store.dFvec[9+6] = 0;
-    		// store.dFvec[9+7] = 0;
-    		// store.dFvec[9+8] = 1;
+   //  		store.dFvec[9+0] = 0.7071;
+   //  		store.dFvec[9+1] = 0.7071;
+   //  		store.dFvec[9+2] = 0;
+   //  		store.dFvec[9+3] = -0.7071;
+   //  		store.dFvec[9+4] = 0.7071;
+   //  		store.dFvec[9+5] = 0;
+   //  		store.dFvec[9+6] = 0;
+   //  		store.dFvec[9+7] = 0;
+   //  		store.dFvec[9+8] = 1;
+   //  		timer.start();
 			// famu::acap::solve(store, store.dFvec);        	
+			// timer.stop();
+			// cout<<"+++Microsecs per solve: "<<timer.getElapsedTimeInMicroSec()<<endl;
 
 			double fx = 0;
 			timer.start();
 			int niters = 0;
 		
 			niters = famu::newton_static_solve(store);
-			
 			timer.stop();
-			cout<<"+++QS Step iterations: "<<niters<<", secs: "<<timer.getElapsedTimeInMicroSec()<<endl;
+			double totaltime = timer.getElapsedTimeInMicroSec();
+			cout<<"Full NM per iter: "<<totaltime/niters<<endl;
+			cout<<"Total time: "<<totaltime<<endl;
+			cout<<"Total its: "<<niters<<endl;
+			cout<<"+++++ QS Iteration +++++"<<endl;
         	
         }
 

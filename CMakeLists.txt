@@ -7,7 +7,7 @@ set(SPECTRA_DIR "ThirdParty/Spectra/include")
 #set(NEW_BFGSB_SRC_DIR "/home/vismay/recode/LBFGSpp/include")
 set(LIBIGL_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/libigl/include")
 set(SUITESPARSE_HINT "/home/vismay/recode/SuiteSparse")
-set(CMAKE_CXX_FLAGS "-O3 -g -mavx")
+set(CMAKE_CXX_FLAGS "-O3 -mavx")
 
 
 # libigl
