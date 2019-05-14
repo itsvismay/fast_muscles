@@ -18,7 +18,7 @@ namespace famu
 				SparseMatrix<double> mat;
 				for(int j=0; j<store.muscle_tets[i].size(); j++){
 					int t = store.muscle_tets[i][j];
-					Vector3d u = std::sqrt(store.muscle_mag[t])*store.Uvec.row(t);
+					Vector3d u = std::sqrt(store.muscle_mag[t]*store.rest_tet_volume[t])*store.Uvec.row(t);
 					
 					int f_index = store.bone_or_muscle[t];
 
@@ -66,7 +66,7 @@ namespace famu
 					Matrix3d F = Map<Matrix3d>(dFvec.segment<9>(9*f_index).data()).transpose();
 					Vector3d y = store.Uvec.row(t).transpose();
 					Vector3d z = F*y;
-					double W = 0.5*store.muscle_mag[t]*(z.dot(z));
+					double W = 0.5*store.muscle_mag[t]*store.rest_tet_volume[t]*(z.dot(z));
 					MuscleEnergy += W;
 				}
 			}
@@ -110,7 +110,7 @@ namespace famu
 					tet_grad[7] = 0.5*a*(s7*u1*u2 + s9*u2*u3 + u2*(s7*u1 + 2*s8*u2 + s9*u3));
 					tet_grad[8] = 0.5*a*(s7*u1*u3 + s8*u2*u3 + u3*(s7*u1 + s8*u2 + 2*s9*u3));
 
-					grad.segment<9>(9*f_index) += tet_grad;
+					grad.segment<9>(9*f_index) += store.rest_tet_volume[t]*tet_grad;
 				}
 			}
 		}
@@ -120,7 +120,7 @@ namespace famu
 			for(int i=0; i<store.contract_muscles.size(); i++){
 				hess += store.fastMuscles[store.contract_muscles[i]];
 			}
-			
+
 			if(store.jinput["woodbury"]){
 				//set dense block diag hess if woodbury
 			}

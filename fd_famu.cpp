@@ -107,7 +107,8 @@ int main(int argc, char *argv[])
 	    store.mfix.assign(fix_verts_set.begin(), fix_verts_set.end());
 	    std::sort (store.mfix.begin(), store.mfix.end());
 	
-	cout<<"---Set YM and Poissons"<<store.x.size()<<endl;
+	cout<<"---Set Mesh Params"<<store.x.size()<<endl;
+		//YM, poissons
 		store.eY = 1e10*VectorXd::Ones(store.T.rows());
 		store.eP = 0.49*VectorXd::Ones(store.T.rows());
 		store.muscle_mag = VectorXd::Zero(store.T.rows());
@@ -123,6 +124,7 @@ int main(int argc, char *argv[])
 		}
 		igl::writeDMAT("youngs_per_tet.dmat", store.eY);
 
+		//bone dF map
 		//start off all as -1
 		store.bone_or_muscle = -1*Eigen::VectorXi::Ones(store.T.rows());
 		if(store.jinput["reduced"]){
@@ -148,6 +150,25 @@ int main(int argc, char *argv[])
 				store.bone_or_muscle[i] = i;
 			}
 	    }
+
+	    //Rest state volumes
+	    store.rest_tet_volume = VectorXd::Ones(store.T.rows());
+		for(int i =0; i<store.T.rows(); i++){
+			Vector3d p1 = store.V.row(store.T.row(i)[0]); 
+			Vector3d p2 = store.V.row(store.T.row(i)[1]); 
+			Vector3d p3 = store.V.row(store.T.row(i)[2]);
+			Vector3d p4 = store.V.row(store.T.row(i)[3]); 
+			
+			Matrix3d Dm;
+			Dm.col(0) = p1 - p4;
+			Dm.col(1) = p2 - p4;
+			Dm.col(2) = p3 - p4;
+			double density = 1000;
+			double undef_vol = (1.0/6)*fabs(Dm.determinant());
+			store.rest_tet_volume[i] = undef_vol;
+		}
+
+
 	cout<<"---Setup continuous mesh"<<store.x.size()<<endl;
 		store.x0.resize(3*store.V.rows());
 		for(int i=0; i<store.V.rows(); i++){
@@ -406,9 +427,35 @@ int main(int argc, char *argv[])
         viewer.data().set_mesh((newV.transpose()+store.V), store.F);
         igl::writeOBJ("ACAP_unred.obj", (newV.transpose()+store.V), store.F);
         
-        if(key=='V' || key=='S' || key=='E'){
+        if(key=='V' || key=='S' || key=='E' || key =='C'){
             MatrixXd COLRS;
             VectorXd zz = VectorXd::Ones(store.V.rows());
+
+            if(key=='C'){
+
+	            for(int m=0; m<store.T.rows(); m++){
+	                Matrix3d Dm;
+	                for(int i=0; i<3; i++){
+	                    Dm.col(i) = store.V.row(store.T.row(m)[i]) - store.V.row(store.T.row(m)[3]);
+	                }
+	                Matrix3d m_InvRefShapeMatrix = Dm.inverse();
+	                
+	                Matrix3d Ds;
+	                for(int i=0; i<3; i++)
+	                {
+	                    Ds.col(i) = y.segment<3>(3*store.T.row(m)[i]) - y.segment<3>(3*store.T.row(m)[3]);
+	                }
+
+	                Matrix3d F = Matrix3d::Identity() + Ds*m_InvRefShapeMatrix;
+
+	                double snorm = (F.transpose()*F - Matrix3d::Identity()).norm();
+	               
+	                zz[store.T.row(m)[0]] += snorm;
+	                zz[store.T.row(m)[1]] += snorm;
+	                zz[store.T.row(m)[2]] += snorm; 
+	                zz[store.T.row(m)[3]] += snorm;
+	            }
+            }
 
         	if(key=='V'){
             //Display tendon areas

@@ -103,7 +103,7 @@ namespace famu
 		// Decreasing and increasing factors
 		VectorXd x = store.dFvec;
 		VectorXd xp = x;
-		double step = 1;
+		double step = 50;
         const double dec = 0.5;
         const double inc = 2.1;
         int pmax_linesearch = 100;
@@ -135,6 +135,11 @@ namespace famu
         const double dg_test = pftol * dg_init;
         double width;
 
+        // cout<<"			fxinit: "<<fx<<endl;
+        // cout<<"			dFvec_init: "<<x.norm()<<endl;
+        // cout<<"			drt: "<<drt.norm()<<endl;
+        // cout<<"			dg_test: "<<dg_test<<endl;
+        // cout<<"			step: "<<step<<endl;
         int iter;
         for(iter = 0; iter < pmax_linesearch; iter++)
         {
@@ -187,8 +192,8 @@ namespace famu
 
             step *= width;
         }
-        // cout<<"		ls iters: "<<iter<<endl;
-        // cout<<"		step: "<<step<<endl;
+        cout<<"			ls iters: "<<iter<<endl;
+        cout<<"			step: "<<step<<endl;
         return step;
 	}
 
@@ -198,11 +203,36 @@ namespace famu
 		// #pragma omp par
 		for(int i=0; i<store.dFvec.size()/9; i++){
 			//loop through 9x9 block and fill denseH
+			Matrix9d A;
 			for(int j =0; j<9; j++){
 				for(int k=0; k<9; k++){
-					denseHess(9*i + j, k) = H.coeffRef(9*i + j, 9*i +k);
+					A(j, k) = H.coeffRef(9*i + j, 9*i +k);
 				}
 			}
+			// Eigen::SelfAdjointEigenSolver<Matrix9d> es(A);
+			// Matrix9d DiagEval = es.eigenvalues().real().asDiagonal();
+	  //       Matrix9d Evec = es.eigenvectors().real();
+			// JacobiSVD<MatrixXd> svd(A);
+			// double cond = svd.singularValues()(0) / svd.singularValues()(svd.singularValues().size()-1);
+	        
+	  //       for (int i = 0; i < 9; ++i) {
+	  //           if (es.eigenvalues()[i]<1e-6) {
+	  //           	// std::cout<<"small eig"<<", ";
+	  //               DiagEval(i,i) = 1e-3;
+	  //           }
+	  //       }
+	  //       A = Evec * DiagEval * Evec.transpose();
+
+			// FullPivLU<Matrix9d> InvA;
+			// InvA.compute(A);
+			// cout<<cond<<", "<<(A - A.transpose()).norm()<<", "<<es.eigenvalues().transpose()<<endl;
+			LDLT<Matrix9d> InvA;
+			InvA.compute(A);
+			if(InvA.info()!=Success){
+				cout<<"woops LDLT failed"<<endl;
+			}
+
+			denseHess.block<9,9>(9*i, 0) = A;
 		}
 
 
@@ -213,7 +243,7 @@ namespace famu
 		Matrix9xModes B;
 		for(int i=0; i<store.dFvec.size()/9; i++){
 			Matrix9d A = denseHess.block<9,9>(9*i, 0);
-			FullPivLU<Matrix9d> InvA;
+			LDLT<Matrix9d> InvA;
 			InvA.compute(A);
 			drt.segment<9>(9*i) = InvA.solve(g.segment<9>(9*i));;
 
@@ -226,7 +256,7 @@ namespace famu
 		BInvXDy = store.WoodB*WoodburyDenseSolve.solve(store.WoodD*drt);
 		for(int i=0; i<store.dFvec.size()/9; i++){
 			Matrix9d A = denseHess.block<9,9>(9*i, 0);
-			FullPivLU<Matrix9d> InvA;
+			LDLT<Matrix9d> InvA;
 			InvA.compute(A);
 
 			Vector9d InvAtemp1 = InvA.solve(BInvXDy.segment<9>(9*i));
@@ -267,10 +297,11 @@ namespace famu
 			famu::stablenh::gradient(store, neo_grad);
 			famu::acap::fastGradient(store, acap_grad);
 
-			// cout<<"muscle grad: "<<muscle_grad.norm()<<endl;
-			// cout<<"neo grad: "<<neo_grad.norm()<<endl;
-			// cout<<"acap grad: "<<acap_grad.norm()<<endl;
 			graddFvec = muscle_grad + neo_grad + acap_grad;
+			cout<<"		muscle grad: "<<muscle_grad.norm()<<endl;
+			cout<<"		neo grad: "<<neo_grad.norm()<<endl;
+			cout<<"		acap grad: "<<acap_grad.norm()<<endl;
+			cout<<"		total grad: "<<graddFvec.norm()<<endl;
 			
 			if(graddFvec != graddFvec){
 				cout<<"Error: nans in grad"<<endl;
@@ -294,26 +325,26 @@ namespace famu
 			}else{
 
 				// //Sparse Woodbury code
-				// store.NM_SPLU.factorize(hessFvec);
-				// if(store.NM_SPLU.info()!=Success){
-				// 	cout<<"SOLVER FAILED"<<endl;
-				// 	cout<<store.NM_SPLU.info()<<endl;
-				// }
-				// VectorXd InvAg = store.NM_SPLU.solve(graddFvec);
-				// MatrixXd CDAB = store.InvC + store.WoodD*store.NM_SPLU.solve(store.WoodB);
-				// FullPivLU<MatrixXd>  WoodburyDenseSolve;
-				// WoodburyDenseSolve.compute(CDAB);
-				// VectorXd temp1 = store.WoodB*WoodburyDenseSolve.solve(store.WoodD*InvAg);;
+				store.NM_SPLU.factorize(hessFvec);
+				if(store.NM_SPLU.info()!=Success){
+					cout<<"SOLVER FAILED"<<endl;
+					cout<<store.NM_SPLU.info()<<endl;
+				}
+				VectorXd InvAg = store.NM_SPLU.solve(graddFvec);
+				MatrixXd CDAB = store.InvC + store.WoodD*store.NM_SPLU.solve(store.WoodB);
+				FullPivLU<MatrixXd>  WoodburyDenseSolve;
+				WoodburyDenseSolve.compute(CDAB);
+				VectorXd temp1 = store.WoodB*WoodburyDenseSolve.solve(store.WoodD*InvAg);;
 
-				// VectorXd InvAtemp1 = store.NM_SPLU.solve(temp1);
-				// test_drt =  -InvAg + InvAtemp1;
+				VectorXd InvAtemp1 = store.NM_SPLU.solve(temp1);
+				test_drt =  -InvAg + InvAtemp1;
 
 				//Dense Woodbury code
 				timer.start();
 				fastWoodbury(store, hessFvec, graddFvec, X, BInvXDy, denseHess, delta_dFvec);
 				timer.stop();
 				woodtimes += timer.getElapsedTimeInMicroSec();
-				// cout<<"woodbury diff: "<<(delta_dFvec - test_drt).norm()<<endl;
+				cout<<"		woodbury diff: "<<(delta_dFvec - test_drt).norm()<<endl;
 
 
 				//Naive dense woodbury test
@@ -339,13 +370,13 @@ namespace famu
 			double alpha = line_search(store, graddFvec, delta_dFvec);
 			timer.stop();
 			linetimes += timer.getElapsedTimeInMicroSec();
-
-			store.dFvec += alpha*delta_dFvec;
-			polar_dec(store, store.dFvec);
 			
 			if(fabs(alpha)<1e-9){
 				break;
 			}
+
+			store.dFvec += alpha*delta_dFvec;
+			polar_dec(store, store.dFvec);
 
 			if(graddFvec.squaredNorm()/graddFvec.size()<1e-4){
 				break;
