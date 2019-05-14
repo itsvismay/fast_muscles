@@ -199,7 +199,7 @@ int main(int argc, char *argv[])
 		famu::construct_kkt_system_left(store.YtStDtDSY, store.JointConstraints, KKT_left);
 
 		SparseMatrix<double> KKT_left2;
-		famu::construct_kkt_system_left(KKT_left, store.Bx,  KKT_left2, -1e-5); 
+		famu::construct_kkt_system_left(KKT_left, store.Bx,  KKT_left2, -1e-3); 
 		// MatrixXd Hkkt = MatrixXd(KKT_left2);
 		
 

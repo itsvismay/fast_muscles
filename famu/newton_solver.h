@@ -187,8 +187,8 @@ namespace famu
 
             step *= width;
         }
-        cout<<"		ls iters: "<<iter<<endl;
-        cout<<"		step: "<<step<<endl;
+        // cout<<"		ls iters: "<<iter<<endl;
+        // cout<<"		step: "<<step<<endl;
         return step;
 	}
 
@@ -271,8 +271,7 @@ namespace famu
 			// cout<<"neo grad: "<<neo_grad.norm()<<endl;
 			// cout<<"acap grad: "<<acap_grad.norm()<<endl;
 			graddFvec = muscle_grad + neo_grad + acap_grad;
-			cout<<"total grad: "<<graddFvec.norm()<<endl;
-
+			
 			if(graddFvec != graddFvec){
 				cout<<"Error: nans in grad"<<endl;
 				exit(0);
@@ -295,26 +294,26 @@ namespace famu
 			}else{
 
 				// //Sparse Woodbury code
-				store.NM_SPLU.factorize(hessFvec);
-				if(store.NM_SPLU.info()!=Success){
-					cout<<"SOLVER FAILED"<<endl;
-					cout<<store.NM_SPLU.info()<<endl;
-				}
-				VectorXd InvAg = store.NM_SPLU.solve(graddFvec);
-				MatrixXd CDAB = store.InvC + store.WoodD*store.NM_SPLU.solve(store.WoodB);
-				FullPivLU<MatrixXd>  WoodburyDenseSolve;
-				WoodburyDenseSolve.compute(CDAB);
-				VectorXd temp1 = store.WoodB*WoodburyDenseSolve.solve(store.WoodD*InvAg);;
+				// store.NM_SPLU.factorize(hessFvec);
+				// if(store.NM_SPLU.info()!=Success){
+				// 	cout<<"SOLVER FAILED"<<endl;
+				// 	cout<<store.NM_SPLU.info()<<endl;
+				// }
+				// VectorXd InvAg = store.NM_SPLU.solve(graddFvec);
+				// MatrixXd CDAB = store.InvC + store.WoodD*store.NM_SPLU.solve(store.WoodB);
+				// FullPivLU<MatrixXd>  WoodburyDenseSolve;
+				// WoodburyDenseSolve.compute(CDAB);
+				// VectorXd temp1 = store.WoodB*WoodburyDenseSolve.solve(store.WoodD*InvAg);;
 
-				VectorXd InvAtemp1 = store.NM_SPLU.solve(temp1);
-				delta_dFvec =  -InvAg + InvAtemp1;
+				// VectorXd InvAtemp1 = store.NM_SPLU.solve(temp1);
+				// test_drt =  -InvAg + InvAtemp1;
 
 				//Dense Woodbury code
 				timer.start();
-				fastWoodbury(store, hessFvec, graddFvec, X, BInvXDy, denseHess, test_drt);
+				fastWoodbury(store, hessFvec, graddFvec, X, BInvXDy, denseHess, delta_dFvec);
 				timer.stop();
 				woodtimes += timer.getElapsedTimeInMicroSec();
-				cout<<"woodbury diff: "<<(delta_dFvec - test_drt).norm()<<endl;
+				// cout<<"woodbury diff: "<<(delta_dFvec - test_drt).norm()<<endl;
 
 
 				//Naive dense woodbury test
