@@ -5,7 +5,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 set(JSON_HPP_SRC_DIR "ThirdParty/json/single_include/nlohmann")
 set(SPECTRA_DIR "ThirdParty/Spectra/include")
 set(LIBIGL_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/libigl/include")
-set(SUITESPARSE_HINT "/home/vismay/recode/SuiteSparse")
+set(SUITESPARSE_HINT "/home/vismay/recode/SuiteSparse" CACHE STRING "where is suitesparse")
 set(CMAKE_CXX_FLAGS "-O3 -mavx")
 
 
@@ -23,14 +23,19 @@ include_directories(${JSON_HPP_SRC_DIR})
 include_directories(${SPECTRA_DIR})
 include_directories(${SUITESPARSE_INCLUDE_DIRS})
 #include_directories(${OpenCV_INCLUDE_DIRS})
+link_directories(${SUITESPARSE_HINT}/lib)
 
 
 file(GLOB SRCFILES famu/*.cpp)
 
 add_executable(famu "fd_famu.cpp" ${SRCFILES} ${EXTERNALS})
 
-target_link_libraries(famu -lglfw -lumfpack -lamd igl::core igl::png igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui ${SUITESPARSE_LIBRARIES})
-
+if(APPLE)
+    target_link_libraries(famu -lglfw -lumfpack -lamd igl::core igl::png igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui ${SUITESPARSE_LIBRARIES})
+else()
+    target_link_libraries(famu -lglfw -lumfpack -lamd igl::core igl::png igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui ${SUITESPARSE_LIBRARIES})
+endif(APPLE)
+ 
 
 
  
