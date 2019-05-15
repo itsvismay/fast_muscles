@@ -54,8 +54,15 @@ int main(int argc, char *argv[])
 {
   int fancy_data_index,debug_data_index,discontinuous_data_index;
 	std::cout<<"-----Configs-------"<<std::endl;
+		std::string inputfile;
+		if(argc<1){
+			cout<<"Run as: ./famu input.json"<<endl;
+			exit(0);
+		}
+		
+		
     	igl::Timer timer;
-		std::ifstream input_file("../input/input.json");
+		std::ifstream input_file(argv[1]);
 		input_file >> j_input;
 
 		famu::Store store;
@@ -83,17 +90,8 @@ int main(int argc, char *argv[])
 		cout<<"V size: "<<store.V.rows()<<endl;
 		cout<<"T size: "<<store.T.rows()<<endl;
 		cout<<"F size: "<<store.F.rows()<<endl;
-		if(argc>1){
-			j_input["number_modes"] =  stoi(argv[1]);
-			j_input["number_rot_clusters"] =  stoi(argv[2]);
-			j_input["number_skinning_handles"] =  stoi(argv[3]);
-		}
 		store.jinput["number_modes"] = NUM_MODES;
-		cout<<"NSH: "<<j_input["number_skinning_handles"]<<endl;
-		cout<<"NRC: "<<j_input["number_rot_clusters"]<<endl;
-		cout<<"MODES: "<<j_input["number_modes"]<<endl;
 		std::string outputfile = j_input["output"];
-		std::string namestring = to_string((int)j_input["number_modes"])+"modes"+to_string((int)j_input["number_rot_clusters"])+"clusters"+to_string((int)j_input["number_skinning_handles"])+"handles";
 		igl::boundary_facets(store.T, store.F);
 
 	cout<<"---Set Fixed Vertices"<<endl;
@@ -618,7 +616,7 @@ fd_famu:
     viewer.data_list[fancy_data_index].set_colors(store.elogVY.replicate(1,3));
     Eigen::Matrix<unsigned char,Eigen::Dynamic,Eigen::Dynamic> R,G,B,A;
     // @Vismay, perhaps include this path in the json?
-    igl::png::readPNG("/Users/ajx/Downloads/muscle-tendon-bone.png",R,G,B,A);
+    igl::png::readPNG(store.jinput["material"],R,G,B,A);
     viewer.data_list[fancy_data_index].set_texture(R,G,B,A);
     viewer.data_list[fancy_data_index].show_texture = true;
     // must be called before messing with shaders

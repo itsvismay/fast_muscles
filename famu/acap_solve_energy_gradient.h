@@ -119,7 +119,7 @@ namespace famu
 
 		void solve(Store& store, VectorXd& dFvec){
 			store.acap_solve_rhs.setZero();
-			store.acap_solve_rhs.head(store.x.size()) = store.YtStDt_dF_DSx0*dFvec - store.x0tStDtDSY;;
+			store.acap_solve_rhs.head(store.x.size()) = store.YtStDt_dF_DSx0*dFvec - store.x0tStDtDSY;
 			store.acap_solve_rhs.tail(store.BfI0.size()) = store.Bf*store.dFvec - store.BfI0;;
 
 			store.acap_solve_result = store.ACAP_KKT_SPLU.solve(store.acap_solve_rhs);

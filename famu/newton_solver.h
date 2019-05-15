@@ -135,11 +135,28 @@ namespace famu
         const double dg_test = pftol * dg_init;
         double width;
 
-        // cout<<"			fxinit: "<<fx<<endl;
-        // cout<<"			dFvec_init: "<<x.norm()<<endl;
-        // cout<<"			drt: "<<drt.norm()<<endl;
-        // cout<<"			dg_test: "<<dg_test<<endl;
-        // cout<<"			step: "<<step<<endl;
+        //Linesearch optimization. (x here is the cont. mesh positions)
+        //F = F0 + step*dF
+        //Ax = BF + c = BF0 + step*BdF + c
+        //x = InvA*B*F0 + step*InvA*B*dF + c
+        //x = InvA * rhs1 + step* InvA*rhs2 + c
+        //x* = const1 + step* const2 + const3
+        // xp.setZero();
+        // drt.setZero();
+        // VectorXd rhs1 = VectorXd::Zero(store.acap_solve_rhs.size());
+        // 	rhs1.head(store.x.size()) = store.YtStDt_dF_DSx0*xp;
+        // 	rhs1.tail(store.lambda2.size()) = store.Bf*xp;
+        // VectorXd rhs2 = VectorXd::Zero(store.acap_solve_rhs.size());
+        // 	rhs2.head(store.x.size()) = store.YtStDt_dF_DSx0*drt;
+        // 	rhs2.tail(store.lambda2.size()) = store.Bf*drt;
+        // VectorXd const3 = VectorXd::Zero(store.acap_solve_rhs.size());
+        // 	const3.head(store.x.size()) = -store.x0tStDtDSY;
+        // 	const3.tail(store.lambda2.size()) = -store.BfI0;
+        // VectorXd result = VectorXd::Zero(store.acap_solve_rhs.size());
+        // VectorXd const1 = store.ACAP_KKT_SPLU.solve(rhs1);
+        // VectorXd const2 = store.ACAP_KKT_SPLU.solve(rhs2);
+        // cout<<const1.norm()<<endl;
+
         int iter;
         for(iter = 0; iter < pmax_linesearch; iter++)
         {
@@ -149,6 +166,13 @@ namespace famu
 
             // Evaluate this candidate
             famu::acap::solve(store, x);
+            // cout<<store.lambda2.transpose()<<endl;
+            // result = const1 + step*const2 + const3;
+            // store.x = result.head(store.x.size());
+            // store.lambda2 = result.tail(store.lambda2.size());
+            // cout<<store.lambda2.transpose()<<endl;
+            // exit(0);
+            //
             double EM = famu::muscle::energy(store, x);
 			double ENH = famu::stablenh::energy(store, x);
 			double EACAP = famu::acap::fastEnergy(store, x);
