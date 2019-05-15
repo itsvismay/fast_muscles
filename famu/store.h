@@ -32,6 +32,8 @@ namespace famu{
 		std::vector< std::pair<std::vector<std::string>, Eigen::MatrixXd>> joint_bones_verts;
 		Eigen::VectorXd relativeStiffness;
 		Eigen::VectorXd eY, eP;
+                // Young's Modulus per vertex (averaged from incident tets using eY)
+		Eigen::VectorXd elogVY;
 
 		std::vector<int> fixverts, movverts;
 		std::vector<int> mfix, mmov;

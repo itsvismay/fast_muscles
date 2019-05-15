@@ -12,25 +12,26 @@ set(CMAKE_CXX_FLAGS "-O3 -g -mavx")
 
 # libigl
 option(LIBIGL_WITH_OPENGL           "Use OpenGL"         ON)
+option(LIBIGL_WITH_PNG              "Use PNG"            ON)
 option(LIBIGL_WITH_OPENGL_GLFW      "Use GLFW"           ON)
 option(LIBIGL_WITH_OPENGL_GLFW_IMGUI      "Use IMGUI"           ON)
 
 find_package(LIBIGL REQUIRED QUIET)
 find_package(SUITESPARSE REQUIRED QUIET)
-find_package(OpenCV REQUIRED)
+#find_package(OpenCV REQUIRED)
 
 include_directories(${JSON_HPP_SRC_DIR})
 include_directories(${SPECTRA_DIR})
 #include_directories(${NEW_BFGSB_SRC_DIR})
 include_directories(${SUITESPARSE_INCLUDE_DIRS})
-include_directories(${OpenCV_INCLUDE_DIRS})
+#include_directories(${OpenCV_INCLUDE_DIRS})
 
 
 file(GLOB SRCFILES famu/*.cpp)
 
 add_executable(famu "fd_famu.cpp" ${SRCFILES} ${EXTERNALS})
 
-target_link_libraries(famu -lglfw -lumfpack -lamd igl::core igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui -fopenmp ${OpenCV_LIBS} ${SUITESPARSE_LIBRARIES})
+target_link_libraries(famu -lglfw -lumfpack -lamd igl::core igl::png igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui ${SUITESPARSE_LIBRARIES})
 
 
 

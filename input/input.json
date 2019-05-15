@@ -1,6 +1,6 @@
 {
-  "data": "/home/vismay/recode/fast_muscles/data/realistic_upper_coarse",
-  "output": "/home/vismay/recode/fast_muscles/data/realistic_upper_coarse",
+  "data":   "/Users/ajx/Dropbox/fast_muscles/input/realistic_biceps_coarse",
+  "output": "/Users/ajx/Dropbox/fast_muscles/input/realistic_biceps_coarse",
   "fix_bones": ["scapula"],  
   "muscle_starting_strength": 10000,
   "QS_steps": 10,

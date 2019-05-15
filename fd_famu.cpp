@@ -6,9 +6,13 @@
 #include <igl/writeDMAT.h>
 #include <igl/readOBJ.h>
 #include <igl/jet.h>
+#include <igl/png/readPNG.h>
+#include <igl/volume.h>
 #include <igl/slice.h>
 #include <igl/boundary_facets.h>
 #include <igl/opengl/glfw/imgui/ImGuiMenu.h>
+#include <igl/opengl/destroy_shader_program.h>
+#include <igl/opengl/create_shader_program.h>
 #include <igl/opengl/glfw/imgui/ImGuiHelpers.h>
 #include <igl/list_to_matrix.h>
 #include <imgui/imgui.h>
@@ -122,6 +126,29 @@ int main(int argc, char *argv[])
 			}
 		}
 		igl::writeDMAT("youngs_per_tet.dmat", store.eY);
+                {
+                  store.elogVY = Eigen::VectorXd::Zero(store.V.rows());
+                  // volume associated with each vertex
+                  Eigen::VectorXd Vvol = Eigen::VectorXd::Zero(store.V.rows());
+                  Eigen::VectorXd Tvol;
+                  igl::volume(store.V,store.T,Tvol);
+                  // loop over tets
+                  for(int i = 0;i<store.T.rows();i++)
+                  {
+                    const double vol4 = Tvol(i)/4.0;
+                    for(int j = 0;j<4;j++)
+                    {
+                      Vvol(store.T(i,j)) += vol4;
+                      store.elogVY(store.T(i,j)) += vol4*log10(store.eY(i));
+                    }
+                  }
+                  // loop over vertices to divide to take average
+                  for(int i = 0;i<store.V.rows();i++)
+                  {
+                    store.elogVY(i) /= Vvol(i);
+                  }
+                }
+
 
 		//start off all as -1
 		store.bone_or_muscle = -1*Eigen::VectorXi::Ones(store.T.rows());
@@ -337,7 +364,6 @@ int main(int argc, char *argv[])
 
     viewer.callback_key_down = [&](igl::opengl::glfw::Viewer & viewer, unsigned char key, int modifiers){   
         std::cout<<"Key down, "<<key<<std::endl;
-        viewer.data().clear();
 
         if(key =='K'){
         	kkkk ++;
@@ -397,8 +423,9 @@ int main(int argc, char *argv[])
         }
         VectorXd y = store.Y*store.x;
         Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
-        viewer.data().set_mesh((newV.transpose()+store.V), store.F);
-        igl::writeOBJ("ACAP_unred.obj", (newV.transpose()+store.V), store.F);
+        viewer.data().set_vertices((newV.transpose()+store.V));
+
+        //igl::writeOBJ("ACAP_unred.obj", (newV.transpose()+store.V), store.F);
         
         if(key=='V' || key=='S' || key=='E'){
             MatrixXd COLRS;
@@ -450,25 +477,103 @@ int main(int argc, char *argv[])
         }
         
 
-        for(int i=0; i<store.mfix.size(); i++){
-        	viewer.data().add_points((newV.transpose().row(store.mfix[i]) + store.V.row(store.mfix[i])), Eigen::RowVector3d(1,0,0));
-        }
+        //for(int i=0; i<store.mfix.size(); i++){
+        //	viewer.data().add_points((newV.transpose().row(store.mfix[i]) + store.V.row(store.mfix[i])), Eigen::RowVector3d(1,0,0));
+        //}
 
-        for(int i=0; i<store.mmov.size(); i++){
-        	viewer.data().add_points((newV.transpose().row(store.mmov[i]) + store.V.row(store.mmov[i])), Eigen::RowVector3d(0,1,0));
-        }
+        //for(int i=0; i<store.mmov.size(); i++){
+        //	viewer.data().add_points((newV.transpose().row(store.mmov[i]) + store.V.row(store.mmov[i])), Eigen::RowVector3d(0,1,0));
+        //}
         
         return false;
     };
 
-	viewer.data().set_mesh(store.V, store.F);
-    viewer.data().show_lines = false;
-    viewer.data().invert_normals = true;
-    viewer.core.is_animating = false;
-    viewer.data().face_based = true;
-    viewer.core.background_color = Eigen::Vector4f(1,1,1,0);
-    // viewer.data().set_colors(SETCOLORSMAT);
+  viewer.data().set_mesh(store.V, store.F);
+  // must be called before messing with shaders
+  viewer.launch_init(true,false);
+  // Send Young's modulus data in via color channel
+  {
+    Eigen::MatrixXd C(store.V.rows(),3);
+    for(int i = 0;i<store.V.rows();i++)
+    {
+      if(store.elogVY(i) < 0.5*(60000 + 1.2e9))
+      {
+        C.row(i) = Eigen::RowVector3d(1,0,0);
+      }else if(store.elogVY(i) < 0.5*(1.2e9 + 1.0e10))
+      {
+        C.row(i) = Eigen::RowVector3d(0.99,0.99,1);
+      }else
+      {
+        C.row(i) = Eigen::RowVector3d(0.85,0.85,0.8);
+      }
+    }
+    //viewer.data().set_colors(C);
+    viewer.data().set_colors(store.elogVY.replicate(1,3));
+    Eigen::Matrix<unsigned char,Eigen::Dynamic,Eigen::Dynamic> R,G,B,A;
+    // @Vismay, perhaps include this path in the json?
+    igl::png::readPNG("/Users/ajx/Downloads/muscle-tendon-bone.png",R,G,B,A);
+    viewer.data().set_texture(R,G,B,A);
+    viewer.data().show_texture = true;
+    // must be called before messing with shaders
+    viewer.data().meshgl.init();
+    igl::opengl::destroy_shader_program(viewer.data().meshgl.shader_mesh);
+    {
+      std::string mesh_vertex_shader_string =
+R"(#version 150
+uniform mat4 view;
+uniform mat4 proj;
+uniform mat4 normal_matrix;
+in vec3 position;
+in vec3 normal;
+// Color
+in vec3 Kd;
+// Young's modulus
+out float elogY;
+out vec3 normal_eye;
 
-    viewer.launch();
+void main()
+{
+  normal_eye = normalize(vec3 (normal_matrix * vec4 (normal, 0.0)));
+  gl_Position = proj * view * vec4(position, 1.0);
+  elogY = Kd.r;
+})";
+
+      std::string mesh_fragment_shader_string =
+R"(#version 150
+in vec3 normal_eye;
+// Young's modulus
+in float elogY;
+out vec4 outColor;
+uniform sampler2D tex;
+void main()
+{
+  vec2 uv = normalize(normal_eye).xy * vec2(0.5/3.0,0.5);
+  float t_tendon = clamp( (elogY-4.7782)/(9.0792-4.7782) , 0.0 , 1.0);
+  float t_bone =   clamp( (elogY-9.0092)/(10.000-9.0792) , 0.0 , 1.0);
+  outColor = mix(
+      texture(tex, uv + vec2(0.5/3.0,0.5)),
+      texture(tex, uv + vec2(1.5/3.0,0.5)),
+      t_tendon);
+  outColor = mix( outColor,   texture(tex, uv + vec2(2.5/3.0,0.5)),t_bone);
+  //outColor.a = 1.0;
+})";
+
+      igl::opengl::create_shader_program(
+        mesh_vertex_shader_string,
+        mesh_fragment_shader_string,
+        {},
+        viewer.data().meshgl.shader_mesh);
+    }
+  }
+
+  viewer.data().show_lines = false;
+  viewer.data().invert_normals = true;
+  viewer.core.is_animating = false;
+  viewer.data().set_face_based(false);
+  viewer.core.background_color = Eigen::Vector4f(1,1,1,0);
+  // viewer.data().set_colors(SETCOLORSMAT);
+
+  viewer.launch_rendering(true);
+  viewer.launch_shut();
 
 }
