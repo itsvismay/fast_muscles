@@ -25,6 +25,6 @@
   "Preconditioned": false,
   "polar_dec": true,
   "sparseJac": false,
-  "NM_MAX_ITERS": 30,
+  "NM_MAX_ITERS": 100,
   "woodbury": true
 }

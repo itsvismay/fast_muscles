@@ -1,5 +1,6 @@
 #include "stablenh_energy_gradient.h"
 #include "store.h"
+#include <iostream>
 using namespace Eigen;
 using Store = famu::Store;
 typedef Eigen::Triplet<double> Trip;
@@ -21,7 +22,7 @@ double famu::stablenh::energy(Store& store, Eigen::VectorXd& dFvec){
 		double J = F.determinant();
 		double alpha = (1 + (C1/D1) - (C1/(D1*4)));
 		double W = 0.5*C1*(I1 -3) + 0.5*D1*(J-alpha)*(J-alpha) - 0.5*C1*log(I1 + 1);
-		stableNHEnergy += W;
+		stableNHEnergy += W*store.rest_tet_volume[t];
 	}
 
 	return store.alpha_neo*stableNHEnergy;
@@ -67,13 +68,13 @@ void famu::stablenh::gradient(Store& store, Eigen::VectorXd& grad){
 		tet_grad[8] = 1.*C1*s9 - (1.*C1*s9)/(1 + std::pow(s1,2) + std::pow(s2,2) + std::pow(s3,2) + std::pow(s4,2) + std::pow(s5,2) + std::pow(s6,2) + std::pow(s7,2) + std::pow(s8,2) + std::pow(s9,2)) + 
     		1.*(s2*s4 - 1.*s1*s5)*(0.75*C1 + D1*(1 + s3*s5*s7 - 1.*s2*s6*s7 - 1.*s3*s4*s8 + s1*s6*s8 + s2*s4*s9 - 1.*s1*s5*s9));		
    
-		grad.segment<9>(9*f_index)  += store.alpha_neo*tet_grad;
+		grad.segment<9>(9*f_index)  += store.alpha_neo*store.rest_tet_volume[t]*tet_grad;
 	}
 }
 
 void famu::stablenh::hessian(Store& store, Eigen::SparseMatrix<double>& hess, Eigen::MatrixXd& denseHess){
 	hess.setZero();
-	Eigen::MatrixXd ddw(9,9);
+	Eigen::Matrix<double, 9,9> ddw(9,9);
 	std::vector<Trip> hess_trips;
 	hess_trips.reserve(9*9*store.T.rows());
 
@@ -257,9 +258,24 @@ void famu::stablenh::hessian(Store& store, Eigen::SparseMatrix<double>& hess, Ei
 
 		ddw(8,8) = 1.*C1 + 1.*D1*std::pow(s2*s4 - 1.*s1*s5,2) + (2.*C1*std::pow(s9,2))/std::pow(1 + std::pow(s1,2) + std::pow(s2,2) + std::pow(s3,2) + std::pow(s4,2) + std::pow(s5,2) + std::pow(s6,2) + std::pow(s7,2) + std::pow(s8,2) + std::pow(s9,2),2) - (1.*C1)/(1 + std::pow(s1,2) + std::pow(s2,2) + std::pow(s3,2) + std::pow(s4,2) + std::pow(s5,2) + std::pow(s6,2) + std::pow(s7,2) + std::pow(s8,2) + std::pow(s9,2));
 
+		//FIX SVD
+		Eigen::SelfAdjointEigenSolver<Matrix<double, 9, 9>> es(ddw);
+		Eigen::Matrix<double, 9, 9> DiagEval = es.eigenvalues().real().asDiagonal();
+        Eigen::Matrix<double, 9, 9> Evec = es.eigenvectors().real();
+        
+        for (int i = 0; i < 9; ++i) {
+            if (es.eigenvalues()[i]<1e-6) {
+            	// std::cout<<"small eig"<<", ";
+                DiagEval(i,i) = 1e-3;
+            }
+        }
+
+        ddw = Evec * DiagEval * Evec.transpose();
+
+
 		for(int i=0; i<ddw.rows(); i++){
 			for(int j=0; j<ddw.cols(); j++){
-				hess_trips.push_back(Trip(9*f_index + i, 9*f_index + j, ddw(i,j)));
+				hess_trips.push_back(Trip(9*f_index + i, 9*f_index + j, store.rest_tet_volume[t]*ddw(i,j)));
 			}
 		}
 		if(store.jinput["woodbury"]){

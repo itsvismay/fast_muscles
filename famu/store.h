@@ -18,6 +18,8 @@ namespace famu{
 
 		Eigen::VectorXd muscle_mag;
 		Eigen::VectorXi bone_or_muscle;
+		Eigen::VectorXd rest_tet_volume;
+		
 		double alpha_arap = 1e4;
 		double alpha_neo = 1;
 
