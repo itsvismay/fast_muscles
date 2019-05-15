@@ -23,5 +23,7 @@
 			"location_obj": "joint1.obj",
 			"bones": ["top_bone", "bottom_bone"]
 		}
-	}
+	},
+	
+	"tendon_regions": "tendons.obj"
 }

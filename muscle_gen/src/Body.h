@@ -14,6 +14,7 @@ namespace muscle_gen {
 	struct Body {
 		// Combined structures
 		Mesh surf_mesh; // Simple (no remeshing) union of surface meshes
+		Mesh tendon_regions; // A manifold watertight mesh. If a muscle tet is contained in this volume, then it should be marked as a tendon
 		
 		TetMesh tet_mesh; // Tet mesh for whole muscle + bone system
 		
@@ -32,6 +33,8 @@ namespace muscle_gen {
 
 		std::map<std::string, std::vector<int>> bone_indices;
 		std::map<std::string, std::vector<int>> muscle_indices;
+
+		Eigen::VectorXi tet_is_tendon; // Vector of length |T|. is_tendon[i] == 1 iff tet i is a tendon (as well as a muscle), otherwise is_tendon[i] == 0
 
 		void write(const std::string &out_dir);
 		void read(const std::string &in_dir); // TODO not implemented

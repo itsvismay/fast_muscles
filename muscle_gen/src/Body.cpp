@@ -59,4 +59,7 @@ void Body::write(const std::string &out_dir) {
 		igl::list_to_matrix(muscle_indices[name], muscle_indices_I);
 		igl::writeDMAT(muscle_indices_path, muscle_indices_I, false);
 	}
+
+	string is_tendon_path = lf::path::join(out_dir, "tet_is_tendon.dmat");
+	igl::writeDMAT(is_tendon_path, tet_is_tendon, false);
 }

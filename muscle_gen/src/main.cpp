@@ -83,7 +83,7 @@ Mesh load_mesh(const string &obj_path) {
 }
 
 
-void read_surfs(const json &config, const string &surf_dir, map<string, Mesh> &bone_surfs, map<string, Mesh> &muscle_surfs) {	
+void read_surfs(const json &config, const string &surf_dir, map<string, Mesh> &bone_surfs, map<string, Mesh> &muscle_surfs, Mesh &tendon_regions) {	
 	for (auto& el : config["muscles"].items()) {
 		string surf_path = lf::path::join(surf_dir, el.value()["surface_obj"]);
 		muscle_surfs[el.key()] = load_mesh(surf_path);
@@ -93,6 +93,9 @@ void read_surfs(const json &config, const string &surf_dir, map<string, Mesh> &b
 		string surf_path = lf::path::join(surf_dir, el.value()["surface_obj"]);
 		bone_surfs[el.key()] = load_mesh(surf_path);
 	}
+
+	string tendon_path = lf::path::join(surf_dir, config["tendon_regions"]);
+	tendon_regions = load_mesh(tendon_path);
 }
 
 
@@ -156,8 +159,10 @@ void compute_indices(
 	const TetMesh &tet_mesh,
 	const map<string, Mesh> &bone_surfs,
 	const map<string, Mesh> &muscle_surfs,
+	const Mesh tendon_regions,
 	map<string, std::vector<int>> &bone_indices,
-	map<string, std::vector<int>> &muscle_indices)
+	map<string, std::vector<int>> &muscle_indices,
+	VectorXi &tet_is_tendon)
 {
 	Eigen::MatrixXd tet_centers;
 	igl::barycenter(tet_mesh.V, tet_mesh.T, tet_centers);
@@ -173,6 +178,13 @@ void compute_indices(
 		VectorXd S; VectorXi I; MatrixXd C, N;
 		igl::signed_distance(tet_centers, el.second.V, el.second.F, igl::SignedDistanceType::SIGNED_DISTANCE_TYPE_WINDING_NUMBER, S, I, C, N);
 		muscle_dists[el.first] = S;
+	}
+
+	VectorXd tendon_dists;
+	tet_is_tendon = VectorXi::Zero(tet_mesh.T.rows());
+	{
+		VectorXi I; MatrixXd C, N;
+		igl::signed_distance(tet_centers, tendon_regions.V, tendon_regions.F, igl::SignedDistanceType::SIGNED_DISTANCE_TYPE_WINDING_NUMBER, tendon_dists, I, C, N);
 	}
 
 
@@ -199,6 +211,7 @@ void compute_indices(
 				const VectorXd &dists = el.second;
 				if(dists(i) <= eps_absolute) {
 					muscle_indices[el.first].push_back(i);
+					tet_is_tendon[i] = (tendon_dists[i] <= 0.0 ? 1 : 0); // Assign the tendon values
 					assigned_tet = true;
 					break;
 				}
@@ -218,6 +231,7 @@ void compute_indices(
 			std::cout << std::endl;
 		}
 	}
+
 	std::cout << "# Unassigned tets: " << unassigned_tets << std::endl;
 	std::cout << "eps_absolute: " << eps_absolute << std::endl;
 }
@@ -396,7 +410,7 @@ void generate_body_from_config(const string &body_dir, bool load_existing_tets, 
 	json config = read_config(body_dir);
 	string obj_dir = lf::path::join(body_dir, "objs/");
 
-	read_surfs(config, obj_dir, body.bone_surfs, body.muscle_surfs);
+	read_surfs(config, obj_dir, body.bone_surfs, body.muscle_surfs, body.tendon_regions);
 	string surf_dir = lf::path::join(body_dir, "objs/");
 
 	body.surf_mesh = combine_surfs(body.bone_surfs, body.muscle_surfs);
@@ -412,7 +426,7 @@ void generate_body_from_config(const string &body_dir, bool load_existing_tets, 
 
 	// Need to use this when assigning tets to correct mesh component
 	double eps_absolute = igl::bounding_box_diagonal(body.surf_mesh.V) * eps_rel / 100.0; // Taken from Tetwild State.h
-	compute_indices(eps_absolute, body.tet_mesh, body.bone_surfs, body.muscle_surfs, body.bone_indices, body.muscle_indices);
+	compute_indices(eps_absolute, body.tet_mesh, body.bone_surfs, body.muscle_surfs, body.tendon_regions, body.bone_indices, body.muscle_indices, body.tet_is_tendon);
 
 	split_tet_meshes(body.tet_mesh, body.bone_indices, body.muscle_indices, body.split_tet_meshes);
 

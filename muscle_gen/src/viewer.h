@@ -72,6 +72,19 @@ namespace muscle_gen {
 			MatrixXd C = RowVector3d(0,0,1).replicate(n_boundary_verts, 1);
 			viewer.data().add_points(body.harmonic_boundary_verts, C);
 		}
+
+		Eigen::MatrixXd B;
+		igl::barycenter(body.tet_mesh.V,body.tet_mesh.T, B);
+		std::vector<RowVector3d> tendon_tet_points_vec;
+		for(int i = 0; i < body.tet_mesh.T.rows(); i++) {
+			if(body.tet_is_tendon[i]) {
+				tendon_tet_points_vec.push_back(B.row(i));
+				viewer.data().add_points(B.row(i), RowVector3d(1.0,1.0,1.0));
+			}
+		}
+		// MatrixXd tendon_tet_points;
+		// igl::list_to_matrix()
+
 	}
 
 	void launch_viewer(const Body &body) {
