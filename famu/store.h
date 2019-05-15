@@ -24,7 +24,7 @@ namespace famu{
 		double alpha_neo = 1;
 
 		Eigen::MatrixXd V, discV;
-		Eigen::MatrixXi T, discT, F;
+		Eigen::MatrixXi T, discT, F, discF;
 		Eigen::MatrixXd Uvec;
 		std::vector<std::string> fix_bones = {};
 		std::vector<Eigen::VectorXi> bone_tets = {};

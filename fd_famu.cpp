@@ -52,6 +52,7 @@ json j_input;
 
 int main(int argc, char *argv[])
 {
+  int fancy_data_index,debug_data_index,discontinuous_data_index;
 	std::cout<<"-----Configs-------"<<std::endl;
     	igl::Timer timer;
 		std::ifstream input_file("../input/input.json");
@@ -220,6 +221,7 @@ int main(int argc, char *argv[])
 
 	cout<<"---Set Disc T and V"<<store.x.size()<<endl;
 		famu::setDiscontinuousMeshT(store.T, store.discT);
+		igl::boundary_facets(store.discT, store.discF);
 		store.discV.resize(4*store.T.rows(), 3);
 
 	cout<<"---Set Joints Constraint Matrix"<<store.x.size()<<endl;
@@ -338,6 +340,7 @@ int main(int argc, char *argv[])
 
 
     cout<<"---Setup Solver"<<endl;
+                famu::discontinuousV(store);
 
 
 
@@ -368,167 +371,189 @@ int main(int argc, char *argv[])
 
 	std::cout<<"-----Display-------"<<std::endl;
     igl::opengl::glfw::Viewer viewer;
-    int kkkk =0;
-    double tttt =0;
-    // MatrixXd modes = store.Y*store.G;
-    // viewer.callback_pre_draw = [&](igl::opengl::glfw::Viewer & viewer){   
-    //     if(viewer.core.is_animating){
-    //         if(kkkk < store.G.cols()){
-    //             VectorXd x = 50*sin(tttt)*modes.col(kkkk) + store.x0;
-    //             Eigen::Map<Eigen::MatrixXd> newV(x.data(), store.V.cols(), store.V.rows());
-    //             viewer.data().set_mesh(newV.transpose(), store.F);
-    //             tttt+= 0.1;
-    //         }
-    // 	}
-    //     return false;
-    // };
 
     viewer.callback_key_down = [&](igl::opengl::glfw::Viewer & viewer, unsigned char key, int modifiers){   
         std::cout<<"Key down, "<<key<<std::endl;
+        // given data show it as colors on debug mesh
+        const auto set_colors_from_data = [&](const Eigen::VectorXd & zz)
+        {
+          MatrixXd COLRS;
+          igl::jet(zz, true, COLRS);
+          viewer.data_list[debug_data_index].set_colors(COLRS);
+        };
+        // If debug mesh is currently visible, turn it off and turn on fancy
+        // mesh and return true; otherwise return false.
+        const auto hide_debug = [&]()->bool
+        {
+          if(viewer.data_list[debug_data_index].show_faces)
+          {
+            viewer.data_list[debug_data_index].show_faces = false;
+            viewer.data_list[fancy_data_index].show_faces = true;
+            std::cout<<"hiding debug..."<<std::endl;
+            return true;
+          }
+          viewer.data_list[debug_data_index].show_faces = true;
+          viewer.data_list[fancy_data_index].show_faces = false;
+          return false;
+        };
+        switch(key)
+        {
+          case ' ':
+          {
+          
+            //store.dFvec[9+0] = 0.7071;
+            //store.dFvec[9+1] = 0.7071;
+            //store.dFvec[9+2] = 0;
+            //store.dFvec[9+3] = -0.7071;
+            //store.dFvec[9+4] = 0.7071;
+            //store.dFvec[9+5] = 0;
+            //store.dFvec[9+6] = 0;
+            //store.dFvec[9+7] = 0;
+            //store.dFvec[9+8] = 1;
+            //timer.start();
+            // famu::acap::solve(store, store.dFvec);        	
+            // timer.stop();
+            // cout<<"+++Microsecs per solve: "<<timer.getElapsedTimeInMicroSec()<<endl;
 
-        if(key =='K'){
-        	kkkk ++;
-        }
+            double fx = 0;
+            timer.start();
+            int niters = 0;
 
-        if(key=='A'){
-        	store.muscle_mag *= 1.5;
-        	famu::muscle::setupFastMuscles(store);
-        	famu::muscle::fastHessian(store, store.muscleHess, store.denseMuscleHess);
-        }
-        
-        if(key==' '){
-        
-   //  		store.dFvec[9+0] = 0.7071;
-   //  		store.dFvec[9+1] = 0.7071;
-   //  		store.dFvec[9+2] = 0;
-   //  		store.dFvec[9+3] = -0.7071;
-   //  		store.dFvec[9+4] = 0.7071;
-   //  		store.dFvec[9+5] = 0;
-   //  		store.dFvec[9+6] = 0;
-   //  		store.dFvec[9+7] = 0;
-   //  		store.dFvec[9+8] = 1;
-   //  		timer.start();
-			// famu::acap::solve(store, store.dFvec);        	
-			// timer.stop();
-			// cout<<"+++Microsecs per solve: "<<timer.getElapsedTimeInMicroSec()<<endl;
+            niters = famu::newton_static_solve(store);
+            timer.stop();
+            double totaltime = timer.getElapsedTimeInMicroSec();
+            cout<<"Full NM per iter: "<<totaltime/niters<<endl;
+            cout<<"Total time: "<<totaltime<<endl;
+            cout<<"Total its: "<<niters<<endl;
+            cout<<"+++++ QS Iteration +++++"<<endl;
+            VectorXd y = store.Y*store.x;
+            Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
+            //igl::writeOBJ("ACAP_unred.obj", (newV.transpose()+store.V), store.F);
+            viewer.data_list[fancy_data_index].set_vertices((newV.transpose()+store.V));
+            viewer.data_list[debug_data_index].set_vertices((newV.transpose()+store.V));
+            return true;
+          }
+          case 'A':
+          case 'a':
+          {
+            store.muscle_mag *= 1.5;
+            famu::muscle::setupFastMuscles(store);
+            famu::muscle::fastHessian(store, store.muscleHess, store.denseMuscleHess);
+            return true;
+          }
+          case 'C':
+          case 'c':
+          {
+            std::cout<<"C..."<<std::endl;
+            if(!hide_debug())
+            {
+              std::cout<<" C..."<<std::endl;
+              VectorXd zz = VectorXd::Ones(store.V.rows());
+              // probably want to have this visualization update with each press
+              // of space ' '... I'd consider having a little lambda that will
+              // update the geometry _and_ any active visualizations. Might want
+              // to have an enum or something to tell which debug visualization
+              // is active.
+              VectorXd y = store.Y*store.x;
+              for(int m=0; m<store.T.rows(); m++){
+                Matrix3d Dm;
+                for(int i=0; i<3; i++){
+                  Dm.col(i) = store.V.row(store.T.row(m)[i]) - store.V.row(store.T.row(m)[3]);
+                }
+                Matrix3d m_InvRefShapeMatrix = Dm.inverse();
 
-			double fx = 0;
-			timer.start();
-			int niters = 0;
-		
-			niters = famu::newton_static_solve(store);
-			timer.stop();
-			double totaltime = timer.getElapsedTimeInMicroSec();
-			cout<<"Full NM per iter: "<<totaltime/niters<<endl;
-			cout<<"Total time: "<<totaltime<<endl;
-			cout<<"Total its: "<<niters<<endl;
-			cout<<"+++++ QS Iteration +++++"<<endl;
-        	
-        }
+                Matrix3d Ds;
+                for(int i=0; i<3; i++)
+                {
+                  Ds.col(i) = y.segment<3>(3*store.T.row(m)[i]) - y.segment<3>(3*store.T.row(m)[3]);
+                }
 
-        if(key=='D'){
-            
-            // Draw disc mesh
-            famu::discontinuousV(store);
-            for(int m=0; m<store.discT.rows()/10; m++){
-                int t= 10*m;
-                Vector4i e = store.discT.row(t);
-                
-                Matrix<double, 1,3> p0 = store.discV.row(e[0]);
-                Matrix<double, 1,3> p1 = store.discV.row(e[1]);
-                Matrix<double, 1,3> p2 = store.discV.row(e[2]);
-                Matrix<double, 1,3> p3 = store.discV.row(e[3]);
+                Matrix3d F = Matrix3d::Identity() + Ds*m_InvRefShapeMatrix;
 
-                viewer.data().add_edges(p0,p1,Eigen::RowVector3d(1,0,1));
-                viewer.data().add_edges(p0,p2,Eigen::RowVector3d(1,0,1));
-                viewer.data().add_edges(p0,p3,Eigen::RowVector3d(1,0,1));
-                viewer.data().add_edges(p1,p2,Eigen::RowVector3d(1,0,1));
-                viewer.data().add_edges(p1,p3,Eigen::RowVector3d(1,0,1));
-                viewer.data().add_edges(p2,p3,Eigen::RowVector3d(1,0,1));
+                double snorm = (F.transpose()*F - Matrix3d::Identity()).norm();
+
+                zz[store.T.row(m)[0]] += snorm;
+                zz[store.T.row(m)[1]] += snorm;
+                zz[store.T.row(m)[2]] += snorm; 
+                zz[store.T.row(m)[3]] += snorm;
+              }
+              set_colors_from_data(zz);
             }
-        
+            return true;
+          }
+          case 'D':
+          case 'd':
+          {
+            viewer.data_list[discontinuous_data_index].show_lines =
+              !viewer.data_list[discontinuous_data_index].show_lines;
+            if(viewer.data_list[discontinuous_data_index].show_lines)
+            {
+              famu::discontinuousV(store);
+              viewer.data_list[discontinuous_data_index].set_vertices(store.discV);
+            }
+            return true;
+          }
+          case 'E':
+          case 'e':
+          {
+            if(!hide_debug())
+            {
+              VectorXd zz = VectorXd::Ones(store.V.rows());
+              //map ACAP energy over the meseh
+              VectorXd ls = store.DSY*store.x + store.DSx0;
+              VectorXd rs = store.DSx0_mat*store.ProjectF*store.dFvec;
+              for(int i=0; i<store.T.rows(); i++){
+                double enorm = (ls.segment<12>(12*i) - rs.segment<12>(12*i)).norm();
+
+                zz[store.T.row(i)[0]] += enorm;
+                zz[store.T.row(i)[1]] += enorm;
+                zz[store.T.row(i)[2]] += enorm; 
+                zz[store.T.row(i)[3]] += enorm;
+
+              }
+              set_colors_from_data(zz);
+            }
+            return true;
+          }
+          case 'S':
+          case 's':
+          {
+            if(!hide_debug())
+            {
+              VectorXd zz = VectorXd::Ones(store.V.rows());
+              //map strains
+              VectorXd fulldFvec = store.ProjectF*store.dFvec;
+              for(int m=0; m<store.T.rows(); m++){
+                Matrix3d F = Map<Matrix3d>(fulldFvec.segment<9>(9*m).data()).transpose();
+                double snorm = (F.transpose()*F - Matrix3d::Identity()).norm();
+
+                zz[store.T.row(m)[0]] += snorm;
+                zz[store.T.row(m)[1]] += snorm;
+                zz[store.T.row(m)[2]] += snorm; 
+                zz[store.T.row(m)[3]] += snorm;
+	      }
+              set_colors_from_data(zz);
+            }
+            return true;
+          }
+          case 'V':
+          case 'v':
+          {
+            if(!hide_debug())
+            {
+              VectorXd zz = VectorXd::Ones(store.V.rows());
+              //Display tendon areas
+              for(int i=0; i<store.T.rows(); i++){
+                zz[store.T.row(i)[0]] = store.relativeStiffness[i];
+                zz[store.T.row(i)[1]] = store.relativeStiffness[i];
+                zz[store.T.row(i)[2]] = store.relativeStiffness[i];
+                zz[store.T.row(i)[3]] = store.relativeStiffness[i];
+              }
+              set_colors_from_data(zz);
+            }
+            return true;
+          }
         }
-        VectorXd y = store.Y*store.x;
-        Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
-        viewer.data().set_vertices((newV.transpose()+store.V));
-
-        //igl::writeOBJ("ACAP_unred.obj", (newV.transpose()+store.V), store.F);
-        
-        if(key=='V' || key=='S' || key=='E' || key =='C'){
-            MatrixXd COLRS;
-            VectorXd zz = VectorXd::Ones(store.V.rows());
-
-            if(key=='C'){
-
-	            for(int m=0; m<store.T.rows(); m++){
-	                Matrix3d Dm;
-	                for(int i=0; i<3; i++){
-	                    Dm.col(i) = store.V.row(store.T.row(m)[i]) - store.V.row(store.T.row(m)[3]);
-	                }
-	                Matrix3d m_InvRefShapeMatrix = Dm.inverse();
-	                
-	                Matrix3d Ds;
-	                for(int i=0; i<3; i++)
-	                {
-	                    Ds.col(i) = y.segment<3>(3*store.T.row(m)[i]) - y.segment<3>(3*store.T.row(m)[3]);
-	                }
-
-	                Matrix3d F = Matrix3d::Identity() + Ds*m_InvRefShapeMatrix;
-
-	                double snorm = (F.transpose()*F - Matrix3d::Identity()).norm();
-	               
-	                zz[store.T.row(m)[0]] += snorm;
-	                zz[store.T.row(m)[1]] += snorm;
-	                zz[store.T.row(m)[2]] += snorm; 
-	                zz[store.T.row(m)[3]] += snorm;
-	            }
-            }
-
-        	if(key=='V'){
-            //Display tendon areas
-	            for(int i=0; i<store.T.rows(); i++){
-	                zz[store.T.row(i)[0]] = store.relativeStiffness[i];
-	                zz[store.T.row(i)[1]] = store.relativeStiffness[i];
-	                zz[store.T.row(i)[2]] = store.relativeStiffness[i];
-	                zz[store.T.row(i)[3]] = store.relativeStiffness[i];
-	            }
-            }
-            
-            if(key=='S'){
-            	//map strains
-	            VectorXd fulldFvec = store.ProjectF*store.dFvec;
-	            for(int m=0; m<store.T.rows(); m++){
-	                Matrix3d F = Map<Matrix3d>(fulldFvec.segment<9>(9*m).data()).transpose();
-	                double snorm = (F.transpose()*F - Matrix3d::Identity()).norm();
-	               
-	                zz[store.T.row(m)[0]] += snorm;
-	                zz[store.T.row(m)[1]] += snorm;
-	                zz[store.T.row(m)[2]] += snorm; 
-	                zz[store.T.row(m)[3]] += snorm;
-	            }
-            }
-
-            if(key=='E'){
-            	//map ACAP energy over the meseh
-            	VectorXd ls = store.DSY*store.x + store.DSx0;
-            	VectorXd rs = store.DSx0_mat*store.ProjectF*store.dFvec;
-            	for(int i=0; i<store.T.rows(); i++){
-            		double enorm = (ls.segment<12>(12*i) - rs.segment<12>(12*i)).norm();
-
-            		zz[store.T.row(i)[0]] += enorm;
-	                zz[store.T.row(i)[1]] += enorm;
-	                zz[store.T.row(i)[2]] += enorm; 
-	                zz[store.T.row(i)[3]] += enorm;
-
-            	}
-            }
-	            // cout<<zz.transpose()<<endl;
-
-
-            igl::jet(zz, true, COLRS);
-            viewer.data().set_colors(COLRS);
-        }
-        
 
         //for(int i=0; i<store.mfix.size(); i++){
         //	viewer.data().add_points((newV.transpose().row(store.mfix[i]) + store.V.row(store.mfix[i])), Eigen::RowVector3d(1,0,0));
@@ -537,13 +562,43 @@ int main(int argc, char *argv[])
         //for(int i=0; i<store.mmov.size(); i++){
         //	viewer.data().add_points((newV.transpose().row(store.mmov[i]) + store.V.row(store.mmov[i])), Eigen::RowVector3d(0,1,0));
         //}
-        
+ 
+        // return false indicates that keystroke was not used and should be
+        // passed on to viewer to handle
         return false;
     };
 
-  viewer.data().set_mesh(store.V, store.F);
+  fancy_data_index = viewer.selected_data_index;
+  viewer.data_list[fancy_data_index].set_mesh(store.V, store.F);
+  viewer.data_list[fancy_data_index].show_lines = false;
+  viewer.data_list[fancy_data_index].invert_normals = true;
+  viewer.data_list[fancy_data_index].set_face_based(false);
+  viewer.append_mesh();
+  debug_data_index = viewer.selected_data_index;
+  viewer.data_list[debug_data_index].set_mesh(store.V, store.F);
+  viewer.data_list[debug_data_index].show_faces = false;
+  viewer.data_list[debug_data_index].invert_normals = true;
+  viewer.data_list[debug_data_index].show_lines = false;
+  viewer.append_mesh();
+  discontinuous_data_index = viewer.selected_data_index;
+  viewer.data_list[discontinuous_data_index].set_mesh(store.discV, store.discF);
+  viewer.data_list[discontinuous_data_index].show_lines = true;
+  viewer.data_list[discontinuous_data_index].show_faces = false;
+  // set fancy rendered mesh to be selected.
+  viewer.selected_data_index = fancy_data_index;
+
+
   // must be called before messing with shaders
   viewer.launch_init(true,false);
+  std::cout<<R"(
+fd_famu:
+  C,c  Show continuous mesh's strain
+  D,d  Toggle discontinous mesh wireframe
+  E,e  Show ACAP energy (interpolated on the continuous mesh)
+  S,s  Show discontinuous mesh's strain (interpolated on the continuous mesh)
+  V,v  Tendon vs. muscle vis
+)";
+
   // Send Young's modulus data in via color channel
   {
     Eigen::MatrixXd C(store.V.rows(),3);
@@ -560,16 +615,16 @@ int main(int argc, char *argv[])
         C.row(i) = Eigen::RowVector3d(0.85,0.85,0.8);
       }
     }
-    //viewer.data().set_colors(C);
-    viewer.data().set_colors(store.elogVY.replicate(1,3));
+    viewer.data_list[fancy_data_index].set_colors(store.elogVY.replicate(1,3));
     Eigen::Matrix<unsigned char,Eigen::Dynamic,Eigen::Dynamic> R,G,B,A;
     // @Vismay, perhaps include this path in the json?
     igl::png::readPNG("/Users/ajx/Downloads/muscle-tendon-bone.png",R,G,B,A);
-    viewer.data().set_texture(R,G,B,A);
-    viewer.data().show_texture = true;
+    viewer.data_list[fancy_data_index].set_texture(R,G,B,A);
+    viewer.data_list[fancy_data_index].show_texture = true;
     // must be called before messing with shaders
-    viewer.data().meshgl.init();
-    igl::opengl::destroy_shader_program(viewer.data().meshgl.shader_mesh);
+    viewer.data_list[fancy_data_index].meshgl.init();
+    igl::opengl::destroy_shader_program(
+      viewer.data_list[fancy_data_index].meshgl.shader_mesh);
     {
       std::string mesh_vertex_shader_string =
 R"(#version 150
@@ -615,16 +670,12 @@ void main()
         mesh_vertex_shader_string,
         mesh_fragment_shader_string,
         {},
-        viewer.data().meshgl.shader_mesh);
+        viewer.data_list[fancy_data_index].meshgl.shader_mesh);
     }
   }
 
-  viewer.data().show_lines = false;
-  viewer.data().invert_normals = true;
   viewer.core.is_animating = false;
-  viewer.data().set_face_based(false);
   viewer.core.background_color = Eigen::Vector4f(1,1,1,0);
-  // viewer.data().set_colors(SETCOLORSMAT);
 
   viewer.launch_rendering(true);
   viewer.launch_shut();

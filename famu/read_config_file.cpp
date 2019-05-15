@@ -2,6 +2,8 @@
 #include <igl/readOBJ.h>
 #include <igl/readDMAT.h>
 #include "read_config_files.h"
+#include <fstream>
+#include <ostream>
 
 
 
