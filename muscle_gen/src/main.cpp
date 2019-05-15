@@ -94,8 +94,14 @@ void read_surfs(const json &config, const string &surf_dir, map<string, Mesh> &b
 		bone_surfs[el.key()] = load_mesh(surf_path);
 	}
 
-	string tendon_path = lf::path::join(surf_dir, config["tendon_regions"]);
-	tendon_regions = load_mesh(tendon_path);
+
+	try {
+		string tendon_path = lf::path::join(surf_dir, config.at("tendon_regions"));
+		tendon_regions = load_mesh(tendon_path);
+	}
+	catch (json::out_of_range& e) {
+		// No tendons that's fine
+	}
 }
 
 
@@ -180,8 +186,9 @@ void compute_indices(
 		muscle_dists[el.first] = S;
 	}
 
-	VectorXd tendon_dists;
+	VectorXd tendon_dists = VectorXd::Ones(tet_mesh.T.rows());
 	tet_is_tendon = VectorXi::Zero(tet_mesh.T.rows());
+	if(tendon_regions.V.rows() != 0) // If the tendon regions mesh is empty, skip this
 	{
 		VectorXi I; MatrixXd C, N;
 		igl::signed_distance(tet_centers, tendon_regions.V, tendon_regions.F, igl::SignedDistanceType::SIGNED_DISTANCE_TYPE_WINDING_NUMBER, tendon_dists, I, C, N);
