@@ -116,7 +116,7 @@ Mesh combine_surfs(map<string, Mesh> &bone_surfs, map<string, Mesh> &muscle_surf
 TetMesh tetrahedralize_mesh(const Mesh &surf_mesh, double eps_rel) {
 	TetMesh combined_tet_mesh;
 	tetwild::Args tetwild_args;
-	tetwild_args.initial_edge_len_rel = tetwild_args.initial_edge_len_rel*0.5;
+	tetwild_args.initial_edge_len_rel = tetwild_args.initial_edge_len_rel*1;
 	tetwild_args.eps_rel = eps_rel; // Tetwild default is 0.1
 
 	VectorXd A;
@@ -401,7 +401,7 @@ void generate_body_from_config(const string &body_dir, bool load_existing_tets, 
 
 	body.surf_mesh = combine_surfs(body.bone_surfs, body.muscle_surfs);
 
-	double eps_rel = 0.1; // This is the tetwild epsilon. Default is 0.1
+	double eps_rel = 0.06; // This is the tetwild epsilon. Default is 0.1
 	if(load_existing_tets) {
 		// This is just to speed up development, saved files remain unused
 		body.tet_mesh = load_body_tet_mesh(body_dir);
