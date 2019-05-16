@@ -19,7 +19,7 @@
 #include <igl/null.h>
 #include <json.hpp>
 #include <Eigen/SparseCholesky>
-
+#include <omp.h>
 #include <sstream>
 #include <iomanip>
 
@@ -51,19 +51,31 @@ json j_input;
 
 
 int main(int argc, char *argv[])
-{
-  int fancy_data_index,debug_data_index,discontinuous_data_index;
+{	
+  	int fancy_data_index,debug_data_index,discontinuous_data_index;
 	std::cout<<"-----Configs-------"<<std::endl;
 		std::string inputfile;
+		int num_threads;
 		if(argc<1){
-			cout<<"Run as: ./famu input.json"<<endl;
+			cout<<"Run as: ./famu input.json <threads>"<<endl;
 			exit(0);
 		}
+		if(argc==3){
+			num_threads = std::stoi(argv[2]);
+			omp_set_num_threads(num_threads);
+			std::ifstream input_file(argv[1]);
+			input_file >> j_input;
+		}else{
+			num_threads = std::stoi(argv[3]);
+			omp_set_num_threads(num_threads);
+			std::ifstream input_file(argv[2]);
+			input_file >> j_input;
+
+		}
+		Eigen::initParallel();
 		
 		
     	igl::Timer timer;
-		std::ifstream input_file(argv[1]);
-		input_file >> j_input;
 
 		famu::Store store;
 		store.jinput = j_input;
@@ -113,7 +125,7 @@ int main(int argc, char *argv[])
 	cout<<"---Set Mesh Params"<<store.x.size()<<endl;
 		//YM, poissons
 		store.eY = 1e10*VectorXd::Ones(store.T.rows());
-		store.eP = 0.48*VectorXd::Ones(store.T.rows());
+		store.eP = 0.49*VectorXd::Ones(store.T.rows());
 		store.muscle_mag = VectorXd::Zero(store.T.rows());
 		for(int m=0; m<store.muscle_tets.size(); m++){
 			for(int t=0; t<store.muscle_tets[m].size(); t++){
@@ -149,13 +161,36 @@ int main(int argc, char *argv[])
                   }
                 }
 
+        //Rest state volumes
+	    store.rest_tet_volume = VectorXd::Ones(store.T.rows());
+		for(int i =0; i<store.T.rows(); i++){
+			Vector3d p1 = store.V.row(store.T.row(i)[0]); 
+			Vector3d p2 = store.V.row(store.T.row(i)[1]); 
+			Vector3d p3 = store.V.row(store.T.row(i)[2]);
+			Vector3d p4 = store.V.row(store.T.row(i)[3]); 
+			
+			Matrix3d Dm;
+			Dm.col(0) = p1 - p4;
+			Dm.col(1) = p2 - p4;
+			Dm.col(2) = p3 - p4;
+			double density = 1000;
+			double undef_vol = (1.0/6)*fabs(Dm.determinant());
+			store.rest_tet_volume[i] = density*undef_vol;
+		}
+		for(int i=0; i<store.bone_tets.size(); i++){
+			double bone_vol = 0;
+	    	for(int j=0; j<store.bone_tets[i].size(); j++){
+	    		bone_vol += store.rest_tet_volume[store.bone_tets[i][j]];
+	    	}
+	    	store.bone_vols.push_back(bone_vol);
+	    }
 
 		//bone dF map
 		//start off all as -1
 		store.bone_or_muscle = -1*Eigen::VectorXi::Ones(store.T.rows());
 		if(store.jinput["reduced"]){
 
-			// // // assign bone tets to 1 dF for each bone, starting at 0...bone_tets.size()
+			// assign bone tets to 1 dF for each bone, starting at 0...bone_tets.size()
 			for(int i=0; i<store.bone_tets.size(); i++){
 		    	for(int j=0; j<store.bone_tets[i].size(); j++){
 		    		store.bone_or_muscle[store.bone_tets[i][j]] = i;
@@ -177,22 +212,6 @@ int main(int argc, char *argv[])
 			}
 	    }
 
-	    //Rest state volumes
-	    store.rest_tet_volume = VectorXd::Ones(store.T.rows());
-		for(int i =0; i<store.T.rows(); i++){
-			Vector3d p1 = store.V.row(store.T.row(i)[0]); 
-			Vector3d p2 = store.V.row(store.T.row(i)[1]); 
-			Vector3d p3 = store.V.row(store.T.row(i)[2]);
-			Vector3d p4 = store.V.row(store.T.row(i)[3]); 
-			
-			Matrix3d Dm;
-			Dm.col(0) = p1 - p4;
-			Dm.col(1) = p2 - p4;
-			Dm.col(2) = p3 - p4;
-			double density = 1000;
-			double undef_vol = (1.0/6)*fabs(Dm.determinant());
-			store.rest_tet_volume[i] = undef_vol;
-		}
 
 
 	cout<<"---Setup continuous mesh"<<store.x.size()<<endl;
@@ -217,55 +236,6 @@ int main(int argc, char *argv[])
 	cout<<"---Set Centroid Matrix"<<store.x.size()<<endl;
 		famu::discontinuous_centroids_matrix(store.C, store.T);
 
-//     //Edge Weighting
-    /*SparseMatrix<double> Dinv;
-    std::vector<Trip> inv_trips;
-    for(int i =0; i<store.T.rows(); i++){
-        Vector3d p1 = store.V.row(store.T.row(i)[0]);
-        Vector3d p2 = store.V.row(store.T.row(i)[1]);
-        Vector3d p3 = store.V.row(store.T.row(i)[2]);
-        Vector3d p4 = store.V.row(store.T.row(i)[3]);
-        
-        Matrix3d Dm, Dmi;
-        Dm.col(0) = p1 - p4;
-        Dm.col(1) = p2 - p4;
-        Dm.col(2) = p3 - p4;
-        
-        Dmi = Dm.inverse();
-        
-        for(unsigned int j =0; j<3; ++j)
-            for(unsigned int k =0; k<3; ++k) {
-                for(unsigned int l=0; l<3; ++l) {
-                    inv_trips.push_back(Trip(9*i + k +3*j, 9*i + l + 3*j,Dmi(k,l)));
-                }
-            }
-    }*/
-    
-    /*Dinv.resize(9*store.T.rows(), 9*store.T.rows());
-    Dinv.setFromTriplets(inv_trips.begin(), inv_trips.end()); 
-    Eigen::VectorXd edges = Dinv*store.D*store.S*store.x0;
-
-    Eigen::VectorXd d;
-    d.resize(edges.rows(), 1);
-//    std::cout<<d.rows()<<"\n";
-//    //inverse edge lengths
-    for(unsigned int ii=0; ii<edges.rows()/9; ii++) {
-        //std::cout<<edges[ii]<<"\n";
-        d[9*ii] = store.rest_tet_volume[ii];
-        d[9*ii+1] = store.rest_tet_volume[ii];
-        d[9*ii+2] = store.rest_tet_volume[ii];
-        d[9*ii+3] = store.rest_tet_volume[ii];
-        d[9*ii+4] = store.rest_tet_volume[ii];
-        d[9*ii+5] = store.rest_tet_volume[ii];
-        d[9*ii+6] = store.rest_tet_volume[ii];
-        d[9*ii+7] = store.rest_tet_volume[ii];
-        d[9*ii+8] = store.rest_tet_volume[ii];
-    }
-//
-//    store.D = d.asDiagonal()*store.D;
-    
-    store.D = Dinv*store.D;*/
-    
 	cout<<"---Set Disc T and V"<<store.x.size()<<endl;
 		famu::setDiscontinuousMeshT(store.T, store.discT);
 		igl::boundary_facets(store.discT, store.discF);
@@ -291,14 +261,11 @@ int main(int argc, char *argv[])
 	
 
 	cout<<"---ACAP Solve KKT setup"<<store.x.size()<<endl;
-		SparseMatrix<double> KKT_left;
 		store.YtStDtDSY = (store.D*store.S*store.Y).transpose()*(store.D*store.S*store.Y);
+		SparseMatrix<double> KKT_left;
 		famu::construct_kkt_system_left(store.YtStDtDSY, store.JointConstraints, KKT_left);
-
 		SparseMatrix<double> KKT_left2;
-		famu::construct_kkt_system_left(KKT_left, store.Bx,  KKT_left2, -1e-3);
-		// MatrixXd Hkkt = MatrixXd(KKT_left2);
-		
+		famu::construct_kkt_system_left(KKT_left, store.Bx,  KKT_left2, -1e-3); 		
 
 		store.ACAP_KKT_SPLU.analyzePattern(KKT_left2);
 		store.ACAP_KKT_SPLU.factorize(KKT_left2);
@@ -310,6 +277,24 @@ int main(int argc, char *argv[])
 
 			exit(0);
 		}
+
+		// SparseMatrix<double> YtStSY = (store.S*store.Y).transpose()*(store.S*store.Y);
+		// SparseMatrix<double> new_KKT_left;
+		// famu::construct_kkt_system_left(YtStSY, store.JointConstraints, new_KKT_left);
+		// SparseMatrix<double> new_KKT_left2;
+		// famu::construct_kkt_system_left(KKT_left, store.Bx,  new_KKT_left2, -1e-3); 		
+
+		// store.NEW_ACAP_KKT_SPLU.analyzePattern(new_KKT_left2);
+		// store.NEW_ACAP_KKT_SPLU.factorize(new_KKT_left2);
+
+		// if(store.NEW_ACAP_KKT_SPLU.info()!=Success){
+		// 	cout<<"1. ACAP Jacobian solve failed"<<endl;
+		// 	cout<<"2. numerical issue: "<<(store.NEW_ACAP_KKT_SPLU.info()==NumericalIssue)<<endl;
+		// 	cout<<"3. invalid input: "<<(store.NEW_ACAP_KKT_SPLU.info()==InvalidInput)<<endl;
+
+		// 	exit(0);
+		// }		
+
 
 
 	cout<<"---Setup dFvec and dF"<<endl;
@@ -327,20 +312,31 @@ int main(int argc, char *argv[])
 
 	cout<<"---Setup Fast ACAP energy"<<endl;
 		store.StDtDS = (store.D*store.S).transpose()*(store.D*store.S);
+		cout<<"1"<<endl;
 		store.DSY = store.D*store.S*store.Y;
+		cout<<"2"<<endl;
 		store.DSx0 = store.D*store.S*store.x0;
+		cout<<"3"<<endl;
 		famu::dFMatrix_Vector_Swap(store.DSx0_mat, store.DSx0);
+		cout<<"4"<<endl;
 		
 
 		store.x0tStDtDSx0 = store.DSx0.transpose()*store.DSx0;
+		cout<<"5"<<endl;
 		store.x0tStDtDSY = store.DSx0.transpose()*store.DSY;
+		cout<<"6"<<endl;
 		store.x0tStDt_dF_DSx0 = store.DSx0.transpose()*store.DSx0_mat*store.ProjectF;
+		cout<<"7"<<endl;
 		store.YtStDt_dF_DSx0 = (store.DSY).transpose()*store.DSx0_mat*store.ProjectF;
+		cout<<"8"<<endl;
 		store.x0tStDt_dF_dF_DSx0 = (store.DSx0_mat*store.ProjectF).transpose()*store.DSx0_mat*store.ProjectF;
-
+		cout<<"9"<<endl;
 		famu::muscle::setupFastMuscles(store);
-
-
+		cout<<"10"<<endl;
+		// store.YtStZP = (store.S*store.Y).transpose()*store.DSx0_mat*store.ProjectF;
+		cout<<"11"<<endl;
+		// store.x0tStSY = (store.S*store.x0).transpose()*(store.S*store.Y);
+		cout<<"12"<<endl;
 	cout<<"--- Setup Modes"<<endl;
         MatrixXd temp1;
         SparseMatrix<double> NjtYtStDtDSYNj = store.NullJ.transpose()*store.Y.transpose()*store.S.transpose()*store.D.transpose()*store.D*store.S*store.Y*store.NullJ;
@@ -359,14 +355,17 @@ int main(int argc, char *argv[])
 		
 		store.denseNeoHess = MatrixXd::Zero(store.dFvec.size(), 9);
 		store.neoHess.resize(store.dFvec.size(), store.dFvec.size());
+		store.neoHess.setZero();
 		famu::stablenh::hessian(store, store.neoHess, store.denseNeoHess);
 
 		store.denseMuscleHess = MatrixXd::Zero(store.dFvec.size(), 9);
 		store.muscleHess.resize(store.dFvec.size(), store.dFvec.size());
+		store.muscleHess.setZero();
 		famu::muscle::fastHessian(store, store.muscleHess, store.denseMuscleHess);
 
 		store.denseAcapHess = MatrixXd::Zero(store.dFvec.size(), 9);
 		store.acapHess.resize(store.dFvec.size(), store.dFvec.size());
+		store.acapHess.setZero();
 		famu::acap::fastHessian(store, store.acapHess, store.denseAcapHess);
 		
 
@@ -472,6 +471,10 @@ int main(int argc, char *argv[])
             cout<<"Full NM per iter: "<<totaltime/niters<<endl;
             cout<<"Total time: "<<totaltime<<endl;
             cout<<"Total its: "<<niters<<endl;
+			double EM = famu::muscle::energy(store, store.dFvec);
+			double ENH = famu::stablenh::energy(store, store.dFvec);
+			double EACAP = famu::acap::fastEnergy(store, store.dFvec);
+			cout<<"E_a: "<<EACAP<<", E_m: "<<EM<<", E_n: "<<ENH<<endl;
             cout<<"+++++ QS Iteration +++++"<<endl;
             VectorXd y = store.Y*store.x;
             Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
@@ -483,8 +486,7 @@ int main(int argc, char *argv[])
           case 'A':
           case 'a':
           {
-            double inc = j_input["muscle_starting_strength"];
-              store.muscle_mag *= 1.25;
+            store.muscle_mag *= 1.5;
             famu::muscle::setupFastMuscles(store);
             famu::muscle::fastHessian(store, store.muscleHess, store.denseMuscleHess);
             return true;

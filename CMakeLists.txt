@@ -17,7 +17,7 @@ option(LIBIGL_WITH_OPENGL_GLFW_IMGUI      "Use IMGUI"           ON)
 
 find_package(LIBIGL REQUIRED QUIET)
 find_package(SUITESPARSE REQUIRED QUIET)
-#find_package(OpenCV REQUIRED)
+find_package(OpenMP REQUIRED)
 
 include_directories(${JSON_HPP_SRC_DIR})
 include_directories(${SPECTRA_DIR})
@@ -30,12 +30,12 @@ file(GLOB SRCFILES famu/*.cpp)
 
 add_executable(famu "fd_famu.cpp" ${SRCFILES} ${EXTERNALS})
 
+
 if(APPLE)
     target_link_libraries(famu -lumfpack -lamd igl::core igl::png igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui ${SUITESPARSE_LIBRARIES})
 else()
-    target_link_libraries(famu -lglfw -lumfpack -lamd igl::core igl::png igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui ${SUITESPARSE_LIBRARIES})
+    target_link_libraries(famu -lglfw -lumfpack -lamd igl::core igl::png igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui OpenMP::OpenMP_CXX ${SUITESPARSE_LIBRARIES})
 endif(APPLE)
- 
 
 
  

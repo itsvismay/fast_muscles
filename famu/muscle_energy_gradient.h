@@ -59,6 +59,7 @@ namespace famu
 		double energy(Store& store, VectorXd& dFvec){
 			double MuscleEnergy = 0;
 
+			#pragma omp parallel for reduction(+: MuscleEnergy)
 			for(int i=0; i<store.contract_muscles.size(); i++){
 				for(int j=0; j<store.muscle_tets[store.contract_muscles[i]].size(); j++){
 					int t = store.muscle_tets[store.contract_muscles[i]][j];
@@ -75,6 +76,10 @@ namespace famu
 
 		void gradient(Store& store, VectorXd& grad){
 			grad.setZero();
+			
+			#pragma omp declare reduction (+: Eigen::VectorXd: omp_out=omp_out+omp_in)\
+				initializer(omp_priv=VectorXd::Zero(omp_orig.size()))
+			#pragma omp parallel for reduction(+: grad)
 			for(int i=0; i<store.contract_muscles.size(); i++){
 				for(int j=0; j<store.muscle_tets[store.contract_muscles[i]].size(); j++){
 					int t = store.muscle_tets[store.contract_muscles[i]][j];

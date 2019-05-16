@@ -6,6 +6,7 @@
 #include <Eigen/LU>
 #include <Eigen/Cholesky>
 #include <igl/Timer.h>
+#include <omp.h>
 #define NUM_MODES 48
 
 
@@ -19,40 +20,7 @@ typedef Matrix<double, NUM_MODES, NUM_MODES> MatrixModesxModes;
 
 namespace famu
 {
-	double Energy(Store& store){
 
-		double EM = famu::muscle::energy(store, store.dFvec);
-		double ENH = famu::stablenh::energy(store, store.dFvec);
-		double EACAP = famu::acap::fastEnergy(store, store.dFvec);
-
-		return EM + ENH + EACAP;
-	}
-
-	void fdHess(Store& store, SparseMatrix<double>& fake){
-		fake.setZero();
-		VectorXd dFvec = store.dFvec;
-		double eps = 1e-3;
-		double E0 = Energy(store);
-		for(int i=0; i<dFvec.size(); i++){
-			for(int j=0; j<dFvec.size(); j++){
-				dFvec[i] += eps;
-				dFvec[j] += eps;
-				double Eij = Energy(store);
-				dFvec[i] -= eps;
-				dFvec[j] -= eps;
-
-				dFvec[i] += eps;
-				double Ei = Energy(store);
-				dFvec[i] -=eps;
-
-				dFvec[j] += eps;
-				double Ej = Energy(store);
-				dFvec[j] -=eps;
-				
-				fake.coeffRef(i,j) = ((Eij - Ei - Ej + E0)/(eps*eps));
-			}
-		}
-	}
 
 	void polar_dec(Store& store, VectorXd& dFvec){
 		if(store.jinput["polar_dec"]){
@@ -216,72 +184,70 @@ namespace famu
 
             step *= width;
         }
-        cout<<"			ls iters: "<<iter<<endl;
-        cout<<"			step: "<<step<<endl;
+        // cout<<"			ls iters: "<<iter<<endl;
+        // cout<<"			step: "<<step<<endl;
         return step;
 	}
 
-	void fastWoodbury(const Store& store, SparseMatrix<double>& H, const VectorXd& g, MatrixModesxModes X, VectorXd& BInvXDy, MatrixXd& denseHess, VectorXd& drt){
-		//Fill denseHess with 9x9 block diags from H
-		//TODO: this should be done in the hessians code. coeffRef is expensive
-		// #pragma omp par
+	void sparse_to_dense(const Store& store,  SparseMatrix<double>& H, MatrixXd& denseHess){
+		//TODO: THIS SHOULD BE FIXED AFTER THE DEADLINE 
+
+		#pragma omp parallel for
 		for(int i=0; i<store.dFvec.size()/9; i++){
 			//loop through 9x9 block and fill denseH
-			Matrix9d A;
+			Matrix9d A = Matrix9d::Zero();
+			#pragma omp parallel for collapse(2)
 			for(int j =0; j<9; j++){
 				for(int k=0; k<9; k++){
 					A(j, k) = H.coeffRef(9*i + j, 9*i +k);
 				}
 			}
-			// Eigen::SelfAdjointEigenSolver<Matrix9d> es(A);
-			// Matrix9d DiagEval = es.eigenvalues().real().asDiagonal();
-	  //       Matrix9d Evec = es.eigenvectors().real();
-			// JacobiSVD<MatrixXd> svd(A);
-			// double cond = svd.singularValues()(0) / svd.singularValues()(svd.singularValues().size()-1);
-	        
-	  //       for (int i = 0; i < 9; ++i) {
-	  //           if (es.eigenvalues()[i]<1e-6) {
-	  //           	// std::cout<<"small eig"<<", ";
-	  //               DiagEval(i,i) = 1e-3;
-	  //           }
-	  //       }
-	  //       A = Evec * DiagEval * Evec.transpose();
 
-			// FullPivLU<Matrix9d> InvA;
-			// InvA.compute(A);
-			// cout<<cond<<", "<<(A - A.transpose()).norm()<<", "<<es.eigenvalues().transpose()<<endl;
+
+			denseHess.block<9,9>(9*i, 0) = A;
+		}
+	}
+
+	void fastWoodbury(Store& store, SparseMatrix<double>& H, const VectorXd& g, MatrixModesxModes X, VectorXd& BInvXDy, MatrixXd& denseHess, VectorXd& drt){
+		//Fill denseHess with 9x9 block diags from H
+		//TODO: this should be done in the hessians code. coeffRef is expensive
+		// #pragma omp declare reduction (+: Eigen::Matrix9d: omp_out=omp_out+omp_in)\
+		// 	initializer(omp_priv=Matrix9d::Zero())
+		sparse_to_dense(store, H, denseHess);
+
+
+		igl::Timer timer;		
+		X = store.InvC;
+		
+
+		// #pragma omp declare reduction (+: MatrixModesxModes: omp_out=omp_out+omp_in)\
+		// 	initializer(omp_priv=MatrixModesxModes::Zero())
+		// #pragma omp parallel for reduction(+: X)
+		for(int i=0; i<store.dFvec.size()/9; i++){
+			Matrix9d A = denseHess.block<9,9>(9*i, 0);
 			LDLT<Matrix9d> InvA;
 			InvA.compute(A);
 			if(InvA.info()!=Success){
 				cout<<"woops LDLT failed"<<endl;
 			}
-
-			denseHess.block<9,9>(9*i, 0) = A;
-		}
-
-
-		igl::Timer timer;		
-		// #pragma omp declare reduction (merge : MatrixModesxModes : omp_out += omp_in)
-		// #pragma omp parallel for reduction(merge: X)
-		X = store.InvC;
-		Matrix9xModes B;
-		for(int i=0; i<store.dFvec.size()/9; i++){
-			Matrix9d A = denseHess.block<9,9>(9*i, 0);
-			LDLT<Matrix9d> InvA;
-			InvA.compute(A);
 			drt.segment<9>(9*i) = InvA.solve(g.segment<9>(9*i));;
 
-			B = store.WoodB.block(9*i, 0, 9, store.G.cols());
+			Matrix9xModes B = store.WoodB.block(9*i, 0, 9, store.G.cols());
 			X += -B.transpose()*InvA.solve(B);
 		}
 		FullPivLU<MatrixModesxModes> WoodburyDenseSolve;
 		WoodburyDenseSolve.compute(X);
 		
 		BInvXDy = store.WoodB*WoodburyDenseSolve.solve(store.WoodD*drt);
+
+		#pragma omp parallel for 
 		for(int i=0; i<store.dFvec.size()/9; i++){
 			Matrix9d A = denseHess.block<9,9>(9*i, 0);
 			LDLT<Matrix9d> InvA;
 			InvA.compute(A);
+			if(InvA.info()!=Success){
+				cout<<"woops LDLT failed"<<endl;
+			}
 
 			Vector9d InvAtemp1 = InvA.solve(BInvXDy.segment<9>(9*i));
 			drt.segment<9>(9*i) -=  InvAtemp1;
@@ -289,6 +255,7 @@ namespace famu
 		drt *= -1;
 
 	}
+
 
 
 	int newton_static_solve(Store& store){
@@ -299,8 +266,19 @@ namespace famu
 		neo_grad.resize(store.dFvec.size());
 		acap_grad.resize(store.dFvec.size());
 
+		// famu::stablenh::hessian(store, store.neoHess, store.denseNeoHess);
 		SparseMatrix<double> hessFvec(store.dFvec.size(), store.dFvec.size());
+		SparseMatrix<double> constHess(store.dFvec.size(), store.dFvec.size());
+		constHess.setZero();
+
+		constHess = store.muscleHess + store.acapHess;
+		// constHess -= store.neoHess;
+
 		MatrixXd denseHess = MatrixXd::Zero(store.dFvec.size(),  9);
+		MatrixXd constDenseHess = MatrixXd::Zero(store.dFvec.size(),  9);
+		
+		// sparse_to_dense(store, constHess, constDenseHess);
+
 		VectorXd delta_dFvec = VectorXd::Zero(store.dFvec.size());
 		VectorXd test_drt = delta_dFvec;
 		VectorXd graddFvec = VectorXd::Zero(store.dFvec.size());
@@ -315,17 +293,24 @@ namespace famu
 		for(iter=1; iter<MAX_ITERS; iter++){
 			hessFvec.setZero();
 			graddFvec.setZero();
+			constHess.setZero();
 
 			famu::acap::solve(store, store.dFvec);
 			famu::muscle::gradient(store, muscle_grad);
 			famu::stablenh::gradient(store, neo_grad);
 			famu::acap::fastGradient(store, acap_grad);
+			double EM = famu::muscle::energy(store, store.dFvec);
+			double ENH = famu::stablenh::energy(store, store.dFvec);
+			double EACAP = famu::acap::fastEnergy(store, store.dFvec);
+	        double prevfx = EM + ENH + EACAP;//f(x, grad, k, iter);
+			
 
 			graddFvec = muscle_grad + neo_grad + acap_grad;
-			cout<<"		muscle grad: "<<muscle_grad.norm()<<endl;
-			cout<<"		neo grad: "<<neo_grad.norm()<<endl;
-			cout<<"		acap grad: "<<acap_grad.norm()<<endl;
+			// cout<<"		muscle grad: "<<muscle_grad.norm()<<endl;
+			// cout<<"		neo grad: "<<neo_grad.norm()<<endl;
+			// cout<<"		acap grad: "<<acap_grad.norm()<<endl;
 			cout<<"		total grad: "<<graddFvec.norm()<<endl;
+			cout<<"		total En: "<<prevfx<<endl;
 			
 			if(graddFvec != graddFvec){
 				cout<<"Error: nans in grad"<<endl;
@@ -333,8 +318,8 @@ namespace famu
 			}
 
 			famu::stablenh::hessian(store, store.neoHess, store.denseNeoHess);
-			hessFvec = store.neoHess + store.muscleHess + store.acapHess;
 			
+			hessFvec = store.neoHess + constHess;//store.muscleHess + store.acapHess;
 
 
 			if(!store.jinput["woodbury"]){
@@ -349,6 +334,7 @@ namespace famu
 			}else{
 
 				// //Sparse Woodbury code
+
 				//store.NM_SPLU.factorize(hessFvec);
 				//if(store.NM_SPLU.info()!=Success){
 				//	cout<<"SOLVER FAILED"<<endl;
@@ -363,12 +349,27 @@ namespace famu
 				//VectorXd InvAtemp1 = store.NM_SPLU.solve(temp1);
 				//test_drt =  -InvAg + InvAtemp1;
 
+				// store.NM_SPLU.factorize(hessFvec);
+				// if(store.NM_SPLU.info()!=Success){
+				// 	cout<<"SOLVER FAILED"<<endl;
+				// 	cout<<store.NM_SPLU.info()<<endl;
+				// }
+				// VectorXd InvAg = store.NM_SPLU.solve(graddFvec);
+				// MatrixXd CDAB = store.InvC + store.WoodD*store.NM_SPLU.solve(store.WoodB);
+				// FullPivLU<MatrixXd>  WoodburyDenseSolve;
+				// WoodburyDenseSolve.compute(CDAB);
+				// VectorXd temp1 = store.WoodB*WoodburyDenseSolve.solve(store.WoodD*InvAg);;
+
+				// VectorXd InvAtemp1 = store.NM_SPLU.solve(temp1);
+				// test_drt =  -InvAg + InvAtemp1;
+
+
 				//Dense Woodbury code
 				timer.start();
 				fastWoodbury(store, hessFvec, graddFvec, X, BInvXDy, denseHess, delta_dFvec);
 				timer.stop();
 				woodtimes += timer.getElapsedTimeInMicroSec();
-				cout<<"		woodbury diff: "<<(delta_dFvec - test_drt).norm()<<endl;
+				// cout<<"		woodbury diff: "<<(delta_dFvec - test_drt).norm()<<endl;
 
 
 				//Naive dense woodbury test
@@ -395,6 +396,7 @@ namespace famu
 			timer.stop();
 			linetimes += timer.getElapsedTimeInMicroSec();
 			
+			
 			if(fabs(alpha)<1e-9){
 				break;
 			}
@@ -402,7 +404,12 @@ namespace famu
 			store.dFvec += alpha*delta_dFvec;
 			polar_dec(store, store.dFvec);
 
-			if(graddFvec.squaredNorm()/graddFvec.size()<1e-4){
+			EM = famu::muscle::energy(store, store.dFvec);
+			ENH = famu::stablenh::energy(store, store.dFvec);
+			EACAP = famu::acap::fastEnergy(store, store.dFvec);
+            double fx = EM + ENH + EACAP;//f(x, grad, k, iter);
+
+			if(graddFvec.squaredNorm()/graddFvec.size()<1e-4 || fabs(fx - prevfx)<1e-4){
 				break;
 			}
 		}

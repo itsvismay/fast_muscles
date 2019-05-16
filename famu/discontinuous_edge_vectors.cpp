@@ -17,14 +17,14 @@ double get_volume(Vector3d p1, Vector3d p2, Vector3d p3, Vector3d p4){
 void famu::discontinuous_edge_vectors(Store& store, Eigen::SparseMatrix<double>& mP, Eigen::SparseMatrix<double>& m_P, Eigen::MatrixXi mT, std::vector<Eigen::VectorXi>& muscle_tets){
     mP.resize(9*mT.rows(), 12*mT.rows());
         Matrix<double, 3,4> p;
-        /*p<< 3, -1, -1, -1,
-            -1, 3, -1, -1,
-            -1, -1, 3, -1,
-            -1, -1, -1, 3;*/
+        // p<< 3, -1, -1, -1,
+        //     -1, 3, -1, -1,
+        //     -1, -1, 3, -1,
+        //     -1, -1, -1, 3;
     
-    p<< 1., 0., 0, -1,
-    0., 1., 0., -1,
-    0., 0, 1., -1.;
+        p<< 1., 0., 0, -1,
+        0., 1., 0., -1,
+        0., 0, 1., -1.;
         // MatrixXd P = Eigen::KroneckerProduct(p, Matrix3d::Identity());
 
         vector<Trip> triplets;

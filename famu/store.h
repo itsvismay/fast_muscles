@@ -20,7 +20,7 @@ namespace famu{
 		Eigen::VectorXi bone_or_muscle;
 		Eigen::VectorXd rest_tet_volume;
 		
-		double alpha_arap = 1e4;
+		double alpha_arap = 1;
 		double alpha_neo = 1;
 
 		Eigen::MatrixXd V, discV;
@@ -34,8 +34,10 @@ namespace famu{
 		std::vector< std::pair<std::vector<std::string>, Eigen::MatrixXd>> joint_bones_verts;
 		Eigen::VectorXd relativeStiffness;
 		Eigen::VectorXd eY, eP;
-                // Young's Modulus per vertex (averaged from incident tets using eY)
+        
+        // Young's Modulus per vertex (averaged from incident tets using eY)
 		Eigen::VectorXd elogVY;
+		std::vector<double> bone_vols;
 
 		std::vector<int> fixverts, movverts;
 		std::vector<int> mfix, mmov;
@@ -53,6 +55,10 @@ namespace famu{
 		Eigen::VectorXd dFvec, BfI0;
 		Eigen::VectorXd x, dx, x0, lambda2, acap_solve_result, acap_solve_rhs;
 
+
+		Eigen::UmfPackLU<Eigen::SparseMatrix<double>> NEW_ACAP_KKT_SPLU;
+		Eigen::SparseMatrix<double> YtStZP;
+		Eigen::VectorXd x0tStSY;
 		
 		// Eigen::SparseLU<Eigen::SparseMatrix<double>> SPLU;
 		Eigen::UmfPackLU<Eigen::SparseMatrix<double>> ACAP_KKT_SPLU;
