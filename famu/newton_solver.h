@@ -349,19 +349,19 @@ namespace famu
 			}else{
 
 				// //Sparse Woodbury code
-				store.NM_SPLU.factorize(hessFvec);
-				if(store.NM_SPLU.info()!=Success){
-					cout<<"SOLVER FAILED"<<endl;
-					cout<<store.NM_SPLU.info()<<endl;
-				}
-				VectorXd InvAg = store.NM_SPLU.solve(graddFvec);
-				MatrixXd CDAB = store.InvC + store.WoodD*store.NM_SPLU.solve(store.WoodB);
-				FullPivLU<MatrixXd>  WoodburyDenseSolve;
-				WoodburyDenseSolve.compute(CDAB);
-				VectorXd temp1 = store.WoodB*WoodburyDenseSolve.solve(store.WoodD*InvAg);;
+				//store.NM_SPLU.factorize(hessFvec);
+				//if(store.NM_SPLU.info()!=Success){
+				//	cout<<"SOLVER FAILED"<<endl;
+				//	cout<<store.NM_SPLU.info()<<endl;
+				//}
+				//VectorXd InvAg = store.NM_SPLU.solve(graddFvec);
+				//MatrixXd CDAB = store.InvC + store.WoodD*store.NM_SPLU.solve(store.WoodB);
+				//FullPivLU<MatrixXd>  WoodburyDenseSolve;
+				//WoodburyDenseSolve.compute(CDAB);
+				//VectorXd temp1 = store.WoodB*WoodburyDenseSolve.solve(store.WoodD*InvAg);;
 
-				VectorXd InvAtemp1 = store.NM_SPLU.solve(temp1);
-				test_drt =  -InvAg + InvAtemp1;
+				//VectorXd InvAtemp1 = store.NM_SPLU.solve(temp1);
+				//test_drt =  -InvAg + InvAtemp1;
 
 				//Dense Woodbury code
 				timer.start();

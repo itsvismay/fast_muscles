@@ -15,16 +15,20 @@ double get_volume(Vector3d p1, Vector3d p2, Vector3d p3, Vector3d p4){
 }
 
 void famu::discontinuous_edge_vectors(Store& store, Eigen::SparseMatrix<double>& mP, Eigen::SparseMatrix<double>& m_P, Eigen::MatrixXi mT, std::vector<Eigen::VectorXi>& muscle_tets){
-    mP.resize(12*mT.rows(), 12*mT.rows());
-        Matrix4d p;
-        p<< 3, -1, -1, -1,
+    mP.resize(9*mT.rows(), 12*mT.rows());
+        Matrix<double, 3,4> p;
+        /*p<< 3, -1, -1, -1,
             -1, 3, -1, -1,
             -1, -1, 3, -1,
-            -1, -1, -1, 3;
+            -1, -1, -1, 3;*/
+    
+    p<< 1., 0., 0, -1,
+    0., 1., 0., -1,
+    0., 0, 1., -1.;
         // MatrixXd P = Eigen::KroneckerProduct(p, Matrix3d::Identity());
 
         vector<Trip> triplets;
-        triplets.reserve(3*16*mT.rows());
+        triplets.reserve(3*12*mT.rows());
         VectorXd arap_weights = VectorXd::Ones(mT.rows());
        
         for(int m=0; m<muscle_tets.size(); m++){
@@ -33,9 +37,9 @@ void famu::discontinuous_edge_vectors(Store& store, Eigen::SparseMatrix<double>&
                 // double vol = tet_volume(t);
                 double weight = 1;
                 if(store.relativeStiffness[t]>1){
-                    weight = 10;
+                    weight = 1;
                 }else{
-                    weight =1;
+                    weight = 1;
                 }
                 arap_weights[t] *= weight;
                 
@@ -49,25 +53,25 @@ void famu::discontinuous_edge_vectors(Store& store, Eigen::SparseMatrix<double>&
 
             for(int j=0; j<3; j++){
                 // double d = edges.segment<3>()
-                triplets.push_back(Trip(12*i+0+j, 12*i+0+j, arap_weights[i]*p(0,0)/4));
-                triplets.push_back(Trip(12*i+0+j, 12*i+3+j, arap_weights[i]*p(0,1)/4));
-                triplets.push_back(Trip(12*i+0+j, 12*i+6+j, arap_weights[i]*p(0,2)/4));
-                triplets.push_back(Trip(12*i+0+j, 12*i+9+j, arap_weights[i]*p(0,3)/4));
+                triplets.push_back(Trip(9*i+0+j, 12*i+0+j, arap_weights[i]*p(0,0)));
+                triplets.push_back(Trip(9*i+0+j, 12*i+3+j, arap_weights[i]*p(0,1)));
+                triplets.push_back(Trip(9*i+0+j, 12*i+6+j, arap_weights[i]*p(0,2)));
+                triplets.push_back(Trip(9*i+0+j, 12*i+9+j, arap_weights[i]*p(0,3)));
 
-                triplets.push_back(Trip(12*i+3+j, 12*i+0+j, arap_weights[i]*p(1,0)/4));
-                triplets.push_back(Trip(12*i+3+j, 12*i+3+j, arap_weights[i]*p(1,1)/4));
-                triplets.push_back(Trip(12*i+3+j, 12*i+6+j, arap_weights[i]*p(1,2)/4));
-                triplets.push_back(Trip(12*i+3+j, 12*i+9+j, arap_weights[i]*p(1,3)/4));
+                triplets.push_back(Trip(9*i+3+j, 12*i+0+j, arap_weights[i]*p(1,0)));
+                triplets.push_back(Trip(9*i+3+j, 12*i+3+j, arap_weights[i]*p(1,1)));
+                triplets.push_back(Trip(9*i+3+j, 12*i+6+j, arap_weights[i]*p(1,2)));
+                triplets.push_back(Trip(9*i+3+j, 12*i+9+j, arap_weights[i]*p(1,3)));
 
-                triplets.push_back(Trip(12*i+6+j, 12*i+0+j, arap_weights[i]*p(2,0)/4));
-                triplets.push_back(Trip(12*i+6+j, 12*i+3+j, arap_weights[i]*p(2,1)/4));
-                triplets.push_back(Trip(12*i+6+j, 12*i+6+j, arap_weights[i]*p(2,2)/4));
-                triplets.push_back(Trip(12*i+6+j, 12*i+9+j, arap_weights[i]*p(2,3)/4));
+                triplets.push_back(Trip(9*i+6+j, 12*i+0+j, arap_weights[i]*p(2,0)));
+                triplets.push_back(Trip(9*i+6+j, 12*i+3+j, arap_weights[i]*p(2,1)));
+                triplets.push_back(Trip(9*i+6+j, 12*i+6+j, arap_weights[i]*p(2,2)));
+                triplets.push_back(Trip(9*i+6+j, 12*i+9+j, arap_weights[i]*p(2,3)));
 
-                triplets.push_back(Trip(12*i+9+j, 12*i+0+j, arap_weights[i]*p(3,0)/4));
+                /*triplets.push_back(Trip(12*i+9+j, 12*i+0+j, arap_weights[i]*p(3,0)/4));
                 triplets.push_back(Trip(12*i+9+j, 12*i+3+j, arap_weights[i]*p(3,1)/4));
                 triplets.push_back(Trip(12*i+9+j, 12*i+6+j, arap_weights[i]*p(3,2)/4));
-                triplets.push_back(Trip(12*i+9+j, 12*i+9+j, arap_weights[i]*p(3,3)/4));
+                triplets.push_back(Trip(12*i+9+j, 12*i+9+j, arap_weights[i]*p(3,3)/4));*/
             }
         }   
         mP.setFromTriplets(triplets.begin(), triplets.end());
@@ -100,30 +104,30 @@ void famu::discontinuous_edge_vectors(Store& store, Eigen::SparseMatrix<double>&
 
 
 
-        m_P.resize(12*mT.rows(), 12*mT.rows());
+        m_P.resize(9*mT.rows(), 12*mT.rows());
         vector<Trip> triplets_;
-        triplets_.reserve(3*16*mT.rows());
+        triplets_.reserve(3*12*mT.rows());
         for(int i=0; i<mT.rows(); i++){
             for(int j=0; j<3; j++){
-                triplets_.push_back(Trip(12*i+0+j, 12*i+0+j, arap_weights[i]*p(0,0)/4));
-                triplets_.push_back(Trip(12*i+0+j, 12*i+3+j, arap_weights[i]*p(0,1)/4));
-                triplets_.push_back(Trip(12*i+0+j, 12*i+6+j, arap_weights[i]*p(0,2)/4));
-                triplets_.push_back(Trip(12*i+0+j, 12*i+9+j, arap_weights[i]*p(0,3)/4));
+                triplets_.push_back(Trip(9*i+0+j, 12*i+0+j, arap_weights[i]*p(0,0)));
+                triplets_.push_back(Trip(9*i+0+j, 12*i+3+j, arap_weights[i]*p(0,1)));
+                triplets_.push_back(Trip(9*i+0+j, 12*i+6+j, arap_weights[i]*p(0,2)));
+                triplets_.push_back(Trip(9*i+0+j, 12*i+9+j, arap_weights[i]*p(0,3)));
 
-                triplets_.push_back(Trip(12*i+3+j, 12*i+0+j, arap_weights[i]*p(1,0)/4));
-                triplets_.push_back(Trip(12*i+3+j, 12*i+3+j, arap_weights[i]*p(1,1)/4));
-                triplets_.push_back(Trip(12*i+3+j, 12*i+6+j, arap_weights[i]*p(1,2)/4));
-                triplets_.push_back(Trip(12*i+3+j, 12*i+9+j, arap_weights[i]*p(1,3)/4));
+                triplets_.push_back(Trip(9*i+3+j, 12*i+0+j, arap_weights[i]*p(1,0)));
+                triplets_.push_back(Trip(9*i+3+j, 12*i+3+j, arap_weights[i]*p(1,1)));
+                triplets_.push_back(Trip(9*i+3+j, 12*i+6+j, arap_weights[i]*p(1,2)));
+                triplets_.push_back(Trip(9*i+3+j, 12*i+9+j, arap_weights[i]*p(1,3)));
 
-                triplets_.push_back(Trip(12*i+6+j, 12*i+0+j, arap_weights[i]*p(2,0)/4));
-                triplets_.push_back(Trip(12*i+6+j, 12*i+3+j, arap_weights[i]*p(2,1)/4));
-                triplets_.push_back(Trip(12*i+6+j, 12*i+6+j, arap_weights[i]*p(2,2)/4));
-                triplets_.push_back(Trip(12*i+6+j, 12*i+9+j, arap_weights[i]*p(2,3)/4));
+                triplets_.push_back(Trip(9*i+6+j, 12*i+0+j, arap_weights[i]*p(2,0)));
+                triplets_.push_back(Trip(9*i+6+j, 12*i+3+j, arap_weights[i]*p(2,1)));
+                triplets_.push_back(Trip(9*i+6+j, 12*i+6+j, arap_weights[i]*p(2,2)));
+                triplets_.push_back(Trip(9*i+6+j, 12*i+9+j, arap_weights[i]*p(2,3)));
 
-                triplets_.push_back(Trip(12*i+9+j, 12*i+0+j, arap_weights[i]*p(3,0)/4));
+                /*triplets_.push_back(Trip(12*i+9+j, 12*i+0+j, arap_weights[i]*p(3,0)/4));
                 triplets_.push_back(Trip(12*i+9+j, 12*i+3+j, arap_weights[i]*p(3,1)/4));
                 triplets_.push_back(Trip(12*i+9+j, 12*i+6+j, arap_weights[i]*p(3,2)/4));
-                triplets_.push_back(Trip(12*i+9+j, 12*i+9+j, arap_weights[i]*p(3,3)/4));
+                triplets_.push_back(Trip(12*i+9+j, 12*i+9+j, arap_weights[i]*p(3,3)/4));*/
             }
         }   
         m_P.setFromTriplets(triplets_.begin(), triplets_.end());

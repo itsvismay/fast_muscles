@@ -113,7 +113,7 @@ int main(int argc, char *argv[])
 	cout<<"---Set Mesh Params"<<store.x.size()<<endl;
 		//YM, poissons
 		store.eY = 1e10*VectorXd::Ones(store.T.rows());
-		store.eP = 0.49*VectorXd::Ones(store.T.rows());
+		store.eP = 0.48*VectorXd::Ones(store.T.rows());
 		store.muscle_mag = VectorXd::Zero(store.T.rows());
 		for(int m=0; m<store.muscle_tets.size(); m++){
 			for(int t=0; t<store.muscle_tets[m].size(); t++){
@@ -217,6 +217,55 @@ int main(int argc, char *argv[])
 	cout<<"---Set Centroid Matrix"<<store.x.size()<<endl;
 		famu::discontinuous_centroids_matrix(store.C, store.T);
 
+//     //Edge Weighting
+    /*SparseMatrix<double> Dinv;
+    std::vector<Trip> inv_trips;
+    for(int i =0; i<store.T.rows(); i++){
+        Vector3d p1 = store.V.row(store.T.row(i)[0]);
+        Vector3d p2 = store.V.row(store.T.row(i)[1]);
+        Vector3d p3 = store.V.row(store.T.row(i)[2]);
+        Vector3d p4 = store.V.row(store.T.row(i)[3]);
+        
+        Matrix3d Dm, Dmi;
+        Dm.col(0) = p1 - p4;
+        Dm.col(1) = p2 - p4;
+        Dm.col(2) = p3 - p4;
+        
+        Dmi = Dm.inverse();
+        
+        for(unsigned int j =0; j<3; ++j)
+            for(unsigned int k =0; k<3; ++k) {
+                for(unsigned int l=0; l<3; ++l) {
+                    inv_trips.push_back(Trip(9*i + k +3*j, 9*i + l + 3*j,Dmi(k,l)));
+                }
+            }
+    }*/
+    
+    /*Dinv.resize(9*store.T.rows(), 9*store.T.rows());
+    Dinv.setFromTriplets(inv_trips.begin(), inv_trips.end()); 
+    Eigen::VectorXd edges = Dinv*store.D*store.S*store.x0;
+
+    Eigen::VectorXd d;
+    d.resize(edges.rows(), 1);
+//    std::cout<<d.rows()<<"\n";
+//    //inverse edge lengths
+    for(unsigned int ii=0; ii<edges.rows()/9; ii++) {
+        //std::cout<<edges[ii]<<"\n";
+        d[9*ii] = store.rest_tet_volume[ii];
+        d[9*ii+1] = store.rest_tet_volume[ii];
+        d[9*ii+2] = store.rest_tet_volume[ii];
+        d[9*ii+3] = store.rest_tet_volume[ii];
+        d[9*ii+4] = store.rest_tet_volume[ii];
+        d[9*ii+5] = store.rest_tet_volume[ii];
+        d[9*ii+6] = store.rest_tet_volume[ii];
+        d[9*ii+7] = store.rest_tet_volume[ii];
+        d[9*ii+8] = store.rest_tet_volume[ii];
+    }
+//
+//    store.D = d.asDiagonal()*store.D;
+    
+    store.D = Dinv*store.D;*/
+    
 	cout<<"---Set Disc T and V"<<store.x.size()<<endl;
 		famu::setDiscontinuousMeshT(store.T, store.discT);
 		igl::boundary_facets(store.discT, store.discF);
@@ -247,7 +296,7 @@ int main(int argc, char *argv[])
 		famu::construct_kkt_system_left(store.YtStDtDSY, store.JointConstraints, KKT_left);
 
 		SparseMatrix<double> KKT_left2;
-		famu::construct_kkt_system_left(KKT_left, store.Bx,  KKT_left2, -1e-3); 
+		famu::construct_kkt_system_left(KKT_left, store.Bx,  KKT_left2, -1e-3);
 		// MatrixXd Hkkt = MatrixXd(KKT_left2);
 		
 
@@ -434,7 +483,8 @@ int main(int argc, char *argv[])
           case 'A':
           case 'a':
           {
-            store.muscle_mag *= 1.5;
+            double inc = j_input["muscle_starting_strength"];
+              store.muscle_mag *= 1.25;
             famu::muscle::setupFastMuscles(store);
             famu::muscle::fastHessian(store, store.muscleHess, store.denseMuscleHess);
             return true;

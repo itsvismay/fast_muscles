@@ -1,13 +1,9 @@
 {
-<<<<<<< Updated upstream
-  "data":   "/Users/ajx/Dropbox/fast_muscles/input/realistic_biceps_coarse",
-  "output": "/Users/ajx/Dropbox/fast_muscles/input/realistic_biceps_coarse",
-=======
-  "data": "../data/realistic_biceps_coarse",
-  "output": "../data/realistic_biceps_coarse",
->>>>>>> Stashed changes
+  "data": "/Users/dilevin/Documents/Research/Development/fast_muscles/data/realistic_biceps_coarse",
+  "output": "/Users/dilevin/Documents/Research/Development/fast_muscles/data/realistic_biceps_coarse",
+  "material": "/Users/dilevin/Downloads/muscle-tendon-bone.png",
   "fix_bones": ["scapula"],  
-  "muscle_starting_strength": 10000,
+  "muscle_starting_strength": 100,
   "QS_steps": 10,
   "multiplier_strength_each_step": 1e4,
   "contract_muscles_at_index": [0],
@@ -18,10 +14,5 @@
   "polar_dec": true,
   "sparseJac": false,
   "NM_MAX_ITERS": 100,
-<<<<<<< Updated upstream
   "woodbury": true
 }
-=======
-  "woodbury": true,
-}
->>>>>>> Stashed changes
