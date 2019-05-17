@@ -8,27 +8,27 @@
 #include <igl/jet.h>
 #include <igl/slice.h>
 #include <igl/boundary_facets.h>
+#include <igl/opengl/glfw/imgui/ImGuiMenu.h>
+#include <igl/opengl/glfw/imgui/ImGuiHelpers.h>
+#include <imgui/imgui.h>
 #include <json.hpp>
 #include <igl/Timer.h>
 #include <sstream>
 #include <iomanip>
-#include <igl/opengl/glfw/imgui/ImGuiMenu.h>
-#include <igl/opengl/glfw/imgui/ImGuiHelpers.h>
-#include <imgui/imgui.h>
 
 
 #include "mesh.h"
-#include "redArap.h"
+#include "redUArap.h"
 #include "elastic.h"
 #include "redSolver.h"
 
 
 
 using json = nlohmann::json;
+json j_input;
 
 using namespace Eigen;
 using namespace std;
-json j_input;
 
 RowVector3d red(1,0,0);
 RowVector3d purple(1,0,1);
@@ -52,18 +52,6 @@ void readConfigFile(MatrixXd& V,
     igl::readDMAT(datafile+"/generated_files/tet_mesh_T.dmat", T);
     igl::readDMAT(datafile+"/generated_files/combined_fiber_directions.dmat", Uvec);
     igl::readDMAT(datafile+"/generated_files/combined_relative_stiffness.dmat", relativeStiffness);
-    if(relativeStiffness.size()==0){
-        relativeStiffness = VectorXd::Ones(T.rows());
-    }else{
-        relativeStiffness = relativeStiffness/1e12;
-        for(int i=0; i<relativeStiffness.size(); i++){
-            if(relativeStiffness[i]>5){
-                relativeStiffness[i] = 1000;//*relativeStiffness[i]*relativeStiffness[i];
-            }else{
-                relativeStiffness[i] = 1;
-            }
-        }
-    }
     
     //Read Geometry
     json j_geometries;
@@ -114,6 +102,48 @@ void readConfigFile(MatrixXd& V,
         igl::readOBJ(datafile+"/objs/"+joint_name, joint_i, joint_f);
         std::vector<std::string> bones = it.value()["bones"];
         joint_bones_verts.push_back(std::make_pair( bones, joint_i));
+    }
+
+    if(relativeStiffness.size()==0){
+        relativeStiffness = VectorXd::Ones(T.rows());
+    }else{
+        // cout<<relativeStiffness.transpose()<<endl;
+        // for(int i=0; i<relativeStiffness.size(); i++){
+        //     if( relativeStiffness[i]>7){//V.row(T.row(i)[0])[1]>0
+        //         relativeStiffness[i] = 1000;//*relativeStiffness[i]*relativeStiffness[i];
+        //     }else{
+        //         relativeStiffness[i] = 1;
+        //     }
+        // }
+
+        // relativeStiffness = relativeStiffness/1e12;
+        // for(int i=0; i<relativeStiffness.size(); i++){
+        //     if( relativeStiffness[i]>3){//V.row(T.row(i)[0])[1]>0
+        //         relativeStiffness[i] = 1000;//*relativeStiffness[i]*relativeStiffness[i];
+        //     }else{
+        //         relativeStiffness[i] = 1;
+        //     }
+        // }
+
+
+        //Euclidean Distance tendons for biceps
+        int axis = 1;
+        double maxs = V.col(axis).maxCoeff();
+        double mins = V.col(axis).minCoeff();
+        for(int m=0; m<muscle_tets.size(); m++){
+            for(int i=0; i<muscle_tets[m].size(); i++){
+                int t= muscle_tets[m][i];
+                if(fabs(V.row(T.row(t)[0])[axis] - maxs) < 3.5){
+                    relativeStiffness[t] = 1;
+                }else if(fabs(V.row(T.row(t)[0])[axis] - mins) < 3){
+                    relativeStiffness[t] = 1;
+                }else{
+                    relativeStiffness[t] = 1;
+                }
+            }
+        }
+        // cout<<relativeStiffness.transpose()<<endl;
+
     }
 
 }
@@ -195,29 +225,29 @@ int main(int argc, char *argv[])
 
     igl::Timer timer;
 
-    int run =0;
-    for(int run=0; run<j_input["QS_steps"]; run++){
-        MatrixXd newV = mesh->continuousV();
-        string datafile = j_input["data"];
-        ostringstream out;
-        out << std::internal << std::setfill('0') << std::setw(3) << run;
-        igl::writeOBJ(outputfile+"/"+namestring+"/"+namestring+"animation"+out.str()+".obj",newV, F);
-        igl::writeDMAT(outputfile+"/"+namestring+"/"+namestring+"animation"+out.str()+".dmat",newV);
-        cout<<"     ---Quasi-Newton Step Info"<<endl;
-        double fx =0;
-        VectorXd ns = mesh->N().transpose()*mesh->red_s();
-        timer.start();
-        int niter = solver.minimize(f, ns, fx);
-        timer.stop();
-        cout<<"     BFGSIters: "<<niter<<endl;
-        cout<<"     QSsteptime: "<<timer.getElapsedTimeInMicroSec()<<endl;
-        VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
-        for(int i=0; i<reds.size(); i++){
-            mesh->red_s()[i] = reds[i];
-        }
+    // int run =0;
+    // for(int run=0; run<j_input["QS_steps"]; run++){
+    //     MatrixXd newV = mesh->continuousV();
+    //     string datafile = j_input["data"];
+    //     ostringstream out;
+    //     out << std::internal << std::setfill('0') << std::setw(3) << run;
+    //     igl::writeOBJ(outputfile+"/"+namestring+"/"+namestring+"animation"+out.str()+".obj",newV, F);
+    //     igl::writeDMAT(outputfile+"/"+namestring+"/"+namestring+"animation"+out.str()+".dmat",newV);
+    //     cout<<"     ---Quasi-Newton Step Info"<<endl;
+    //     double fx =0;
+    //     VectorXd ns = mesh->N().transpose()*mesh->red_s();
+    //     timer.start();
+    //     int niter = solver.minimize(f, ns, fx);
+    //     timer.stop();
+    //     cout<<"     BFGSIters: "<<niter<<endl;
+    //     cout<<"     QSsteptime: "<<timer.getElapsedTimeInMicroSec()<<endl;
+    //     VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
+    //     for(int i=0; i<reds.size(); i++){
+    //         mesh->red_s()[i] = reds[i];
+    //     }
         
-        neo->changeFiberMag(j_input["multiplier_strength_each_step"]);
-    }
+    //     neo->changeFiberMag(j_input["multiplier_strength_each_step"]);
+    // }
     // exit(0);
 
     std::cout<<"-----Display-------"<<std::endl;
@@ -245,6 +275,7 @@ int main(int argc, char *argv[])
  
         std::cout<<"Key down, "<<key<<std::endl;
         viewer.data().clear();
+        
         if(key=='Q'){
             kkkk +=1;
             cout<<kkkk<<endl;
@@ -253,33 +284,39 @@ int main(int argc, char *argv[])
         // if(key=='A'){
         //     cout<<"here"<<endl;
         //     neo->changeFiberMag(j_input["multiplier_strength_each_step"]);
-
         // }
 
 
-        // if(key==' '){
+        if(key==' '){
             
-        //     // VectorXd ns = mesh->N().transpose()*mesh->red_s();
-        //     // for(int i=0; i<ns.size()/6; i++){
-        //     //     ns[6*i+1] -= 0.2;
-        //     //     ns[6*i+2] += 0.2;
-        //     //     ns[6*i+0] += 0.2;
-        //     // }
-        //     // arap->minimize(*mesh);
+            // VectorXd ns = mesh->N().transpose()*mesh->red_s();
+            // for(int i=0; i<ns.size()/6; i++){
+            //     // ns[6*i+0] -= 0.2;
+            //     ns[6*i+1] += 0.2;
+            //     // ns[6*i+2] -= 0.2;
+            // }
+            // VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
+            // for(int i=0; i<reds.size(); i++){
+            //     mesh->red_s()[i] = reds[i];
+            // }
+            // arap->minimize(*mesh);
 
-        //     double fx =0;
-        //     VectorXd ns = mesh->N().transpose()*mesh->red_s();
-        //     timer.start();
-        //     int niter = solver.minimize(f, ns, fx);
-        //     timer.stop();
-        //     VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
+
+            double fx =0;
+            VectorXd ns = mesh->N().transpose()*mesh->red_s();
+            timer.start();
+
+            int niter = solver.minimize(f, ns, fx);
+            timer.stop();
+            VectorXd reds = mesh->N()*ns + mesh->AN()*mesh->AN().transpose()*mesh->red_s();
             
-        //     for(int i=0; i<reds.size(); i++){
-        //         mesh->red_s()[i] = reds[i];
-        //     }
-        //     cout<<"****QSsteptime: "<<timer.getElapsedTimeInMicroSec()<<", "<<niter<<endl;
-        //     // arap->minimize(*mesh);
-        // }
+            for(int i=0; i<reds.size(); i++){
+                mesh->red_s()[i] = reds[i];
+            }
+            arap->minimize(*mesh);
+            cout<<"****QSsteptime: "<<timer.getElapsedTimeInMicroSec()<<", "<<niter<<endl;
+        
+        }
 
         
         if(key=='D'){
@@ -288,37 +325,34 @@ int main(int argc, char *argv[])
             std::cout<<std::endl;
             MatrixXd& discV = mesh->discontinuousV();
             MatrixXi& discT = mesh->discontinuousT();
-            for(int i=0; i<muscle_tets[0].size(); i++){
-                Vector4i e = discT.row(muscle_tets[0][i]);
-                // std::cout<<discT.row(i)<<std::endl<<std::endl;
-                // std::cout<<discV(Eigen::placeholders::all, discT.row(i))<<std::endl;
-                Matrix<double, 1,3> p0 = discV.row(e[0]);
-                Matrix<double, 1,3> p1 = discV.row(e[1]);
-                Matrix<double, 1,3> p2 = discV.row(e[2]);
-                Matrix<double, 1,3> p3 = discV.row(e[3]);
+            for(int m=0; m< T.rows(); m++){
+                // for(int i=0; i<muscle_tets[m].size()/10; i++){
+                    // int t = muscle_tets[m][i];
+                    int t= m;
+                    Vector4i e = discT.row(t);
+                    // std::cout<<discT.row(i)<<std::endl<<std::endl;
+                    // std::cout<<discV(Eigen::placeholders::all, discT.row(i))<<std::endl;
+                    Matrix<double, 1,3> p0 = discV.row(e[0]);
+                    Matrix<double, 1,3> p1 = discV.row(e[1]);
+                    Matrix<double, 1,3> p2 = discV.row(e[2]);
+                    Matrix<double, 1,3> p3 = discV.row(e[3]);
 
-                viewer.data().add_edges(p0,p1,Eigen::RowVector3d(1,0,1));
-                viewer.data().add_edges(p0,p2,Eigen::RowVector3d(1,0,1));
-                viewer.data().add_edges(p0,p3,Eigen::RowVector3d(1,0,1));
-                viewer.data().add_edges(p1,p2,Eigen::RowVector3d(1,0,1));
-                viewer.data().add_edges(p1,p3,Eigen::RowVector3d(1,0,1));
-                viewer.data().add_edges(p2,p3,Eigen::RowVector3d(1,0,1));
-            }
-            viewer.data().add_points(Eigen::RowVector3d(-4.43164,-5.41006,0.745269), Eigen::RowVector3d(0,0,1));
-            viewer.data().add_points(Eigen::RowVector3d(-1.08315,-3.25799,0.768346), Eigen::RowVector3d(0,0,1));
-            viewer.data().add_points(Eigen::RowVector3d( 2.78361,-1.22904,0.615455), Eigen::RowVector3d(0,0,1));
-            viewer.data().add_points(Eigen::RowVector3d( 4.99299,0.755414,0.878948), Eigen::RowVector3d(0,0,1));
-            viewer.data().add_points(Eigen::RowVector3d(-6.34126,-6.59147,0.581683), Eigen::RowVector3d(0,0,1));
-            viewer.data().add_points(Eigen::RowVector3d(0.862945,-2.24792,0.687048), Eigen::RowVector3d(0,0,1));
-            viewer.data().add_points(Eigen::RowVector3d(-2.92221,-4.40623,0.764268), Eigen::RowVector3d(0,0,1));
-  
+                    viewer.data().add_edges(p0,p1,Eigen::RowVector3d(1,0,1));
+                    viewer.data().add_edges(p0,p2,Eigen::RowVector3d(1,0,1));
+                    viewer.data().add_edges(p0,p3,Eigen::RowVector3d(1,0,1));
+                    viewer.data().add_edges(p1,p2,Eigen::RowVector3d(1,0,1));
+                    viewer.data().add_edges(p1,p3,Eigen::RowVector3d(1,0,1));
+                    viewer.data().add_edges(p2,p3,Eigen::RowVector3d(1,0,1));
+                }
+            // }
         }
+        
         // //Draw continuous mesh
         MatrixXd newV = mesh->continuousV();
         viewer.data().set_mesh(newV, F);
 
         viewer.data().compute_normals();
-    
+        igl::writeOBJ("reduced.obj", newV, F);
         
 
         if(key=='R'){
@@ -354,35 +388,142 @@ int main(int argc, char *argv[])
         if(key=='V'){
             //Display tendon areas
             MatrixXd COLRS;
-            // cout<<relativeStiffness.transpose()<<endl;
-            VectorXd zz = VectorXd::Zero(mesh->V().rows());
-            for(int i=0; i<mesh->T().rows(); i++){
-                zz[mesh->T().row(i)[0]] = relativeStiffness[i];
-                zz[mesh->T().row(i)[1]] = relativeStiffness[i];
-                zz[mesh->T().row(i)[2]] = relativeStiffness[i];
-                zz[mesh->T().row(i)[3]] = relativeStiffness[i];
+            // // cout<<relativeStiffness.transpose()<<endl;
+            VectorXd zz = 100*VectorXd::Ones(mesh->V().rows());
+            // for(int i=0; i<mesh->T().rows(); i++){
+            //     zz[mesh->T().row(i)[0]] = relativeStiffness[i];
+            //     zz[mesh->T().row(i)[1]] = relativeStiffness[i];
+            //     zz[mesh->T().row(i)[2]] = relativeStiffness[i];
+            //     zz[mesh->T().row(i)[3]] = relativeStiffness[i];
+            // }
+            // igl::jet(zz, true, COLRS);
+            // viewer.data().set_colors(COLRS);
+
+            VectorXd xi = mesh->G()*mesh->red_x();
+            for(int m=0; m<mesh->T().rows(); m++){
+                Matrix3d Dm;
+                for(int i=0; i<3; i++){
+                    Dm.col(i) = mesh->V().row(mesh->T().row(m)[i]) - mesh->V().row(mesh->T().row(m)[3]);
+                }
+                Matrix3d m_InvRefShapeMatrix = Dm.inverse();
+                
+                Matrix3d Ds;
+                for(int i=0; i<3; i++)
+                {
+                    Ds.col(i) = xi.segment<3>(3*mesh->T().row(m)[i]) - xi.segment<3>(3*mesh->T().row(m)[3]);
+                }
+
+                Matrix3d F = Matrix3d::Identity() + Ds*m_InvRefShapeMatrix;
+                Matrix3d StS = F.transpose()*F;
+
+                double s1 = mesh->sW().row(6*m+0)*mesh->red_s();
+                double s2 = mesh->sW().row(6*m+1)*mesh->red_s();
+                double s3 = mesh->sW().row(6*m+2)*mesh->red_s();
+                double s4 = mesh->sW().row(6*m+3)*mesh->red_s();
+                double s5 = mesh->sW().row(6*m+4)*mesh->red_s();
+                double s6 = mesh->sW().row(6*m+5)*mesh->red_s();
+                Matrix3d s_mat;
+                s_mat<<s1,s4,s5,s4,s2,s6,s5,s6,s3;
+                Matrix3d StS_mat = s_mat.transpose()*s_mat;
+                double snorm = (StS_mat - Matrix3d::Identity()).norm();
+               
+                zz[mesh->T().row(m)[0]] += snorm;
+                zz[mesh->T().row(m)[1]] += snorm;
+                zz[mesh->T().row(m)[2]] += snorm; 
+                zz[mesh->T().row(m)[3]] += snorm;
             }
             igl::jet(zz, true, COLRS);
             viewer.data().set_colors(COLRS);
+            // neo->Energy(*mesh);
         }
         //---------------- 
+
+        if(key=='M'){
+            MatrixXd COLRS;
+            // cout<<relativeStiffness.transpose()<<endl;
+            VectorXd zz = 100*VectorXd::Ones(mesh->V().rows());
+            for(int i=0; i<muscle_tets[0].size() ; i++){
+                zz[mesh->T().row(muscle_tets[0][i])[0]] = 0;
+                zz[mesh->T().row(muscle_tets[0][i])[1]] = 0;
+                zz[mesh->T().row(muscle_tets[0][i])[2]] = 0;
+                zz[mesh->T().row(muscle_tets[0][i])[3]] = 0;
+            }
+            igl::jet(zz, true, COLRS);
+            viewer.data().set_colors(COLRS);
+
+        }
 
         //Draw fixed and moving points
         for(int i=0; i<mesh->fixed_verts().size(); i++){
             viewer.data().add_points(mesh->V().row(mesh->fixed_verts()[i]),Eigen::RowVector3d(1,0,0));
         }
-      
-        //Draw joint points
-        // for(int i=0; i<joint_bones_verts.size(); i++){
-        //     RowVector3d p1 = joint_bones_verts[i].second.row(0);//js.segment<3>(0);
-        //     viewer.data().add_points(p1, Eigen::RowVector3d(0,0,0));
-        //     if(joint_bones_verts[i].second.rows()>1){
-        //         RowVector3d p2 = joint_bones_verts[i].second.row(1);//js.segment<3>(3);
-        //         viewer.data().add_points(p2, Eigen::RowVector3d(0,0,0));
-        //         viewer.data().add_edges(p1, p2, Eigen::RowVector3d(0,0,0));
-                
-        //     }
-        // }
+        
+        if(key=='J' || key== 'D'){
+            //Draw joint points
+            for(int i=0; i<joint_bones_verts.size(); i++){
+                int bone1ind = bone_name_index_map[joint_bones_verts[i].first[0]];
+                int bone2ind = bone_name_index_map[joint_bones_verts[i].first[1]];
+                MatrixXd bone1Def = MatrixXd::Zero(3,4);
+                MatrixXd bone2Def = MatrixXd::Zero(3,4);
+                cout<<mesh->red_x().segment<40>(0).transpose()<<endl;
+                if(bone1ind >= fix_bones.size()){
+                    bone1Def.col(0) = mesh->red_x().segment<3>(12*(bone1ind-fix_bones.size())+0);
+                    bone1Def.col(1) = mesh->red_x().segment<3>(12*(bone1ind-fix_bones.size())+3);
+                    bone1Def.col(2) = mesh->red_x().segment<3>(12*(bone1ind-fix_bones.size())+6);
+                    bone1Def.col(3) = mesh->red_x().segment<3>(12*(bone1ind-fix_bones.size())+9);
+                }
+                if(bone2ind >= fix_bones.size()){
+                    bone2Def.col(0) = mesh->red_x().segment<3>(12*(bone2ind-fix_bones.size())+0);
+                    bone2Def.col(1) = mesh->red_x().segment<3>(12*(bone2ind-fix_bones.size())+3);
+                    bone2Def.col(2) = mesh->red_x().segment<3>(12*(bone2ind-fix_bones.size())+6);
+                    bone2Def.col(3) = mesh->red_x().segment<3>(12*(bone2ind-fix_bones.size())+9);
+                }
+
+                cout<<"Joint"<<endl;
+                cout<<bone1Def<<endl;
+                cout<<bone2Def<<endl;
+                //draw for B1
+                Vector4d p4_11 = Vector4d::Ones();
+                p4_11.segment<3>(0) = joint_bones_verts[i].second.row(0).transpose();
+                RowVector3d p11 = bone1Def*p4_11 + joint_bones_verts[i].second.row(0).transpose();
+                viewer.data().add_points(p11, Eigen::RowVector3d(0,0,1));
+                if(joint_bones_verts[i].second.rows()>1){
+                    Vector4d p4_2 = Vector4d::Ones();
+                    p4_2.segment<3>(0) = joint_bones_verts[i].second.row(1).transpose();
+                    RowVector3d p2 = bone1Def*p4_2 + joint_bones_verts[i].second.row(1).transpose();
+                    viewer.data().add_points(p2, Eigen::RowVector3d(0,0,1));
+                    viewer.data().add_edges(p11, p2, Eigen::RowVector3d(0,0,1));
+                    
+                }
+               
+
+                //draw for B2
+                Vector4d p4_1 = Vector4d::Ones();
+                p4_1.segment<3>(0) = joint_bones_verts[i].second.row(0).transpose();
+                RowVector3d p1 = bone2Def*p4_1 + joint_bones_verts[i].second.row(0).transpose();
+                viewer.data().add_points(p1, Eigen::RowVector3d(0,0,1));
+                if(joint_bones_verts[i].second.rows()>1){
+                    Vector4d p4_2 = Vector4d::Ones();
+                    p4_2.segment<3>(0) = joint_bones_verts[i].second.row(1).transpose();
+                    RowVector3d p2 = bone2Def*p4_2 + joint_bones_verts[i].second.row(1).transpose();
+                    viewer.data().add_points(p2, Eigen::RowVector3d(0,0,1));
+                    viewer.data().add_edges(p1, p2, Eigen::RowVector3d(0,0,1));
+                    
+                }
+
+            }
+
+            for(int i=0; i<joint_bones_verts.size(); i++){
+                RowVector3d p1 = joint_bones_verts[i].second.row(0);//js.segment<3>(0);
+                viewer.data().add_points(p1, Eigen::RowVector3d(0,0,0));
+                if(joint_bones_verts[i].second.rows()>1){
+                    RowVector3d p2 = joint_bones_verts[i].second.row(1);//js.segment<3>(3);
+                    viewer.data().add_points(p2, Eigen::RowVector3d(0,0,0));
+                    viewer.data().add_edges(p1, p2, Eigen::RowVector3d(0,0,0));
+                    
+                }
+            }
+        }
         
         return false;
     };

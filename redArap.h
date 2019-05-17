@@ -3,7 +3,7 @@
 
 #include <igl/polar_svd.h>
 #include "mesh.h"
-#include<Eigen/LU>
+#include <Eigen/LU>
 #include <iostream>
 #include <string>
 #include <igl/Timer.h>
@@ -995,7 +995,7 @@ public:
 		double previous5ItE = Energy(m);
 		double oldE = Energy(m);
 		double newE;
-		for(int i=1; i< 1000; i++){
+		for(int i=1; i< 10000; i++){
 			// atimer.start();
 			itT(m);
 			// atimer.stop();
@@ -1017,7 +1017,7 @@ public:
 			// 	exit(0);
 			// }
 			
-			if(fabs(newE - oldE)<5e-6){
+			if(fabs(newE - oldE)<5e-8){
 				// m.constTimeFPAx0(aFPAx0);
 				// std::cout<<"		ItTtime: "<<itTTimes<<", ItRtime: "<<itRTimes<<", Iterations: "<<i<<endl;
 				return true;

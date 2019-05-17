@@ -37,7 +37,7 @@ protected:
     VectorXi melemType, mr_elem_cluster_map, ms_handles_ind;
     VectorXd mcontx, mx, mx0, mred_s, melemYoungs, 
     melemPoissons, mred_r, mred_x, mred_w, mPAx0, mFPAx;
-    MatrixXd mR, mG, msW, mUvecs, mJ;
+    MatrixXd mR, mG, msW, mUvecs, mJ, m_U;
     VectorXd mmass_diag, mbones, m_relativeStiffness;
 
     std::vector<int> mfix, mmov;
@@ -82,6 +82,7 @@ public:
         mmuscle_name_index_map = imuscle_name_index_map;
         mbone_name_index_map = ibone_name_index_map;
         mjoint_bones_verts = ijoint_bones_verts;
+        m_relativeStiffness = relativeStiffness;
 
         double youngs = j_input["youngs"];
         double poissons = j_input["poissons"];
@@ -96,10 +97,10 @@ public:
         for(int ii=0; ii<ifix_bones.size(); ii++){
             cout<<ifix_bones[ii]<<endl;
             int bone_ind = mbone_name_index_map[ifix_bones[ii]];
-            fix_verts_set.insert(mT.row(ibone_tets[bone_ind][10])[0]);
-            fix_verts_set.insert(mT.row(ibone_tets[bone_ind][10])[1]);
-            fix_verts_set.insert(mT.row(ibone_tets[bone_ind][10])[2]);
-            fix_verts_set.insert(mT.row(ibone_tets[bone_ind][10])[3]);
+            fix_verts_set.insert(mT.row(ibone_tets[bone_ind][0])[0]);
+            fix_verts_set.insert(mT.row(ibone_tets[bone_ind][0])[1]);
+            fix_verts_set.insert(mT.row(ibone_tets[bone_ind][0])[2]);
+            fix_verts_set.insert(mT.row(ibone_tets[bone_ind][0])[3]);
         }
 
         mfix.assign(fix_verts_set.begin(), fix_verts_set.end());
@@ -148,26 +149,26 @@ public:
         
         print("step 8");
         setElemWiseYoungsPoissons(youngs, poissons, relativeStiffness);
-        m_relativeStiffness = relativeStiffness;
         
         print("step 9");
         setDiscontinuousMeshT();
 
         print("step 10");
-        setup_rotation_cluster(nrc, reduced, mT, mV, ibone_tets, imuscle_tets, mred_x, mred_r, mred_w, mC, mA, mG, mx0, mRotationBLOCK, mr_cluster_elem_map, mr_elem_cluster_map);
+        setup_rotation_cluster(nrc, reduced, mT, mV, ibone_tets, imuscle_tets, mred_x, mred_r, mred_w, mC, mA, mG, mx0, mRotationBLOCK, mr_cluster_elem_map, mr_elem_cluster_map, relativeStiffness);
 
         print("step 11");
-        setup_skinning_handles(nsh, reduced, mT, mV, ibone_tets, imuscle_tets, mC, mA, mG, mx0, mred_s, msW, ms_handle_elem_map);
+        setup_skinning_handles(nsh, reduced, mT, mV, ibone_tets, imuscle_tets, mC, mA, mG, mx0, mred_s, msW, ms_handle_elem_map, relativeStiffness);
         
         print("step 12");
         MatrixXd temp1;
-        std::string outputfile = j_input["output"];
-        igl::readDMAT(outputfile+"/"+to_string((int)j_input["number_modes"])+"modes.dmat", temp1);
-        if(temp1.rows() == 0){
-            setup_modes(j_input, num_modes, reduced, mP, mA, mConstrained, mFree, mY, mV, mT, mmass_diag, temp1);
-
+        if(reduced){
+            std::string outputfile = j_input["output"];
+            igl::readDMAT(outputfile+"/"+to_string((int)j_input["number_modes"])+"modes.dmat", temp1);
+            if(temp1.rows() == 0){
+                setup_modes(j_input, num_modes, reduced, mP, mA, mConstrained, mFree, mY, mV, mT, mmass_diag, temp1);
+            }
+            mG = mY*temp1;
         }
-        mG = mY*temp1;
 
         print("step 13");
         mUvecs.resize(mT.rows(), 3);
@@ -194,11 +195,16 @@ public:
             setJointConstraintMatrix(jointsY, ibone_tets, imuscle_tets, ifix_bones, mjoint_bones_verts);
             cout<<jointsY.rows()<<", "<<jointsY.cols()<<endl;
             cout<<temp1.rows()<<", "<<temp1.cols()<<endl;
-            mJ = MatrixXd(jointsY)*temp1;
+            if(temp1.rows()==0){
+                mJ = MatrixXd(jointsY)*temp1;
+            }else{
+                mJ = MatrixXd(jointsY);
+            }
 
         }
 
         print("step 14");
+        m_U.resize(3*mT.rows(), 3);
         setGlobalF(false, false, true);
         print("step 15");
         setN(ibone_tets);
@@ -470,42 +476,96 @@ public:
     }
     void setN(std::vector<VectorXi> bones){
         //TODO make this work for reduced skinning
-        int nsh_bones = bones.size();
-        mN.resize(mred_s.size(), mred_s.size() - 6*nsh_bones); //#nsh x nsh for muscles (project out bones handles)
-        mN.setZero();
+        if(reduced){
+            int nsh_bones = bones.size();
+            int handles_per_tendon=0;
+            mN.resize(mred_s.size(), mred_s.size() - 6*nsh_bones - handles_per_tendon*6); //#nsh x nsh for muscles (project out bones handles)
+            mN.setZero();
 
-        int j=0;
-        for(int i=0; i<mN.rows()/6; i++){
-            if(i<bones.size()){
-                continue;
+            int j=0;
+            for(int i=0; i<mN.rows()/6; i++){
+                if(i<bones.size()+handles_per_tendon){
+                    continue;
+                }
+                mN.coeffRef(6*i+0, 6*j+0) = 1;
+                mN.coeffRef(6*i+1, 6*j+1) = 1;
+                mN.coeffRef(6*i+2, 6*j+2) = 1;
+                mN.coeffRef(6*i+3, 6*j+3) = 1;
+                mN.coeffRef(6*i+4, 6*j+4) = 1;
+                mN.coeffRef(6*i+5, 6*j+5) = 1;
+                j++;
             }
-            mN.coeffRef(6*i+0, 6*j+0) = 1;
-            mN.coeffRef(6*i+1, 6*j+1) = 1;
-            mN.coeffRef(6*i+2, 6*j+2) = 1;
-            mN.coeffRef(6*i+3, 6*j+3) = 1;
-            mN.coeffRef(6*i+4, 6*j+4) = 1;
-            mN.coeffRef(6*i+5, 6*j+5) = 1;
-            j++;
+
+            mAN.resize(mred_s.size(), 6*nsh_bones + handles_per_tendon*6); //#nsh x nsh for muscles (project out muscle handles)
+            mAN.setZero();
+            j=0;
+            for(int i=0; i<mAN.rows()/6; i++){
+                if(i>=bones.size()+handles_per_tendon){
+                    continue;
+                }
+                mAN.coeffRef(6*i+0, 6*j+0) = 1;
+                mAN.coeffRef(6*i+1, 6*j+1) = 1;
+                mAN.coeffRef(6*i+2, 6*j+2) = 1;
+                mAN.coeffRef(6*i+3, 6*j+3) = 1;
+                mAN.coeffRef(6*i+4, 6*j+4) = 1;
+                mAN.coeffRef(6*i+5, 6*j+5) = 1;
+
+                j++;
+            }
+        }else{
+            int number_bone_els = 0;
+            for(int b=0; b< bones.size(); b++){
+                number_bone_els += bones[b].size();
+            }
+
+            mN.resize(mred_s.size(), mred_s.size() - 6*number_bone_els);
+            mN.setZero();
+            int j=0;
+            for(int i=0; i<mbones.size(); i++){
+                if(mbones[i]>0){
+                    continue;
+                }
+                mN.coeffRef(6*i+0, 6*j+0) = 1;
+                mN.coeffRef(6*i+1, 6*j+1) = 1;
+                mN.coeffRef(6*i+2, 6*j+2) = 1;
+                mN.coeffRef(6*i+3, 6*j+3) = 1;
+                mN.coeffRef(6*i+4, 6*j+4) = 1;
+                mN.coeffRef(6*i+5, 6*j+5) = 1;
+                j++;
+            }
+
+
+
+            mAN.resize(mred_s.size(), 6*number_bone_els);
+            mAN.setZero();
+            j=0;
+            for(int i=0; i<mbones.size(); i++){
+               if(mbones[i]>0){
+                    mAN.coeffRef(6*i+0, 6*j+0) = 1;
+                    mAN.coeffRef(6*i+1, 6*j+1) = 1;
+                    mAN.coeffRef(6*i+2, 6*j+2) = 1;
+                    mAN.coeffRef(6*i+3, 6*j+3) = 1;
+                    mAN.coeffRef(6*i+4, 6*j+4) = 1;
+                    mAN.coeffRef(6*i+5, 6*j+5) = 1;
+                    j++;
+               } 
+            }
         }
 
-        mAN.resize(mred_s.size(), 6*nsh_bones); //#nsh x nsh for muscles (project out muscle handles)
-        mAN.setZero();
-
-        j=0;
-        for(int i=0; i<mAN.rows()/6; i++){
-            if(i>=bones.size()){
-                continue;
-            }
-            mAN.coeffRef(6*i+0, 6*j+0) = 1;
-            mAN.coeffRef(6*i+1, 6*j+1) = 1;
-            mAN.coeffRef(6*i+2, 6*j+2) = 1;
-            mAN.coeffRef(6*i+3, 6*j+3) = 1;
-            mAN.coeffRef(6*i+4, 6*j+4) = 1;
-            mAN.coeffRef(6*i+5, 6*j+5) = 1;
-            j++;
-        }
     }
- 
+    
+    double tet_volume(int t){
+        Matrix3d Dm;
+        for(int i=0; i<3; i++)
+        {
+            Dm.col(i) = mV.row(mT.row(t)[i]) - mV.row(mT.row(t)[3]);
+        }
+        
+        double m_undeformedVol = (1.0/6)*fabs(Dm.determinant());
+
+        return m_undeformedVol; 
+    }
+
     void setP(){
         mP.resize(12*mT.rows(), 12*mT.rows());
         Matrix4d p;
@@ -516,32 +576,45 @@ public:
 
         vector<Trip> triplets;
         triplets.reserve(3*16*mT.rows());
+        VectorXd arap_weights = VectorXd::Ones(mT.rows());
+        for(int m=0; m<mmuscles.size(); m++){
+            for(int i=0; i<mmuscles[m].size(); i++){
+                double weight = 1;
+                int t = mmuscles[m][i];
+                double vol = tet_volume(t);
+                weight = 1.0/vol/10;
+                if(m_relativeStiffness[t]>10){
+                    weight *= 10;
+                }
+                arap_weights[t] = weight;
+           }
+
+        }
+        // cout<<arap_weights.transpose()<<endl;
+        // exit(0);
 
         for(int i=0; i<mT.rows(); i++){
-            double weight = 1;
-            if(mbones[i]==1){
-                weight = 1;
-            }
+
             for(int j=0; j<3; j++){
-                triplets.push_back(Trip(12*i+0+j, 12*i+0+j, weight*p(0,0)/4));
-                triplets.push_back(Trip(12*i+0+j, 12*i+3+j, weight*p(0,1)/4));
-                triplets.push_back(Trip(12*i+0+j, 12*i+6+j, weight*p(0,2)/4));
-                triplets.push_back(Trip(12*i+0+j, 12*i+9+j, weight*p(0,3)/4));
+                triplets.push_back(Trip(12*i+0+j, 12*i+0+j, arap_weights[i]*p(0,0)/4));
+                triplets.push_back(Trip(12*i+0+j, 12*i+3+j, arap_weights[i]*p(0,1)/4));
+                triplets.push_back(Trip(12*i+0+j, 12*i+6+j, arap_weights[i]*p(0,2)/4));
+                triplets.push_back(Trip(12*i+0+j, 12*i+9+j, arap_weights[i]*p(0,3)/4));
 
-                triplets.push_back(Trip(12*i+3+j, 12*i+0+j, weight*p(1,0)/4));
-                triplets.push_back(Trip(12*i+3+j, 12*i+3+j, weight*p(1,1)/4));
-                triplets.push_back(Trip(12*i+3+j, 12*i+6+j, weight*p(1,2)/4));
-                triplets.push_back(Trip(12*i+3+j, 12*i+9+j, weight*p(1,3)/4));
+                triplets.push_back(Trip(12*i+3+j, 12*i+0+j, arap_weights[i]*p(1,0)/4));
+                triplets.push_back(Trip(12*i+3+j, 12*i+3+j, arap_weights[i]*p(1,1)/4));
+                triplets.push_back(Trip(12*i+3+j, 12*i+6+j, arap_weights[i]*p(1,2)/4));
+                triplets.push_back(Trip(12*i+3+j, 12*i+9+j, arap_weights[i]*p(1,3)/4));
 
-                triplets.push_back(Trip(12*i+6+j, 12*i+0+j, weight*p(2,0)/4));
-                triplets.push_back(Trip(12*i+6+j, 12*i+3+j, weight*p(2,1)/4));
-                triplets.push_back(Trip(12*i+6+j, 12*i+6+j, weight*p(2,2)/4));
-                triplets.push_back(Trip(12*i+6+j, 12*i+9+j, weight*p(2,3)/4));
+                triplets.push_back(Trip(12*i+6+j, 12*i+0+j, arap_weights[i]*p(2,0)/4));
+                triplets.push_back(Trip(12*i+6+j, 12*i+3+j, arap_weights[i]*p(2,1)/4));
+                triplets.push_back(Trip(12*i+6+j, 12*i+6+j, arap_weights[i]*p(2,2)/4));
+                triplets.push_back(Trip(12*i+6+j, 12*i+9+j, arap_weights[i]*p(2,3)/4));
 
-                triplets.push_back(Trip(12*i+9+j, 12*i+0+j, weight*p(3,0)/4));
-                triplets.push_back(Trip(12*i+9+j, 12*i+3+j, weight*p(3,1)/4));
-                triplets.push_back(Trip(12*i+9+j, 12*i+6+j, weight*p(3,2)/4));
-                triplets.push_back(Trip(12*i+9+j, 12*i+9+j, weight*p(3,3)/4));
+                triplets.push_back(Trip(12*i+9+j, 12*i+0+j, arap_weights[i]*p(3,0)/4));
+                triplets.push_back(Trip(12*i+9+j, 12*i+3+j, arap_weights[i]*p(3,1)/4));
+                triplets.push_back(Trip(12*i+9+j, 12*i+6+j, arap_weights[i]*p(3,2)/4));
+                triplets.push_back(Trip(12*i+9+j, 12*i+9+j, arap_weights[i]*p(3,3)/4));
             }
         }   
         mP.setFromTriplets(triplets.begin(), triplets.end());
@@ -725,32 +798,34 @@ public:
 
             for(int i=0; i<mT.rows(); i++){
                 Matrix3d r = Map<Matrix3d>(mred_r.segment<9>(9*mr_elem_cluster_map[i]).data()).transpose();
+                Matrix3d u = m_U.block<3,3>(3*i,0);
                 Matrix3d s;
                 s<< ms[6*i + 0], ms[6*i + 3], ms[6*i + 4],
                     ms[6*i + 3], ms[6*i + 1], ms[6*i + 5],
                     ms[6*i + 4], ms[6*i + 5], ms[6*i + 2];
 
-                Matrix3d rs = r*s;
-                iFPAx0.segment<3>(12*i+0) = rs*mPAx0.segment<3>(12*i+0);
-                iFPAx0.segment<3>(12*i+3) = rs*mPAx0.segment<3>(12*i+3);
-                iFPAx0.segment<3>(12*i+6) = rs*mPAx0.segment<3>(12*i+6);
-                iFPAx0.segment<3>(12*i+9) = rs*mPAx0.segment<3>(12*i+9);
+                iFPAx0.segment<3>(12*i+0) = r*u*s*u.transpose()*mPAx0.segment<3>(12*i+0);
+                iFPAx0.segment<3>(12*i+3) = r*u*s*u.transpose()*mPAx0.segment<3>(12*i+3);
+                iFPAx0.segment<3>(12*i+6) = r*u*s*u.transpose()*mPAx0.segment<3>(12*i+6);
+                iFPAx0.segment<3>(12*i+9) = r*u*s*u.transpose()*mPAx0.segment<3>(12*i+9);
+
             }
 
 
         }else{
             for(int i=0; i<mT.rows(); i++){
                 Matrix3d r = Map<Matrix3d>(mred_r.segment<9>(9*mr_elem_cluster_map[i]).data()).transpose();
+                Matrix3d u = m_U.block<3,3>(3*i,0);
                 Matrix3d s;
                 s<< mred_s[6*i + 0], mred_s[6*i + 3], mred_s[6*i + 4],
                     mred_s[6*i + 3], mred_s[6*i + 1], mred_s[6*i + 5],
                     mred_s[6*i + 4], mred_s[6*i + 5], mred_s[6*i + 2];
 
-                Matrix3d rs = r*s;
-                iFPAx0.segment<3>(12*i+0) = rs*mPAx0.segment<3>(12*i+0);
-                iFPAx0.segment<3>(12*i+3) = rs*mPAx0.segment<3>(12*i+3);
-                iFPAx0.segment<3>(12*i+6) = rs*mPAx0.segment<3>(12*i+6);
-                iFPAx0.segment<3>(12*i+9) = rs*mPAx0.segment<3>(12*i+9);
+                iFPAx0.segment<3>(12*i+0) = r*u*s*u.transpose()*mPAx0.segment<3>(12*i+0);
+                iFPAx0.segment<3>(12*i+3) = r*u*s*u.transpose()*mPAx0.segment<3>(12*i+3);
+                iFPAx0.segment<3>(12*i+6) = r*u*s*u.transpose()*mPAx0.segment<3>(12*i+6);
+                iFPAx0.segment<3>(12*i+9) = r*u*s*u.transpose()*mPAx0.segment<3>(12*i+9);
+
             }
         }
     }
@@ -767,6 +842,17 @@ public:
                     b = Vector3d::UnitY();
                     mUvecs.row(t) = b;
                 }
+                Vector3d v = a.cross(b);
+                v = v/v.norm();
+                double theta = (a.dot(b))/(a.norm()*b.norm());
+                double s = sin(theta);
+                double c = cos(theta);
+                Matrix3d r;
+                r<<v[0]*v[0]*(1-c)+c, v[0]*v[1]*(1-c)-s*v[2], v[0]*v[2]*(1-c) +s*v[1],
+                    v[0]*v[1]*(1-c)+s*v[2], v[1]*v[1]*(1-c)+c, v[1]*v[2]*(1-c)-s*v[0],
+                    v[0]*v[2]*(1-c)-s*v[1], v[1]*v[2]*(1-c) +s*v[0], v[2]*v[2]*(1-c)+c; 
+                
+                m_U.block<3,3>(3*t, 0) = Matrix3d::Identity();
             }
         }
 
@@ -890,6 +976,7 @@ public:
     SparseMatrix<double>& AB(){ return mConstrained; }
     VectorXd& red_r(){ return mred_r; }
     VectorXd& red_w(){ return mred_w; }
+    MatrixXd& U() { return m_U; }
     VectorXd& eYoungs(){ return melemYoungs; }
     VectorXd& ePoissons(){ return melemPoissons; }
     VectorXd& x0(){ return mx0; }
@@ -900,7 +987,7 @@ public:
     VectorXi& r_elem_cluster_map(){ return mr_elem_cluster_map; }
     VectorXd& relativeStiffness() { return m_relativeStiffness;}
     VectorXd& bones(){ return mbones; }
-    std::vector<VectorXi> muscle_vecs() { return mmuscles; }
+    std::vector<VectorXi>& muscle_vecs() { return mmuscles; }
     // std::vector<MatrixXd> joints(){ return mjoints; }
     MatrixXd& sW(){ 
         if(mred_s.size()== 6*mT.rows() && reduced==false){

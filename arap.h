@@ -36,7 +36,7 @@ public:
 		int z_size = m.red_x().size();
 		int s_size = m.red_s().size();
 		int t_size = m.T().rows();
-		if(!(6*t_size==s_size && 3*t_size==r_size && z_size==3*m.V().rows())){
+		if(!(6*t_size==s_size && 3*t_size==r_size)){
 			print(t_size);
 			print(m.V().rows());
 			print(s_size);
@@ -105,7 +105,7 @@ public:
 
 	double Energy(Mesh& m){
 		VectorXd PAx = aPA*m.red_x() + aPAx0;
-		// m.constTimeFPAx0(aFPAx0);
+		m.constTimeFPAx0(aFPAx0);
 		double En= 0.5*(PAx - aFPAx0).squaredNorm();
 		return En;
 	}
@@ -541,6 +541,44 @@ public:
 		return res;
 	}
 
+	VectorXd dEds(Mesh& m){
+		m.constTimeFPAx0(aFPAx0);
+
+		VectorXd PAg = aPA*m.red_x() + aPAx0;
+		VectorXd& ms = m.red_s();
+
+		aEs.setZero();
+		for(int t=0; t<m.T().rows(); t++){
+			Matrix3d rt = Map<Matrix3d>(m.red_r().segment<9>(9*m.r_elem_cluster_map()[t]).data());
+			Matrix3d ut = m.U().block<3,3>(3*t,0).transpose();
+			Matrix3d s;
+			s<< ms[6*t + 0], ms[6*t + 3], ms[6*t + 4],
+				ms[6*t + 3], ms[6*t + 1], ms[6*t + 5],
+				ms[6*t + 4], ms[6*t + 5], ms[6*t + 2];
+
+			Matrix3d p1 = s*ut*aPAx0.segment<3>(12*t+0)*(ut*aPAx0.segment<3>(12*t+0)).transpose() - (ut*rt*PAg.segment<3>(12*t+0))*(ut*aPAx0.segment<3>(12*t+0)).transpose();
+			Matrix3d p2 = s*ut*aPAx0.segment<3>(12*t+3)*(ut*aPAx0.segment<3>(12*t+3)).transpose() - (ut*rt*PAg.segment<3>(12*t+3))*(ut*aPAx0.segment<3>(12*t+3)).transpose();
+			Matrix3d p3 = s*ut*aPAx0.segment<3>(12*t+6)*(ut*aPAx0.segment<3>(12*t+6)).transpose() - (ut*rt*PAg.segment<3>(12*t+6))*(ut*aPAx0.segment<3>(12*t+6)).transpose();
+			Matrix3d p4 = s*ut*aPAx0.segment<3>(12*t+9)*(ut*aPAx0.segment<3>(12*t+9)).transpose() - (ut*rt*PAg.segment<3>(12*t+9))*(ut*aPAx0.segment<3>(12*t+9)).transpose();
+			
+			double Es1 = p1(0,0) + p2(0,0) + p3(0,0) + p4(0,0);
+			double Es2 = p1(1,1) + p2(1,1) + p3(1,1) + p4(1,1);
+			double Es3 = p1(2,2) + p2(2,2) + p3(2,2) + p4(2,2);
+			double Es4 = p1(0,1) + p2(0,1) + p3(0,1) + p4(0,1)+ p1(1,0) + p2(1,0) + p3(1,0) + p4(1,0);
+			double Es5 = p1(0,2) + p2(0,2) + p3(0,2) + p4(0,2)+ p1(2,0) + p2(2,0) + p3(2,0) + p4(2,0);
+			double Es6 = p1(2,1) + p2(2,1) + p3(2,1) + p4(2,1)+ p1(1,2) + p2(1,2) + p3(1,2) + p4(1,2);
+			aEs[6*t+0] = Es1;
+			aEs[6*t+1] = Es2;
+			aEs[6*t+2] = Es3;
+			aEs[6*t+3] = Es4;
+			aEs[6*t+4] = Es5;
+			aEs[6*t+5] = Es6;
+
+		}
+		
+		return aEs;
+	}
+
 	bool itT(Mesh& m){
 		VectorXd deltaABtx = m.AB().transpose()*m.dx();
 		VectorXd AtPtFPAx0 = (aPA).transpose()*aFPAx0;
@@ -616,12 +654,13 @@ public:
 		VectorXd ms = m.red_s();
 		VectorXd USUtPAx0 = VectorXd::Zero(12*m.T().rows());
 		for(int t =0; t<m.T().rows(); t++){
+			Matrix3d u = m.U().block<3,3>(3*t,0);
 			Matrix3d s;
 			s<< ms[6*t + 0], ms[6*t + 3], ms[6*t + 4],
 				ms[6*t + 3], ms[6*t + 1], ms[6*t + 5],
 				ms[6*t + 4], ms[6*t + 5], ms[6*t + 2];
 			for(int j=0; j<4; j++){
-				USUtPAx0.segment<3>(12*t+3*j) =s*aPAx0.segment<3>(12*t+3*j);
+				USUtPAx0.segment<3>(12*t+3*j) = u*s*u.transpose()*aPAx0.segment<3>(12*t+3*j);
 			}
 		}
 
@@ -634,7 +673,7 @@ public:
 			itR(m, USUtPAx0);
 			m.constTimeFPAx0(aFPAx0);
 			double newE = Energy(m);
-			// cout<<i<<",";
+			cout<<i<<",";
 			if((newE - oldE)>1e-8 && i>1){
 				print("Arap::minimize() error. ARAP should monotonically decrease.");
 				print(i);
@@ -654,35 +693,8 @@ public:
 				}
 				previous5ItE = newE;
 			}
-			
-			// VectorXd Ex = m.B().transpose()*dEdx(m);
-			// if((Ex - E0).norm()<1e-8){
-			// 	std::cout<<"		- ARAP minimize "<<i<<", "<<(Ex - E0).norm()<<std::endl;
-			// 	return i;
-			// }
-			// E0 = Ex;
 		}
-		// VectorXd Ex = dEdx(m);
-		// print("WHy is it not converging?");
-		// print("redx\n");
-		// print(m.red_x().transpose());
-		// print("1\n");
-		// VectorXd PAx = aPA*m.red_x() + aPAx0;
-		// print((m.AB().transpose()*PAx).transpose());
-		// print("2\n");
-		// print((m.AB().transpose()*aFPAx0).transpose());
-		// print("3\n");
-		// VectorXd res = (aPA).transpose()*(PAx - aFPAx0);
-		// // print(((aPA).transpose()*(aPA*m.red_x() + aPAx0)).transpose());
-		// print("4\n");
-		// print(((aPA).transpose()*(aFPAx0)).transpose());
-		// print("5\n");
-		// print(Ex.transpose());
-		// print("6\n");
-		// print((m.AB().transpose()*Ex).transpose());
-		// print(m.red_s());		
-		// std::cout<<"		- ARAP never converged "<<Energy(m)-previous5ItE<<std::endl;
-		// exit(0);
+
 		return 1000;
 	}
 

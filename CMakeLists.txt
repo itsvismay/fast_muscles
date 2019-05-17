@@ -4,43 +4,43 @@ project(elastic)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 set(JSON_HPP_SRC_DIR "ThirdParty/json/single_include/nlohmann")
 set(SPECTRA_DIR "ThirdParty/Spectra/include")
-set(NEW_BFGSB_SRC_DIR "ThirdParty/LBFGSpp/include")
 set(LIBIGL_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/libigl/include")
+set(MKLROOT "/opt/intel/mkl")
 set(SUITESPARSE_HINT "/home/vismay/recode/SuiteSparse")
-set(CMAKE_CXX_FLAGS "-O3")
+
+set(CMAKE_CXX_FLAGS "-O3 -mavx")
 
 
 # libigl
 option(LIBIGL_WITH_OPENGL           "Use OpenGL"         ON)
+option(LIBIGL_WITH_PNG              "Use PNG"            ON)
 option(LIBIGL_WITH_OPENGL_GLFW      "Use GLFW"           ON)
 option(LIBIGL_WITH_OPENGL_GLFW_IMGUI      "Use IMGUI"           ON)
 
 find_package(LIBIGL REQUIRED QUIET)
-#find_package(SUITESPARSE REQUIRED QUIET)
-find_package(OpenCV REQUIRED)
+find_package(SUITESPARSE REQUIRED QUIET)
+find_package(OpenMP REQUIRED)
+add_definitions(-DEIGEN_USE_MKL_ALL)
 
+set(MKL_LIBS  -L${MKLROOT}/lib/intel64 -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -DMKL_LP64 -m64")
+
+include_directories(${MKLROOT}/include)
 include_directories(${JSON_HPP_SRC_DIR})
 include_directories(${SPECTRA_DIR})
-include_directories(${NEW_BFGSB_SRC_DIR})
-#include_directories(${SUITESPARSE_INCLUDE_DIRS})
-include_directories(${OpenCV_INCLUDE_DIRS})
+include_directories(${SUITESPARSE_INCLUDE_DIRS})
 
+set(Boost_USE_STATIC_LIBS OFF) 
+set(Boost_USE_MULTITHREADED ON)  
+set(Boost_USE_STATIC_RUNTIME OFF) 
+find_package(Boost COMPONENTS filesystem REQUIRED) 
 
-# Add your project files
-file(GLOB HEADFILES "*.h")
-file(GLOB HEADFILES "PreProcessing/*.h")
-file(GLOB SRCFILES "PreProcessing/*.cpp")
-file(GLOB EXTERNALS "${SPECTRA_DIR}/*.h" "${SPECTRA_DIR}/MatOp/*.h")
+file(GLOB SRCFILES famu/*.cpp)
 
-add_executable(redfd "redFD.cpp" ${HEADFILES} ${SRCFILES} ${EXTERNALS})
-#add_executable(unreduced "unreduced.cpp" ${HEADFILES} ${SRCFILES} ${EXTERNALS})
-add_executable(fd "finitedifference.cpp" ${HEADFILES} ${SRCFILES} ${EXTERNALS})
-add_executable(${PROJECT_NAME} "main.cpp" ${HEADFILES} ${SRCFILES} ${EXTERNALS})
-add_executable(reduced "reduced.cpp" ${HEADFILES} ${SRCFILES} ${EXTERNALS})
+add_executable(famu "fd_famu.cpp" ${SRCFILES} ${EXTERNALS})
 
-#target_link_libraries(unreduced -lglfw igl::core igl::opengl igl::opengl_glfw -fopenmp ${OpenCV_LIBS})
-target_link_libraries(redfd -lglfw igl::core igl::opengl igl::opengl_glfw -fopenmp ${OpenCV_LIBS})
-target_link_libraries(fd -lglfw igl::core igl::opengl igl::opengl_glfw -fopenmp  ${OpenCV_LIBS})
-target_link_libraries(${PROJECT_NAME} -lglfw igl::core igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui -fopenmp ${OpenCV_LIBS})
-target_link_libraries(reduced -lglfw igl::core igl::opengl igl::opengl_glfw -fopenmp ${OpenCV_LIBS})
- 
+if(APPLE)
+    target_link_libraries(famu -lumfpack -lamd igl::core igl::png igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui ${SUITESPARSE_LIBRARIES})
+else()
+    target_link_libraries(famu  ${MKL_LIBS} -lglfw -lumfpack -lamd igl::core igl::png igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui OpenMP::OpenMP_CXX ${SUITESPARSE_LIBRARIES})
+endif(APPLE)

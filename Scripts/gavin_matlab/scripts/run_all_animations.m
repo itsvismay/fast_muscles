@@ -1,0 +1,3 @@
+simple_joint_animation
+big_muscle_animation
+simple_shoulder_animation

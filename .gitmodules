@@ -13,3 +13,6 @@
 [submodule "ThirdParty/json"]
 	path = ThirdParty/json
 	url = https://github.com/nlohmann/json
+[submodule "ThirdParty/suitesparse"]
+	path = ThirdParty/suitesparse
+	url = https://github.com/jluttine/suitesparse.git

@@ -332,15 +332,15 @@ public:
 	    for(int i=0; i<reds.size(); i++){
 	        mesh->red_s()[i] = reds[i];
 	    }
-        double Eneo = alpha_neo*elas->Energy(*mesh);
 
+        double Eneo = alpha_neo*elas->Energy(*mesh);
         int arap_iters = arap->minimize(*mesh);
         double Earap = alpha_arap*arap->Energy(*mesh);
         double fx = Eneo + Earap;
 
-        if(computeGrad){        
+        if(computeGrad){
 	        VectorXd pegrad = alpha_neo*mesh->N().transpose()*elas->PEGradient(*mesh);
-	        VectorXd arapgrad = alpha_arap*mesh->N().transpose()*arap->Jacobians(*mesh);
+	        VectorXd arapgrad = alpha_arap*mesh->N().transpose()*arap->dEds(*mesh);
 	        
             if(stest){
                 VectorXd fake_arap = mesh->N().transpose()*Full_ARAP_Grad(*mesh, *arap,*elas, fx, eps);
@@ -411,7 +411,6 @@ public:
 	        }
 
 	       std::cout<<"BFGS: "<<Eneo<<", "<<Earap<<", "<<pegrad.norm()<<", "<<arapgrad.norm()<<","<<grad.norm()<<std::endl;
-	       cout<< arapgrad.transpose()<<endl;
         }
 
 

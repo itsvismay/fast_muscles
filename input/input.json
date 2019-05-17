@@ -1,24 +1,27 @@
 {
-  "data": "/home/vismay/recode/fast_muscles/data/realistic_upper",
-  "output": "/home/vismay/recode/fast_muscles/data/realistic_upper",
+<<<<<<< Updated upstream
+  "data":   "/Users/ajx/Dropbox/fast_muscles/input/realistic_biceps_coarse",
+  "output": "/Users/ajx/Dropbox/fast_muscles/input/realistic_biceps_coarse",
+=======
+  "data": "../data/realistic_biceps_coarse",
+  "output": "../data/realistic_biceps_coarse",
+>>>>>>> Stashed changes
   "fix_bones": ["scapula"],  
-  "muscle_starting_strength": 1e1,
-  "QS_steps": 30,
-  "multiplier_strength_each_step": 1.5,
+  "muscle_starting_strength": 10000,
+  "QS_steps": 10,
+  "multiplier_strength_each_step": 1e4,
   "contract_muscles_at_index": [0],
-  "bfgs_convergence_crit_fast": true,
-  "mesh_file": "/home/vismay/recode/fast_muscles/data/testbar/bar.1.mesh",
-  "youngs": 60000,
-  "poissons": 0.49,
-  "fibre_mag": 0,
   "reduced": true,
-  "reduced_s": true,
-  "reduced_r": true,
-  "reduced_x": true,
-  "number_skinning_handles": 5,
-  "number_rot_clusters": 5,
-  "number_modes": 50,
   "fd_eps": 1e-2,
-  "alpha_arap": 1e4,
-  "alpha_neo":1
+  "alpha_arap": 1,
+  "alpha_neo":1,
+  "polar_dec": true,
+  "sparseJac": false,
+  "NM_MAX_ITERS": 100,
+<<<<<<< Updated upstream
+  "woodbury": true
 }
+=======
+  "woodbury": true,
+}
+>>>>>>> Stashed changes

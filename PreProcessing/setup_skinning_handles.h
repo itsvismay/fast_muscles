@@ -22,6 +22,7 @@ void setup_skinning_handles(int nsh,
 	VectorXd& mx0, 
 	VectorXd& mred_s, 
 	MatrixXd& msW,
-	std::map<int, std::vector<int>>& ms_handle_elem_map);
+	std::map<int, std::vector<int>>& ms_handle_elem_map,
+	VectorXd& relStiff);
 
 #endif
