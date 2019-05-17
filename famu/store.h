@@ -1,6 +1,5 @@
 #ifndef STORE 
 #define STORE 
-
 #include <json.hpp>
 #include <vector>
 #include <Eigen/Sparse>
@@ -8,7 +7,14 @@
 #include <igl/Timer.h>
 #include <Eigen/LU>
 #include <Eigen/UmfPackSupport>
+#include <omp.h>
+
+#define NUM_MODES 48
 typedef Eigen::Triplet<double> Trip;
+typedef Eigen::Matrix<double, 9, 1> Vector9d;
+typedef Eigen::Matrix<double, 9, 9> Matrix9d;
+typedef Eigen::Matrix<double, 9, NUM_MODES> Matrix9xModes;
+typedef Eigen::Matrix<double, NUM_MODES, NUM_MODES> MatrixModesxModes;
 
 namespace famu{
 
@@ -34,9 +40,10 @@ namespace famu{
 		std::vector< std::pair<std::vector<std::string>, Eigen::MatrixXd>> joint_bones_verts;
 		Eigen::VectorXd relativeStiffness;
 		Eigen::VectorXd eY, eP;
-                // Young's Modulus per vertex (averaged from incident tets using eY)
+        
+        // Young's Modulus per vertex (averaged from incident tets using eY)
 		Eigen::VectorXd elogVY;
-
+		std::vector<double> bone_vols;
 		std::vector<int> fixverts, movverts;
 		std::vector<int> mfix, mmov;
 
@@ -84,6 +91,7 @@ namespace famu{
 		//B = -P'Z'DSYG
 		//C = Inv(GtYtStDtDSYG)
 		//D = G'Y'S'D'ZP
+		std::vector<Eigen::LDLT<Matrix9d>> vecInvA;
 		Eigen::MatrixXd WoodB, WoodD, InvC, WoodC;
 		Eigen::VectorXd eigenvalues;
 		std::vector<int> contract_muscles;

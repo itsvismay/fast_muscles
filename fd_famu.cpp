@@ -22,6 +22,7 @@
 
 #include <sstream>
 #include <iomanip>
+// #include <omp.h>
 
 #include "famu/store.h"
 #include "famu/read_config_files.h"
@@ -55,15 +56,26 @@ int main(int argc, char *argv[])
   int fancy_data_index,debug_data_index,discontinuous_data_index;
 	std::cout<<"-----Configs-------"<<std::endl;
 		std::string inputfile;
+		int num_threads = 1;
 		if(argc<1){
-			cout<<"Run as: ./famu input.json"<<endl;
+			cout<<"Run as: ./famu input.json <threads>"<<endl;
 			exit(0);
 		}
-		
+		if(argc==3){
+			num_threads = std::stoi(argv[2]);
+			omp_set_num_threads(num_threads);
+			std::ifstream input_file(argv[1]);
+			input_file >> j_input;
+		}else if(argc==4){
+			num_threads = std::stoi(argv[3]);
+			omp_set_num_threads(num_threads);
+			std::ifstream input_file(argv[2]);
+			input_file >> j_input;
+
+		}
+		Eigen::initParallel();
 		
     	igl::Timer timer;
-		std::ifstream input_file(argv[1]);
-		input_file >> j_input;
 
 		famu::Store store;
 		store.jinput = j_input;
@@ -126,28 +138,28 @@ int main(int argc, char *argv[])
 			}
 		}
 		igl::writeDMAT("youngs_per_tet.dmat", store.eY);
-                {
-                  store.elogVY = Eigen::VectorXd::Zero(store.V.rows());
-                  // volume associated with each vertex
-                  Eigen::VectorXd Vvol = Eigen::VectorXd::Zero(store.V.rows());
-                  Eigen::VectorXd Tvol;
-                  igl::volume(store.V,store.T,Tvol);
-                  // loop over tets
-                  for(int i = 0;i<store.T.rows();i++)
-                  {
-                    const double vol4 = Tvol(i)/4.0;
-                    for(int j = 0;j<4;j++)
-                    {
-                      Vvol(store.T(i,j)) += vol4;
-                      store.elogVY(store.T(i,j)) += vol4*log10(store.eY(i));
-                    }
-                  }
-                  // loop over vertices to divide to take average
-                  for(int i = 0;i<store.V.rows();i++)
-                  {
-                    store.elogVY(i) /= Vvol(i);
-                  }
-                }
+        {
+          store.elogVY = Eigen::VectorXd::Zero(store.V.rows());
+          // volume associated with each vertex
+          Eigen::VectorXd Vvol = Eigen::VectorXd::Zero(store.V.rows());
+          Eigen::VectorXd Tvol;
+          igl::volume(store.V,store.T,Tvol);
+          // loop over tets
+          for(int i = 0;i<store.T.rows();i++)
+          {
+            const double vol4 = Tvol(i)/4.0;
+            for(int j = 0;j<4;j++)
+            {
+              Vvol(store.T(i,j)) += vol4;
+              store.elogVY(store.T(i,j)) += vol4*log10(store.eY(i));
+            }
+          }
+          // loop over vertices to divide to take average
+          for(int i = 0;i<store.V.rows();i++)
+          {
+            store.elogVY(i) /= Vvol(i);
+          }
+        }
 
 
 		//bone dF map
@@ -193,7 +205,13 @@ int main(int argc, char *argv[])
 			double undef_vol = (1.0/6)*fabs(Dm.determinant());
 			store.rest_tet_volume[i] = undef_vol;
 		}
-
+		for(int i=0; i<store.bone_tets.size(); i++){
+			double bone_vol = 0;
+	    	for(int j=0; j<store.bone_tets[i].size(); j++){
+	    		bone_vol += store.rest_tet_volume[store.bone_tets[i][j]];
+	    	}
+	    	store.bone_vols.push_back(bone_vol);
+	    }
 
 	cout<<"---Setup continuous mesh"<<store.x.size()<<endl;
 		store.x0.resize(3*store.V.rows());
@@ -334,6 +352,11 @@ int main(int argc, char *argv[])
 
 			store.InvC = store.eigenvalues.asDiagonal();
 			store.WoodC = store.eigenvalues.asDiagonal().inverse();
+
+			for(int i=0; i<store.dFvec.size()/9; i++){
+				LDLT<Matrix9d> InvA;
+				store.vecInvA.push_back(InvA);
+			}
 	}
 
 
@@ -423,10 +446,14 @@ int main(int argc, char *argv[])
             cout<<"Full NM per iter: "<<totaltime/niters<<endl;
             cout<<"Total time: "<<totaltime<<endl;
             cout<<"Total its: "<<niters<<endl;
+            double EM = famu::muscle::energy(store, store.dFvec);
+			double ENH = famu::stablenh::energy(store, store.dFvec);
+			double EACAP = famu::acap::fastEnergy(store, store.dFvec);
+			cout<<"E_a: "<<EACAP<<", E_m: "<<EM<<", E_n: "<<ENH<<endl;
             cout<<"+++++ QS Iteration +++++"<<endl;
             VectorXd y = store.Y*store.x;
             Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
-            //igl::writeOBJ("ACAP_unred.obj", (newV.transpose()+store.V), store.F);
+            // igl::writeOBJ(outputfile+"EMU"+to_string(store.T.rows())+".obj", (newV.transpose()+store.V), store.F);
             viewer.data_list[fancy_data_index].set_vertices((newV.transpose()+store.V));
             viewer.data_list[debug_data_index].set_vertices((newV.transpose()+store.V));
             return true;

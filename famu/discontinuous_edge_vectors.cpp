@@ -33,9 +33,9 @@ void famu::discontinuous_edge_vectors(Store& store, Eigen::SparseMatrix<double>&
                 // double vol = tet_volume(t);
                 double weight = 1;
                 if(store.relativeStiffness[t]>1){
-                    weight = 10;
+                    weight *= 10;
                 }else{
-                    weight =1;
+                    weight *= 1;
                 }
                 arap_weights[t] *= weight;
                 

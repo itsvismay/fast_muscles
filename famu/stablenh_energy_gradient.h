@@ -11,11 +11,11 @@ namespace famu
 {
 	namespace stablenh
 	{
-		double energy(Store& store, VectorXd& dFvec);
+		double energy(const Store& store, VectorXd& dFvec);
 
-		void gradient(Store& store, VectorXd& grad);
+		void gradient(const Store& store, VectorXd& grad);
 		
-		void hessian(Store& store, Eigen::SparseMatrix<double>& hess, Eigen::MatrixXd& denseHess);
+		void hessian(const Store& store, Eigen::SparseMatrix<double>& hess, Eigen::MatrixXd& denseHess, bool dense=false);
 		
 		VectorXd fd_gradient(Store& store);
 
