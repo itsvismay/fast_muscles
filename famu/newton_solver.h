@@ -102,27 +102,6 @@ namespace famu
         const double dg_test = pftol * dg_init;
         double width;
 
-        //Linesearch optimization. (x here is the cont. mesh positions)
-        //F = F0 + step*dF
-        //Ax = BF + c = BF0 + step*BdF + c
-        //x = InvA*B*F0 + step*InvA*B*dF + c
-        //x = InvA * rhs1 + step* InvA*rhs2 + c
-        //x* = const1 + step* const2 + const3
-        // xp.setZero();
-        // drt.setZero();
-        // VectorXd rhs1 = VectorXd::Zero(store.acap_solve_rhs.size());
-        // 	rhs1.head(store.x.size()) = store.YtStDt_dF_DSx0*xp;
-        // 	rhs1.tail(store.lambda2.size()) = store.Bf*xp;
-        // VectorXd rhs2 = VectorXd::Zero(store.acap_solve_rhs.size());
-        // 	rhs2.head(store.x.size()) = store.YtStDt_dF_DSx0*drt;
-        // 	rhs2.tail(store.lambda2.size()) = store.Bf*drt;
-        // VectorXd const3 = VectorXd::Zero(store.acap_solve_rhs.size());
-        // 	const3.head(store.x.size()) = -store.x0tStDtDSY;
-        // 	const3.tail(store.lambda2.size()) = -store.BfI0;
-        // VectorXd result = VectorXd::Zero(store.acap_solve_rhs.size());
-        // VectorXd const1 = store.ACAP_KKT_SPLU.solve(rhs1);
-        // VectorXd const2 = store.ACAP_KKT_SPLU.solve(rhs2);
-        // cout<<const1.norm()<<endl;
 
         int iter;
         for(iter = 0; iter < pmax_linesearch; iter++)
@@ -133,13 +112,6 @@ namespace famu
 
             // Evaluate this candidate
             famu::acap::solve(store, x);
-            // cout<<store.lambda2.transpose()<<endl;
-            // result = const1 + step*const2 + const3;
-            // store.x = result.head(store.x.size());
-            // store.lambda2 = result.tail(store.lambda2.size());
-            // cout<<store.lambda2.transpose()<<endl;
-            // exit(0);
-            //
             double EM = famu::muscle::energy(store, x);
 			double ENH = famu::stablenh::energy(store, x);
 			double EACAP = famu::acap::fastEnergy(store, x);
@@ -208,7 +180,59 @@ namespace famu
 	}
 
 	void fastWoodbury(Store& store, MatrixXd& H, const VectorXd& g, MatrixModesxModes X, VectorXd& BInvXDy, MatrixXd& denseHess, VectorXd& drt){
-		//Woodbury parallelization
+		//Woodbury parallel approach 1 (with reduction)
+
+		Matrix<double, NUM_MODES, 1> DAg = Matrix<double, NUM_MODES, 1>::Zero(); 
+
+		X = store.InvC;
+		#pragma omp parallel
+		{
+			MatrixModesxModes Xpriv = MatrixModesxModes::Zero();
+			#pragma omp for nowait
+			for(int i=0; i<store.dFvec.size()/9; i++){
+				Matrix9d A = denseHess.block<9,9>(9*i, 0);
+				LDLT<Matrix9d> InvA;
+				InvA.compute(A);
+				store.vecInvA[i] = InvA;
+
+				Vector9d invAg = InvA.solve(g.segment<9>(9*i));
+				drt.segment<9>(9*i) = invAg;
+
+				Matrix9xModes B = store.WoodB.block<9, NUM_MODES>(9*i, 0);
+				Xpriv = Xpriv + -B.transpose()*InvA.solve(B);
+
+				DAg  = DAg + -B.transpose()*invAg;
+			}
+			#pragma omp critical
+			{
+				X += Xpriv;
+			}
+		}
+
+		FullPivLU<MatrixModesxModes> WoodburyDenseSolve;
+		WoodburyDenseSolve.compute(X);
+
+		Matrix<double, NUM_MODES, 1> InvXDAg = WoodburyDenseSolve.solve(DAg);
+
+		#pragma omp parallel for 
+		for(int i=0; i<store.dFvec.size()/9; i++){
+			Matrix9xModes B = store.WoodB.block<9, NUM_MODES>(9*i, 0);
+
+			BInvXDy.segment<9>(9*i) = B*InvXDAg;
+		}
+		// BInvXDy = store.WoodB*WoodburyDenseSolve.solve(DAg);
+
+		#pragma omp parallel for
+		for(int i=0; i<store.dFvec.size()/9; i++){
+			Vector9d InvAtemp1 = store.vecInvA[i].solve(BInvXDy.segment<9>(9*i));
+			drt.segment<9>(9*i) -=  InvAtemp1;
+		}
+
+		drt *= -1;
+
+
+
+		//Woodbury parallelization approach 2 (trying to avoid reductions)
 		//Inv(A)*g - Inv(A)*B*Inv(Inv(C) + D*Inv(A)*B)*D*Inv(A)g
 		//DO:
 		//store <-Inv(A) parallel
@@ -217,33 +241,58 @@ namespace famu
 		//X <- D*H parallel 
 		//y <- B*Inv(X)*D*drt 9nx1 on-liner
 		//drt - Inv(A)*y parallel
+		igl::Timer timer;
+
+		// timer.start();
+		// #pragma omp parallel for
+		// for(int i=0; i<store.dFvec.size()/9; i++){
+		// 	Matrix9d A = denseHess.block<9,9>(9*i, 0);
+		// 	LDLT<Matrix9d> InvA;
+		// 	InvA.compute(A);
+		// 	store.vecInvA[i] = InvA;
+
+		// 	drt.segment<9>(9*i) = InvA.solve(g.segment<9>(9*i));;
+
+		// 	Matrix9xModes B = store.WoodB.block(9*i, 0, 9, store.G.cols());
+		// 	H.block<9,NUM_MODES>(9*i, 0) = InvA.solve(B);
 
 
-		#pragma omp parallel for
-		for(int i=0; i<store.dFvec.size()/9; i++){
-			Matrix9d A = denseHess.block<9,9>(9*i, 0);
-			LDLT<Matrix9d> InvA;
-			InvA.compute(A);
-			store.vecInvA[i] = InvA;
+		// }
+		// timer.stop();
+		// double block1 = timer.getElapsedTimeInMicroSec();
 
-			drt.segment<9>(9*i) = InvA.solve(g.segment<9>(9*i));;
 
-			Matrix9xModes B = store.WoodB.block(9*i, 0, 9, store.G.cols());
-			H.block<9,NUM_MODES>(9*i, 0) = InvA.solve(B);
+		// timer.start();
+		// X = store.InvC + store.WoodD*H;
+		// timer.stop();
+		// double block2 = timer.getElapsedTimeInMicroSec();
 
-		}
-		
-		X = store.InvC + store.WoodD*H;
-		FullPivLU<MatrixModesxModes> WoodburyDenseSolve;
-		WoodburyDenseSolve.compute(X);
-		BInvXDy = store.WoodB*WoodburyDenseSolve.solve(store.WoodD*drt);
 
-		#pragma omp parallel for
-		for(int i=0; i<store.dFvec.size()/9; i++){
-			Vector9d InvAtemp1 = store.vecInvA[i].solve(BInvXDy.segment<9>(9*i));
-			drt.segment<9>(9*i) -=  InvAtemp1;
-		}
-		drt *= -1;
+		// timer.start();
+		// FullPivLU<MatrixModesxModes> WoodburyDenseSolve;
+		// WoodburyDenseSolve.compute(X);
+		// timer.stop();
+		// double block3 = timer.getElapsedTimeInMicroSec();
+
+
+		// timer.start();
+		// BInvXDy = store.WoodB*WoodburyDenseSolve.solve(store.WoodD*drt);
+		// timer.stop();
+		// double block4 = timer.getElapsedTimeInMicroSec();
+
+
+		// timer.start();
+		// // #pragma omp parallel for
+		// for(int i=0; i<store.dFvec.size()/9; i++){
+		// 	Vector9d InvAtemp1 = store.vecInvA[i].solve(BInvXDy.segment<9>(9*i));
+		// 	drt.segment<9>(9*i) -=  InvAtemp1;
+		// }
+		// timer.stop();
+
+		// double block5 = timer.getElapsedTimeInMicroSec();
+		// drt *= -1;
+
+		// std::cout<<block1<<", "<<block2<<", "<<block3<<", "<<block4<<", "<<block5<<std::endl;
 
 	}
 

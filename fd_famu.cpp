@@ -74,6 +74,7 @@ int main(int argc, char *argv[])
 
 		}
 		Eigen::initParallel();
+		cout<<Eigen::nbThreads()<<endl;
 		
     	igl::Timer timer;
 

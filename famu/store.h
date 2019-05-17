@@ -7,6 +7,7 @@
 #include <igl/Timer.h>
 #include <Eigen/LU>
 #include <Eigen/UmfPackSupport>
+// #include <Eigen/PardisoSupport>
 #include <omp.h>
 
 #define NUM_MODES 48
