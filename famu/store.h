@@ -7,7 +7,11 @@
 #include <igl/Timer.h>
 #include <Eigen/LU>
 #include <Eigen/UmfPackSupport>
-// #include <Eigen/PardisoSupport>
+
+#define EIGEN_USE_MKL_ALL
+#ifdef EIGEN_USE_MKL_ALL
+#include <Eigen/PardisoSupport>
+#endif
 #include <omp.h>
 
 #define NUM_MODES 48
@@ -63,7 +67,8 @@ namespace famu{
 
 		
 		// Eigen::SparseLU<Eigen::SparseMatrix<double>> SPLU;
-		Eigen::UmfPackLU<Eigen::SparseMatrix<double>> ACAP_KKT_SPLU;
+		Eigen::PardisoLU<Eigen::SparseMatrix<double>> ACAP_KKT_SPLU;
+
 		Eigen::UmfPackLU<Eigen::SparseMatrix<double>> NM_SPLU;//TODO: optimize this away
 		
 		

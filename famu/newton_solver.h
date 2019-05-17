@@ -14,10 +14,11 @@ using namespace std;
 
 namespace famu
 {
-	double Energy(Store& store){
-		double EM = famu::muscle::energy(store, store.dFvec);
-		double ENH = famu::stablenh::energy(store, store.dFvec);
-		double EACAP = famu::acap::fastEnergy(store, store.dFvec);
+	double Energy(Store& store, VectorXd& dFvec){
+		double EM = famu::muscle::energy(store, dFvec);
+		double ENH = famu::stablenh::energy(store, dFvec);
+		double EACAP = famu::acap::fastEnergy(store, dFvec);
+
 		return EM + ENH + EACAP;
 	}
 
@@ -87,10 +88,7 @@ namespace famu
 
         polar_dec(store, x);
         famu::acap::solve(store, x);
-        double EM = famu::muscle::energy(store, x);
-		double ENH = famu::stablenh::energy(store, x);
-		double EACAP = famu::acap::fastEnergy(store, x);
-        double fx = EM + ENH + EACAP;//f(x, grad, k, iter);
+       	double fx = Energy(store, x);
         // Save the function value at the current x
         const double fx_init = fx;
         // Projection of gradient on the search direction
@@ -112,10 +110,7 @@ namespace famu
 
             // Evaluate this candidate
             famu::acap::solve(store, x);
-            double EM = famu::muscle::energy(store, x);
-			double ENH = famu::stablenh::energy(store, x);
-			double EACAP = famu::acap::fastEnergy(store, x);
-            fx = EM + ENH + EACAP;//f(x, grad, k, iter);
+           	fx = Energy(store, x);
 
             if(fx > fx_init + step * dg_test)
             {
@@ -183,12 +178,16 @@ namespace famu
 		//Woodbury parallel approach 1 (with reduction)
 
 		Matrix<double, NUM_MODES, 1> DAg = Matrix<double, NUM_MODES, 1>::Zero(); 
+		Matrix<double, NUM_MODES, 1> InvXDAg;
+		FullPivLU<MatrixModesxModes> WoodburyDenseSolve;
 
 		X = store.InvC;
 		#pragma omp parallel
 		{
 			MatrixModesxModes Xpriv = MatrixModesxModes::Zero();
-			#pragma omp for nowait
+			Matrix<double, NUM_MODES, 1> DAgpriv = Matrix<double, NUM_MODES, 1>::Zero(); 
+
+			#pragma omp for
 			for(int i=0; i<store.dFvec.size()/9; i++){
 				Matrix9d A = denseHess.block<9,9>(9*i, 0);
 				LDLT<Matrix9d> InvA;
@@ -201,30 +200,28 @@ namespace famu
 				Matrix9xModes B = store.WoodB.block<9, NUM_MODES>(9*i, 0);
 				Xpriv = Xpriv + -B.transpose()*InvA.solve(B);
 
-				DAg  = DAg + -B.transpose()*invAg;
+				DAgpriv  = DAgpriv + -B.transpose()*invAg;
 			}
 			#pragma omp critical
 			{
 				X += Xpriv;
+				DAg += DAgpriv;
 			}
 		}
 
-		FullPivLU<MatrixModesxModes> WoodburyDenseSolve;
-		WoodburyDenseSolve.compute(X);
+		#pragma omp single
+		{
 
-		Matrix<double, NUM_MODES, 1> InvXDAg = WoodburyDenseSolve.solve(DAg);
+			WoodburyDenseSolve.compute(X);
+			InvXDAg = WoodburyDenseSolve.solve(DAg);
 
-		#pragma omp parallel for 
-		for(int i=0; i<store.dFvec.size()/9; i++){
-			Matrix9xModes B = store.WoodB.block<9, NUM_MODES>(9*i, 0);
-
-			BInvXDy.segment<9>(9*i) = B*InvXDAg;
 		}
-		// BInvXDy = store.WoodB*WoodburyDenseSolve.solve(DAg);
 
 		#pragma omp parallel for
 		for(int i=0; i<store.dFvec.size()/9; i++){
-			Vector9d InvAtemp1 = store.vecInvA[i].solve(BInvXDy.segment<9>(9*i));
+			Matrix9xModes B = store.WoodB.block<9, NUM_MODES>(9*i, 0);
+
+			Vector9d InvAtemp1 = store.vecInvA[i].solve(B*InvXDAg);
 			drt.segment<9>(9*i) -=  InvAtemp1;
 		}
 
@@ -330,7 +327,7 @@ namespace famu
 		int iter =1;
 		for(iter=1; iter<MAX_ITERS; iter++){
 			graddFvec.setZero();
-			double prevfx = Energy(store);
+			double prevfx = Energy(store, store.dFvec);
 
 			famu::acap::solve(store, store.dFvec);
 			famu::muscle::gradient(store, muscle_grad);
@@ -409,7 +406,7 @@ namespace famu
 
 			store.dFvec += alpha*delta_dFvec;
 			polar_dec(store, store.dFvec);
-			double fx = Energy(store);
+			double fx = Energy(store, store.dFvec);
 
 			
 

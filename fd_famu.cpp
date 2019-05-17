@@ -268,7 +268,7 @@ int main(int argc, char *argv[])
 		SparseMatrix<double> KKT_left2;
 		famu::construct_kkt_system_left(KKT_left, store.Bx,  KKT_left2, -1e-3); 
 		// MatrixXd Hkkt = MatrixXd(KKT_left2);
-		
+		store.ACAP_KKT_SPLU.pardisoParameterArray()[2] = num_threads; 
 
 		store.ACAP_KKT_SPLU.analyzePattern(KKT_left2);
 		store.ACAP_KKT_SPLU.factorize(KKT_left2);
