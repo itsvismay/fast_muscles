@@ -59,8 +59,8 @@ namespace famu
 		double energy(Store& store, VectorXd& dFvec){
 			double MuscleEnergy = 0;
 
-			// #pragma omp parallel for reduction(+: MuscleEnergy)
 			for(int i=0; i<store.contract_muscles.size(); i++){
+				#pragma omp parallel for reduction(+:MuscleEnergy)
 				for(int j=0; j<store.muscle_tets[store.contract_muscles[i]].size(); j++){
 					int t = store.muscle_tets[store.contract_muscles[i]][j];
 					int f_index = store.bone_or_muscle[t];
@@ -78,7 +78,7 @@ namespace famu
 			grad.setZero();
 
 			for(int i=0; i<store.contract_muscles.size(); i++){
-				// #pragma omp parallel for
+				#pragma omp parallel for
 				for(int j=0; j<store.muscle_tets[store.contract_muscles[i]].size(); j++){
 					int t = store.muscle_tets[store.contract_muscles[i]][j];
 					int f_index = store.bone_or_muscle[t];
