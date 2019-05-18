@@ -7,6 +7,7 @@
 #include <igl/readOBJ.h>
 #include <igl/jet.h>
 #include <igl/png/readPNG.h>
+#include <igl/png/writePNG.h>
 #include <igl/volume.h>
 #include <igl/slice.h>
 #include <igl/boundary_facets.h>
@@ -74,7 +75,7 @@ int main(int argc, char *argv[])
 
 		}
 		Eigen::initParallel();
-		cout<<Eigen::nbThreads()<<endl;
+	
 		
     	igl::Timer timer;
 
@@ -91,12 +92,12 @@ int main(int argc, char *argv[])
 								store.bone_tets, 
 								store.muscle_tets, 
 								store.fix_bones, 
-								store.relativeStiffness, 
+								store.relativeStiffness,
+								store.contract_muscles,
 								store.jinput);  
 		store.alpha_arap = store.jinput["alpha_arap"];
 		store.alpha_neo = store.jinput["alpha_neo"];
-		std::vector<int> contract_muscles = store.jinput["contract_muscles_at_index"];
-		store.contract_muscles = contract_muscles;
+		
 
 
 	cout<<"---Record Mesh Setup Info"<<endl;
@@ -353,11 +354,11 @@ int main(int argc, char *argv[])
 
 			store.InvC = store.eigenvalues.asDiagonal();
 			store.WoodC = store.eigenvalues.asDiagonal().inverse();
-
 			for(int i=0; i<store.dFvec.size()/9; i++){
 				LDLT<Matrix9d> InvA;
 				store.vecInvA.push_back(InvA);
 			}
+
 	}
 
 
@@ -393,6 +394,26 @@ int main(int argc, char *argv[])
 
 	std::cout<<"-----Display-------"<<std::endl;
     igl::opengl::glfw::Viewer viewer;
+    int currentStep = 0;
+     viewer.callback_post_draw= [&](igl::opengl::glfw::Viewer & viewer) {
+	    
+	    std::stringstream out_file;
+	    //render out current view
+	    // Allocate temporary buffers for 1280x800 image
+	    Eigen::Matrix<unsigned char,Eigen::Dynamic,Eigen::Dynamic> R(1920,1280);
+	    Eigen::Matrix<unsigned char,Eigen::Dynamic,Eigen::Dynamic> G(1920,1280);
+	    Eigen::Matrix<unsigned char,Eigen::Dynamic,Eigen::Dynamic> B(1920,1280);
+	    Eigen::Matrix<unsigned char,Eigen::Dynamic,Eigen::Dynamic> A(1920,1280);
+	    
+	    // Draw the scene in the buffers
+	    viewer.core.draw_buffer(viewer.data(),false,R,G,B,A);
+	    
+	    // Save it to a PNG
+	    out_file<<"out_"<<std::setfill('0') << std::setw(5) <<currentStep<<".png";
+	    igl::png::writePNG(R,G,B,A,out_file.str());
+	    currentStep += 1;
+	    return false;
+	};
 
     viewer.callback_key_down = [&](igl::opengl::glfw::Viewer & viewer, unsigned char key, int modifiers){   
         std::cout<<"Key down, "<<key<<std::endl;
@@ -438,23 +459,12 @@ int main(int argc, char *argv[])
             // cout<<"+++Microsecs per solve: "<<timer.getElapsedTimeInMicroSec()<<endl;
 
             double fx = 0;
-            timer.start();
             int niters = 0;
-
             niters = famu::newton_static_solve(store);
-            timer.stop();
-            double totaltime = timer.getElapsedTimeInMicroSec();
-            cout<<"Full NM per iter: "<<totaltime/niters<<endl;
-            cout<<"Total time: "<<totaltime<<endl;
-            cout<<"Total its: "<<niters<<endl;
-            double EM = famu::muscle::energy(store, store.dFvec);
-			double ENH = famu::stablenh::energy(store, store.dFvec);
-			double EACAP = famu::acap::fastEnergy(store, store.dFvec);
-			cout<<"E_a: "<<EACAP<<", E_m: "<<EM<<", E_n: "<<ENH<<endl;
-            cout<<"+++++ QS Iteration +++++"<<endl;
+
             VectorXd y = store.Y*store.x;
             Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
-            // igl::writeOBJ(outputfile+"EMU"+to_string(store.T.rows())+".obj", (newV.transpose()+store.V), store.F);
+            igl::writeOBJ(outputfile+"EMU"+to_string(store.T.rows())+".obj", (newV.transpose()+store.V), store.F);
             viewer.data_list[fancy_data_index].set_vertices((newV.transpose()+store.V));
             viewer.data_list[debug_data_index].set_vertices((newV.transpose()+store.V));
             return true;
@@ -699,6 +709,8 @@ void main()
         viewer.data_list[fancy_data_index].meshgl.shader_mesh);
     }
   }
+
+
 
   viewer.core.is_animating = false;
   viewer.core.background_color = Eigen::Vector4f(1,1,1,0);
