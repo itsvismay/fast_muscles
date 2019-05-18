@@ -378,7 +378,7 @@ int main(int argc, char *argv[])
 
 		VectorXd y = store.Y*store.x;
 		Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
-		igl::writeOBJ(outputfile+"EMU"+to_string(store.T.rows())+".obj", (newV.transpose()+store.V), store.F);
+		igl::writeOBJ(outputfile+"/EMU"+to_string(store.T.rows())+".obj", (newV.transpose()+store.V), store.F);
 		exit(0);
 
 	std::cout<<"-----Display-------"<<std::endl;
