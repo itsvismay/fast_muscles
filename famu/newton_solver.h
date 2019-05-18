@@ -352,15 +352,28 @@ namespace famu
 			}
 		}
 		timer1.stop();
+		double nmtime = timer1.getElapsedTimeInMicroSec();
+
+		timer1.start();
+		double final_energy = Energy(store, store.dFvec);
+		timer1.stop();
+		double energy_time = timer1.getElapsedTimeInMicroSec();
+
+		timer1.start();
+		famu::acap::solve(store, store.dFvec);
+		timer1.stop();
 
 		cout<<"-----------QS STEP INFO----------"<<endl;
 		cout<<"V, T:"<<store.V.rows()<<", "<<store.T.rows()<<endl;
 		cout<<"Threads: "<<Eigen::nbThreads()<<endl;
 		cout<<"NM Iters: "<<iter<<endl;
-		cout<<"Total NM time: "<<timer1.getElapsedTimeInMicroSec()<<endl;
+		cout<<"Total NM time: "<<nmtime<<endl;
 		cout<<"Total Hess time: "<<woodtimes<<endl;
 		cout<<"Total LS time: "<<linetimes<<endl;
 		cout<<"LS iters: "<<tot_ls_its<<endl;
+		cout<<"Energy: "<<final_energy<<endl;
+		cout<<"Energy Time: "<<energy_time<<endl;
+		cout<<"ACAP time: "<<timer1.getElapsedTimeInMicroSec()<<endl;
 		cout<<"--------------------------------"<<endl;
         return iter;
 	}
