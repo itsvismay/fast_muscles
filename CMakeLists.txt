@@ -32,7 +32,6 @@ include_directories(${MKLROOT}/include)
 include_directories(${JSON_HPP_SRC_DIR})
 include_directories(${SPECTRA_DIR})
 include_directories(${SUITESPARSE_INCLUDE_DIRS})
-include_directories(${EIGEN335_INCLUDE_DIRS})
 
 file(GLOB SRCFILES famu/*.cpp)
 
