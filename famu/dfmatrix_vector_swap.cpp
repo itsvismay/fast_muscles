@@ -1,7 +1,7 @@
 #include "dfmatrix_vector_swap.h"
 #include <vector>
 using namespace Eigen;
-void famu::dFMatrix_Vector_Swap(SparseMatrix<double>& mat, VectorXd& vec){
+void famu::dFMatrix_Vector_Swap(SparseMatrix<double, Eigen::RowMajor>& mat, VectorXd& vec){
     std::vector<Trip> mat_trips;
 
     for (int i=0; i<vec.size()/12; i++){

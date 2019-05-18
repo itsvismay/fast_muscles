@@ -6,17 +6,17 @@ using namespace Eigen;
 
 typedef Eigen::Triplet<double> Trip;
 
-std::vector<Eigen::Triplet<double>> to_triplets(Eigen::SparseMatrix<double> & M){
+std::vector<Eigen::Triplet<double>> to_triplets(Eigen::SparseMatrix<double, Eigen::RowMajor> & M){
 	std::vector<Eigen::Triplet<double>> v;
 	for(int i = 0; i < M.outerSize(); i++){
-		for(typename Eigen::SparseMatrix<double>::InnerIterator it(M,i); it; ++it){	
+		for(typename Eigen::SparseMatrix<double, Eigen::RowMajor>::InnerIterator it(M,i); it; ++it){	
 			v.emplace_back(it.row(),it.col(),it.value());
 		}
 	}
 	return v;
 }
 
-void famu::construct_kkt_system_left(Eigen::SparseMatrix<double>& H, Eigen::SparseMatrix<double>& C, Eigen::SparseMatrix<double>& KKT_Left, double constraint_stiffness){
+void famu::construct_kkt_system_left(Eigen::SparseMatrix<double, Eigen::RowMajor>& H, Eigen::SparseMatrix<double, Eigen::RowMajor>& C, Eigen::SparseMatrix<double, Eigen::RowMajor>& KKT_Left, double constraint_stiffness){
 	KKT_Left.resize(H.rows()+C.rows(), H.rows()+C.rows());
 	KKT_Left.setZero();
 

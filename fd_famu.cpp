@@ -262,11 +262,11 @@ int main(int argc, char *argv[])
 	
 
 	cout<<"---ACAP Solve KKT setup"<<store.x.size()<<endl;
-		SparseMatrix<double> KKT_left;
+		SparseMatrix<double, Eigen::RowMajor> KKT_left;
 		store.YtStDtDSY = (store.D*store.S*store.Y).transpose()*(store.D*store.S*store.Y);
 		famu::construct_kkt_system_left(store.YtStDtDSY, store.JointConstraints, KKT_left);
 
-		SparseMatrix<double> KKT_left2;
+		SparseMatrix<double, Eigen::RowMajor> KKT_left2;
 		famu::construct_kkt_system_left(KKT_left, store.Bx,  KKT_left2, -1e-3); 
 		// MatrixXd Hkkt = MatrixXd(KKT_left2);
 		store.ACAP_KKT_SPLU.pardisoParameterArray()[2] = num_threads; 

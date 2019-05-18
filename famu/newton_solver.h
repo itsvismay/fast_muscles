@@ -156,7 +156,7 @@ namespace famu
         return step;
 	}
 
-	void sparse_to_dense(const Store& store, SparseMatrix<double>& H, MatrixXd& denseHess){
+	void sparse_to_dense(const Store& store, SparseMatrix<double, Eigen::RowMajor>& H, MatrixXd& denseHess){
 		//Fill denseHess with 9x9 block diags from H
 		//TODO: this should be done in the hessians code. coeffRef is expensive
 		//FIX AFTER THE DEADLINE
@@ -236,8 +236,8 @@ namespace famu
 		muscle_grad.resize(store.dFvec.size());
 		neo_grad.resize(store.dFvec.size());
 		acap_grad.resize(store.dFvec.size());
-		SparseMatrix<double> hessFvec(store.dFvec.size(), store.dFvec.size());
-		SparseMatrix<double> constHess(store.dFvec.size(), store.dFvec.size());
+		SparseMatrix<double, Eigen::RowMajor> hessFvec(store.dFvec.size(), store.dFvec.size());
+		SparseMatrix<double, Eigen::RowMajor> constHess(store.dFvec.size(), store.dFvec.size());
 		constHess.setZero();
 
 

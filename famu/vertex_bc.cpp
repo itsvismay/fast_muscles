@@ -2,7 +2,7 @@
 
 using namespace Eigen;
 
-void famu::vertex_bc(std::vector<int>& mmov, std::vector<int>& mfix, Eigen::SparseMatrix<double>& mFree, Eigen::SparseMatrix<double>& mConstrained, Eigen::MatrixXd& mV){
+void famu::vertex_bc(std::vector<int>& mmov, std::vector<int>& mfix, Eigen::SparseMatrix<double, Eigen::RowMajor>& mFree, Eigen::SparseMatrix<double, Eigen::RowMajor>& mConstrained, Eigen::MatrixXd& mV){
     std::vector<int> lfix = mfix;
 	if(mmov.size()>0){
         lfix.insert(lfix.end(), mmov.begin(), mmov.end());

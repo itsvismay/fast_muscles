@@ -9,42 +9,35 @@ typedef Eigen::Triplet<double> Trip;
 
 double famu::stablenh::energy(const Store& store, Eigen::VectorXd& dFvec){
 	double stableNHEnergy = 0;
-	// #pragma omp parallel for reduction(+:stableNHEnergy)
-	// for(int t=0; t<store.T.rows(); t++){
-	// 	double youngsModulus = store.eY[t];
-	// 	double poissonsRatio = store.eP[t];
-	// 	double C1 = youngsModulus/(2.0*(1.0+poissonsRatio));
-	// 	double D1 = (youngsModulus*poissonsRatio)/((1.0+poissonsRatio)*(1.0-2.0*poissonsRatio));
-		
-	// 	int f_index = store.bone_or_muscle[t];
-
-	// 	Matrix3d F = Map<Matrix3d>(dFvec.segment<9>(9*f_index).data()).transpose();
-	// 	double I1 = (F.transpose()*F).trace();
-	// 	double J = F.determinant();
-	// 	double alpha = (1 + (C1/D1) - (C1/(D1*4)));
-	// 	double W = 0.5*C1*(I1 -3) + 0.5*D1*(J-alpha)*(J-alpha) - 0.5*C1*log(I1 + 1);
-	// 	stableNHEnergy += W*store.rest_tet_volume[t];
-	// }
-
 
 	for(int m=0; m<store.muscle_tets.size(); m++){
-		#pragma omp parallel for reduction(+:stableNHEnergy)
-		for(int i=0; i<store.muscle_tets[m].size(); i++){
-			int t = store.muscle_tets[m][i];
-			double youngsModulus = store.eY[t];
-			double poissonsRatio = store.eP[t];
-			double C1 = youngsModulus/(2.0*(1.0+poissonsRatio));
-			double D1 = (youngsModulus*poissonsRatio)/((1.0+poissonsRatio)*(1.0-2.0*poissonsRatio));
-			
-			int f_index = store.bone_or_muscle[t];
+		#pragma omp parallel
+		{	
+			double sNHpriv = 0;
 
-			Matrix3d F = Map<Matrix3d>(dFvec.segment<9>(9*f_index).data()).transpose();
-			double I1 = (F.transpose()*F).trace();
-			double J = F.determinant();
-			double alpha = (1 + (C1/D1) - (C1/(D1*4)));
-			double W = 0.5*C1*(I1 -3) + 0.5*D1*(J-alpha)*(J-alpha) - 0.5*C1*log(I1 + 1);
-			stableNHEnergy += W*store.rest_tet_volume[t];
-		}
+			#pragma omp for 
+			for(int i=0; i<store.muscle_tets[m].size(); i++){
+				int t = store.muscle_tets[m][i];
+				double youngsModulus = store.eY[t];
+				double poissonsRatio = store.eP[t];
+				double C1 = youngsModulus/(2.0*(1.0+poissonsRatio));
+				double D1 = (youngsModulus*poissonsRatio)/((1.0+poissonsRatio)*(1.0-2.0*poissonsRatio));
+				
+				int f_index = store.bone_or_muscle[t];
+
+				Matrix3d F = Map<Matrix3d>(dFvec.segment<9>(9*f_index).data()).transpose();
+				double I1 = (F.transpose()*F).trace();
+				double J = F.determinant();
+				double alpha = (1 + (C1/D1) - (C1/(D1*4)));
+				double W = 0.5*C1*(I1 -3) + 0.5*D1*(J-alpha)*(J-alpha) - 0.5*C1*log(I1 + 1);
+				sNHpriv += W*store.rest_tet_volume[t];
+			}
+
+			#pragma omp critical
+			{
+				stableNHEnergy += sNHpriv;
+			}
+		} 
 	}
 
 	for(int m=0; m<store.bone_tets.size(); m++){
@@ -161,7 +154,7 @@ void famu::stablenh::gradient(const Store& store, Eigen::VectorXd& grad){
 	}
 }
 
-void famu::stablenh::hessian(const Store& store, Eigen::SparseMatrix<double>& hess, Eigen::MatrixXd& denseHess, bool dense){
+void famu::stablenh::hessian(const Store& store, Eigen::SparseMatrix<double, Eigen::RowMajor>& hess, Eigen::MatrixXd& denseHess, bool dense){
 
 
 	if(dense){
