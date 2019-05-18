@@ -34,11 +34,6 @@ include_directories(${SPECTRA_DIR})
 include_directories(${SUITESPARSE_INCLUDE_DIRS})
 include_directories(${EIGEN335_INCLUDE_DIRS})
 
-set(Boost_USE_STATIC_LIBS OFF) 
-set(Boost_USE_MULTITHREADED ON)  
-set(Boost_USE_STATIC_RUNTIME OFF) 
-find_package(Boost COMPONENTS filesystem REQUIRED) 
-
 file(GLOB SRCFILES famu/*.cpp)
 
 add_executable(famu "fd_famu.cpp" ${SRCFILES} ${EXTERNALS})
