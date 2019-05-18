@@ -4,7 +4,7 @@ using Store=famu::Store;
 using namespace Eigen;
 using namespace std;
 
-void famu::bone_def_grad_projection_matrix(Store& store, Eigen::SparseMatrix<double>& mN, Eigen::SparseMatrix<double>& mAN){
+void famu::bone_def_grad_projection_matrix(Store& store, Eigen::SparseMatrix<double, Eigen::RowMajor>& mN, Eigen::SparseMatrix<double, Eigen::RowMajor>& mAN){
 	int num_bones = store.bone_tets.size();
 	std::vector<Trip> mN_trips, mAN_trips;
 	

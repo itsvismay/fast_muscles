@@ -6,7 +6,7 @@ using Store=famu::Store;
 
 namespace famu
 {
-	void bone_def_grad_projection_matrix(Store& store, Eigen::SparseMatrix<double>& mN, Eigen::SparseMatrix<double>& mAN);
+	void bone_def_grad_projection_matrix(Store& store, Eigen::SparseMatrix<double, Eigen::RowMajor>& mN, Eigen::SparseMatrix<double, Eigen::RowMajor>& mAN);
 }
 
 #endif

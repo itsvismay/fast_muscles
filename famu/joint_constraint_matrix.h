@@ -6,7 +6,7 @@ using Store=famu::Store;
 using namespace Eigen;
 namespace famu
 {
-	void joint_constraint_matrix(Store& store, SparseMatrix<double>& jointsY){
+	void joint_constraint_matrix(Store& store, SparseMatrix<double, Eigen::RowMajor>& jointsY){
         int hingejoints = 0;
         int socketjoints = 0;
 

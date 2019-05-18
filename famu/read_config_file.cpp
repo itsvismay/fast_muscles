@@ -26,8 +26,12 @@ void famu::read_config_files(Eigen::MatrixXd& V,
                         std::vector<int>& contract_muscles,
                         json& j_input)
 {
-    std::string datafile = j_input["data"];
+    std::cout<<"EIGEN"<<std::endl;
+    std::cout<<EIGEN_MAJOR_VERSION<<std::endl;
+    std::cout<<EIGEN_MINOR_VERSION<<std::endl;
 
+
+    std::string datafile = j_input["data"];
     //Read Mesh
     igl::readDMAT(datafile+"/generated_files/tet_mesh_V.dmat", V);
     igl::readDMAT(datafile+"/generated_files/tet_mesh_T.dmat", T);

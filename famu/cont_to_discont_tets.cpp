@@ -1,6 +1,6 @@
 #include "cont_to_discont_tets.h"
 
-void famu::cont_to_discont_tets(Eigen::SparseMatrix<double>& mA, Eigen::MatrixXi& mT, Eigen::MatrixXd& mV){
+void famu::cont_to_discont_tets(Eigen::SparseMatrix<double, Eigen::RowMajor>& mA, Eigen::MatrixXi& mT, Eigen::MatrixXd& mV){
 	mA.resize(12*mT.rows(), 3*mV.rows());
     std::vector<Trip> triplets;
     triplets.reserve(12*mT.rows());

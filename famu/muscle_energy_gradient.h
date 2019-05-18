@@ -15,7 +15,7 @@ namespace famu
 			
 			std::vector<Trip> mat_trips;
 			for(int i=0; i<store.muscle_tets.size(); i++){
-				SparseMatrix<double> mat;
+				SparseMatrix<double, Eigen::RowMajor> mat;
 				for(int j=0; j<store.muscle_tets[i].size(); j++){
 					int t = store.muscle_tets[i][j];
 					Vector3d u = std::sqrt(store.muscle_mag[t]*store.rest_tet_volume[t])*store.Uvec.row(t);
@@ -60,15 +60,25 @@ namespace famu
 			double MuscleEnergy = 0;
 
 			for(int i=0; i<store.contract_muscles.size(); i++){
-				#pragma omp parallel for reduction(+:MuscleEnergy)
-				for(int j=0; j<store.muscle_tets[store.contract_muscles[i]].size(); j++){
-					int t = store.muscle_tets[store.contract_muscles[i]][j];
-					int f_index = store.bone_or_muscle[t];
-					Matrix3d F = Map<Matrix3d>(dFvec.segment<9>(9*f_index).data()).transpose();
-					Vector3d y = store.Uvec.row(t).transpose();
-					Vector3d z = F*y;
-					double W = 0.5*store.muscle_mag[t]*store.rest_tet_volume[t]*(z.dot(z));
-					MuscleEnergy += W;
+				#pragma omp parallel
+				{	
+					double me_priv = 0;
+
+					#pragma omp for	
+					for(int j=0; j<store.muscle_tets[store.contract_muscles[i]].size(); j++){
+						int t = store.muscle_tets[store.contract_muscles[i]][j];
+						int f_index = store.bone_or_muscle[t];
+						Matrix3d F = Map<Matrix3d>(dFvec.segment<9>(9*f_index).data()).transpose();
+						Vector3d y = store.Uvec.row(t).transpose();
+						Vector3d z = F*y;
+						double W = 0.5*store.muscle_mag[t]*store.rest_tet_volume[t]*(z.dot(z));
+						me_priv += W;
+					}
+
+					#pragma omp critical
+					{
+						MuscleEnergy += me_priv;
+					}
 				}
 			}
 			return MuscleEnergy;
@@ -118,7 +128,7 @@ namespace famu
 			}
 		}
 
-		void fastHessian(Store& store, SparseMatrix<double>& hess, Eigen::MatrixXd& denseHess){
+		void fastHessian(Store& store, SparseMatrix<double, Eigen::RowMajor>& hess, Eigen::MatrixXd& denseHess){
 			hess.setZero();
 			for(int i=0; i<store.contract_muscles.size(); i++){
 				hess += store.fastMuscles[store.contract_muscles[i]];

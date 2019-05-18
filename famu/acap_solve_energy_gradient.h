@@ -15,10 +15,10 @@ namespace famu
 {
 	namespace acap
 	{
-		std::vector<Eigen::Triplet<double>> to_triplets(Eigen::SparseMatrix<double> & M){
+		std::vector<Eigen::Triplet<double>> to_triplets(Eigen::SparseMatrix<double, RowMajor> & M){
 			std::vector<Eigen::Triplet<double>> v;
 			for(int i = 0; i < M.outerSize(); i++){
-				for(typename Eigen::SparseMatrix<double>::InnerIterator it(M,i); it; ++it){	
+				for(typename Eigen::SparseMatrix<double, RowMajor>::InnerIterator it(M,i); it; ++it){	
 					v.emplace_back(it.row(),it.col(),it.value());
 				}
 			}
@@ -26,7 +26,7 @@ namespace famu
 		}
 
 		double energy(Store& store){
-			SparseMatrix<double> DS = store.D*store.S;
+			SparseMatrix<double, RowMajor> DS = store.D*store.S;
 			double E1 =  0.5*(store.D*store.S*(store.x+store.x0) - store.dF*store.DSx0).squaredNorm();
 
 			double E2 = 0.5*store.x.transpose()*store.StDtDS*store.x;
@@ -47,8 +47,8 @@ namespace famu
 			double E4 = -store.x0tStDt_dF_DSx0.dot(dFvec);
 			double E5 = -store.x.transpose()*store.YtStDt_dF_DSx0*dFvec;
 			double E6 = 0.5*dFvec.transpose()*store.x0tStDt_dF_dF_DSx0*dFvec;
-		 
 			double E9 = E1+E2+E3+E4+E5+E6;
+		 
 			return E9;
 		}
 
@@ -59,7 +59,7 @@ namespace famu
 			grad -= store.Bf.transpose()*store.lambda2;
 		}
 
-		void fastHessian(Store& store, SparseMatrix<double>& hess, Eigen::MatrixXd& denseHess){
+		void fastHessian(Store& store, SparseMatrix<double, RowMajor>& hess, Eigen::MatrixXd& denseHess){
 			hess.setZero();
 			hess = store.x0tStDt_dF_dF_DSx0; //PtZtZP
 
@@ -68,7 +68,7 @@ namespace famu
 			
 			}else{
 				//else compute dense jacobian based hessian
-				hess -= store.YtStDt_dF_DSx0.transpose()*store.JacdxdF;
+				// hess -= store.YtStDt_dF_DSx0.transpose()*store.JacdxdF;
 			}
 
 		}
@@ -139,7 +139,7 @@ namespace famu
 			//Sparse jacobian
 			if(store.jinput["sparseJac"]){
 
-				SparseMatrix<double> rhs = store.YtStDt_dF_DSx0.leftCols(9*store.bone_tets.size());
+				SparseMatrix<double, RowMajor> rhs = store.YtStDt_dF_DSx0.leftCols(9*store.bone_tets.size());
 				MatrixXd top = MatrixXd(rhs);
 				MatrixXd zer = MatrixXd(store.JointConstraints.rows(), top.cols());
 				MatrixXd bone_def = MatrixXd(store.Bf.leftCols(9*store.bone_tets.size()));
@@ -151,10 +151,10 @@ namespace famu
 					cout<<"ACAP Jacobian result has nans"<<endl;
 					exit(0);
 				}
-				SparseMatrix<double> spRes = result.sparseView();
+				SparseMatrix<double, RowMajor> spRes = result.sparseView();
 
 				std::vector<Trip> res_trips = to_triplets(spRes);
-				SparseMatrix<double> spJac(spRes.rows(), store.dFvec.size());
+				SparseMatrix<double, RowMajor> spJac(spRes.rows(), store.dFvec.size());
 				spJac.setFromTriplets(res_trips.begin(), res_trips.end());
 				store.JacdxdF = spJac;
 				cout<<"jac dims: "<<store.JacdxdF.rows()<<", "<<store.JacdxdF.cols()<<", "<<store.JacdxdF.nonZeros()<<endl;
@@ -164,7 +164,7 @@ namespace famu
 
 				if(!store.jinput["woodbury"]){
 
-					SparseMatrix<double> rhs = store.YtStDt_dF_DSx0;
+					SparseMatrix<double, RowMajor> rhs = store.YtStDt_dF_DSx0;
 					MatrixXd top = MatrixXd(rhs);
 					MatrixXd zer = MatrixXd(store.JointConstraints.rows(), top.cols());
 					MatrixXd bone_def = MatrixXd(store.Bf);
@@ -179,13 +179,13 @@ namespace famu
 					
 
 					// MatrixXd rhs = MatrixXd(store.YtStDt_dF_DSx0);
-					// UmfPackLU<SparseMatrix<double>> SPLU;
+					// UmfPackLU<SparseMatrix<double, RowMajor>> SPLU;
 					// SPLU.compute(store.YtStDtDSY);
 					// MatrixXd result = SPLU.solve(rhs);
 					// cout<<result.rows()<<", "<<result.cols()<<endl;
 					
 
-					SparseMatrix<double> spRes = (result).sparseView();
+					SparseMatrix<double, RowMajor> spRes = (result).sparseView();
 					store.JacdxdF = spRes;
 					cout<<"jac dims: "<<store.JacdxdF.rows()<<", "<<store.JacdxdF.cols()<<", "<<store.JacdxdF.nonZeros()<<endl;
 
@@ -196,14 +196,14 @@ namespace famu
 				// MatrixXd GtYtStDtDSYG = store.G.transpose()*store.YtStDtDSY*store.G;
 				// MatrixXd rhs = store.G.transpose()*store.YtStDt_dF_DSx0;
 
-				// // UmfPackLU<SparseMatrix<double>> SPLU;
+				// // UmfPackLU<SparseMatrix<double, RowMajor>> SPLU;
 				// FullPivLU<MatrixXd> SPLU;
 				// SPLU.compute(GtYtStDtDSYG);
 				// MatrixXd result = SPLU.solve(rhs);
 				// cout<<store.G.rows()<<", "<<store.G.cols()<<endl;
 				// cout<<result.rows()<<", "<<result.cols()<<endl;
-				// SparseMatrix<double> spG = store.G.sparseView();
-				// SparseMatrix<double> spRes = (result).sparseView();
+				// SparseMatrix<double, RowMajor> spG = store.G.sparseView();
+				// SparseMatrix<double, RowMajor> spRes = (result).sparseView();
 				// store.JacdxdF = spG*spRes;
 				// cout<<"jac dims: "<<store.JacdxdF.rows()<<", "<<store.JacdxdF.cols()<<", "<<store.JacdxdF.nonZeros()<<endl;
 

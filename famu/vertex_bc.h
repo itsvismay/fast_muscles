@@ -8,8 +8,8 @@ namespace famu
 {
 		void vertex_bc(std::vector<int>& mmov, 
 			std::vector<int>& mfix, 
-			Eigen::SparseMatrix<double>& mFree, 
-			Eigen::SparseMatrix<double>& mConstrained,
+			Eigen::SparseMatrix<double, Eigen::RowMajor>& mFree, 
+			Eigen::SparseMatrix<double, Eigen::RowMajor>& mConstrained,
 			Eigen::MatrixXd& mV);
 }
 
