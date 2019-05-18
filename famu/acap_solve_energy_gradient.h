@@ -43,10 +43,15 @@ namespace famu
 		double fastEnergy(Store& store, VectorXd& dFvec){
 			double E1 = 0.5*store.x0tStDtDSx0;
 			double E2 = store.x0tStDtDSY.dot(store.x);
-			double E3 = 0.5*store.x.transpose()*store.YtStDtDSY*store.x;
+			store.acaptmp_sizex = store.YtStDtDSY*store.x;
+			double E3 = 0.5*store.x.transpose()*store.acaptmp_sizex;
 			double E4 = -store.x0tStDt_dF_DSx0.dot(dFvec);
-			double E5 = -store.x.transpose()*store.YtStDt_dF_DSx0*dFvec;
-			double E6 = 0.5*dFvec.transpose()*store.x0tStDt_dF_dF_DSx0*dFvec;
+
+			store.acaptmp_sizedFvec1 = store.YtStDt_dF_DSx0*dFvec;
+			double E5 = -store.x.transpose()*store.acaptmp_sizedFvec1;
+
+			store.acaptmp_sizedFvec2 = store.x0tStDt_dF_dF_DSx0*dFvec;
+			double E6 = 0.5*dFvec.transpose()*store.acaptmp_sizedFvec2;
 			double E9 = E1+E2+E3+E4+E5+E6;
 		 
 			return E9;

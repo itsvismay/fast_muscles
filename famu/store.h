@@ -68,7 +68,8 @@ namespace famu{
 		
 		// Eigen::SparseLU<Eigen::SparseMatrix<double, Eigen::RowMajor>> SPLU;
 		Eigen::PardisoLU<Eigen::SparseMatrix<double, Eigen::RowMajor>> ACAP_KKT_SPLU;
-
+		Eigen::VectorXd acaptmp_sizex;
+		Eigen::VectorXd acaptmp_sizedFvec1, acaptmp_sizedFvec2;
 		Eigen::UmfPackLU<Eigen::SparseMatrix<double, Eigen::RowMajor>> NM_SPLU;//TODO: optimize this away
 		
 		

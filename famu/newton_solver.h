@@ -355,7 +355,7 @@ namespace famu
 		double nmtime = timer1.getElapsedTimeInMicroSec();
 
 		timer1.start();
-		double final_energy = Energy(store, store.dFvec);
+		double acap_energy = famu::acap::fastEnergy(store, store.dFvec);
 		timer1.stop();
 		double energy_time = timer1.getElapsedTimeInMicroSec();
 
@@ -371,7 +371,7 @@ namespace famu
 		cout<<"Total Hess time: "<<woodtimes<<endl;
 		cout<<"Total LS time: "<<linetimes<<endl;
 		cout<<"LS iters: "<<tot_ls_its<<endl;
-		cout<<"Energy: "<<final_energy<<endl;
+		cout<<"Energy: "<<acap_energy<<endl;
 		cout<<"Energy Time: "<<energy_time<<endl;
 		cout<<"ACAP time: "<<timer1.getElapsedTimeInMicroSec()<<endl;
 		cout<<"--------------------------------"<<endl;

@@ -362,35 +362,24 @@ int main(int argc, char *argv[])
 	}
 
 
-    cout<<"---Setup Solver"<<endl;
-                famu::discontinuousV(store);
+    cout<<"---Setup TMP Vars"<<endl;
+    	famu::discontinuousV(store);
+    	store.acaptmp_sizex = store.x;
+		store.acaptmp_sizedFvec1= store.dFvec;
+		store.acaptmp_sizedFvec2 = store.dFvec;
 
 
 
 
 	cout<<"--- Write Meshes"<<endl;
-		// int run =0;
-	   //  for(int run=0; run<store.jinput["QS_steps"]; run++){
-	   //      VectorXd y = store.Y*store.x;
-	   //      Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
-	   //      std::string datafile = j_input["data"];
-	   //      ostringstream out;
-	   //      out << std::internal << std::setfill('0') << std::setw(3) << run;
-	   //      igl::writeOBJ(outputfile+"/"+"animation"+out.str()+".obj",(newV.transpose()+store.V), store.F);
-	   //      igl::writeDMAT(outputfile+"/"+"animation"+out.str()+".dmat",(newV.transpose()+store.V));
-	        
-	   //      cout<<"     ---Quasi-Newton Step Info"<<endl;
-		  //       double fx = 0;
-				// timer.start();
-				// int niters = 0;
-				// niters = famu::newton_static_solve(store);
-				// timer.stop();
-				// cout<<"+++QS Step iterations: "<<niters<<", secs: "<<timer.getElapsedTimeInMicroSec()<<endl;
-        	
-	        
-	   //      store.muscle_mag *= 1.5;
-	   //  }
-	   //  exit(0);
+		double fx = 0;
+		int niters = 0;
+		niters = famu::newton_static_solve(store);
+
+		VectorXd y = store.Y*store.x;
+		Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
+		igl::writeOBJ(outputfile+"EMU"+to_string(store.T.rows())+".obj", (newV.transpose()+store.V), store.F);
+		exit(0);
 
 	std::cout<<"-----Display-------"<<std::endl;
     igl::opengl::glfw::Viewer viewer;
