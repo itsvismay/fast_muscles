@@ -262,6 +262,8 @@ namespace famu
 		int tot_ls_its = 0;
 		int iter =1;
 		timer1.start();
+
+		double E00 = famu::stablenh::energy(store, store.dFvec);
 		for(iter=1; iter<MAX_ITERS; iter++){
 			graddFvec.setZero();
 			double prevfx = Energy(store, store.dFvec);
@@ -345,7 +347,7 @@ namespace famu
 			polar_dec(store, store.dFvec);
 			double fx = Energy(store, store.dFvec);
 
-			
+			cout<<fx - E00<<"\n";
 
 			if(graddFvec.squaredNorm()/graddFvec.size()<1e-4 || fabs(fx - prevfx)<1e-4){
 				break;

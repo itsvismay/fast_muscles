@@ -372,14 +372,15 @@ int main(int argc, char *argv[])
 
 
 	cout<<"--- Write Meshes"<<endl;
-		double fx = 0;
-		int niters = 0;
-		niters = famu::newton_static_solve(store);
+	// double fx = 0;
+	// int niters = 0;
+	// niters = famu::newton_static_solve(store);
 
-		VectorXd y = store.Y*store.x;
-		Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
-		igl::writeOBJ(outputfile+"/EMU"+to_string(store.T.rows())+".obj", (newV.transpose()+store.V), store.F);
-		exit(0);
+	// VectorXd y = store.Y*store.x;
+	// Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
+	// igl::writeOBJ("NM_BICEP.obj", (newV.transpose()+store.V), store.F);
+	// igl::writeOBJ(outputfile+"/EMU"+to_string(store.T.rows())+".obj", (newV.transpose()+store.V), store.F);
+	// exit(0);
 
 	std::cout<<"-----Display-------"<<std::endl;
     igl::opengl::glfw::Viewer viewer;
@@ -398,8 +399,8 @@ int main(int argc, char *argv[])
 	    viewer.core.draw_buffer(viewer.data(),false,R,G,B,A);
 	    
 	    // Save it to a PNG
-	    out_file<<"out_"<<std::setfill('0') << std::setw(5) <<currentStep<<".png";
-	    igl::png::writePNG(R,G,B,A,out_file.str());
+	    // out_file<<"out_"<<std::setfill('0') << std::setw(5) <<currentStep<<".png";
+	    // igl::png::writePNG(R,G,B,A,out_file.str());
 	    currentStep += 1;
 	    return false;
 	};
