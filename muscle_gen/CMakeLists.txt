@@ -6,6 +6,8 @@ set(CMAKE_BUILD_TYPE Release)
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
+
 ### ---- libIGL options: choose between header only and compiled static library
 option(LIBIGL_USE_STATIC_LIBRARY     "Use libigl as static library" ON) # TODO is this even working?
 option(LIBIGL_WITH_CGAL              "Use CGAL"                     ON)

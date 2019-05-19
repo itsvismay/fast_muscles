@@ -122,10 +122,10 @@ Mesh combine_surfs(map<string, Mesh> &bone_surfs, map<string, Mesh> &muscle_surf
 }
 
 
-TetMesh tetrahedralize_mesh(const Mesh &surf_mesh, double eps_rel) {
+TetMesh tetrahedralize_mesh(const Mesh &surf_mesh, double eps_rel, double edge_len_rel) {
 	TetMesh combined_tet_mesh;
 	tetwild::Args tetwild_args;
-	tetwild_args.initial_edge_len_rel = tetwild_args.initial_edge_len_rel*1;
+	tetwild_args.initial_edge_len_rel = edge_len_rel; // Default is 5.0
 	tetwild_args.eps_rel = eps_rel; // Tetwild default is 0.1
 
 	VectorXd A;
@@ -422,12 +422,13 @@ void generate_body_from_config(const string &body_dir, bool load_existing_tets, 
 
 	body.surf_mesh = combine_surfs(body.bone_surfs, body.muscle_surfs);
 
-	double eps_rel = 0.06; // This is the tetwild epsilon. Default is 0.1
+	double eps_rel = config.value("tetwild_eps", 0.06); // This is the tetwild epsilon. Default is 0.1
+	double edge_len_rel = config.value("tetwild_edge_len_rel", 5.0);
 	if(load_existing_tets) {
 		// This is just to speed up development, saved files remain unused
 		body.tet_mesh = load_body_tet_mesh(body_dir);
 	} else {
-		body.tet_mesh = tetrahedralize_mesh(body.surf_mesh, eps_rel);
+		body.tet_mesh = tetrahedralize_mesh(body.surf_mesh, eps_rel, edge_len_rel);
 		save_body_tet_mesh(body_dir, body.tet_mesh);
 	}
 
@@ -453,12 +454,16 @@ int main(int argc, char *argv[])
 	Body body;
 	generate_body_from_config(args.body_dir, args.load_existing_tets, body);
 
+	std::cout << "Total tets: " << body.tet_mesh.T.rows() << std::endl;
+	std::cout << "Total verts: " << body.tet_mesh.V.rows() << std::endl;
+
 	body.write(output_dir);
 
 	launch_viewer(body);
 
 	return 0;
 }
+
 
 
 

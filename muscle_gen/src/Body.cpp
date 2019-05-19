@@ -12,7 +12,7 @@ using string = std::string;
 
 void Body::write(const std::string &out_dir) {
 	string surf_path = lf::path::join(out_dir, "surf_mesh.obj");
-	igl::writeOBJ(out_dir, surf_mesh.V, surf_mesh.F);
+	igl::writeOBJ(surf_path, surf_mesh.V, surf_mesh.F);
 
 	string T_path = lf::path::join(out_dir, "tet_mesh_T.dmat");
 	igl::writeDMAT(T_path, tet_mesh.T, false);

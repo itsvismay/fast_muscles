@@ -4,10 +4,13 @@
 #include <Eigen/Core>
 
 #include <igl/barycenter.h>
+#include <igl/writeOBJ.h>
+#include <igl/slice_mask.h>
 
 #include "MeshTypes.h"
 
 #include <map>
+#include <cmath>
 
 using namespace muscle_gen;
 using namespace Eigen;
@@ -66,12 +69,15 @@ namespace muscle_gen {
 		if(fiber_edges.size() > 0) {
 			viewer.data().add_edges(fiber_edges[0], fiber_edges[1], RowVector3d(1.0, 0.0, 0.0));
 		}
+		
 
 		int n_boundary_verts = body.harmonic_boundary_verts.rows();
 		if(n_boundary_verts > 0) {
 			MatrixXd C = RowVector3d(0,0,1).replicate(n_boundary_verts, 1);
 			viewer.data().add_points(body.harmonic_boundary_verts, C);
 		}
+		viewer.data().point_size = 10.0;
+		
 
 		Eigen::MatrixXd B;
 		igl::barycenter(body.tet_mesh.V,body.tet_mesh.T, B);
@@ -82,8 +88,7 @@ namespace muscle_gen {
 				viewer.data().add_points(B.row(i), RowVector3d(1.0,1.0,1.0));
 			}
 		}
-		// MatrixXd tendon_tet_points;
-		// igl::list_to_matrix()
+		viewer.data().line_width = 100.0;
 
 	}
 
@@ -94,7 +99,7 @@ namespace muscle_gen {
 		float cutaway_offset = 0.5f;
 
 
-		double fiber_scale = 0.1;
+		double fiber_scale = 0.3;
 		std::vector<Eigen::MatrixXd> fiber_edges(2);
 		MatrixXd muscle_centers;
 		igl::barycenter(body.tet_mesh.V, body.tet_mesh.T, muscle_centers);
@@ -116,6 +121,27 @@ namespace muscle_gen {
 			}
 		};
 
+		// Debug output of muscle fiber field
+		{
+			MatrixXd eV(fiber_edges[0].rows()*2,3);
+			MatrixXi eE(fiber_edges[0].rows(),2);
+			Eigen::Array<bool,Eigen::Dynamic,1> keepmask = Eigen::Array<bool,Eigen::Dynamic,1>::Ones(eE.rows());
+
+			for(int i = 0; i < eE.rows(); i++) {
+				eV.row(i * 2 + 0) = fiber_edges[0].row(i);
+				eV.row(i * 2 + 1) = fiber_edges[1].row(i);
+				
+				eE(i, 0) = i * 2 + 0;
+				eE(i, 1) = i * 2 + 1;
+
+				if(std::isnan(eV(i*2+1))){
+					keepmask(i) = false;
+				}
+			}
+			MatrixXi EnoNaN;
+			igl::slice_mask(eE, keepmask, 1, EnoNaN);
+			igl::writeOBJ("fiber_edges.obj", eV, EnoNaN);
+		}
 
 		update(viewer, body, mesh_indices, fiber_edges, cutaway_offset);
 		viewer.launch();
