@@ -264,6 +264,7 @@ namespace famu
 		timer1.start();
 
 		double E00 = famu::stablenh::energy(store, store.dFvec);
+		cout<<"INITIAL: "<<E00<<endl;
 		for(iter=1; iter<MAX_ITERS; iter++){
 			graddFvec.setZero();
 			double prevfx = Energy(store, store.dFvec);
