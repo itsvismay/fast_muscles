@@ -347,7 +347,7 @@ namespace famu
 
 			
 
-			if(graddFvec.squaredNorm()/graddFvec.size()<1e-4 || fabs(fx - prevfx)<1e-4){
+			if(graddFvec.squaredNorm()/graddFvec.size()<1e-4 || fabs(fx - prevfx)<1e-3){
 				break;
 			}
 		}

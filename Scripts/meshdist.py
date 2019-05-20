@@ -18,4 +18,4 @@ m2 = igl.readOBJ(sys.argv[2], V2, F2)
 V1 = e2p(V1)
 V2 = e2p(V2)
 
-print(directed_hausdorff(V1,V2))
+print( directed_hausdorff(V1,V2)[0], np.linalg.norm(V1 - V2))
