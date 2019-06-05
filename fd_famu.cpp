@@ -44,6 +44,7 @@
 #include "famu/bone_elem_def_grad_projection_matrix.h"
 #include "famu/setup_hessian_modes.h"
 
+
 using namespace Eigen;
 using namespace std;
 using json = nlohmann::json;
@@ -181,7 +182,7 @@ int main(int argc, char *argv[])
 		    for(int i=0; i<store.T.rows(); i++){
 		    	if(store.bone_or_muscle[i]<-1e-8){
 		    		store.bone_or_muscle[i] = muscle_ind;
-		    		muscle_ind +=1;
+		    		// muscle_ind +=1;
 		    	}
 		    }
 		}
@@ -248,15 +249,6 @@ int main(int argc, char *argv[])
 		famu::joint_constraint_matrix(store, store.JointConstraints);
 
 		famu::bone_def_grad_projection_matrix(store, store.ProjectF, store.PickBoneF);
-		if(store.JointConstraints.rows() != 0){
-			MatrixXd nullJ;
-			igl::null(MatrixXd(store.JointConstraints), nullJ);
-			store.NullJ = nullJ.sparseView();
-		}else{
-			store.NullJ.resize(store.Y.cols(), store.Y.cols());
-			store.NullJ.setIdentity();
-		}
-	
 		famu::bone_acap_deformation_constraints(store, store.Bx, store.Bf);
 	    store.lambda2 = VectorXd::Zero(store.Bf.rows());
 	
@@ -267,7 +259,7 @@ int main(int argc, char *argv[])
 		famu::construct_kkt_system_left(store.YtStDtDSY, store.JointConstraints, KKT_left);
 
 		SparseMatrix<double, Eigen::RowMajor> KKT_left2;
-		famu::construct_kkt_system_left(KKT_left, store.Bx,  KKT_left2, -1e-3); 
+		famu::construct_kkt_system_left(KKT_left, store.Bx,  KKT_left2, -1); 
 		// MatrixXd Hkkt = MatrixXd(KKT_left2);
 		store.ACAP_KKT_SPLU.pardisoParameterArray()[2] = num_threads; 
 
@@ -281,7 +273,10 @@ int main(int argc, char *argv[])
 
 			exit(0);
 		}
-
+		igl::writeDMAT("joint_constraints.dmat", MatrixXd(store.JointConstraints));
+		igl::writeDMAT("Bx.dmat", MatrixXd(store.Bx));
+		igl::writeDMAT("KKT_left.dmat", MatrixXd(KKT_left));
+		igl::writeDMAT("KKT_left2.dmat", MatrixXd(KKT_left2));
 
 	cout<<"---Setup dFvec and dF"<<endl;
 		store.dFvec = VectorXd::Zero(store.ProjectF.cols());
@@ -313,17 +308,28 @@ int main(int argc, char *argv[])
 
 
 	cout<<"--- Setup Modes"<<endl;
+	if(store.jinput["woodbury"]){
+
         MatrixXd temp1;
+        if(store.JointConstraints.rows() != 0){
+			MatrixXd nullJ;
+			igl::null(MatrixXd(store.JointConstraints), nullJ);
+			store.NullJ = nullJ.sparseView();
+		}else{
+			store.NullJ.resize(store.Y.cols(), store.Y.cols());
+			store.NullJ.setIdentity();
+		}
         SparseMatrix<double> NjtYtStDtDSYNj = store.NullJ.transpose()*store.Y.transpose()*store.S.transpose()*store.D.transpose()*store.D*store.S*store.Y*store.NullJ;
         igl::readDMAT(outputfile+"/"+to_string((int)store.jinput["number_modes"])+"modes.dmat", temp1);
-        if(temp1.rows() == 0 && !store.jinput["sparseJac"]){
+        if(temp1.rows() == 0){
 			famu::setup_hessian_modes(store, NjtYtStDtDSYNj, temp1);
 		}else{
 			//read eigenvalues (for the woodbury solve)
 			igl::readDMAT(outputfile+"/"+to_string((int)store.jinput["number_modes"])+"eigs.dmat", store.eigenvalues);
 		}
 		store.G = store.NullJ*temp1;
-		// cout<<store.G.rows()<<", "<<store.G.cols()<<endl;
+	}
+	
 
 	cout<<"--- ACAP Hessians"<<endl;
 		famu::acap::setJacobian(store);
@@ -372,35 +378,35 @@ int main(int argc, char *argv[])
 
 
 	cout<<"--- Write Meshes"<<endl;
-		double fx = 0;
-		int niters = 0;
-		niters = famu::newton_static_solve(store);
+		// double fx = 0;
+		// int niters = 0;
+		// niters = famu::newton_static_solve(store);
 
-		VectorXd y = store.Y*store.x;
-		Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
-		igl::writeOBJ(outputfile+"/EMU"+to_string(store.T.rows())+".obj", (newV.transpose()+store.V), store.F);
-		exit(0);
+		// VectorXd y = store.Y*store.x;
+		// Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
+		// igl::writeOBJ(outputfile+"/EMU"+to_string(store.T.rows())+".obj", (newV.transpose()+store.V), store.F);
+		// exit(0);
 
 	std::cout<<"-----Display-------"<<std::endl;
     igl::opengl::glfw::Viewer viewer;
     int currentStep = 0;
      viewer.callback_post_draw= [&](igl::opengl::glfw::Viewer & viewer) {
 	    
-	    std::stringstream out_file;
-	    //render out current view
-	    // Allocate temporary buffers for 1280x800 image
-	    Eigen::Matrix<unsigned char,Eigen::Dynamic,Eigen::Dynamic> R(1920,1280);
-	    Eigen::Matrix<unsigned char,Eigen::Dynamic,Eigen::Dynamic> G(1920,1280);
-	    Eigen::Matrix<unsigned char,Eigen::Dynamic,Eigen::Dynamic> B(1920,1280);
-	    Eigen::Matrix<unsigned char,Eigen::Dynamic,Eigen::Dynamic> A(1920,1280);
+	    // std::stringstream out_file;
+	    // //render out current view
+	    // // Allocate temporary buffers for 1280x800 image
+	    // Eigen::Matrix<unsigned char,Eigen::Dynamic,Eigen::Dynamic> R(1920,1280);
+	    // Eigen::Matrix<unsigned char,Eigen::Dynamic,Eigen::Dynamic> G(1920,1280);
+	    // Eigen::Matrix<unsigned char,Eigen::Dynamic,Eigen::Dynamic> B(1920,1280);
+	    // Eigen::Matrix<unsigned char,Eigen::Dynamic,Eigen::Dynamic> A(1920,1280);
 	    
-	    // Draw the scene in the buffers
-	    viewer.core.draw_buffer(viewer.data(),false,R,G,B,A);
+	    // // Draw the scene in the buffers
+	    // viewer.core.draw_buffer(viewer.data(),false,R,G,B,A);
 	    
-	    // Save it to a PNG
-	    out_file<<"out_"<<std::setfill('0') << std::setw(5) <<currentStep<<".png";
-	    igl::png::writePNG(R,G,B,A,out_file.str());
-	    currentStep += 1;
+	    // // Save it to a PNG
+	    // out_file<<"out_"<<std::setfill('0') << std::setw(5) <<currentStep<<".png";
+	    // igl::png::writePNG(R,G,B,A,out_file.str());
+	    // currentStep += 1;
 	    return false;
 	};
 
