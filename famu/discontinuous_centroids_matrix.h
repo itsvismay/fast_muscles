@@ -10,7 +10,7 @@ using namespace Eigen;
 
 namespace famu
 {
-	void discontinuous_centroids_matrix(SparseMatrix<double>& mC, MatrixXi& mT);
+	void discontinuous_centroids_matrix(SparseMatrix<double, Eigen::RowMajor>& mC, MatrixXi& mT);
 }
 
 #endif

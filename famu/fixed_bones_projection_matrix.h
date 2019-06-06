@@ -6,7 +6,7 @@ using Store=famu::Store;
 using namespace Eigen;
 namespace famu
 {
-	void fixed_bones_projection_matrix(Store& store, SparseMatrix<double>& mY){
+	void fixed_bones_projection_matrix(Store& store, SparseMatrix<double, Eigen::RowMajor>& mY){
             VectorXd vert_free_or_not = store.ConstrainProjection*store.ConstrainProjection.transpose()*VectorXd::Ones(3*store.V.rows());// check if vert is fixed
             //TODO fixed bones, used this vector (Y*Y'Ones(3*V.rows())) to create the mFree matrix and mConstrained matrix
             
@@ -74,7 +74,7 @@ namespace famu
             mY.setFromTriplets(mY_trips.begin(), mY_trips.end());
     }
 
-    void bone_acap_deformation_constraints(Store& store, SparseMatrix<double>& mBx, SparseMatrix<double>& mBf){
+    void bone_acap_deformation_constraints(Store& store, SparseMatrix<double, Eigen::RowMajor>& mBx, SparseMatrix<double, Eigen::RowMajor>& mBf){
         // std::vector<Trip> mb_trips;
 
         // for(int b=0; b<store.bone_tets.size(); b++){

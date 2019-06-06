@@ -14,7 +14,7 @@ void famu::setDiscontinuousMeshT(Eigen::MatrixXi& mT, Eigen::MatrixXi& discT){
 void famu::discontinuousV(Store& store){
     //discV.resize(4*mT.rows(), 3);
     Eigen::VectorXd DAx = store._D*store.S*(store.Y*store.x+store.x0);
-    Eigen::SparseMatrix<double> M;
+    Eigen::SparseMatrix<double, Eigen::RowMajor> M;
     famu::dFMatrix_Vector_Swap(M, DAx);
     Eigen::VectorXd CAx = store.C*store.S*(store.Y*store.x+store.x0);
     Eigen::VectorXd newx = M*store.ProjectF*store.dFvec+ CAx;

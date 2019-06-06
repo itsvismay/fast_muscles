@@ -7,6 +7,7 @@
 #include <igl/readOBJ.h>
 #include <igl/jet.h>
 #include <igl/png/readPNG.h>
+#include <igl/png/writePNG.h>
 #include <igl/volume.h>
 #include <igl/slice.h>
 #include <igl/boundary_facets.h>
@@ -43,6 +44,7 @@
 #include "famu/bone_elem_def_grad_projection_matrix.h"
 #include "famu/setup_hessian_modes.h"
 
+
 using namespace Eigen;
 using namespace std;
 using json = nlohmann::json;
@@ -74,7 +76,7 @@ int main(int argc, char *argv[])
 
 		}
 		Eigen::initParallel();
-		cout<<Eigen::nbThreads()<<endl;
+	
 		
     	igl::Timer timer;
 
@@ -91,12 +93,12 @@ int main(int argc, char *argv[])
 								store.bone_tets, 
 								store.muscle_tets, 
 								store.fix_bones, 
-								store.relativeStiffness, 
+								store.relativeStiffness,
+								store.contract_muscles,
 								store.jinput);  
 		store.alpha_arap = store.jinput["alpha_arap"];
 		store.alpha_neo = store.jinput["alpha_neo"];
-		std::vector<int> contract_muscles = store.jinput["contract_muscles_at_index"];
-		store.contract_muscles = contract_muscles;
+		
 
 
 	cout<<"---Record Mesh Setup Info"<<endl;
@@ -247,26 +249,17 @@ int main(int argc, char *argv[])
 		famu::joint_constraint_matrix(store, store.JointConstraints);
 
 		famu::bone_def_grad_projection_matrix(store, store.ProjectF, store.PickBoneF);
-		if(store.JointConstraints.rows() != 0){
-			MatrixXd nullJ;
-			igl::null(MatrixXd(store.JointConstraints), nullJ);
-			store.NullJ = nullJ.sparseView();
-		}else{
-			store.NullJ.resize(store.Y.cols(), store.Y.cols());
-			store.NullJ.setIdentity();
-		}
-	
 		famu::bone_acap_deformation_constraints(store, store.Bx, store.Bf);
 	    store.lambda2 = VectorXd::Zero(store.Bf.rows());
 	
 
 	cout<<"---ACAP Solve KKT setup"<<store.x.size()<<endl;
-		SparseMatrix<double> KKT_left;
+		SparseMatrix<double, Eigen::RowMajor> KKT_left;
 		store.YtStDtDSY = (store.D*store.S*store.Y).transpose()*(store.D*store.S*store.Y);
 		famu::construct_kkt_system_left(store.YtStDtDSY, store.JointConstraints, KKT_left);
 
-		SparseMatrix<double> KKT_left2;
-		famu::construct_kkt_system_left(KKT_left, store.Bx,  KKT_left2, -1e-3); 
+		SparseMatrix<double, Eigen::RowMajor> KKT_left2;
+		famu::construct_kkt_system_left(KKT_left, store.Bx,  KKT_left2, -1); 
 		// MatrixXd Hkkt = MatrixXd(KKT_left2);
 		store.ACAP_KKT_SPLU.pardisoParameterArray()[2] = num_threads; 
 
@@ -280,7 +273,10 @@ int main(int argc, char *argv[])
 
 			exit(0);
 		}
-
+		igl::writeDMAT("joint_constraints.dmat", MatrixXd(store.JointConstraints));
+		igl::writeDMAT("Bx.dmat", MatrixXd(store.Bx));
+		igl::writeDMAT("KKT_left.dmat", MatrixXd(KKT_left));
+		igl::writeDMAT("KKT_left2.dmat", MatrixXd(KKT_left2));
 
 	cout<<"---Setup dFvec and dF"<<endl;
 		store.dFvec = VectorXd::Zero(store.ProjectF.cols());
@@ -312,17 +308,28 @@ int main(int argc, char *argv[])
 
 
 	cout<<"--- Setup Modes"<<endl;
+	if(store.jinput["woodbury"]){
+
         MatrixXd temp1;
+        if(store.JointConstraints.rows() != 0){
+			MatrixXd nullJ;
+			igl::null(MatrixXd(store.JointConstraints), nullJ);
+			store.NullJ = nullJ.sparseView();
+		}else{
+			store.NullJ.resize(store.Y.cols(), store.Y.cols());
+			store.NullJ.setIdentity();
+		}
         SparseMatrix<double> NjtYtStDtDSYNj = store.NullJ.transpose()*store.Y.transpose()*store.S.transpose()*store.D.transpose()*store.D*store.S*store.Y*store.NullJ;
         igl::readDMAT(outputfile+"/"+to_string((int)store.jinput["number_modes"])+"modes.dmat", temp1);
-        if(temp1.rows() == 0 && !store.jinput["sparseJac"]){
+        if(temp1.rows() == 0){
 			famu::setup_hessian_modes(store, NjtYtStDtDSYNj, temp1);
 		}else{
 			//read eigenvalues (for the woodbury solve)
 			igl::readDMAT(outputfile+"/"+to_string((int)store.jinput["number_modes"])+"eigs.dmat", store.eigenvalues);
 		}
 		store.G = store.NullJ*temp1;
-		// cout<<store.G.rows()<<", "<<store.G.cols()<<endl;
+	}
+	
 
 	cout<<"--- ACAP Hessians"<<endl;
 		famu::acap::setJacobian(store);
@@ -353,46 +360,55 @@ int main(int argc, char *argv[])
 
 			store.InvC = store.eigenvalues.asDiagonal();
 			store.WoodC = store.eigenvalues.asDiagonal().inverse();
-
 			for(int i=0; i<store.dFvec.size()/9; i++){
 				LDLT<Matrix9d> InvA;
 				store.vecInvA.push_back(InvA);
 			}
+
 	}
 
 
-    cout<<"---Setup Solver"<<endl;
-                famu::discontinuousV(store);
+    cout<<"---Setup TMP Vars"<<endl;
+    	famu::discontinuousV(store);
+    	store.acaptmp_sizex = store.x;
+		store.acaptmp_sizedFvec1= store.dFvec;
+		store.acaptmp_sizedFvec2 = store.dFvec;
 
 
 
 
 	cout<<"--- Write Meshes"<<endl;
-		// int run =0;
-	   //  for(int run=0; run<store.jinput["QS_steps"]; run++){
-	   //      VectorXd y = store.Y*store.x;
-	   //      Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
-	   //      std::string datafile = j_input["data"];
-	   //      ostringstream out;
-	   //      out << std::internal << std::setfill('0') << std::setw(3) << run;
-	   //      igl::writeOBJ(outputfile+"/"+"animation"+out.str()+".obj",(newV.transpose()+store.V), store.F);
-	   //      igl::writeDMAT(outputfile+"/"+"animation"+out.str()+".dmat",(newV.transpose()+store.V));
-	        
-	   //      cout<<"     ---Quasi-Newton Step Info"<<endl;
-		  //       double fx = 0;
-				// timer.start();
-				// int niters = 0;
-				// niters = famu::newton_static_solve(store);
-				// timer.stop();
-				// cout<<"+++QS Step iterations: "<<niters<<", secs: "<<timer.getElapsedTimeInMicroSec()<<endl;
-        	
-	        
-	   //      store.muscle_mag *= 1.5;
-	   //  }
-	   //  exit(0);
+		// double fx = 0;
+		// int niters = 0;
+		// niters = famu::newton_static_solve(store);
+
+		// VectorXd y = store.Y*store.x;
+		// Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
+		// igl::writeOBJ(outputfile+"/EMU"+to_string(store.T.rows())+".obj", (newV.transpose()+store.V), store.F);
+		// exit(0);
 
 	std::cout<<"-----Display-------"<<std::endl;
     igl::opengl::glfw::Viewer viewer;
+    int currentStep = 0;
+     viewer.callback_post_draw= [&](igl::opengl::glfw::Viewer & viewer) {
+	    
+	    // std::stringstream out_file;
+	    // //render out current view
+	    // // Allocate temporary buffers for 1280x800 image
+	    // Eigen::Matrix<unsigned char,Eigen::Dynamic,Eigen::Dynamic> R(1920,1280);
+	    // Eigen::Matrix<unsigned char,Eigen::Dynamic,Eigen::Dynamic> G(1920,1280);
+	    // Eigen::Matrix<unsigned char,Eigen::Dynamic,Eigen::Dynamic> B(1920,1280);
+	    // Eigen::Matrix<unsigned char,Eigen::Dynamic,Eigen::Dynamic> A(1920,1280);
+	    
+	    // // Draw the scene in the buffers
+	    // viewer.core.draw_buffer(viewer.data(),false,R,G,B,A);
+	    
+	    // // Save it to a PNG
+	    // out_file<<"out_"<<std::setfill('0') << std::setw(5) <<currentStep<<".png";
+	    // igl::png::writePNG(R,G,B,A,out_file.str());
+	    // currentStep += 1;
+	    return false;
+	};
 
     viewer.callback_key_down = [&](igl::opengl::glfw::Viewer & viewer, unsigned char key, int modifiers){   
         std::cout<<"Key down, "<<key<<std::endl;
@@ -438,23 +454,12 @@ int main(int argc, char *argv[])
             // cout<<"+++Microsecs per solve: "<<timer.getElapsedTimeInMicroSec()<<endl;
 
             double fx = 0;
-            timer.start();
             int niters = 0;
-
             niters = famu::newton_static_solve(store);
-            timer.stop();
-            double totaltime = timer.getElapsedTimeInMicroSec();
-            cout<<"Full NM per iter: "<<totaltime/niters<<endl;
-            cout<<"Total time: "<<totaltime<<endl;
-            cout<<"Total its: "<<niters<<endl;
-            double EM = famu::muscle::energy(store, store.dFvec);
-			double ENH = famu::stablenh::energy(store, store.dFvec);
-			double EACAP = famu::acap::fastEnergy(store, store.dFvec);
-			cout<<"E_a: "<<EACAP<<", E_m: "<<EM<<", E_n: "<<ENH<<endl;
-            cout<<"+++++ QS Iteration +++++"<<endl;
+
             VectorXd y = store.Y*store.x;
             Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
-            // igl::writeOBJ(outputfile+"EMU"+to_string(store.T.rows())+".obj", (newV.transpose()+store.V), store.F);
+            igl::writeOBJ(outputfile+"EMU"+to_string(store.T.rows())+".obj", (newV.transpose()+store.V), store.F);
             viewer.data_list[fancy_data_index].set_vertices((newV.transpose()+store.V));
             viewer.data_list[debug_data_index].set_vertices((newV.transpose()+store.V));
             return true;
@@ -699,6 +704,8 @@ void main()
         viewer.data_list[fancy_data_index].meshgl.shader_mesh);
     }
   }
+
+
 
   viewer.core.is_animating = false;
   viewer.core.background_color = Eigen::Vector4f(1,1,1,0);

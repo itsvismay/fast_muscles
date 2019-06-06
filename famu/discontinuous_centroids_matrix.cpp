@@ -2,7 +2,7 @@
 
 #include <vector>
 
-void famu::discontinuous_centroids_matrix(Eigen::SparseMatrix<double>& mC, Eigen::MatrixXi& mT){
+void famu::discontinuous_centroids_matrix(Eigen::SparseMatrix<double, Eigen::RowMajor>& mC, Eigen::MatrixXi& mT){
         mC.resize(12*mT.rows(), 12*mT.rows());
 
         std::vector<Trip> triplets;

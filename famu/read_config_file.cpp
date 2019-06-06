@@ -23,10 +23,15 @@ void famu::read_config_files(Eigen::MatrixXd& V,
                         std::vector<VectorXi>& muscle_tets,
                         std::vector<std::string>& fix_bones,
                         Eigen::VectorXd& relativeStiffness,
+                        std::vector<int>& contract_muscles,
                         json& j_input)
 {
-    std::string datafile = j_input["data"];
+    std::cout<<"EIGEN"<<std::endl;
+    std::cout<<EIGEN_MAJOR_VERSION<<std::endl;
+    std::cout<<EIGEN_MINOR_VERSION<<std::endl;
 
+
+    std::string datafile = j_input["data"];
     //Read Mesh
     igl::readDMAT(datafile+"/generated_files/tet_mesh_V.dmat", V);
     igl::readDMAT(datafile+"/generated_files/tet_mesh_T.dmat", T);
@@ -92,46 +97,16 @@ void famu::read_config_files(Eigen::MatrixXd& V,
         joint_bones_verts.push_back(std::make_pair( bones, joint_i));
     }
 
+    std::vector<std::string> contract_muscle_names = j_input["contract_muscles"];
+    contract_muscles.clear();
+    for(int i=0; i<contract_muscle_names.size(); i++){
+        contract_muscles.push_back(muscle_name_index_map[contract_muscle_names[i]]);
+    
+    }
+
     if(relativeStiffness.size()==0){
         relativeStiffness = VectorXd::Ones(T.rows());
     }else{
         relativeStiffness *=10;
-        // cout<<relativeStiffness.transpose()<<endl;
-        // for(int i=0; i<relativeStiffness.size(); i++){
-        //     if( relativeStiffness[i]>7){//V.row(T.row(i)[0])[1]>0
-        //         relativeStiffness[i] = 1000;//*relativeStiffness[i]*relativeStiffness[i];
-        //     }else{
-        //         relativeStiffness[i] = 1;
-        //     }
-        // }
-
-        // relativeStiffness = relativeStiffness/1e12;
-        // for(int i=0; i<relativeStiffness.size(); i++){
-        //     if( relativeStiffness[i]>3){//V.row(T.row(i)[0])[1]>0
-        //         relativeStiffness[i] = 1000;//*relativeStiffness[i]*relativeStiffness[i];
-        //     }else{
-        //         relativeStiffness[i] = 1;
-        //     }
-        // }
-
-
-        //Euclidean Distance tendons for biceps
-        // int axis = 1;
-        // double maxs = V.col(axis).maxCoeff();
-        // double mins = V.col(axis).minCoeff();
-        // for(int m=0; m<muscle_tets.size(); m++){
-        //     for(int i=0; i<muscle_tets[m].size(); i++){
-        //         int t= muscle_tets[m][i];
-        //         if(fabs(V.row(T.row(t)[0])[axis] - maxs) < 3){
-        //             relativeStiffness[t] = 10;
-        //         }else if(fabs(V.row(T.row(t)[0])[axis] - mins) < 3){
-        //             relativeStiffness[t] = 10;
-        //         }else{
-        //             relativeStiffness[t] = 1;
-        //         }
-        //     }
-        // }
-        // cout<<relativeStiffness.transpose()<<endl;
-
     }
 }

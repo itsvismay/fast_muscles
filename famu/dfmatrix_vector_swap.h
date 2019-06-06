@@ -9,7 +9,7 @@ typedef Eigen::Triplet<double> Trip;
 
 namespace famu
 {
-	void dFMatrix_Vector_Swap(Eigen::SparseMatrix<double>& mat, Eigen::VectorXd& vec);
+	void dFMatrix_Vector_Swap(Eigen::SparseMatrix<double, Eigen::RowMajor>& mat, Eigen::VectorXd& vec);
 }
 
 #endif

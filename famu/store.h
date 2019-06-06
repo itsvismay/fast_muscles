@@ -52,43 +52,44 @@ namespace famu{
 		std::vector<int> fixverts, movverts;
 		std::vector<int> mfix, mmov;
 
-		Eigen::SparseMatrix<double> dF;
-		Eigen::SparseMatrix<double> D, _D;
-		Eigen::SparseMatrix<double> C;
-		Eigen::SparseMatrix<double> S;
-		Eigen::SparseMatrix<double> ProjectF, PickBoneF;
-		Eigen::SparseMatrix<double> ConstrainProjection, UnconstrainProjection;
-		Eigen::SparseMatrix<double> JointConstraints, NullJ;
-		Eigen::SparseMatrix<double> Y, Bx, Bf;
+		Eigen::SparseMatrix<double, Eigen::RowMajor> dF;
+		Eigen::SparseMatrix<double, Eigen::RowMajor> D, _D;
+		Eigen::SparseMatrix<double, Eigen::RowMajor> C;
+		Eigen::SparseMatrix<double, Eigen::RowMajor> S;
+		Eigen::SparseMatrix<double, Eigen::RowMajor> ProjectF, PickBoneF;
+		Eigen::SparseMatrix<double, Eigen::RowMajor> ConstrainProjection, UnconstrainProjection;
+		Eigen::SparseMatrix<double, Eigen::RowMajor> JointConstraints, NullJ;
+		Eigen::SparseMatrix<double, Eigen::RowMajor> Y, Bx, Bf;
 		Eigen::MatrixXd G;
 
 		Eigen::VectorXd dFvec, BfI0;
 		Eigen::VectorXd x, dx, x0, lambda2, acap_solve_result, acap_solve_rhs;
 
 		
-		// Eigen::SparseLU<Eigen::SparseMatrix<double>> SPLU;
-		Eigen::PardisoLU<Eigen::SparseMatrix<double>> ACAP_KKT_SPLU;
-
-		Eigen::UmfPackLU<Eigen::SparseMatrix<double>> NM_SPLU;//TODO: optimize this away
+		// Eigen::SparseLU<Eigen::SparseMatrix<double, Eigen::RowMajor>> SPLU;
+		Eigen::PardisoLU<Eigen::SparseMatrix<double, Eigen::RowMajor>> ACAP_KKT_SPLU;
+		Eigen::VectorXd acaptmp_sizex;
+		Eigen::VectorXd acaptmp_sizedFvec1, acaptmp_sizedFvec2;
+		Eigen::UmfPackLU<Eigen::SparseMatrix<double, Eigen::RowMajor>> NM_SPLU;//TODO: optimize this away
 		
 		
 		//Fast Terms
 		double x0tStDtDSx0;
 		Eigen::VectorXd x0tStDtDSY;
-		Eigen::SparseMatrix<double> YtStDtDSY; //ddE/dxdx
+		Eigen::SparseMatrix<double, Eigen::RowMajor> YtStDtDSY; //ddE/dxdx
 		Eigen::VectorXd x0tStDt_dF_DSx0;
-		Eigen::SparseMatrix<double> YtStDt_dF_DSx0; //ddE/dxdF
-		Eigen::SparseMatrix<double> x0tStDt_dF_dF_DSx0; //ddE/dFdF
+		Eigen::SparseMatrix<double, Eigen::RowMajor> YtStDt_dF_DSx0; //ddE/dxdF
+		Eigen::SparseMatrix<double, Eigen::RowMajor> x0tStDt_dF_dF_DSx0; //ddE/dFdF
 
 		Eigen::VectorXd DSx0;
-		Eigen::SparseMatrix<double> DSY;
-		Eigen::SparseMatrix<double> StDtDS;
-		Eigen::SparseMatrix<double> DSx0_mat;
-		std::vector<Eigen::SparseMatrix<double>> fastMuscles;
-		Eigen::SparseMatrix<double> JacdxdF;
+		Eigen::SparseMatrix<double, Eigen::RowMajor> DSY;
+		Eigen::SparseMatrix<double, Eigen::RowMajor> StDtDS;
+		Eigen::SparseMatrix<double, Eigen::RowMajor> DSx0_mat;
+		std::vector<Eigen::SparseMatrix<double, Eigen::RowMajor>> fastMuscles;
+		Eigen::SparseMatrix<double, Eigen::RowMajor> JacdxdF;
 
 		//Hessians
-		Eigen::SparseMatrix<double> acapHess, muscleHess, neoHess;
+		Eigen::SparseMatrix<double, Eigen::RowMajor> acapHess, muscleHess, neoHess;
 		Eigen::MatrixXd denseAcapHess, denseMuscleHess, denseNeoHess;
 
 		//woodbury matrices
