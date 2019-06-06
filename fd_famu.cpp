@@ -182,7 +182,7 @@ int main(int argc, char *argv[])
 		    for(int i=0; i<store.T.rows(); i++){
 		    	if(store.bone_or_muscle[i]<-1e-8){
 		    		store.bone_or_muscle[i] = muscle_ind;
-		    		// muscle_ind +=1;
+		    		muscle_ind +=1;
 		    	}
 		    }
 		}

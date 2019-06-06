@@ -373,7 +373,7 @@ int famu::newton_static_solve(Store& store){
 	cout<<"Energy: "<<acap_energy<<endl;
 	cout<<"Energy Time: "<<energy_time<<endl;
 	cout<<"ACAP time: "<<timer1.getElapsedTimeInMicroSec()<<endl;
-	cout<<"dFvec: "<<store.dFvec.transpose()<<endl;
+	// cout<<"dFvec: "<<store.dFvec.transpose()<<endl;
 	cout<<"--------------------------------"<<endl;
     return iter;
 }
