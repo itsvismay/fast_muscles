@@ -101,6 +101,7 @@ int main(int argc, char *argv[])
 		store.alpha_arap = store.jinput["alpha_arap"];
 		store.alpha_neo = store.jinput["alpha_neo"];
 		
+		SolverPardiso<Eigen::SparseMatrix<double, Eigen::RowMajor> > TEST_PARDISO(11, num_threads);
 
 
 	cout<<"---Record Mesh Setup Info"<<endl;
@@ -264,8 +265,9 @@ int main(int argc, char *argv[])
 		famu::construct_kkt_system_left(KKT_left, store.Bx,  KKT_left2, -1); 
 		// MatrixXd Hkkt = MatrixXd(KKT_left2);
 
-		store.ACAP_KKT_SPLU.symbolicFactorization(KKT_left2);
-		store.ACAP_KKT_SPLU.numericalFactorization();
+		// store.ACAP_KKT_SPLU.symbolicFactorization(KKT_left2);
+		// store.ACAP_KKT_SPLU.numericalFactorization();
+		store.ACAP_KKT_SPLU.compute(KKT_left2);
 
 		igl::writeDMAT("joint_constraints.dmat", MatrixXd(store.JointConstraints));
 		igl::writeDMAT("Bx.dmat", MatrixXd(store.Bx));

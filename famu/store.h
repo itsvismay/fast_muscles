@@ -68,8 +68,8 @@ namespace famu{
 		Eigen::VectorXd x, dx, x0, lambda2, acap_solve_result, acap_solve_rhs;
 
 		
-		// Eigen::SparseLU<Eigen::SparseMatrix<double, Eigen::RowMajor>> SPLU;
-		SolverPardiso<Eigen::SparseMatrix<double, Eigen::RowMajor> > ACAP_KKT_SPLU;
+		Eigen::SparseLU<Eigen::SparseMatrix<double, Eigen::RowMajor>> ACAP_KKT_SPLU;
+		// SolverPardiso<Eigen::SparseMatrix<double, Eigen::RowMajor> > ACAP_KKT_SPLU;
 		Eigen::VectorXd acaptmp_sizex;
 		Eigen::VectorXd acaptmp_sizedFvec1, acaptmp_sizedFvec2;
 		Eigen::UmfPackLU<Eigen::SparseMatrix<double, Eigen::RowMajor>> NM_SPLU;//TODO: optimize this away
