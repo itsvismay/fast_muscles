@@ -7,10 +7,12 @@
 #include <igl/Timer.h>
 #include <Eigen/LU>
 #include <Eigen/UmfPackSupport>
+#include "SolverPardiso.h"
+#include <iostream>
 
 #define EIGEN_USE_MKL_ALL
 #ifdef EIGEN_USE_MKL_ALL
-#include <Eigen/PardisoSupport>
+// #include <Eigen/PardisoSupport>
 #endif
 #include <omp.h>
 
@@ -67,7 +69,7 @@ namespace famu{
 
 		
 		// Eigen::SparseLU<Eigen::SparseMatrix<double, Eigen::RowMajor>> SPLU;
-		Eigen::PardisoLU<Eigen::SparseMatrix<double, Eigen::RowMajor>> ACAP_KKT_SPLU;
+		SolverPardiso<Eigen::SparseMatrix<double, Eigen::RowMajor> > ACAP_KKT_SPLU;
 		Eigen::VectorXd acaptmp_sizex;
 		Eigen::VectorXd acaptmp_sizedFvec1, acaptmp_sizedFvec2;
 		Eigen::UmfPackLU<Eigen::SparseMatrix<double, Eigen::RowMajor>> NM_SPLU;//TODO: optimize this away

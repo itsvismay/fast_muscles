@@ -83,6 +83,7 @@ int main(int argc, char *argv[])
 		famu::Store store;
 		store.jinput = j_input;
 
+		cout<<"reading configs"<<endl;
 		famu::read_config_files(store.V, 
 								store.T, 
 								store.F, 
@@ -96,6 +97,7 @@ int main(int argc, char *argv[])
 								store.relativeStiffness,
 								store.contract_muscles,
 								store.jinput);  
+		cout<<"setting configs"<<endl;
 		store.alpha_arap = store.jinput["alpha_arap"];
 		store.alpha_neo = store.jinput["alpha_neo"];
 		
@@ -261,18 +263,10 @@ int main(int argc, char *argv[])
 		SparseMatrix<double, Eigen::RowMajor> KKT_left2;
 		famu::construct_kkt_system_left(KKT_left, store.Bx,  KKT_left2, -1); 
 		// MatrixXd Hkkt = MatrixXd(KKT_left2);
-		store.ACAP_KKT_SPLU.pardisoParameterArray()[2] = num_threads; 
 
-		store.ACAP_KKT_SPLU.analyzePattern(KKT_left2);
-		store.ACAP_KKT_SPLU.factorize(KKT_left2);
+		store.ACAP_KKT_SPLU.symbolicFactorization(KKT_left2);
+		store.ACAP_KKT_SPLU.numericalFactorization();
 
-		if(store.ACAP_KKT_SPLU.info()!=Success){
-			cout<<"1. ACAP Jacobian solve failed"<<endl;
-			cout<<"2. numerical issue: "<<(store.ACAP_KKT_SPLU.info()==NumericalIssue)<<endl;
-			cout<<"3. invalid input: "<<(store.ACAP_KKT_SPLU.info()==InvalidInput)<<endl;
-
-			exit(0);
-		}
 		igl::writeDMAT("joint_constraints.dmat", MatrixXd(store.JointConstraints));
 		igl::writeDMAT("Bx.dmat", MatrixXd(store.Bx));
 		igl::writeDMAT("KKT_left.dmat", MatrixXd(KKT_left));

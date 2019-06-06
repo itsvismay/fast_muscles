@@ -22,6 +22,7 @@ extern "C" void pardiso_printstats (int *, int *, double *, int *, int *, int *,
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
+#include <iostream>
 
 template<typename MatrixType>
 class SolverPardiso
@@ -42,7 +43,8 @@ public:
     //default matrix type = unsymmetric
     //only the upper triangle of symmetric matrices must be passed to pardiso 
     SolverPardiso(int matrixType = 11, unsigned int numProcessors = 8) {
-        
+        std::cout<<"TRYING TO SETUP SOLVER"<<std::endl;
+
         m_matrixType = matrixType;
         
         //Annoying license file stuff
@@ -69,6 +71,9 @@ public:
         m_mnum = 1; // use factorization 1
         m_nrhs = 1; //1 right hand side for now
         m_displayStats = 0;
+
+        std::cout<<"DONE SETUP SOLVER"<<std::endl;
+
         
     }
     
@@ -142,7 +147,7 @@ public:
     }
 
     template<typename Vector>
-    const auto &  solve(Vector &rhs) {
+    const Eigen::MatrixBase<Eigen::MatrixXd> &  solve(Vector &rhs) {
         int phase = 33;
         int      idum = 0;              /* Integer dummy. */
         int error = 0;
@@ -190,7 +195,7 @@ public:
     }
     
     
-    inline auto & getX() { return m_x; }
+    inline Eigen::MatrixBase<Eigen::MatrixXd> & getX() { return m_x; }
     
 protected:
     
