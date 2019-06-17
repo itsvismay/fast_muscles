@@ -1,7 +1,14 @@
 {
+	"tetwild_eps": 0.25,
+	"tetwild_edge_len_rel": 25.0,
+	
 	"muscles": {
 		"biceps": {
 			"surface_obj": "biceps.obj",
+			"mass_g": 300.0
+		},
+		"brachialis": {
+			"surface_obj": "brachialis.obj",
 			"mass_g": 300.0
 		},
 		"triceps": {
@@ -53,5 +60,7 @@
 			"location_obj": "elbow_joint.obj",
 			"bones": ["forearm", "humerus"]
 		}
-	}
+	},
+
+	"tendon_regions": "tendons.obj"
 }

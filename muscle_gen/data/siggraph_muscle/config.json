@@ -1,0 +1,47 @@
+{
+	"tetwild_eps": 0.1,
+	"tetwild_edge_len_rel": 5.0,
+
+
+	"muscles": {
+		"s": {
+			"surface_obj": "s.obj"
+		},
+		"i": {
+			"surface_obj": "i.obj"
+		},
+		"g1": {
+			"surface_obj": "g1.obj"
+		},
+		"g2": {
+			"surface_obj": "g2.obj"
+		},
+		"r": {
+			"surface_obj": "r.obj"
+		},
+		"a": {
+			"surface_obj": "a.obj"
+		},
+		"p": {
+			"surface_obj": "p.obj"
+		},
+		"h": {
+			"surface_obj": "h.obj"
+		}
+	},
+
+	"bones": {
+		"top_bone": {
+			"surface_obj": "top_bone.obj"
+		},
+		"bottom_bone": {
+			"surface_obj": "bottom_bone.obj"
+		}
+	},
+
+	"joints": {
+
+	},
+
+	"tendon_regions": "tendons.obj"
+}

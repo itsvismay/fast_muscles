@@ -1,0 +1,54 @@
+{
+	"tetwild_eps": 0.15,
+	"tetwild_edge_len_rel": 2.0,
+	
+	"muscles": {
+		"hamstring": {
+			"surface_obj": "hamstring.obj"
+		},
+		"biceps_femoris": {
+			"surface_obj": "biceps_femoris.obj"
+		},
+		"vastus": {
+			"surface_obj": "vastus.obj"
+		},
+		"rectus_femoris": {
+			"surface_obj": "rectus_femoris.obj"
+		},
+		"quad_tendon": {
+			"surface_obj": "quad_tendon.obj"
+		}
+
+	},
+
+	"bones": {
+		"femur": {
+			"surface_obj": "femur.obj"
+		},
+		"tib_fib": {
+			"surface_obj": "tib_fib.obj"
+		},
+		"hip": {
+			"surface_obj": "hip.obj"
+		},
+		"patella": {
+			"surface_obj": "patella.obj"
+		}
+
+	},
+
+	"joints": {
+		"hip": {
+			"type": "ball",
+			"location_obj": "hip_joint.obj",
+			"bones": ["hip", "femur"]
+		},
+		"knee": {
+			"type": "hinge",
+			"location_obj": "knee_joint.obj",
+			"bones": ["tib_fib", "femur"]
+		}
+	},
+
+	"tendon_regions": "tendons.obj"
+}

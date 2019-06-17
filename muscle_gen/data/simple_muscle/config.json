@@ -19,5 +19,7 @@
 
 	"joints": {
 		
-	}
+	},
+
+	"tendon_regions": "tendons.obj"
 }

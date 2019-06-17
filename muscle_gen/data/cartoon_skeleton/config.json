@@ -1,0 +1,62 @@
+{
+	"tetwild_eps": 0.3,
+	"tetwild_edge_len_rel": 2.0,
+	
+	"muscles": {
+		"left_muscle": {
+			"surface_obj": "left_muscle.obj"
+		},
+		"right_muscle": {
+			"surface_obj": "right_muscle.obj"
+		},
+		"left_muscle_front": {
+			"surface_obj": "left_muscle_front.obj"
+		},
+		"right_muscle_front": {
+			"surface_obj": "right_muscle_front.obj"
+		},
+		"left_jaw_muscle": {
+			"surface_obj": "left_jaw_muscle.obj"
+		},
+		"right_jaw_muscle": {
+			"surface_obj": "right_jaw_muscle.obj"
+		},
+		"left_jaw_muscle_front": {
+			"surface_obj": "left_jaw_muscle_front.obj"
+		},
+		"right_jaw_muscle_front": {
+			"surface_obj": "right_jaw_muscle_front.obj"
+		}
+
+
+
+	},
+
+	"bones": {
+		"body": {
+			"surface_obj": "body.obj"
+		},
+		"head": {
+			"surface_obj": "upper_head.obj"
+		},
+		"lower_jaw": {
+			"surface_obj": "lower_jaw.obj"
+		}
+
+	},
+
+	"joints": {
+		"neck": {
+			"type": "ball",
+			"location_obj": "neck_joint.obj",
+			"bones": ["body", "head"]
+		},
+		"jaw": {
+			"type": "hinge",
+			"location_obj": "jaw_joint.obj",
+			"bones": ["lower_jaw", "head"]
+		}
+	},
+
+	"tendon_regions": "tendons.obj"
+}

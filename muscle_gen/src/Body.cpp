@@ -3,6 +3,7 @@
 #include <igl/writeDMAT.h>
 #include <igl/writeOBJ.h>
 #include <igl/list_to_matrix.h>
+#include <igl/boundary_facets.h>
 
 #include "lf_utils.h"
 
@@ -11,7 +12,7 @@ using namespace Eigen;
 using string = std::string;
 
 void Body::write(const std::string &out_dir) {
-	string surf_path = lf::path::join(out_dir, "surf_mesh.obj");
+	string surf_path = lf::path::join(out_dir, "input_surf_mesh.obj");
 	igl::writeOBJ(surf_path, surf_mesh.V, surf_mesh.F);
 
 	string T_path = lf::path::join(out_dir, "tet_mesh_T.dmat");
@@ -62,4 +63,9 @@ void Body::write(const std::string &out_dir) {
 
 	string is_tendon_path = lf::path::join(out_dir, "tet_is_tendon.dmat");
 	igl::writeDMAT(is_tendon_path, tet_is_tendon, false);
+
+	MatrixXi surfaceF;
+	igl::boundary_facets(tet_mesh.T, surfaceF);
+	string tet_surf_path = lf::path::join(out_dir, "tet_surf_mesh.obj");
+	igl::writeOBJ(tet_surf_path, tet_mesh.V, surfaceF);
 }
