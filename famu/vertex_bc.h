@@ -11,6 +11,9 @@ namespace famu
 			Eigen::SparseMatrix<double, Eigen::RowMajor>& mFree, 
 			Eigen::SparseMatrix<double, Eigen::RowMajor>& mConstrained,
 			Eigen::MatrixXd& mV);
+		std::vector<int> getMaxVerts_Axis_Tolerance(Eigen::MatrixXi& mT, Eigen::MatrixXd& mV, int dim, double tolerance, Eigen::VectorXi& muscle);
+		std::vector<int> getMinVerts_Axis_Tolerance(Eigen::MatrixXi& mT, Eigen::MatrixXd& mV, int dim, double tolerance, Eigen::VectorXi& muscle);
+		std::vector<int> getMidVerts_Axis_Tolerance(Eigen::MatrixXd& mV, int dim, double tolerance, bool left);
 }
 
 #endif

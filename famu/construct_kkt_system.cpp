@@ -1,4 +1,3 @@
-
 #include "construct_kkt_system.h"
 
 using namespace famu;

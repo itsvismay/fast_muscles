@@ -15,6 +15,7 @@
 #include <igl/opengl/destroy_shader_program.h>
 #include <igl/opengl/create_shader_program.h>
 #include <igl/opengl/glfw/imgui/ImGuiHelpers.h>
+#include <igl/remove_unreferenced.h>
 #include <igl/list_to_matrix.h>
 #include <imgui/imgui.h>
 #include <igl/null.h>
@@ -273,11 +274,7 @@ int main(int argc, char *argv[])
 
 			exit(0);
 		}
-		igl::writeDMAT("joint_constraints.dmat", MatrixXd(store.JointConstraints));
-		igl::writeDMAT("Bx.dmat", MatrixXd(store.Bx));
-		igl::writeDMAT("KKT_left.dmat", MatrixXd(KKT_left));
-		igl::writeDMAT("KKT_left2.dmat", MatrixXd(KKT_left2));
-
+		
 	cout<<"---Setup dFvec and dF"<<endl;
 		store.dFvec = VectorXd::Zero(store.ProjectF.cols());
 		for(int t=0; t<store.dFvec.size()/9; t++){
@@ -387,10 +384,34 @@ int main(int argc, char *argv[])
 		// igl::writeOBJ(outputfile+"/EMU"+to_string(store.T.rows())+".obj", (newV.transpose()+store.V), store.F);
 		// exit(0);
 
+	cout<<"--- External Forces Hard Coded Contact Matrices"<<endl;
+	// MatrixXi componentT;
+ //    MatrixXd componentV;
+ //    MatrixXi subT(store.muscle_tets[0].size(), 4);
+ //    VectorXi J;
+ //    for(int i=0; i<store.muscle_tets[0].size() ; i++){
+ //        subT.row(i) = store.T.row(store.muscle_tets[0][i]);
+ //    }
+ //    igl::remove_unreferenced(store.V, subT, componentV, componentT, J);
+
+    std::vector<int> bcMuscle1 = getMinVerts_Axis_Tolerance(store.T, store.V, 2, 5e-2, store.muscle_tets[0]);
+    std::vector<int> bcMuscle2 = getMaxVerts_Axis_Tolerance(store.T, store.V, 2, 5e-2, store.muscle_tets[1]);
+    SparseMatrix<double, RowMajor> Trash;
+    std::vector<int> bc1 = {};
+    std::vector<int> bc2 = {};
+    for(int i=0; i<std::min(bcMuscle2.size(), bcMuscle1.size()); i++){
+    	bc1.push_back(bcMuscle1[i]);
+    	bc2.push_back(bcMuscle2[i]);
+    }
+    famu::vertex_bc(store.mmov, bc1, Trash, store.ContactP1, store.V);
+    famu::vertex_bc(store.mmov, bc2, Trash, store.ContactP2, store.V);
+    famu::acap::adjointMethodExternalForces(store);
+	
+
 	std::cout<<"-----Display-------"<<std::endl;
-    igl::opengl::glfw::Viewer viewer;
-    int currentStep = 0;
-     viewer.callback_post_draw= [&](igl::opengl::glfw::Viewer & viewer) {
+    	igl::opengl::glfw::Viewer viewer;
+    	int currentStep = 0;
+    	viewer.callback_post_draw= [&](igl::opengl::glfw::Viewer & viewer) {
 	    
 	    // std::stringstream out_file;
 	    // //render out current view
@@ -458,7 +479,7 @@ int main(int argc, char *argv[])
             niters = famu::newton_static_solve(store);
 
             VectorXd y = store.Y*store.x;
-            Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
+        	Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
             igl::writeOBJ(outputfile+"EMU"+to_string(store.T.rows())+".obj", (newV.transpose()+store.V), store.F);
             viewer.data_list[fancy_data_index].set_vertices((newV.transpose()+store.V));
             viewer.data_list[debug_data_index].set_vertices((newV.transpose()+store.V));
@@ -586,9 +607,20 @@ int main(int argc, char *argv[])
           }
         }
 
-        //for(int i=0; i<store.mfix.size(); i++){
-        //	viewer.data().add_points((newV.transpose().row(store.mfix[i]) + store.V.row(store.mfix[i])), Eigen::RowVector3d(1,0,0));
-        //}
+
+        // viewer.data().add_points( (store.ContactP1.transpose()*(store.Y*store.x + store.x0)).transpose() , Eigen::RowVector3d(1,0,0));
+        // viewer.data().add_points( (store.ContactP2.transpose()*(store.Y*store.x + store.x0)).transpose() , Eigen::RowVector3d(0,1,0));
+        viewer.data().points = Eigen::MatrixXd(0,6);
+        for(int i=0; i<bc1.size(); i++){
+        	cout<<bc1[i]<<", ";
+        	viewer.data().add_points(viewer.data_list[debug_data_index].V.row(bc1[i]), Eigen::RowVector3d(1,0,0));
+        }
+        cout<<endl;
+        for(int i=0; i<bc2.size(); i++){
+        	cout<<bc2[i]<<", ";
+        	viewer.data().add_points(viewer.data_list[debug_data_index].V.row(bc2[i]), Eigen::RowVector3d(0,1,0));
+        }
+        cout<<endl;
 
         //for(int i=0; i<store.mmov.size(); i++){
         //	viewer.data().add_points((newV.transpose().row(store.mmov[i]) + store.V.row(store.mmov[i])), Eigen::RowVector3d(0,1,0));

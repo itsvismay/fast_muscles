@@ -1,4 +1,6 @@
 #include "vertex_bc.h"
+#include <iostream>
+#include <set>
 
 using namespace Eigen;
 
@@ -51,3 +53,69 @@ void famu::vertex_bc(std::vector<int>& mmov, std::vector<int>& mfix, Eigen::Spar
         i++;
     }
 }
+
+std::vector<int> famu::getMaxVerts_Axis_Tolerance(MatrixXi& mT, MatrixXd& mV, int dim, double tolerance, Eigen::VectorXi& muscle){
+    double maxX = mV(mT.row(muscle[0])[0], dim);
+    for(int i=0; i<muscle.size(); i++){
+        for(int j=0; j<mT.row(muscle[i]).size(); ++j){
+            int ii=mT.row(muscle[i])[j];
+            if( mV(ii, dim)>maxX){
+                maxX = mV(ii, dim);
+            }
+        }
+    }
+
+
+    std::set<int> maxV;
+    for(int i=0; i<muscle.size(); i++){
+
+        for(unsigned int j=0; j<mT.row(muscle[i]).size(); ++j) {
+            int ii= mT.row(muscle[i])[j];
+
+            if(fabs(mV(ii,dim) - maxX) < tolerance) {
+                maxV.insert(ii);
+            }
+        }
+    }
+    std::vector<int> ret;
+    ret.assign(maxV.begin(), maxV.end());
+    return ret;
+}
+
+std::vector<int> famu::getMinVerts_Axis_Tolerance(MatrixXi& mT, MatrixXd& mV, int dim, double tolerance, Eigen::VectorXi& muscle){
+    double maxX = mV(mT.row(muscle[0])[0], dim);
+    for(int i=0; i<muscle.size(); i++){
+        for(int j=0; j<mT.row(muscle[i]).size(); ++j){
+            int ii=mT.row(muscle[i])[j];
+            if( mV(ii, dim)<maxX){
+                maxX = mV(ii, dim);
+            }
+        }
+    }
+
+    std::set<int> maxV;
+    for(int i=0; i<muscle.size(); i++){
+        for(unsigned int j=0; j<mT.row(muscle[i]).size(); ++j) {
+            int ii= mT.row(muscle[i])[j];
+            
+            if(fabs(mV(ii,dim) - maxX) < tolerance) {
+                maxV.insert(ii);
+            }
+        }
+    }
+    std::vector<int> ret;
+    ret.assign(maxV.begin(), maxV.end());
+    return ret;
+}
+
+std::vector<int> famu::getMidVerts_Axis_Tolerance(MatrixXd& mV, int dim, double tolerance, bool left){
+    auto midX = mV.col(dim).minCoeff() + (mV.col(dim).maxCoeff() - mV.col(dim).minCoeff())/2;
+    std::vector<int> maxV;
+    for(unsigned int ii=0; ii<mV.rows(); ++ii) {
+
+        if(fabs(mV(ii,dim) - midX) < tolerance && left==((mV(ii, dim)- midX)<0)) {
+            maxV.push_back(ii);
+        }
+    }
+    return maxV;
+};

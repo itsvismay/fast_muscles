@@ -11,7 +11,15 @@ using namespace std;
 using Store = famu::Store;
 
 
-
+std::vector<Eigen::Triplet<double>> to_Triplets(Eigen::SparseMatrix<double, Eigen::RowMajor> & M){
+	std::vector<Eigen::Triplet<double>> v;
+	for(int i = 0; i < M.outerSize(); i++){
+		for(typename Eigen::SparseMatrix<double, Eigen::RowMajor>::InnerIterator it(M,i); it; ++it){	
+			v.emplace_back(it.row(),it.col(),it.value());
+		}
+	}
+	return v;
+}
 
 
 double famu::acap::energy(Store& store){
@@ -41,8 +49,16 @@ double famu::acap::fastEnergy(Store& store, VectorXd& dFvec){
 
 	store.acaptmp_sizedFvec2 = store.x0tStDt_dF_dF_DSx0*dFvec;
 	double E6 = 0.5*dFvec.transpose()*store.acaptmp_sizedFvec2;
-	double E9 = E1+E2+E3+E4+E5+E6;
- 
+ 	
+ 	double E7 = 0;
+
+ 	VectorXd temp1 = store.ContactP1.transpose()*(store.Y*store.x + store.x0);
+ 	VectorXd temp2 = store.ContactP2.transpose()*(store.Y*store.x + store.x0);
+ 	double k = store.jinput["springk"];
+ 	double E8 = 0.5*k*(temp1.dot(temp1) - 2*temp1.dot(temp2) + temp2.dot(temp2));
+	
+	double E9 = E1+E2+E3+E4+E5+E6+E7+E8;
+	
 	return E9;
 }
 
@@ -51,6 +67,7 @@ void famu::acap::fastGradient(Store& store, VectorXd& grad){
 	grad += -store.x.transpose()*store.YtStDt_dF_DSx0;
 	grad += store.dFvec.transpose()*store.x0tStDt_dF_dF_DSx0;
 	grad -= store.Bf.transpose()*store.lambda2;
+	grad += store.ContactForce;
 }
 
 void famu::acap::fastHessian(Store& store, SparseMatrix<double, RowMajor>& hess, Eigen::MatrixXd& denseHess){
@@ -123,10 +140,58 @@ void famu::acap::solve(Store& store, VectorXd& dFvec){
 
 }
 
+void famu::acap::adjointMethodExternalForces(Store& store){
+
+	SparseMatrix<double> adjointP; 
+	adjointP.resize(store.YtStDt_dF_DSx0.rows(), store.YtStDt_dF_DSx0.rows()+store.JointConstraints.rows()+store.Bf.rows());
+	adjointP.setZero();
+	for(int i=0; i<adjointP.rows(); i++){
+		adjointP.coeffRef(i,i) = 1;
+	}
+
+	std::vector<Trip> YtStDt_dF_DSx0_trips = to_Triplets(store.YtStDt_dF_DSx0);
+	std::vector<Trip> JointConstraints_trips = to_Triplets(store.JointConstraints);
+	std::vector<Trip> Bf_trips = to_Triplets(store.Bf);
+	std::vector<Trip> all_trips;
+	for(int i=0; i<YtStDt_dF_DSx0_trips.size(); i++){
+		int row = YtStDt_dF_DSx0_trips[i].row();
+		int col = YtStDt_dF_DSx0_trips[i].col();
+		double val = YtStDt_dF_DSx0_trips[i].value();
+		all_trips.push_back(Trip(row, col, val));
+	}
+
+	for(int i=0; i<JointConstraints_trips.size(); i++){
+		int row = JointConstraints_trips[i].row() + store.YtStDt_dF_DSx0.rows();
+		int col = JointConstraints_trips[i].col();
+		double val = JointConstraints_trips[i].value();
+		all_trips.push_back(Trip(row, col, val));
+	}
+
+	for(int i=0; i<Bf_trips.size(); i++){
+		int row = Bf_trips[i].row() + store.JointConstraints.rows() + store.YtStDt_dF_DSx0.rows();
+		int col = Bf_trips[i].col();
+		double val = Bf_trips[i].value();
+		all_trips.push_back(Trip(row, col, val));
+	}
+	SparseMatrix<double> KKT_right(store.YtStDt_dF_DSx0.rows() + store.JointConstraints.rows() + store.Bf.rows(), store.YtStDt_dF_DSx0.cols());
+	KKT_right.setFromTriplets(all_trips.begin(), all_trips.end());
+
+	VectorXd t0 = store.Y*store.x + store.x0;
+	VectorXd t1 = store.ContactP1.transpose()*t0 - store.ContactP2.transpose()*t0;
+	double k = store.jinput["springk"];
+	VectorXd temp = k*adjointP.transpose()*(store.Y.transpose()*store.ContactP1*t1 - store.Y.transpose()*store.ContactP2*t1);
+
+	VectorXd temp1 = store.ACAP_KKT_SPLU.solve(temp);
+	store.ContactForce = KKT_right.transpose()*temp1;
+}
+
 void famu::acap::setJacobian(Store& store){
 
 	//Sparse jacobian
-	if(!store.jinput["woodbury"]){
+	MatrixXd result;
+	igl::readDMAT("jacKKT.dmat", result);
+
+	if(!store.jinput["woodbury"] && result.rows()==0){
 		//DENSE REDUCED JAC
 		MatrixXd top = MatrixXd(store.YtStDt_dF_DSx0);
 		MatrixXd zer = MatrixXd(store.JointConstraints.rows(), top.cols());
@@ -134,17 +199,17 @@ void famu::acap::setJacobian(Store& store){
 		MatrixXd KKT_right(top.rows() + zer.rows()+ bone_def.rows(), top.cols());
 		KKT_right<<top,zer, bone_def;
 
-		MatrixXd result = store.ACAP_KKT_SPLU.solve(KKT_right).topRows(top.rows());
+		result = store.ACAP_KKT_SPLU.solve(KKT_right).topRows(top.rows());
 		if(result!=result){
 			cout<<"ACAP Jacobian result has nans"<<endl;
 			exit(0);
 		}
 		
-
-		SparseMatrix<double, RowMajor> spRes = (result).sparseView();
-		store.JacdxdF = spRes;
-		cout<<"jac dims: "<<store.JacdxdF.rows()<<", "<<store.JacdxdF.cols()<<endl;
+		igl::writeDMAT("jacKKT.dmat", result);
 
 	}
+	SparseMatrix<double, RowMajor> spRes = (result).sparseView();
+	store.JacdxdF = spRes;
+	cout<<"jac dims: "<<store.JacdxdF.rows()<<", "<<store.JacdxdF.cols()<<endl;
 
 }

@@ -104,6 +104,9 @@ namespace famu{
 		std::vector<int> contract_muscles;
 
 
+		//External Force matrices
+		Eigen::VectorXd YtMg, ContactForce;
+		Eigen::SparseMatrix<double, Eigen::RowMajor> ContactP1, ContactP2;
 
 
 	};
