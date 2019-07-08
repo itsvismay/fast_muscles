@@ -252,15 +252,29 @@ int main(int argc, char *argv[])
 		famu::bone_def_grad_projection_matrix(store, store.ProjectF, store.PickBoneF);
 		famu::bone_acap_deformation_constraints(store, store.Bx, store.Bf);
 	    store.lambda2 = VectorXd::Zero(store.Bf.rows());
+
+	    std::vector<std::pair<int, int>> springs;
+	    std::vector<int> bcMuscle1 = getMinVerts_Axis_Tolerance(store.T, store.V, 2, 5e-2, store.muscle_tets[0]);
+	    std::vector<int> bcMuscle2 = getMaxVerts_Axis_Tolerance(store.T, store.V, 2, 5e-2, store.muscle_tets[1]);
+	    // famu::make_closest_point_springs(store.T, store.V, store.muscle_tets[1],  bcMuscle1, springs);
+	    famu::make_closest_point_springs(store.T, store.V, store.muscle_tets[0],  bcMuscle2, springs);
+
+	    famu::penalty_spring_bc(springs, store.ContactP, store.V);
+
 	
 
 	cout<<"---ACAP Solve KKT setup"<<store.x.size()<<endl;
-		SparseMatrix<double, Eigen::RowMajor> KKT_left;
+		SparseMatrix<double, Eigen::RowMajor> KKT_left, KKT_left1;
 		store.YtStDtDSY = (store.D*store.S*store.Y).transpose()*(store.D*store.S*store.Y);
 		famu::construct_kkt_system_left(store.YtStDtDSY, store.JointConstraints, KKT_left);
 
+		double k = store.jinput["springk"];
+		SparseMatrix<double, Eigen::RowMajor> PY = k*store.ContactP*store.Y;
+		famu::construct_kkt_system_left(KKT_left, PY, KKT_left1, -1);
+
+
 		SparseMatrix<double, Eigen::RowMajor> KKT_left2;
-		famu::construct_kkt_system_left(KKT_left, store.Bx,  KKT_left2, -1); 
+		famu::construct_kkt_system_left(KKT_left1, store.Bx,  KKT_left2, -1); 
 		// MatrixXd Hkkt = MatrixXd(KKT_left2);
 		store.ACAP_KKT_SPLU.pardisoParameterArray()[2] = num_threads; 
 
@@ -385,27 +399,7 @@ int main(int argc, char *argv[])
 		// exit(0);
 
 	cout<<"--- External Forces Hard Coded Contact Matrices"<<endl;
-	// MatrixXi componentT;
- //    MatrixXd componentV;
- //    MatrixXi subT(store.muscle_tets[0].size(), 4);
- //    VectorXi J;
- //    for(int i=0; i<store.muscle_tets[0].size() ; i++){
- //        subT.row(i) = store.T.row(store.muscle_tets[0][i]);
- //    }
- //    igl::remove_unreferenced(store.V, subT, componentV, componentT, J);
-
-    std::vector<int> bcMuscle1 = getMinVerts_Axis_Tolerance(store.T, store.V, 2, 5e-2, store.muscle_tets[0]);
-    std::vector<int> bcMuscle2 = getMaxVerts_Axis_Tolerance(store.T, store.V, 2, 5e-2, store.muscle_tets[1]);
-    SparseMatrix<double, RowMajor> Trash;
-    std::vector<int> bc1 = {};
-    std::vector<int> bc2 = {};
-    for(int i=0; i<std::min(bcMuscle2.size(), bcMuscle1.size()); i++){
-    	bc1.push_back(bcMuscle1[i]);
-    	bc2.push_back(bcMuscle2[i]);
-    }
-    famu::vertex_bc(store.mmov, bc1, Trash, store.ContactP1, store.V);
-    famu::vertex_bc(store.mmov, bc2, Trash, store.ContactP2, store.V);
-    famu::acap::adjointMethodExternalForces(store);
+	    // famu::acap::adjointMethodExternalForces(store);
 	
 
 	std::cout<<"-----Display-------"<<std::endl;
@@ -611,16 +605,13 @@ int main(int argc, char *argv[])
         // viewer.data().add_points( (store.ContactP1.transpose()*(store.Y*store.x + store.x0)).transpose() , Eigen::RowVector3d(1,0,0));
         // viewer.data().add_points( (store.ContactP2.transpose()*(store.Y*store.x + store.x0)).transpose() , Eigen::RowVector3d(0,1,0));
         viewer.data().points = Eigen::MatrixXd(0,6);
-        for(int i=0; i<bc1.size(); i++){
-        	cout<<bc1[i]<<", ";
-        	viewer.data().add_points(viewer.data_list[debug_data_index].V.row(bc1[i]), Eigen::RowVector3d(1,0,0));
+        viewer.data().lines = Eigen::MatrixXd(0,9);
+        for(int i=0; i<springs.size(); i++){
+        	viewer.data().add_points(viewer.data_list[debug_data_index].V.row(springs[i].first), Eigen::RowVector3d(1,0,0));
+        	viewer.data().add_points(viewer.data_list[debug_data_index].V.row(springs[i].second), Eigen::RowVector3d(1,0,0));
+        	viewer.data().add_edges(viewer.data_list[debug_data_index].V.row(springs[i].first),viewer.data_list[debug_data_index].V.row(springs[i].second),Eigen::RowVector3d(1,0,0));
         }
-        cout<<endl;
-        for(int i=0; i<bc2.size(); i++){
-        	cout<<bc2[i]<<", ";
-        	viewer.data().add_points(viewer.data_list[debug_data_index].V.row(bc2[i]), Eigen::RowVector3d(0,1,0));
-        }
-        cout<<endl;
+    
 
         //for(int i=0; i<store.mmov.size(); i++){
         //	viewer.data().add_points((newV.transpose().row(store.mmov[i]) + store.V.row(store.mmov[i])), Eigen::RowVector3d(0,1,0));

@@ -54,6 +54,25 @@ void famu::vertex_bc(std::vector<int>& mmov, std::vector<int>& mfix, Eigen::Spar
     }
 }
 
+void famu::penalty_spring_bc(std::vector<std::pair<int,int>>& springs, Eigen::SparseMatrix<double, Eigen::RowMajor>& mP, Eigen::MatrixXd& mV){
+
+    mP.resize(3*springs.size(), 3*mV.rows());
+    mP.setZero();
+
+    for(int i=0; i<springs.size(); i++){
+        int node1 = springs[i].first;
+        int node2 = springs[i].second;
+        mP.coeffRef(3*i+0, 3*node1+0) = 1;
+        mP.coeffRef(3*i+1, 3*node1+1) = 1;
+        mP.coeffRef(3*i+2, 3*node1+2) = 1;
+
+        mP.coeffRef(3*i+0, 3*node2+0) = -1;
+        mP.coeffRef(3*i+1, 3*node2+1) = -1;
+        mP.coeffRef(3*i+2, 3*node2+2) = -1;
+    }
+
+}
+
 std::vector<int> famu::getMaxVerts_Axis_Tolerance(MatrixXi& mT, MatrixXd& mV, int dim, double tolerance, Eigen::VectorXi& muscle){
     double maxX = mV(mT.row(muscle[0])[0], dim);
     for(int i=0; i<muscle.size(); i++){
@@ -118,4 +137,49 @@ std::vector<int> famu::getMidVerts_Axis_Tolerance(MatrixXd& mV, int dim, double 
         }
     }
     return maxV;
-};
+}
+
+void famu::make_closest_point_springs(Eigen::MatrixXi& mT, 
+                                    Eigen::MatrixXd& mV, 
+                                    Eigen::VectorXi& muscle,
+                                    std::vector<int>& points, 
+                                    std::vector<std::pair<int,int>>& springs){
+
+    //for each point, find 3 closest points on muscle
+    for(int j=0; j<points.size(); j++){
+        Eigen::RowVector3d point = mV.row(points[j]);
+        
+        int close1= mT.row(muscle[0])[0], 
+            close2= mT.row(muscle[0])[1], 
+            close3= mT.row(muscle[0])[2];
+
+        double dist1 = (point - mV.row(mT.row(muscle[0])[0])).norm(),
+                dist2 = (point - mV.row(mT.row(muscle[0])[1])).norm(), 
+                dist3 = (point - mV.row(mT.row(muscle[0])[2])).norm();
+
+        for(int i=0; i<muscle.size(); i++){
+            int t = muscle[i];
+            
+            for(int k=0; k<4; k++){
+                int ind = mT.row(t)[k];
+                double dist = (point - mV.row(ind)).norm();
+
+                if(dist <= dist1){
+                    dist1 = dist;
+                    close1 = ind;
+                }else if(dist <= dist2){
+                    dist2 = dist;
+                    close2 = ind;
+                }else if(dist <= dist3){
+                    dist3 = dist;
+                    close3 = ind;
+                }
+            }
+        }
+
+        springs.push_back(std::make_pair(points[j], close1));
+        springs.push_back(std::make_pair(points[j], close2));
+        springs.push_back(std::make_pair(points[j], close3));
+    }
+
+}

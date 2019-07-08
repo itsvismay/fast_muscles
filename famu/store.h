@@ -106,7 +106,7 @@ namespace famu{
 
 		//External Force matrices
 		Eigen::VectorXd YtMg, ContactForce;
-		Eigen::SparseMatrix<double, Eigen::RowMajor> ContactP1, ContactP2;
+		Eigen::SparseMatrix<double, Eigen::RowMajor> ContactP, ContactP1, ContactP2, ContactHess;
 
 
 	};

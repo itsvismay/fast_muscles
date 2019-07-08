@@ -241,7 +241,7 @@ int famu::newton_static_solve(Store& store){
 
 
 
-	constHess = store.neoHess + store.muscleHess + store.acapHess;
+	constHess = store.neoHess + store.muscleHess + store.acapHess;// + store.ContactHess;
 	constHess -= store.neoHess;
 
 	MatrixXd denseHess = MatrixXd::Zero(store.dFvec.size(),  9);

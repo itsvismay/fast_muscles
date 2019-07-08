@@ -52,10 +52,10 @@ double famu::acap::fastEnergy(Store& store, VectorXd& dFvec){
  	
  	double E7 = 0;
 
- 	VectorXd temp1 = store.ContactP1.transpose()*(store.Y*store.x + store.x0);
- 	VectorXd temp2 = store.ContactP2.transpose()*(store.Y*store.x + store.x0);
+ 	VectorXd temp1 = store.ContactP*(store.Y*store.x + store.x0);
+
  	double k = store.jinput["springk"];
- 	double E8 = 0.5*k*(temp1.dot(temp1) - 2*temp1.dot(temp2) + temp2.dot(temp2));
+ 	double E8 = 0;//0.5*k*temp1.dot(temp1);
 	
 	double E9 = E1+E2+E3+E4+E5+E6+E7+E8;
 	
@@ -67,12 +67,13 @@ void famu::acap::fastGradient(Store& store, VectorXd& grad){
 	grad += -store.x.transpose()*store.YtStDt_dF_DSx0;
 	grad += store.dFvec.transpose()*store.x0tStDt_dF_dF_DSx0;
 	grad -= store.Bf.transpose()*store.lambda2;
-	grad += store.ContactForce;
+	// grad += store.ContactForce;
 }
 
 void famu::acap::fastHessian(Store& store, SparseMatrix<double, RowMajor>& hess, Eigen::MatrixXd& denseHess){
 	hess.setZero();
 	hess = store.x0tStDt_dF_dF_DSx0; //PtZtZP
+
 
 	if(store.jinput["woodbury"]){
 		//if woodbury, store PtZtZP as dense block diag hessian
@@ -177,12 +178,19 @@ void famu::acap::adjointMethodExternalForces(Store& store){
 	KKT_right.setFromTriplets(all_trips.begin(), all_trips.end());
 
 	VectorXd t0 = store.Y*store.x + store.x0;
-	VectorXd t1 = store.ContactP1.transpose()*t0 - store.ContactP2.transpose()*t0;
 	double k = store.jinput["springk"];
-	VectorXd temp = k*adjointP.transpose()*(store.Y.transpose()*store.ContactP1*t1 - store.Y.transpose()*store.ContactP2*t1);
+	VectorXd temp = k*adjointP.transpose()*(store.Y.transpose()*store.ContactP.transpose())*(store.ContactP*t0);
+
 
 	VectorXd temp1 = store.ACAP_KKT_SPLU.solve(temp);
 	store.ContactForce = KKT_right.transpose()*temp1;
+
+
+	////HESSIAN
+	SparseMatrix<double, RowMajor> dE2dxdx = store.Y.transpose()*store.ContactP.transpose()*store.ContactP*store.Y;
+	cout<<dE2dxdx.rows()<<", "<<dE2dxdx.cols()<<endl;
+	store.ContactHess = k*store.JacdxdF.transpose()*dE2dxdx*store.JacdxdF;
+
 }
 
 void famu::acap::setJacobian(Store& store){
@@ -191,7 +199,7 @@ void famu::acap::setJacobian(Store& store){
 	MatrixXd result;
 	igl::readDMAT("jacKKT.dmat", result);
 
-	if(!store.jinput["woodbury"] && result.rows()==0){
+	if(result.rows()==0){
 		//DENSE REDUCED JAC
 		MatrixXd top = MatrixXd(store.YtStDt_dF_DSx0);
 		MatrixXd zer = MatrixXd(store.JointConstraints.rows(), top.cols());
