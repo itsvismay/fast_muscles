@@ -253,13 +253,13 @@ int main(int argc, char *argv[])
 		famu::bone_acap_deformation_constraints(store, store.Bx, store.Bf);
 	    store.lambda2 = VectorXd::Zero(store.Bf.rows());
 
-	    std::vector<std::pair<int, int>> springs;
-	    std::vector<int> bcMuscle1 = getMinVerts_Axis_Tolerance(store.T, store.V, 2, 5e-2, store.muscle_tets[0]);
-	    std::vector<int> bcMuscle2 = getMaxVerts_Axis_Tolerance(store.T, store.V, 2, 5e-2, store.muscle_tets[1]);
-	    // famu::make_closest_point_springs(store.T, store.V, store.muscle_tets[1],  bcMuscle1, springs);
-	    famu::make_closest_point_springs(store.T, store.V, store.muscle_tets[0],  bcMuscle2, springs);
+	    // std::vector<std::pair<int, int>> springs;
+	    // std::vector<int> bcMuscle1 = getMinVerts_Axis_Tolerance(store.T, store.V, 2, 1e-1, store.muscle_tets[0]);
+	    // std::vector<int> bcMuscle2 = getMaxVerts_Axis_Tolerance(store.T, store.V, 2, 1e-1, store.muscle_tets[1]);
+	    // // famu::make_closest_point_springs(store.T, store.V, store.muscle_tets[1],  bcMuscle1, springs);
+	    // famu::make_closest_point_springs(store.T, store.V, store.muscle_tets[0],  bcMuscle2, springs);
 
-	    famu::penalty_spring_bc(springs, store.ContactP, store.V);
+	    // famu::penalty_spring_bc(springs, store.ContactP, store.V);
 
 	
 
@@ -269,12 +269,12 @@ int main(int argc, char *argv[])
 		famu::construct_kkt_system_left(store.YtStDtDSY, store.JointConstraints, KKT_left);
 
 		double k = store.jinput["springk"];
-		SparseMatrix<double, Eigen::RowMajor> PY = k*store.ContactP*store.Y;
-		famu::construct_kkt_system_left(KKT_left, PY, KKT_left1, -1);
+		// SparseMatrix<double, Eigen::RowMajor> PY = k*store.ContactP*store.Y;
+		// famu::construct_kkt_system_left(KKT_left, PY, KKT_left1, -1);
 
 
 		SparseMatrix<double, Eigen::RowMajor> KKT_left2;
-		famu::construct_kkt_system_left(KKT_left1, store.Bx,  KKT_left2, -1); 
+		famu::construct_kkt_system_left(KKT_left, store.Bx,  KKT_left2, -1e-3); 
 		// MatrixXd Hkkt = MatrixXd(KKT_left2);
 		store.ACAP_KKT_SPLU.pardisoParameterArray()[2] = num_threads; 
 
@@ -389,14 +389,14 @@ int main(int argc, char *argv[])
 
 
 	cout<<"--- Write Meshes"<<endl;
-		// double fx = 0;
-		// int niters = 0;
-		// niters = famu::newton_static_solve(store);
+		double fx = 0;
+		int niters = 0;
+		niters = famu::newton_static_solve(store);
 
-		// VectorXd y = store.Y*store.x;
-		// Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
-		// igl::writeOBJ(outputfile+"/EMU"+to_string(store.T.rows())+".obj", (newV.transpose()+store.V), store.F);
-		// exit(0);
+		VectorXd y = store.Y*store.x;
+		Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
+		igl::writeOBJ(outputfile+"/EMU"+to_string(store.T.rows())+"-Alpha:"+to_string(store.alpha_arap)+".obj", (newV.transpose()+store.V), store.F);
+		exit(0);
 
 	cout<<"--- External Forces Hard Coded Contact Matrices"<<endl;
 	    // famu::acap::adjointMethodExternalForces(store);
@@ -606,11 +606,11 @@ int main(int argc, char *argv[])
         // viewer.data().add_points( (store.ContactP2.transpose()*(store.Y*store.x + store.x0)).transpose() , Eigen::RowVector3d(0,1,0));
         viewer.data().points = Eigen::MatrixXd(0,6);
         viewer.data().lines = Eigen::MatrixXd(0,9);
-        for(int i=0; i<springs.size(); i++){
-        	viewer.data().add_points(viewer.data_list[debug_data_index].V.row(springs[i].first), Eigen::RowVector3d(1,0,0));
-        	viewer.data().add_points(viewer.data_list[debug_data_index].V.row(springs[i].second), Eigen::RowVector3d(1,0,0));
-        	viewer.data().add_edges(viewer.data_list[debug_data_index].V.row(springs[i].first),viewer.data_list[debug_data_index].V.row(springs[i].second),Eigen::RowVector3d(1,0,0));
-        }
+        // for(int i=0; i<springs.size(); i++){
+        // 	viewer.data().add_points(viewer.data_list[debug_data_index].V.row(springs[i].first), Eigen::RowVector3d(1,0,0));
+        // 	viewer.data().add_points(viewer.data_list[debug_data_index].V.row(springs[i].second), Eigen::RowVector3d(1,0,0));
+        // 	viewer.data().add_edges(viewer.data_list[debug_data_index].V.row(springs[i].first),viewer.data_list[debug_data_index].V.row(springs[i].second),Eigen::RowVector3d(1,0,0));
+        // }
     
 
         //for(int i=0; i<store.mmov.size(); i++){

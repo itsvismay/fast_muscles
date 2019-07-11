@@ -52,14 +52,13 @@ double famu::acap::fastEnergy(Store& store, VectorXd& dFvec){
  	
  	double E7 = 0;
 
- 	VectorXd temp1 = store.ContactP*(store.Y*store.x + store.x0);
-
  	double k = store.jinput["springk"];
  	double E8 = 0;//0.5*k*temp1.dot(temp1);
 	
 	double E9 = E1+E2+E3+E4+E5+E6+E7+E8;
 	
-	return E9;
+	double aa = store.jinput["alpha_arap"];
+	return E9*aa;
 }
 
 void famu::acap::fastGradient(Store& store, VectorXd& grad){
@@ -67,12 +66,14 @@ void famu::acap::fastGradient(Store& store, VectorXd& grad){
 	grad += -store.x.transpose()*store.YtStDt_dF_DSx0;
 	grad += store.dFvec.transpose()*store.x0tStDt_dF_dF_DSx0;
 	grad -= store.Bf.transpose()*store.lambda2;
+	double aa = store.jinput["alpha_arap"];
+	grad *= aa;
 	// grad += store.ContactForce;
 }
 
 void famu::acap::fastHessian(Store& store, SparseMatrix<double, RowMajor>& hess, Eigen::MatrixXd& denseHess){
 	hess.setZero();
-	hess = store.x0tStDt_dF_dF_DSx0; //PtZtZP
+	hess = store.jinput["alpha_arap"]*store.x0tStDt_dF_dF_DSx0; //PtZtZP
 
 
 	if(store.jinput["woodbury"]){
