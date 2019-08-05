@@ -272,10 +272,10 @@ int famu::newton_static_solve(Store& store){
 		famu::acap::fastGradient(store, acap_grad);
 		graddFvec = muscle_grad + neo_grad + acap_grad;
 
-		// cout<<"		muscle grad: "<<muscle_grad.norm()<<endl;
-		// cout<<"		neo grad: "<<neo_grad.norm()<<endl;
-		// cout<<"		acap grad: "<<acap_grad.norm()<<endl;
-		// cout<<"		total grad: "<<graddFvec.norm()<<endl;
+		cout<<"		muscle grad: "<<muscle_grad.norm()<<endl;
+		cout<<"		neo grad: "<<neo_grad.norm()<<endl;
+		cout<<"		acap grad: "<<acap_grad.norm()<<endl;
+		cout<<"		total grad: "<<graddFvec.norm()<<endl;
 		
 		if(graddFvec != graddFvec){
 			cout<<"Error: nans in grad"<<endl;

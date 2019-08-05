@@ -114,16 +114,17 @@ int main(int argc, char *argv[])
 		// store.mfix = famu::getMaxVerts(store.V, 1);
 		// store.mmov = {};//famu::getMinVerts(store.V, 1);
 		cout<<"If it fails here, make sure indexing is within bounds"<<endl;
-	    std::set<int> fix_verts_set;
-	    for(int ii=0; ii<store.fix_bones.size(); ii++){
-	        cout<<store.fix_bones[ii]<<endl;
-	        int bone_ind = store.bone_name_index_map[store.fix_bones[ii]];
-	        fix_verts_set.insert(store.T.row(store.bone_tets[bone_ind][0])[0]);
-	        fix_verts_set.insert(store.T.row(store.bone_tets[bone_ind][0])[1]);
-	        fix_verts_set.insert(store.T.row(store.bone_tets[bone_ind][0])[2]);
-	        fix_verts_set.insert(store.T.row(store.bone_tets[bone_ind][0])[3]);
-	    }
-	    store.mfix.assign(fix_verts_set.begin(), fix_verts_set.end());
+	    // std::set<int> fix_verts_set;
+	    // for(int ii=0; ii<store.fix_bones.size(); ii++){
+	    //     cout<<store.fix_bones[ii]<<endl;
+	    //     int bone_ind = store.bone_name_index_map[store.fix_bones[ii]];
+	    //     fix_verts_set.insert(store.T.row(store.bone_tets[bone_ind][0])[0]);
+	    //     fix_verts_set.insert(store.T.row(store.bone_tets[bone_ind][0])[1]);
+	    //     fix_verts_set.insert(store.T.row(store.bone_tets[bone_ind][0])[2]);
+	    //     fix_verts_set.insert(store.T.row(store.bone_tets[bone_ind][0])[3]);
+	    // }
+	    // store.mfix.assign(fix_verts_set.begin(), fix_verts_set.end());
+	    store.mfix = famu::getMinVerts_Axis_Tolerance(store.T, store.V, 1, 1e-2,store.muscle_tets[0]);
 	    std::sort (store.mfix.begin(), store.mfix.end());
 	
 	cout<<"---Set Mesh Params"<<store.x.size()<<endl;
@@ -389,14 +390,14 @@ int main(int argc, char *argv[])
 
 
 	cout<<"--- Write Meshes"<<endl;
-		double fx = 0;
-		int niters = 0;
-		niters = famu::newton_static_solve(store);
+		// double fx = 0;
+		// int niters = 0;
+		// niters = famu::newton_static_solve(store);
 
-		VectorXd y = store.Y*store.x;
-		Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
-		igl::writeOBJ(outputfile+"/EMU"+to_string(store.T.rows())+"-Alpha:"+to_string(store.alpha_arap)+".obj", (newV.transpose()+store.V), store.F);
-		exit(0);
+		// VectorXd y = store.Y*store.x;
+		// Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
+		// igl::writeOBJ(outputfile+"/EMU"+to_string(store.T.rows())+"-Alpha:"+to_string(store.alpha_arap)+".obj", (newV.transpose()+store.V), store.F);
+		// exit(0);
 
 	cout<<"--- External Forces Hard Coded Contact Matrices"<<endl;
 	    // famu::acap::adjointMethodExternalForces(store);

@@ -51,11 +51,8 @@ void famu::read_config_files(Eigen::MatrixXd& V,
     fix_bones.insert(fix_bones.end(), fixed.begin(), fixed.end());
     for(int t = 0; t<T.rows(); t++){
         //TODO: update to be parametrized by input mU
-        Vector3d b = Uvec.row(t);
-        if(b!=b || b.norm()==0){
-            b = 0*Vector3d::UnitY();
-            Uvec.row(t) = b;
-        }
+        Uvec.row(t) = Vector3d::UnitY();;
+        
     }
    
     //these bones are fixed, store them at the front of the
