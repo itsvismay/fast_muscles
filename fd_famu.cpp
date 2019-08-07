@@ -253,31 +253,29 @@ int main(int argc, char *argv[])
 		famu::bone_acap_deformation_constraints(store, store.Bx, store.Bf);
 	    store.lambda2 = VectorXd::Zero(store.Bf.rows());
 
-	    // std::vector<std::pair<int, int>> springs;
-	    // std::vector<int> bcMuscle1 = getMinVerts_Axis_Tolerance(store.T, store.V, 2, 1e-1, store.muscle_tets[0]);
+	    std::vector<std::pair<int, int>> springs;
+	    std::vector<int> bcMuscle1 = getMinVerts_Axis_Tolerance(store.T, store.V, 0, 1e-1, store.muscle_tets[0]);
 	    // std::vector<int> bcMuscle2 = getMaxVerts_Axis_Tolerance(store.T, store.V, 2, 1e-1, store.muscle_tets[1]);
-	    // // famu::make_closest_point_springs(store.T, store.V, store.muscle_tets[1],  bcMuscle1, springs);
+	    famu::make_closest_point_springs(store.T, store.V, store.muscle_tets[1],  bcMuscle1, springs);
 	    // famu::make_closest_point_springs(store.T, store.V, store.muscle_tets[0],  bcMuscle2, springs);
 
-	    // famu::penalty_spring_bc(springs, store.ContactP, store.V);
+	    famu::penalty_spring_bc(springs, store.ContactP, store.V);
 
 	
 
 	cout<<"---ACAP Solve KKT setup"<<store.x.size()<<endl;
-		SparseMatrix<double, Eigen::RowMajor> KKT_left, KKT_left1;
+		SparseMatrix<double, Eigen::RowMajor> KKT_left, KKT_left1, KKT_left2;
 		store.YtStDtDSY = (store.D*store.S*store.Y).transpose()*(store.D*store.S*store.Y);
 		famu::construct_kkt_system_left(store.YtStDtDSY, store.JointConstraints, KKT_left);
 
 		double k = store.jinput["springk"];
-		// SparseMatrix<double, Eigen::RowMajor> PY = k*store.ContactP*store.Y;
-		// famu::construct_kkt_system_left(KKT_left, PY, KKT_left1, -1);
+		SparseMatrix<double, Eigen::RowMajor> PY = k*store.ContactP*store.Y;
+		famu::construct_kkt_system_left(KKT_left, PY, KKT_left1, -1);
+
+		famu::construct_kkt_system_left(KKT_left1, store.Bx,  KKT_left2, -1e-3); 
 
 
-		SparseMatrix<double, Eigen::RowMajor> KKT_left2;
-		famu::construct_kkt_system_left(KKT_left, store.Bx,  KKT_left2, -1e-3); 
-		// MatrixXd Hkkt = MatrixXd(KKT_left2);
 		store.ACAP_KKT_SPLU.pardisoParameterArray()[2] = num_threads; 
-
 		store.ACAP_KKT_SPLU.analyzePattern(KKT_left2);
 		store.ACAP_KKT_SPLU.factorize(KKT_left2);
 
@@ -389,39 +387,62 @@ int main(int argc, char *argv[])
 
 
 	cout<<"--- Write Meshes"<<endl;
-		double fx = 0;
-		int niters = 0;
-		niters = famu::newton_static_solve(store);
+		// double fx = 0;
+		// int niters = 0;
+		// niters = famu::newton_static_solve(store);
 
-		VectorXd y = store.Y*store.x;
-		Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
-		igl::writeOBJ(outputfile+"/EMU"+to_string(store.T.rows())+"-Alpha:"+to_string(store.alpha_arap)+".obj", (newV.transpose()+store.V), store.F);
-		exit(0);
+		// VectorXd y = store.Y*store.x;
+		// Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
+		// igl::writeOBJ(outputfile+"/EMU"+to_string(store.T.rows())+"-Alpha:"+to_string(store.alpha_arap)+".obj", (newV.transpose()+store.V), store.F);
+		// exit(0);
 
 	cout<<"--- External Forces Hard Coded Contact Matrices"<<endl;
-	    // famu::acap::adjointMethodExternalForces(store);
+	    famu::acap::adjointMethodExternalForces(store);
 	
 
 	std::cout<<"-----Display-------"<<std::endl;
     	igl::opengl::glfw::Viewer viewer;
     	int currentStep = 0;
+    	int niters = 0;
     	viewer.callback_post_draw= [&](igl::opengl::glfw::Viewer & viewer) {
 	    
-	    // std::stringstream out_file;
-	    // //render out current view
-	    // // Allocate temporary buffers for 1280x800 image
-	    // Eigen::Matrix<unsigned char,Eigen::Dynamic,Eigen::Dynamic> R(1920,1280);
-	    // Eigen::Matrix<unsigned char,Eigen::Dynamic,Eigen::Dynamic> G(1920,1280);
-	    // Eigen::Matrix<unsigned char,Eigen::Dynamic,Eigen::Dynamic> B(1920,1280);
-	    // Eigen::Matrix<unsigned char,Eigen::Dynamic,Eigen::Dynamic> A(1920,1280);
-	    
-	    // // Draw the scene in the buffers
-	    // viewer.core.draw_buffer(viewer.data(),false,R,G,B,A);
-	    
-	    // // Save it to a PNG
-	    // out_file<<"out_"<<std::setfill('0') << std::setw(5) <<currentStep<<".png";
-	    // igl::png::writePNG(R,G,B,A,out_file.str());
-	    // currentStep += 1;
+	    std::stringstream out_file;
+	    //render out current view
+	    // Allocate temporary buffers for 1280x800 image
+	    Eigen::Matrix<unsigned char,Eigen::Dynamic,Eigen::Dynamic> R(1920,1280);
+	    Eigen::Matrix<unsigned char,Eigen::Dynamic,Eigen::Dynamic> G(1920,1280);
+	    Eigen::Matrix<unsigned char,Eigen::Dynamic,Eigen::Dynamic> B(1920,1280);
+	    Eigen::Matrix<unsigned char,Eigen::Dynamic,Eigen::Dynamic> A(1920,1280);
+	     if(viewer.core.is_animating){
+            // Draw the scene in the buffers
+            viewer.core.draw_buffer(viewer.data(),false,R,G,B,A);
+
+            VectorXd y = store.Y*store.x;
+            Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
+            viewer.data_list[fancy_data_index].set_vertices((newV.transpose()+store.V));
+            
+            // Save it to a PNG
+            out_file<<outputfile<<"/images/out_"<<std::setfill('0') << std::setw(5) <<currentStep<<".png";
+		    igl::png::writePNG(R,G,B,A,out_file.str());
+		    currentStep += 1;
+
+		     for(int i=0; i<store.muscle_tets[0].size(); i++){
+                int t = store.muscle_tets[0][i];
+                store.muscle_mag[t] += 1000;
+            }
+            for(int i=0; i<store.muscle_tets[1].size(); i++){
+                int t = store.muscle_tets[1][i];
+                store.muscle_mag[t] += 1000;
+            }
+
+		    double fx = 0;
+	        niters += famu::newton_static_solve(store);
+	        cout<<"total NM iters: "<<niters<<endl;
+	        if(currentStep==100){
+	            exit(0);
+	        }
+	    }
+
 	    return false;
 	};
 
@@ -602,15 +623,13 @@ int main(int argc, char *argv[])
         }
 
 
-        // viewer.data().add_points( (store.ContactP1.transpose()*(store.Y*store.x + store.x0)).transpose() , Eigen::RowVector3d(1,0,0));
-        // viewer.data().add_points( (store.ContactP2.transpose()*(store.Y*store.x + store.x0)).transpose() , Eigen::RowVector3d(0,1,0));
         viewer.data().points = Eigen::MatrixXd(0,6);
         viewer.data().lines = Eigen::MatrixXd(0,9);
-        // for(int i=0; i<springs.size(); i++){
-        // 	viewer.data().add_points(viewer.data_list[debug_data_index].V.row(springs[i].first), Eigen::RowVector3d(1,0,0));
-        // 	viewer.data().add_points(viewer.data_list[debug_data_index].V.row(springs[i].second), Eigen::RowVector3d(1,0,0));
-        // 	viewer.data().add_edges(viewer.data_list[debug_data_index].V.row(springs[i].first),viewer.data_list[debug_data_index].V.row(springs[i].second),Eigen::RowVector3d(1,0,0));
-        // }
+        for(int i=0; i<springs.size(); i++){
+        	// viewer.data().add_points(viewer.data_list[debug_data_index].V.row(springs[i].first), Eigen::RowVector3d(1,0,0));
+        	// viewer.data().add_points(viewer.data_list[debug_data_index].V.row(springs[i].second), Eigen::RowVector3d(1,0,0));
+        	viewer.data().add_edges(viewer.data_list[debug_data_index].V.row(springs[i].first),viewer.data_list[debug_data_index].V.row(springs[i].second),Eigen::RowVector3d(1,0,0));
+        }
     
 
         //for(int i=0; i<store.mmov.size(); i++){

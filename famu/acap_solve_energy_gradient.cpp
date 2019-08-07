@@ -183,14 +183,14 @@ void famu::acap::adjointMethodExternalForces(Store& store){
 	VectorXd temp = k*adjointP.transpose()*(store.Y.transpose()*store.ContactP.transpose())*(store.ContactP*t0);
 
 
-	VectorXd temp1 = store.ACAP_KKT_SPLU.solve(temp);
-	store.ContactForce = KKT_right.transpose()*temp1;
+	// VectorXd temp1 = store.ACAP_KKT_SPLU.solve(temp);
+	// store.ContactForce = KKT_right.transpose()*temp1;
 
 
 	////HESSIAN
-	SparseMatrix<double, RowMajor> dE2dxdx = store.Y.transpose()*store.ContactP.transpose()*store.ContactP*store.Y;
-	cout<<dE2dxdx.rows()<<", "<<dE2dxdx.cols()<<endl;
-	store.ContactHess = k*store.JacdxdF.transpose()*dE2dxdx*store.JacdxdF;
+	// SparseMatrix<double, RowMajor> dE2dxdx = store.Y.transpose()*store.ContactP.transpose()*store.ContactP*store.Y;
+	// cout<<dE2dxdx.rows()<<", "<<dE2dxdx.cols()<<endl;
+	// store.ContactHess = k*store.JacdxdF.transpose()*dE2dxdx*store.JacdxdF;
 
 }
 
