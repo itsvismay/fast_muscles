@@ -64,18 +64,11 @@ int main(int argc, char *argv[])
 			cout<<"Run as: ./famu input.json <threads>"<<endl;
 			exit(0);
 		}
-		if(argc==3){
-			num_threads = std::stoi(argv[2]);
-			omp_set_num_threads(num_threads);
-			std::ifstream input_file(argv[1]);
-			input_file >> j_input;
-		}else if(argc==4){
-			num_threads = std::stoi(argv[3]);
-			omp_set_num_threads(num_threads);
-			std::ifstream input_file(argv[2]);
-			input_file >> j_input;
-
-		}
+		num_threads = std::stoi(argv[2]);
+		omp_set_num_threads(num_threads);
+		std::ifstream input_file(argv[1]);
+		input_file >> j_input;
+		
 		Eigen::initParallel();
 	
 		
@@ -99,6 +92,8 @@ int main(int argc, char *argv[])
 								store.jinput);  
 		store.alpha_arap = store.jinput["alpha_arap"];
 		store.alpha_neo = store.jinput["alpha_neo"];
+		store.alpha_arap = std::stod(argv[3]);
+		store.jinput["alpha_arap"] = std::stod(argv[3]);
 		
 
 
@@ -254,10 +249,10 @@ int main(int argc, char *argv[])
 	    store.lambda2 = VectorXd::Zero(store.Bf.rows());
 
 	    std::vector<std::pair<int, int>> springs;
-	    std::vector<int> bcMuscle1 = getMinVerts_Axis_Tolerance(store.T, store.V, 0, 1e-1, store.muscle_tets[0]);
-	    // std::vector<int> bcMuscle2 = getMaxVerts_Axis_Tolerance(store.T, store.V, 2, 1e-1, store.muscle_tets[1]);
-	    famu::make_closest_point_springs(store.T, store.V, store.muscle_tets[1],  bcMuscle1, springs);
-	    // famu::make_closest_point_springs(store.T, store.V, store.muscle_tets[0],  bcMuscle2, springs);
+	    // std::vector<int> bcMuscle1 = getMinVerts_Axis_Tolerance(store.T, store.V, 0, 1e-1, store.muscle_tets[0]);
+	    // // std::vector<int> bcMuscle2 = getMaxVerts_Axis_Tolerance(store.T, store.V, 2, 1e-1, store.muscle_tets[1]);
+	    // famu::make_closest_point_springs(store.T, store.V, store.muscle_tets[1],  bcMuscle1, springs);
+	    // // famu::make_closest_point_springs(store.T, store.V, store.muscle_tets[0],  bcMuscle2, springs);
 
 	    famu::penalty_spring_bc(springs, store.ContactP, store.V);
 
@@ -363,8 +358,10 @@ int main(int argc, char *argv[])
 			
 	if(store.jinput["woodbury"]){
 		cout<<"--- Setup woodbury matrices"<<endl;
-			store.WoodB = -store.YtStDt_dF_DSx0.transpose()*store.G;
+			double aa = store.jinput["alpha_arap"];
+			store.WoodB = -1*store.YtStDt_dF_DSx0.transpose()*store.G;
 			store.WoodD = -1*store.WoodB.transpose();
+			store.WoodB *= aa;
 			
 
 			store.InvC = store.eigenvalues.asDiagonal();
@@ -387,14 +384,14 @@ int main(int argc, char *argv[])
 
 
 	cout<<"--- Write Meshes"<<endl;
-		// double fx = 0;
-		// int niters = 0;
-		// niters = famu::newton_static_solve(store);
+		double fx = 0;
+		int iters = 0;
+		iters = famu::newton_static_solve(store);
 
-		// VectorXd y = store.Y*store.x;
-		// Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
-		// igl::writeOBJ(outputfile+"/EMU"+to_string(store.T.rows())+"-Alpha:"+to_string(store.alpha_arap)+".obj", (newV.transpose()+store.V), store.F);
-		// exit(0);
+		VectorXd y = store.Y*store.x;
+		Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
+		igl::writeOBJ(outputfile+"/EMU"+to_string(store.T.rows())+"-Alpha:"+to_string(store.alpha_arap)+".obj", (newV.transpose()+store.V), store.F);
+		exit(0);
 
 	cout<<"--- External Forces Hard Coded Contact Matrices"<<endl;
 	    famu::acap::adjointMethodExternalForces(store);
@@ -490,7 +487,7 @@ int main(int argc, char *argv[])
             // cout<<"+++Microsecs per solve: "<<timer.getElapsedTimeInMicroSec()<<endl;
 
             double fx = 0;
-            int niters = 0;
+            niters = 0;
             niters = famu::newton_static_solve(store);
 
             VectorXd y = store.Y*store.x;

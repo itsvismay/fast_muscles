@@ -9,6 +9,8 @@
 #include <Eigen/LU>
 #include <Eigen/Cholesky>
 #include <igl/Timer.h>
+#include <igl/readOBJ.h>
+
 
 using Store = famu::Store;
 using namespace Eigen;
@@ -183,7 +185,7 @@ void famu::fastWoodbury(Store& store, const VectorXd& g, MatrixModesxModes X, Ve
 	FullPivLU<MatrixModesxModes> WoodburyDenseSolve;
 
 	double aa = store.jinput["alpha_arap"];
-	X = store.InvC*aa;
+	X = store.InvC;
 	#pragma omp parallel
 	{
 		MatrixModesxModes Xpriv = MatrixModesxModes::Zero();
@@ -200,9 +202,10 @@ void famu::fastWoodbury(Store& store, const VectorXd& g, MatrixModesxModes X, Ve
 			drt.segment<9>(9*i) = invAg;
 
 			Matrix9xModes B = store.WoodB.block<9, NUM_MODES>(9*i, 0);
-			Xpriv = Xpriv + -B.transpose()*InvA.solve(B);
+			Matrix9xModes Dt = store.WoodD.block<NUM_MODES, 9>(0, 9*i).transpose();
+			Xpriv = Xpriv + -Dt.transpose()*InvA.solve(B);
 
-			DAgpriv  = DAgpriv + -B.transpose()*invAg;
+			DAgpriv  = DAgpriv + -Dt.transpose()*invAg;
 		}
 		#pragma omp critical
 		{
@@ -337,19 +340,16 @@ int famu::newton_static_solve(Store& store){
 		linetimes += timer.getElapsedTimeInMicroSec();
 		
 
-		if(fabs(alpha)<1e-9 ){
-			break;
-		}
-
 		store.dFvec += alpha*delta_dFvec;
 		polar_dec(store, store.dFvec);
 		double fx = Energy(store, store.dFvec);
 
 		
-
-		if(graddFvec.squaredNorm()/graddFvec.size()<1e-4 || fabs(fx - prevfx)<1e-3){
-			break;
-		}
+		cout<<"grad dF vec: "<<graddFvec.norm()<<endl;
+		// if(fabs(fx - prevfx)<1e-3){
+			
+		// 	break;
+		// }
 	}
 	timer1.stop();
 	double nmtime = timer1.getElapsedTimeInMicroSec();
@@ -367,13 +367,23 @@ int famu::newton_static_solve(Store& store){
 	cout<<"V, T:"<<store.V.rows()<<", "<<store.T.rows()<<endl;
 	cout<<"Threads: "<<Eigen::nbThreads()<<endl;
 	cout<<"NM Iters: "<<iter<<endl;
-	cout<<"Total NM time: "<<nmtime<<endl;
-	cout<<"Total Hess time: "<<woodtimes<<endl;
-	cout<<"Total LS time: "<<linetimes<<endl;
-	cout<<"LS iters: "<<tot_ls_its<<endl;
-	cout<<"Energy: "<<acap_energy<<endl;
-	cout<<"Energy Time: "<<energy_time<<endl;
-	cout<<"ACAP time: "<<timer1.getElapsedTimeInMicroSec()<<endl;
+	cout<<"Alpha: "<<store.alpha_arap<<endl;
+	MatrixXd Gv;
+	MatrixXi Gt;
+	std::string outputfile = store.jinput["output"];
+	igl::readOBJ(outputfile+"/GaussMuscle6785.obj", Gv, Gt);
+	VectorXd y = store.Y*store.x;
+	Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
+	cout<<"Error: "<<((newV.transpose() + store.V) - Gv).norm()<<endl;
+
+
+	// cout<<"Total NM time: "<<nmtime<<endl;
+	// cout<<"Total Hess time: "<<woodtimes<<endl;
+	// cout<<"Total LS time: "<<linetimes<<endl;
+	// cout<<"LS iters: "<<tot_ls_its<<endl;
+	// cout<<"Energy: "<<acap_energy<<endl;
+	// cout<<"Energy Time: "<<energy_time<<endl;
+	// cout<<"ACAP time: "<<timer1.getElapsedTimeInMicroSec()<<endl;
 	// cout<<"dFvec: "<<store.dFvec.transpose()<<endl;
 	cout<<"--------------------------------"<<endl;
     return iter;

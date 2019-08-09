@@ -23,8 +23,8 @@ T = readDMAT([inputfile 'tet_mesh_T.dmat'])+1;
 % F = F(:,[1,3,2]); %Vismay's normals are backwards
 
 %https://www.slicer.org/wiki/Slicer3:2010_GenericAnatomyColors
-muscle_color = [192,104,88]/255;
-bone_color = [255,250,220]/255;
+bone_color = hex2dec(reshape('dbd3b4',2,3)')'/255;
+muscle_color = hex2dec(reshape('ae371f',2,3)')'/255;
 tendon_color = [255, 255, 255]/255;
 
 %set muscles to 1, bones to 0 , tendons to 2
@@ -40,7 +40,7 @@ face_color(bone_faces,:) = repmat(bone_color, sum(bone_faces),1);
 face_color(tendon_faces,:) = repmat(tendon_color, sum(tendon_faces), 1);
 
 %V = readDMAT([inputfile 'tet_mesh_V.dmat']);
-[V, F1] = readOBJ([inputfile '../EMU6785-Alpha:1000000.000000.obj']);
+[V, F1] = readOBJ([inputfile '../EMU6785-Alpha:100.000000.obj']);
 V = V*R;
 
 t = tsurf(F, V, 'FaceVertexCData', face_color);
