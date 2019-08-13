@@ -265,14 +265,9 @@ int main(int argc, char *argv[])
 		famu::construct_kkt_system_left(KKT_left, store.Bx,  KKT_left2, -1); 
 		// MatrixXd Hkkt = MatrixXd(KKT_left2);
 
-		// store.ACAP_KKT_SPLU.symbolicFactorization(KKT_left2);
-		// store.ACAP_KKT_SPLU.numericalFactorization();
-		store.ACAP_KKT_SPLU.compute(KKT_left2);
-
-		igl::writeDMAT("joint_constraints.dmat", MatrixXd(store.JointConstraints));
-		igl::writeDMAT("Bx.dmat", MatrixXd(store.Bx));
-		igl::writeDMAT("KKT_left.dmat", MatrixXd(KKT_left));
-		igl::writeDMAT("KKT_left2.dmat", MatrixXd(KKT_left2));
+		store.ACAP_KKT_SPLU.symbolicFactorization(KKT_left2);
+		store.ACAP_KKT_SPLU.numericalFactorization();
+		//store.ACAP_KKT_SPLU.compute(KKT_left2);
 
 	cout<<"---Setup dFvec and dF"<<endl;
 		store.dFvec = VectorXd::Zero(store.ProjectF.cols());
@@ -374,16 +369,16 @@ int main(int argc, char *argv[])
 
 
 	cout<<"--- Write Meshes"<<endl;
-		// double fx = 0;
-		// int niters = 0;
-		// niters = famu::newton_static_solve(store);
+		double fx = 0;
+		int niters = 0;
+		niters = famu::newton_static_solve(store);
 
-		// VectorXd y = store.Y*store.x;
-		// Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
-		// igl::writeOBJ(outputfile+"/EMU"+to_string(store.T.rows())+".obj", (newV.transpose()+store.V), store.F);
-		// exit(0);
+		VectorXd y = store.Y*store.x;
+		Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
+		igl::writeOBJ(outputfile+"/EMU"+to_string(store.T.rows())+".obj", (newV.transpose()+store.V), store.F);
+		exit(0);
 
-	std::cout<<"-----Display-------"<<std::endl;
+		std::cout<<"-----Display-------"<<std::endl;
     igl::opengl::glfw::Viewer viewer;
     int currentStep = 0;
      viewer.callback_post_draw= [&](igl::opengl::glfw::Viewer & viewer) {

@@ -42,7 +42,7 @@ public:
     //Pardiso stuff
     //default matrix type = unsymmetric
     //only the upper triangle of symmetric matrices must be passed to pardiso 
-    SolverPardiso(int matrixType = 11, unsigned int numProcessors = 8) {
+    SolverPardiso(int matrixType = 11, unsigned int numProcessors = 24) {
         std::cout<<"TRYING TO SETUP SOLVER"<<std::endl;
 
         m_matrixType = matrixType;
