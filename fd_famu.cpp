@@ -110,15 +110,16 @@ int main(int argc, char *argv[])
 		// store.mmov = {};//famu::getMinVerts(store.V, 1);
 		cout<<"If it fails here, make sure indexing is within bounds"<<endl;
 	    std::set<int> fix_verts_set;
-	    for(int ii=0; ii<store.fix_bones.size(); ii++){
-	        cout<<store.fix_bones[ii]<<endl;
-	        int bone_ind = store.bone_name_index_map[store.fix_bones[ii]];
-	        fix_verts_set.insert(store.T.row(store.bone_tets[bone_ind][0])[0]);
-	        fix_verts_set.insert(store.T.row(store.bone_tets[bone_ind][0])[1]);
-	        fix_verts_set.insert(store.T.row(store.bone_tets[bone_ind][0])[2]);
-	        fix_verts_set.insert(store.T.row(store.bone_tets[bone_ind][0])[3]);
-	    }
-	    store.mfix.assign(fix_verts_set.begin(), fix_verts_set.end());
+	    // for(int ii=0; ii<store.fix_bones.size(); ii++){
+	    //     cout<<store.fix_bones[ii]<<endl;
+	    //     int bone_ind = store.bone_name_index_map[store.fix_bones[ii]];
+	    //     fix_verts_set.insert(store.T.row(store.bone_tets[bone_ind][0])[0]);
+	    //     fix_verts_set.insert(store.T.row(store.bone_tets[bone_ind][0])[1]);
+	    //     fix_verts_set.insert(store.T.row(store.bone_tets[bone_ind][0])[2]);
+	    //     fix_verts_set.insert(store.T.row(store.bone_tets[bone_ind][0])[3]);
+	    // }
+	    // store.mfix.assign(fix_verts_set.begin(), fix_verts_set.end());
+	    store.mfix = famu::getMinVerts_Axis_Tolerance(store.T, store.V, 1, 1e-2,store.muscle_tets[0]);
 	    std::sort (store.mfix.begin(), store.mfix.end());
 	
 	cout<<"---Set Mesh Params"<<store.x.size()<<endl;
@@ -248,27 +249,13 @@ int main(int argc, char *argv[])
 		famu::bone_acap_deformation_constraints(store, store.Bx, store.Bf);
 	    store.lambda2 = VectorXd::Zero(store.Bf.rows());
 
-	    std::vector<std::pair<int, int>> springs;
-	    // std::vector<int> bcMuscle1 = getMinVerts_Axis_Tolerance(store.T, store.V, 0, 1e-1, store.muscle_tets[0]);
-	    // // std::vector<int> bcMuscle2 = getMaxVerts_Axis_Tolerance(store.T, store.V, 2, 1e-1, store.muscle_tets[1]);
-	    // famu::make_closest_point_springs(store.T, store.V, store.muscle_tets[1],  bcMuscle1, springs);
-	    // // famu::make_closest_point_springs(store.T, store.V, store.muscle_tets[0],  bcMuscle2, springs);
-
-	    famu::penalty_spring_bc(springs, store.ContactP, store.V);
-
 	
 
 	cout<<"---ACAP Solve KKT setup"<<store.x.size()<<endl;
-		SparseMatrix<double, Eigen::RowMajor> KKT_left, KKT_left1, KKT_left2;
+		SparseMatrix<double, Eigen::RowMajor> KKT_left, KKT_left1, KKT_left2, CPM;
 		store.YtStDtDSY = (store.D*store.S*store.Y).transpose()*(store.D*store.S*store.Y);
-		famu::construct_kkt_system_left(store.YtStDtDSY, store.JointConstraints, KKT_left);
-
-		double k = store.jinput["springk"];
-		SparseMatrix<double, Eigen::RowMajor> PY = k*store.ContactP*store.Y;
-		famu::construct_kkt_system_left(KKT_left, PY, KKT_left1, -1);
-
-		famu::construct_kkt_system_left(KKT_left1, store.Bx,  KKT_left2, -1e-3); 
-
+		CPM = store.ConstrainProjection.transpose();
+		famu::construct_kkt_system_left(store.YtStDtDSY, CPM, KKT_left2);
 
 		store.ACAP_KKT_SPLU.pardisoParameterArray()[2] = num_threads; 
 		store.ACAP_KKT_SPLU.analyzePattern(KKT_left2);
@@ -380,9 +367,6 @@ int main(int argc, char *argv[])
 		store.acaptmp_sizedFvec1= store.dFvec;
 		store.acaptmp_sizedFvec2 = store.dFvec;
 
-
-
-
 	cout<<"--- Write Meshes"<<endl;
 		double fx = 0;
 		int iters = 0;
@@ -390,11 +374,8 @@ int main(int argc, char *argv[])
 
 		VectorXd y = store.Y*store.x;
 		Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
-		igl::writeOBJ(outputfile+"/EMU"+to_string(store.T.rows())+"-Alpha:"+to_string(store.alpha_arap)+".obj", (newV.transpose()+store.V), store.F);
+		igl::writeOBJ(outputfile+"/EMU"+to_string(store.T.rows())+"-Alpha:"+to_string(store.alpha_arap)+"-NM:"+to_string(iters)+".obj", (newV.transpose()+store.V), store.F);
 		exit(0);
-
-	cout<<"--- External Forces Hard Coded Contact Matrices"<<endl;
-	    famu::acap::adjointMethodExternalForces(store);
 	
 
 	std::cout<<"-----Display-------"<<std::endl;
@@ -481,7 +462,8 @@ int main(int argc, char *argv[])
             //store.dFvec[9+6] = 0;
             //store.dFvec[9+7] = 0;
             //store.dFvec[9+8] = 1;
-            //timer.start();
+            // store.dFvec *=2;
+            // timer.start();
             // famu::acap::solve(store, store.dFvec);        	
             // timer.stop();
             // cout<<"+++Microsecs per solve: "<<timer.getElapsedTimeInMicroSec()<<endl;
@@ -622,16 +604,16 @@ int main(int argc, char *argv[])
 
         viewer.data().points = Eigen::MatrixXd(0,6);
         viewer.data().lines = Eigen::MatrixXd(0,9);
-        for(int i=0; i<springs.size(); i++){
-        	// viewer.data().add_points(viewer.data_list[debug_data_index].V.row(springs[i].first), Eigen::RowVector3d(1,0,0));
-        	// viewer.data().add_points(viewer.data_list[debug_data_index].V.row(springs[i].second), Eigen::RowVector3d(1,0,0));
-        	viewer.data().add_edges(viewer.data_list[debug_data_index].V.row(springs[i].first),viewer.data_list[debug_data_index].V.row(springs[i].second),Eigen::RowVector3d(1,0,0));
-        }
+        // for(int i=0; i<springs.size(); i++){
+        // 	// viewer.data().add_points(viewer.data_list[debug_data_index].V.row(springs[i].first), Eigen::RowVector3d(1,0,0));
+        // 	// viewer.data().add_points(viewer.data_list[debug_data_index].V.row(springs[i].second), Eigen::RowVector3d(1,0,0));
+        // 	viewer.data().add_edges(viewer.data_list[debug_data_index].V.row(springs[i].first),viewer.data_list[debug_data_index].V.row(springs[i].second),Eigen::RowVector3d(1,0,0));
+        // }
     
-
-        //for(int i=0; i<store.mmov.size(); i++){
-        //	viewer.data().add_points((newV.transpose().row(store.mmov[i]) + store.V.row(store.mmov[i])), Eigen::RowVector3d(0,1,0));
-        //}
+        // VectorXd cx = store.ConstrainProjection
+        for(int i=0; i<store.mfix.size(); i++){
+        	viewer.data().add_points(store.V.row(store.mfix[i]), Eigen::RowVector3d(0,1,0));
+        }
  
         // return false indicates that keystroke was not used and should be
         // passed on to viewer to handle

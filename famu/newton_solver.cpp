@@ -346,10 +346,10 @@ int famu::newton_static_solve(Store& store){
 
 		
 		cout<<"grad dF vec: "<<graddFvec.norm()<<endl;
-		// if(fabs(fx - prevfx)<1e-3){
+		if(fabs(fx - prevfx)<1e-3){
 			
-		// 	break;
-		// }
+			break;
+		}
 	}
 	timer1.stop();
 	double nmtime = timer1.getElapsedTimeInMicroSec();
@@ -371,7 +371,7 @@ int famu::newton_static_solve(Store& store){
 	MatrixXd Gv;
 	MatrixXi Gt;
 	std::string outputfile = store.jinput["output"];
-	igl::readOBJ(outputfile+"/GaussMuscle6785.obj", Gv, Gt);
+	igl::readOBJ(outputfile+"/GaussMuscle121168.obj", Gv, Gt);
 	VectorXd y = store.Y*store.x;
 	Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
 	cout<<"Error: "<<((newV.transpose() + store.V) - Gv).norm()<<endl;
