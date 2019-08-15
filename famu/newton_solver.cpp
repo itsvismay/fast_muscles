@@ -346,7 +346,7 @@ int famu::newton_static_solve(Store& store){
 
 		
 		cout<<"grad dF vec: "<<graddFvec.norm()<<endl;
-		if(fabs(fx - prevfx)<1e-3){
+		if(fabs(fx - prevfx)<5e-5){
 			
 			break;
 		}
