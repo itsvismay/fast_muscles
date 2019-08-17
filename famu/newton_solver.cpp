@@ -346,8 +346,11 @@ int famu::newton_static_solve(Store& store){
 
 		
 		cout<<"grad dF vec: "<<graddFvec.norm()<<endl;
-		if(fabs(fx - prevfx)<5e-5){
+		// if(fabs(fx - prevfx)<5e-5){
 			
+		// 	break;
+		// }
+		if(graddFvec.norm()<=1e-5){
 			break;
 		}
 	}
@@ -368,23 +371,13 @@ int famu::newton_static_solve(Store& store){
 	cout<<"Threads: "<<Eigen::nbThreads()<<endl;
 	cout<<"NM Iters: "<<iter<<endl;
 	cout<<"Alpha: "<<store.alpha_arap<<endl;
-	MatrixXd Gv;
-	MatrixXi Gt;
-	std::string outputfile = store.jinput["output"];
-	igl::readOBJ(outputfile+"/GaussMuscle121168.obj", Gv, Gt);
-	VectorXd y = store.Y*store.x;
-	Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
-	cout<<"Error: "<<((newV.transpose() + store.V) - Gv).norm()<<endl;
-
-
-	// cout<<"Total NM time: "<<nmtime<<endl;
-	// cout<<"Total Hess time: "<<woodtimes<<endl;
-	// cout<<"Total LS time: "<<linetimes<<endl;
-	// cout<<"LS iters: "<<tot_ls_its<<endl;
-	// cout<<"Energy: "<<acap_energy<<endl;
-	// cout<<"Energy Time: "<<energy_time<<endl;
-	// cout<<"ACAP time: "<<timer1.getElapsedTimeInMicroSec()<<endl;
-	// cout<<"dFvec: "<<store.dFvec.transpose()<<endl;
+	cout<<"Total NM time: "<<nmtime<<endl;
+	cout<<"Total Hess time: "<<woodtimes<<endl;
+	cout<<"Total LS time: "<<linetimes<<endl;
+	cout<<"LS iters: "<<tot_ls_its<<endl;
+	cout<<"Energy: "<<acap_energy<<endl;
+	cout<<"Energy Time: "<<energy_time<<endl;
+	cout<<"ACAP time: "<<timer1.getElapsedTimeInMicroSec()<<endl;
 	cout<<"--------------------------------"<<endl;
     return iter;
 }

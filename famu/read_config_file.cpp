@@ -100,9 +100,10 @@ void famu::read_config_files(Eigen::MatrixXd& V,
     
     }
 
-    if(relativeStiffness.size()==0){
-        relativeStiffness = VectorXd::Ones(T.rows());
-    }else{
-        relativeStiffness *=10;
-    }
+    // if(relativeStiffness.size()==0){
+    //     relativeStiffness = VectorXd::Ones(T.rows());
+    // }else{
+    //     relativeStiffness *=10;
+    // }
+    relativeStiffness = VectorXd::Ones(T.rows());
 }

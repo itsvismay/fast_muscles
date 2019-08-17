@@ -94,6 +94,8 @@ int main(int argc, char *argv[])
 		store.alpha_neo = store.jinput["alpha_neo"];
 		store.alpha_arap = std::stod(argv[3]);
 		store.jinput["alpha_arap"] = std::stod(argv[3]);
+		store.V = store.V/30;
+
 		
 
 
@@ -119,7 +121,7 @@ int main(int argc, char *argv[])
 	    //     fix_verts_set.insert(store.T.row(store.bone_tets[bone_ind][0])[3]);
 	    // }
 	    // store.mfix.assign(fix_verts_set.begin(), fix_verts_set.end());
-	    store.mfix = famu::getMinVerts_Axis_Tolerance(store.T, store.V, 1, 1e-2,store.muscle_tets[0]);
+	    store.mfix = famu::getMaxVerts_Axis_Tolerance(store.T, store.V, 1, 1e-2,store.muscle_tets[0]);
 	    std::sort (store.mfix.begin(), store.mfix.end());
 	
 	cout<<"---Set Mesh Params"<<store.x.size()<<endl;
@@ -191,6 +193,7 @@ int main(int argc, char *argv[])
 
 	    //Rest state volumes
 	    store.rest_tet_volume = VectorXd::Ones(store.T.rows());
+	    double total_mass = 0;
 		for(int i =0; i<store.T.rows(); i++){
 			Vector3d p1 = store.V.row(store.T.row(i)[0]); 
 			Vector3d p2 = store.V.row(store.T.row(i)[1]); 
@@ -201,10 +204,13 @@ int main(int argc, char *argv[])
 			Dm.col(0) = p1 - p4;
 			Dm.col(1) = p2 - p4;
 			Dm.col(2) = p3 - p4;
-			double density = 1000;
+			double density = 1522;
 			double undef_vol = (1.0/6)*fabs(Dm.determinant());
 			store.rest_tet_volume[i] = undef_vol;
+			total_mass += 1522*undef_vol;
 		}
+		cout<<"TOTAL MASS: "<<total_mass<<endl;
+
 		for(int i=0; i<store.bone_tets.size(); i++){
 			double bone_vol = 0;
 	    	for(int j=0; j<store.bone_tets[i].size(); j++){
@@ -213,7 +219,7 @@ int main(int argc, char *argv[])
 	    	store.bone_vols.push_back(bone_vol);
 	    }
 
-	cout<<"---Setup continuous mesh"<<store.x.size()<<endl;
+	cout<<"---Setup continuous mesh"<<endl;
 		store.x0.resize(3*store.V.rows());
 		for(int i=0; i<store.V.rows(); i++){
 			store.x0[3*i+0] = store.V(i,0); 
@@ -223,24 +229,24 @@ int main(int argc, char *argv[])
 	    store.dx = VectorXd::Zero(3*store.V.rows());
 
 
-	cout<<"---Cont. to Discont. matrix"<<store.x.size()<<endl;
+	cout<<"---Cont. to Discont. matrix"<<endl;
 		famu::cont_to_discont_tets(store.S, store.T, store.V);
 	    
-    cout<<"---Set Vertex Constraint Matrices"<<store.x.size()<<endl;
+    cout<<"---Set Vertex Constraint Matrices"<<endl;
 		famu::vertex_bc(store.mmov, store.mfix, store.UnconstrainProjection, store.ConstrainProjection, store.V);
 
 	cout<<"---Set Discontinuous Tet Centroid vector matrix"<<store.x.size()<<endl;
 		famu::discontinuous_edge_vectors(store, store.D, store._D, store.T, store.muscle_tets);
 
-	cout<<"---Set Centroid Matrix"<<store.x.size()<<endl;
+	cout<<"---Set Centroid Matrix"<<endl;
 		famu::discontinuous_centroids_matrix(store.C, store.T);
 
-	cout<<"---Set Disc T and V"<<store.x.size()<<endl;
+	cout<<"---Set Disc T and V"<<endl;
 		famu::setDiscontinuousMeshT(store.T, store.discT);
 		igl::boundary_facets(store.discT, store.discF);
 		store.discV.resize(4*store.T.rows(), 3);
 
-	cout<<"---Set Joints Constraint Matrix"<<store.x.size()<<endl;
+	cout<<"---Set Joints Constraint Matrix"<<endl;
 		famu::fixed_bones_projection_matrix(store, store.Y);
 	    store.x = VectorXd::Zero(store.Y.cols());
 		famu::joint_constraint_matrix(store, store.JointConstraints);
@@ -251,11 +257,13 @@ int main(int argc, char *argv[])
 
 	
 
-	cout<<"---ACAP Solve KKT setup"<<store.x.size()<<endl;
-		SparseMatrix<double, Eigen::RowMajor> KKT_left, KKT_left1, KKT_left2, CPM;
+	cout<<"---ACAP Solve KKT setup"<<endl;
+		SparseMatrix<double, Eigen::RowMajor> KKT_left, KKT_left1;
 		store.YtStDtDSY = (store.D*store.S*store.Y).transpose()*(store.D*store.S*store.Y);
-		CPM = store.ConstrainProjection.transpose();
-		famu::construct_kkt_system_left(store.YtStDtDSY, CPM, KKT_left2);
+		famu::construct_kkt_system_left(store.YtStDtDSY, store.JointConstraints, KKT_left);
+
+		SparseMatrix<double, Eigen::RowMajor> KKT_left2;
+		famu::construct_kkt_system_left(KKT_left, store.Bx,  KKT_left2, -1e-3); 
 
 		store.ACAP_KKT_SPLU.pardisoParameterArray()[2] = num_threads; 
 		store.ACAP_KKT_SPLU.analyzePattern(KKT_left2);
@@ -323,7 +331,7 @@ int main(int argc, char *argv[])
 	
 
 	cout<<"--- ACAP Hessians"<<endl;
-		famu::acap::setJacobian(store);
+		// famu::acap::setJacobian(store);
 		
 		store.denseNeoHess = MatrixXd::Zero(store.dFvec.size(), 9);
 		store.neoHess.resize(store.dFvec.size(), store.dFvec.size());
@@ -366,16 +374,17 @@ int main(int argc, char *argv[])
     	store.acaptmp_sizex = store.x;
 		store.acaptmp_sizedFvec1= store.dFvec;
 		store.acaptmp_sizedFvec2 = store.dFvec;
+		famu::acap::setupGravity(store);
 
-	cout<<"--- Write Meshes"<<endl;
-		double fx = 0;
-		int iters = 0;
-		iters = famu::newton_static_solve(store);
+	// cout<<"--- Write Meshes"<<endl;
+	// 	double fx = 0;
+	// 	int iters = 0;
+	// 	iters = famu::newton_static_solve(store);
 
-		VectorXd y = store.Y*store.x;
-		Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
-		igl::writeOBJ(outputfile+"/EMU"+to_string(store.T.rows())+"-Alpha:"+to_string(store.alpha_arap)+"-NM:"+to_string(iters)+".obj", (newV.transpose()+store.V), store.F);
-		exit(0);
+	// 	VectorXd y = store.Y*store.x;
+	// 	Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
+	// 	igl::writeOBJ(outputfile+"/EMU"+to_string(store.T.rows())+"-Alpha:"+to_string(store.alpha_arap)+"-NM:"+to_string(iters)+".obj", (newV.transpose()+store.V), store.F);
+	// 	exit(0);
 	
 
 	std::cout<<"-----Display-------"<<std::endl;

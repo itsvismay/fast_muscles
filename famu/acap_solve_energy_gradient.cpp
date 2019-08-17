@@ -50,7 +50,7 @@ double famu::acap::fastEnergy(Store& store, VectorXd& dFvec){
 	store.acaptmp_sizedFvec2 = store.x0tStDt_dF_dF_DSx0*dFvec;
 	double E6 = 0.5*dFvec.transpose()*store.acaptmp_sizedFvec2;
  	
- 	double E7 = 0;
+ 	double E7 = store.x.transpose()*store.YtMg;
 
  	double k = store.jinput["springk"];
  	double E8 = 0;//0.5*k*temp1.dot(temp1);
@@ -133,7 +133,7 @@ MatrixXd famu::acap::fd_hessian(Store& store){
 
 void famu::acap::solve(Store& store, VectorXd& dFvec){
 	store.acap_solve_rhs.setZero();
-	store.acap_solve_rhs.head(store.x.size()) = store.YtStDt_dF_DSx0*dFvec - store.x0tStDtDSY;
+	store.acap_solve_rhs.head(store.x.size()) = store.YtStDt_dF_DSx0*dFvec - store.x0tStDtDSY - store.YtMg;
 	// store.acap_solve_rhs.tail(store.BfI0.size()) = store.Bf*store.dFvec - store.BfI0;;
 
 	store.acap_solve_result = store.ACAP_KKT_SPLU.solve(store.acap_solve_rhs);
@@ -142,56 +142,20 @@ void famu::acap::solve(Store& store, VectorXd& dFvec){
 
 }
 
-void famu::acap::adjointMethodExternalForces(Store& store){
-
-	SparseMatrix<double> adjointP; 
-	adjointP.resize(store.YtStDt_dF_DSx0.rows(), store.YtStDt_dF_DSx0.rows()+store.JointConstraints.rows()+store.Bf.rows());
-	adjointP.setZero();
-	for(int i=0; i<adjointP.rows(); i++){
-		adjointP.coeffRef(i,i) = 1;
+void famu::acap::setupGravity(Store& store){
+	double density = 1522;
+	VectorXd mg = VectorXd::Zero(3*store.V.rows());
+	double gravity = store.jinput["gravity"];
+	for(int i=0; i<store.T.rows(); i++){
+		double m = density*store.rest_tet_volume[i];
+		for(int j=0; j<4; j++){
+			mg[3*store.T.row(i)[j]+0] = 0;
+			mg[3*store.T.row(i)[j]+1] = gravity*m/4;
+			mg[3*store.T.row(i)[j]+2] = 0;
+		}
 	}
-
-	std::vector<Trip> YtStDt_dF_DSx0_trips = to_Triplets(store.YtStDt_dF_DSx0);
-	std::vector<Trip> JointConstraints_trips = to_Triplets(store.JointConstraints);
-	std::vector<Trip> Bf_trips = to_Triplets(store.Bf);
-	std::vector<Trip> all_trips;
-	for(int i=0; i<YtStDt_dF_DSx0_trips.size(); i++){
-		int row = YtStDt_dF_DSx0_trips[i].row();
-		int col = YtStDt_dF_DSx0_trips[i].col();
-		double val = YtStDt_dF_DSx0_trips[i].value();
-		all_trips.push_back(Trip(row, col, val));
-	}
-
-	for(int i=0; i<JointConstraints_trips.size(); i++){
-		int row = JointConstraints_trips[i].row() + store.YtStDt_dF_DSx0.rows();
-		int col = JointConstraints_trips[i].col();
-		double val = JointConstraints_trips[i].value();
-		all_trips.push_back(Trip(row, col, val));
-	}
-
-	for(int i=0; i<Bf_trips.size(); i++){
-		int row = Bf_trips[i].row() + store.JointConstraints.rows() + store.YtStDt_dF_DSx0.rows();
-		int col = Bf_trips[i].col();
-		double val = Bf_trips[i].value();
-		all_trips.push_back(Trip(row, col, val));
-	}
-	SparseMatrix<double> KKT_right(store.YtStDt_dF_DSx0.rows() + store.JointConstraints.rows() + store.Bf.rows(), store.YtStDt_dF_DSx0.cols());
-	KKT_right.setFromTriplets(all_trips.begin(), all_trips.end());
-
-	VectorXd t0 = store.Y*store.x + store.x0;
-	double k = store.jinput["springk"];
-	VectorXd temp = k*adjointP.transpose()*(store.Y.transpose()*store.ContactP.transpose())*(store.ContactP*t0);
-
-
-	// VectorXd temp1 = store.ACAP_KKT_SPLU.solve(temp);
-	// store.ContactForce = KKT_right.transpose()*temp1;
-
-
-	////HESSIAN
-	// SparseMatrix<double, RowMajor> dE2dxdx = store.Y.transpose()*store.ContactP.transpose()*store.ContactP*store.Y;
-	// cout<<dE2dxdx.rows()<<", "<<dE2dxdx.cols()<<endl;
-	// store.ContactHess = k*store.JacdxdF.transpose()*dE2dxdx*store.JacdxdF;
-
+	
+	store.YtMg = store.Y.transpose()*mg;
 }
 
 void famu::acap::setJacobian(Store& store){
