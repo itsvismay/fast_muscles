@@ -53,7 +53,6 @@ using json = nlohmann::json;
 using Store = famu::Store;
 json j_input;
 
-
 int main(int argc, char *argv[])
 {
   int fancy_data_index,debug_data_index,discontinuous_data_index;
@@ -94,6 +93,7 @@ int main(int argc, char *argv[])
 		store.alpha_neo = store.jinput["alpha_neo"];
 		store.alpha_arap = std::stod(argv[3]);
 		store.jinput["alpha_arap"] = std::stod(argv[3]);
+		
 		store.V = store.V/30;
 
 		
@@ -112,16 +112,16 @@ int main(int argc, char *argv[])
 		// store.mmov = {};//famu::getMinVerts(store.V, 1);
 		cout<<"If it fails here, make sure indexing is within bounds"<<endl;
 	    std::set<int> fix_verts_set;
-	    // for(int ii=0; ii<store.fix_bones.size(); ii++){
-	    //     cout<<store.fix_bones[ii]<<endl;
-	    //     int bone_ind = store.bone_name_index_map[store.fix_bones[ii]];
-	    //     fix_verts_set.insert(store.T.row(store.bone_tets[bone_ind][0])[0]);
-	    //     fix_verts_set.insert(store.T.row(store.bone_tets[bone_ind][0])[1]);
-	    //     fix_verts_set.insert(store.T.row(store.bone_tets[bone_ind][0])[2]);
-	    //     fix_verts_set.insert(store.T.row(store.bone_tets[bone_ind][0])[3]);
-	    // }
-	    // store.mfix.assign(fix_verts_set.begin(), fix_verts_set.end());
-	    store.mfix = famu::getMaxVerts_Axis_Tolerance(store.T, store.V, 1, 1e-2,store.muscle_tets[0]);
+	    for(int ii=0; ii<store.fix_bones.size(); ii++){
+	        cout<<store.fix_bones[ii]<<endl;
+	        int bone_ind = store.bone_name_index_map[store.fix_bones[ii]];
+	        fix_verts_set.insert(store.T.row(store.bone_tets[bone_ind][0])[0]);
+	        fix_verts_set.insert(store.T.row(store.bone_tets[bone_ind][0])[1]);
+	        fix_verts_set.insert(store.T.row(store.bone_tets[bone_ind][0])[2]);
+	        fix_verts_set.insert(store.T.row(store.bone_tets[bone_ind][0])[3]);
+	    }
+	    store.mfix.assign(fix_verts_set.begin(), fix_verts_set.end());
+	    // store.mfix = famu::getMaxVerts_Axis_Tolerance(store.T, store.V, 1, 1e-2,store.muscle_tets[0]);
 	    std::sort (store.mfix.begin(), store.mfix.end());
 	
 	cout<<"---Set Mesh Params"<<store.x.size()<<endl;
@@ -132,7 +132,7 @@ int main(int argc, char *argv[])
 		for(int m=0; m<store.muscle_tets.size(); m++){
 			for(int t=0; t<store.muscle_tets[m].size(); t++){
 				if(store.relativeStiffness[store.muscle_tets[m][t]]>1){
-					store.eY[store.muscle_tets[m][t]] = 1.2e9;
+					store.eY[store.muscle_tets[m][t]] = 1e9;
 				}else{
 					store.eY[store.muscle_tets[m][t]] = 60000;
 				}
@@ -375,6 +375,7 @@ int main(int argc, char *argv[])
 		store.acaptmp_sizedFvec1= store.dFvec;
 		store.acaptmp_sizedFvec2 = store.dFvec;
 		famu::acap::setupGravity(store);
+		store.restNeo = famu::stablenh::energy(store, store.dFvec);
 
 	// cout<<"--- Write Meshes"<<endl;
 	// 	double fx = 0;
@@ -383,7 +384,7 @@ int main(int argc, char *argv[])
 
 	// 	VectorXd y = store.Y*store.x;
 	// 	Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
-	// 	igl::writeOBJ(outputfile+"/EMU"+to_string(store.T.rows())+"-Alpha:"+to_string(store.alpha_arap)+"-NM:"+to_string(iters)+".obj", (newV.transpose()+store.V), store.F);
+	// 	igl::writeOBJ(outputfile+"/EMU"+to_string(store.T.rows())+"ADMM_test.obj", (newV.transpose()+store.V), store.F);
 	// 	exit(0);
 	
 
@@ -483,7 +484,7 @@ int main(int argc, char *argv[])
 
             VectorXd y = store.Y*store.x;
         	Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
-            igl::writeOBJ(outputfile+"EMU"+to_string(store.T.rows())+".obj", (newV.transpose()+store.V), store.F);
+            igl::writeOBJ(outputfile+"/EMU_ADMM_"+to_string(store.T.rows())+"_Alpha:"+to_string(store.alpha_arap)+".obj", (newV.transpose()+store.V), store.F);
             viewer.data_list[fancy_data_index].set_vertices((newV.transpose()+store.V));
             viewer.data_list[debug_data_index].set_vertices((newV.transpose()+store.V));
             return true;

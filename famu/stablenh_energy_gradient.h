@@ -11,6 +11,8 @@ namespace famu
 {
 	namespace stablenh
 	{
+		double continuous_energy(const Store& store, VectorXd& x);
+
 		double energy(const Store& store, VectorXd& dFvec);
 
 		void gradient(const Store& store, VectorXd& grad);

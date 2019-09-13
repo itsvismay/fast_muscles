@@ -7,6 +7,8 @@
 #include <igl/Timer.h>
 #include <Eigen/LU>
 #include <Eigen/UmfPackSupport>
+#include <iostream>
+#include <fstream>
 
 #define EIGEN_USE_MKL_ALL
 #ifdef EIGEN_USE_MKL_ALL
@@ -16,6 +18,7 @@
 
 #define NUM_MODES 48
 typedef Eigen::Triplet<double> Trip;
+typedef Eigen::Triplet<int> iTrip;
 typedef Eigen::Matrix<double, 9, 1> Vector9d;
 typedef Eigen::Matrix<double, 9, 9> Matrix9d;
 typedef Eigen::Matrix<double, 9, NUM_MODES> Matrix9xModes;
@@ -33,6 +36,7 @@ namespace famu{
 		
 		double alpha_arap = 1e4;
 		double alpha_neo = 1;
+		double restNeo =0;
 
 		Eigen::MatrixXd V, discV;
 		Eigen::MatrixXi T, discT, F, discF;
@@ -105,10 +109,76 @@ namespace famu{
 
 
 		//External Force matrices
-		Eigen::VectorXd YtMg, ContactForce;
+		Eigen::VectorXd YtMg, ContactForce, GravityForce;
 		Eigen::SparseMatrix<double, Eigen::RowMajor> ContactP, ContactP1, ContactP2, ContactHess;
 
 
+		template <typename T, int whatever, typename IND>
+		int Serialize(Eigen::SparseMatrix<T, whatever, IND>& m, std::string input_file) {
+		    std::vector<iTrip> res;
+		    int sz = m.nonZeros();
+		    m.makeCompressed();
+
+		    std::fstream writeFile;
+		    writeFile.open(input_file, std::ios::binary | std::ios::out);
+
+		    if(writeFile.is_open())
+		    {
+		        IND rows, cols, nnzs, outS, innS;
+		        rows = m.rows()     ;
+		        cols = m.cols()     ;
+		        nnzs = m.nonZeros() ;
+		        outS = m.outerSize();
+		        innS = m.innerSize();
+
+		        writeFile.write((const char *)&(rows), sizeof(IND));
+		        writeFile.write((const char *)&(cols), sizeof(IND));
+		        writeFile.write((const char *)&(nnzs), sizeof(IND));
+		        writeFile.write((const char *)&(outS), sizeof(IND));
+		        writeFile.write((const char *)&(innS), sizeof(IND));
+
+		        writeFile.write((const char *)(m.valuePtr()),       sizeof(T  ) * m.nonZeros());
+		        writeFile.write((const char *)(m.outerIndexPtr()),  sizeof(IND) * m.outerSize());
+		        writeFile.write((const char *)(m.innerIndexPtr()),  sizeof(IND) * m.nonZeros());
+
+		        writeFile.close();
+		    }
+		    return 1;
+		}
+
+		template <typename T, int whatever, typename IND>
+		int Deserialize(Eigen::SparseMatrix<T, whatever, IND>& m, std::string input_file) {
+		    std::fstream readFile;
+		    readFile.open(input_file, std::ios::binary | std::ios::in);
+		    if(!readFile.good()){
+		    	return 0;
+		    }
+		    if(readFile.is_open())
+		    {
+		        IND rows, cols, nnz, inSz, outSz;
+		        readFile.read((char*)&rows , sizeof(IND));
+		        readFile.read((char*)&cols , sizeof(IND));
+		        readFile.read((char*)&nnz  , sizeof(IND));
+		        readFile.read((char*)&inSz , sizeof(IND));
+		        readFile.read((char*)&outSz, sizeof(IND));
+
+		        m.resize(rows, cols);
+		        m.makeCompressed();
+		        m.resizeNonZeros(nnz);
+
+		        readFile.read((char*)(m.valuePtr())     , sizeof(T  ) * nnz  );
+		        readFile.read((char*)(m.outerIndexPtr()), sizeof(IND) * outSz);
+		        readFile.read((char*)(m.innerIndexPtr()), sizeof(IND) * nnz );
+
+		        m.finalize();
+		        readFile.close();
+
+		    } // file is open
+		    else{
+		    	return 0;
+		    }
+		    return 1;
+		}
 	};
 }
 
