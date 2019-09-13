@@ -50,15 +50,15 @@ double famu::acap::fastEnergy(Store& store, VectorXd& dFvec){
 	store.acaptmp_sizedFvec2 = store.x0tStDt_dF_dF_DSx0*dFvec;
 	double E6 = 0.5*dFvec.transpose()*store.acaptmp_sizedFvec2;
  	
- 	double E7 = 0;
+ 	double E7 = store.x.transpose()*store.YtMg;
 
  	double k = store.jinput["springk"];
  	double E8 = 0;//0.5*k*temp1.dot(temp1);
 	
-	double E9 = E1+E2+E3+E4+E5+E6+E7+E8;
+	double E9 = E1+E2+E3+E4+E5+E6;
 	
 	double aa = store.jinput["alpha_arap"];
-	return E9*aa;
+	return E9*aa + E7;
 }
 
 void famu::acap::fastGradient(Store& store, VectorXd& grad){
@@ -68,7 +68,7 @@ void famu::acap::fastGradient(Store& store, VectorXd& grad){
 	grad -= store.Bf.transpose()*store.lambda2;
 	double aa = store.jinput["alpha_arap"];
 	grad *= aa;
-	// grad += store.ContactForce;
+	grad += store.GravityForce;
 }
 
 void famu::acap::fastHessian(Store& store, SparseMatrix<double, RowMajor>& hess, Eigen::MatrixXd& denseHess){
@@ -134,15 +134,16 @@ MatrixXd famu::acap::fd_hessian(Store& store){
 void famu::acap::solve(Store& store, VectorXd& dFvec){
 	store.acap_solve_rhs.setZero();
 	store.acap_solve_rhs.head(store.x.size()) = store.YtStDt_dF_DSx0*dFvec - store.x0tStDtDSY;
-	store.acap_solve_rhs.tail(store.BfI0.size()) = store.Bf*store.dFvec - store.BfI0;;
+	// store.acap_solve_rhs.tail(store.BfI0.size()) = store.Bf*store.dFvec - store.BfI0;;
 
 	store.acap_solve_result = store.ACAP_KKT_SPLU.solve(store.acap_solve_rhs);
 	store.x = store.acap_solve_result.head(store.x.size());
-	store.lambda2 = store.acap_solve_result.tail(store.BfI0.size());	
+	// store.lambda2 = store.acap_solve_result.tail(store.BfI0.size());	
 
 }
 
-void famu::acap::adjointMethodExternalForces(Store& store){
+
+void famu::acap::setupGravity(Store& store){
 
 	SparseMatrix<double> adjointP; 
 	adjointP.resize(store.YtStDt_dF_DSx0.rows(), store.YtStDt_dF_DSx0.rows()+store.JointConstraints.rows()+store.Bf.rows());
@@ -178,19 +179,45 @@ void famu::acap::adjointMethodExternalForces(Store& store){
 	SparseMatrix<double> KKT_right(store.YtStDt_dF_DSx0.rows() + store.JointConstraints.rows() + store.Bf.rows(), store.YtStDt_dF_DSx0.cols());
 	KKT_right.setFromTriplets(all_trips.begin(), all_trips.end());
 
-	VectorXd t0 = store.Y*store.x + store.x0;
-	double k = store.jinput["springk"];
-	VectorXd temp = k*adjointP.transpose()*(store.Y.transpose()*store.ContactP.transpose())*(store.ContactP*t0);
 
+	//SET gravity g vector
+	double density = 1522;
+	VectorXd mg = VectorXd::Zero(3*store.V.rows());
+	double gravity = store.jinput["gravity"];
+	for(int i=0; i<store.T.rows(); i++){
+		for(int j=0; j<4; j++){
+			mg[3*store.T.row(i)[j]+0] = 0;
+			mg[3*store.T.row(i)[j]+1] = gravity;
+			mg[3*store.T.row(i)[j]+2] = 0;
+		}
+	}
+
+	// //SET full mass matrix
+	std::string datafile = store.jinput["data"];
+	SparseMatrix<double> spMass;
+	std::string inputf =  datafile+"/spFullMassMat";
+	int fullmassexists = store.Deserialize(spMass, inputf);
+	if(spMass.rows()==0){
+		cout<<"Mass matrix is diagonal"<<endl;
+		spMass.resize(mg.size(), mg.size());
+		for(int i=0; i<store.T.rows(); i++){
+			double m = store.rest_tet_volume[i]*density;
+			for(int j=0; j<4; j++){
+				spMass.coeffRef(3*store.T.row(i)[j]+0, 3*store.T.row(i)[j]+0) = m/4;
+				spMass.coeffRef(3*store.T.row(i)[j]+1, 3*store.T.row(i)[j]+1) = m/4;
+				spMass.coeffRef(3*store.T.row(i)[j]+2, 3*store.T.row(i)[j]+2) = m/4;
+			}
+		}
+	}
+
+	store.YtMg = store.Y.transpose()*spMass*mg;
+
+	VectorXd temp = adjointP.transpose()*store.YtMg;
 
 	VectorXd temp1 = store.ACAP_KKT_SPLU.solve(temp);
-	store.ContactForce = KKT_right.transpose()*temp1;
-
-
-	////HESSIAN
-	SparseMatrix<double, RowMajor> dE2dxdx = store.Y.transpose()*store.ContactP.transpose()*store.ContactP*store.Y;
-	cout<<dE2dxdx.rows()<<", "<<dE2dxdx.cols()<<endl;
-	store.ContactHess = k*store.JacdxdF.transpose()*dE2dxdx*store.JacdxdF;
+	store.GravityForce = KKT_right.transpose()*temp1;
+	std::cout<<"temp1: "<<temp1.norm()<<std::endl;
+	std::cout<<"Grav Force Norm: "<<store.GravityForce.norm()<<std::endl;
 
 }
 

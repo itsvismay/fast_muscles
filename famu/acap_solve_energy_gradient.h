@@ -28,6 +28,8 @@ namespace famu
 
 		Eigen::MatrixXd fd_hessian(Store& store);
 
+		void setupGravity(Store& store);
+
 		void adjointMethodExternalForces(Store& store);
 
 		void solve(Store& store, Eigen::VectorXd& dFvec);

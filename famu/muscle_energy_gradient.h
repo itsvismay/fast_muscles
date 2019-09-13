@@ -17,6 +17,8 @@ namespace famu
 
 		void fastGradient(Store& store, VectorXd& grad);
 
+		double continuous_energy(Store& store, VectorXd& x);
+
 		double energy(Store& store, VectorXd& dFvec);
 
 		void gradient(Store& store, VectorXd& grad);

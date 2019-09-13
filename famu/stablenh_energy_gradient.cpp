@@ -7,6 +7,50 @@ using Store = famu::Store;
 typedef Eigen::Triplet<double> Trip;
 
 
+double famu::stablenh::continuous_energy(const Store& store, VectorXd& x){
+	double stableNHEnergy = 0;
+	VectorXd y = store.Y*x+store.x0;
+	#pragma omp parallel
+	{	
+		double sNHpriv = 0;
+		for(int t = 0; t<store.T.rows(); t++){
+			Vector4i verts_index = store.T.row(t);
+
+			Matrix3d Dm;
+	        for(int i=0; i<3; i++)
+	        {
+	            Dm.col(i) = store.x0.segment<3>(3*verts_index(i)) - store.x0.segment<3>(3*verts_index(3));
+	        }
+	        Matrix3d m_InvRefShapeMatrix = Dm.inverse();
+	        
+
+			Matrix3d Ds;
+	        for(int i=0; i<3; i++)
+	        {
+	            Ds.col(i) = y.segment<3>(3*verts_index(i)) - y.segment<3>(3*verts_index(3));
+	        }
+
+	        double youngsModulus = store.eY[t];
+			double poissonsRatio = store.eP[t];
+			double C1 = youngsModulus/(2.0*(1.0+poissonsRatio));
+			double D1 = (youngsModulus*poissonsRatio)/((1.0+poissonsRatio)*(1.0-2.0*poissonsRatio));
+
+	        Matrix3d F = Ds*m_InvRefShapeMatrix;
+	        double I1 = (F.transpose()*F).trace();
+			double J = F.determinant();
+			double alpha = (1 + (C1/D1) - (C1/(D1*4)));
+			double W = 0.5*C1*(I1 -3) + 0.5*D1*(J-alpha)*(J-alpha) - 0.5*C1*log(I1 + 1);
+			sNHpriv += W*store.rest_tet_volume[t];
+
+		}
+		#pragma omp critical
+		{
+			stableNHEnergy += sNHpriv;
+		}
+	}
+	return stableNHEnergy;
+}
+
 double famu::stablenh::energy(const Store& store, Eigen::VectorXd& dFvec){
 	double stableNHEnergy = 0;
 

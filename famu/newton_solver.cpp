@@ -9,6 +9,8 @@
 #include <Eigen/LU>
 #include <Eigen/Cholesky>
 #include <igl/Timer.h>
+#include <igl/readOBJ.h>
+
 
 using Store = famu::Store;
 using namespace Eigen;
@@ -88,7 +90,9 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
 
     polar_dec(store, x);
     famu::acap::solve(store, x);
+
    	double fx = Energy(store, x);
+
     // Save the function value at the current x
     const double fx_init = fx;
     // Projection of gradient on the search direction
@@ -110,7 +114,7 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
 
         // Evaluate this candidate
         famu::acap::solve(store, x);
-       	fx = Energy(store, x);
+	   	fx = Energy(store, x);
 
         if(fx > fx_init + step * dg_test)
         {
@@ -183,7 +187,7 @@ void famu::fastWoodbury(Store& store, const VectorXd& g, MatrixModesxModes X, Ve
 	FullPivLU<MatrixModesxModes> WoodburyDenseSolve;
 
 	double aa = store.jinput["alpha_arap"];
-	X = store.InvC*aa;
+	X = store.InvC;
 	#pragma omp parallel
 	{
 		MatrixModesxModes Xpriv = MatrixModesxModes::Zero();
@@ -200,9 +204,10 @@ void famu::fastWoodbury(Store& store, const VectorXd& g, MatrixModesxModes X, Ve
 			drt.segment<9>(9*i) = invAg;
 
 			Matrix9xModes B = store.WoodB.block<9, NUM_MODES>(9*i, 0);
-			Xpriv = Xpriv + -B.transpose()*InvA.solve(B);
+			Matrix9xModes Dt = store.WoodD.block<NUM_MODES, 9>(0, 9*i).transpose();
+			Xpriv = Xpriv + -Dt.transpose()*InvA.solve(B);
 
-			DAgpriv  = DAgpriv + -B.transpose()*invAg;
+			DAgpriv  = DAgpriv + -Dt.transpose()*invAg;
 		}
 		#pragma omp critical
 		{
@@ -277,6 +282,11 @@ int famu::newton_static_solve(Store& store){
 		// cout<<"		acap grad: "<<acap_grad.norm()<<endl;
 		// cout<<"		total grad: "<<graddFvec.norm()<<endl;
 		
+		// cout<<"			muscle E: "<<famu::muscle::energy(store, store.dFvec)<<endl;
+		// cout<<"			neo E: "<<famu::stablenh::energy(store, store.dFvec)<<endl;
+		// cout<<"			acapE: "<<famu::acap::fastEnergy(store, store.dFvec)<<endl;
+		// cout<<"			totalE: "<<Energy(store, store.dFvec)<<endl;
+		
 		if(graddFvec != graddFvec){
 			cout<<"Error: nans in grad"<<endl;
 			exit(0);
@@ -297,23 +307,6 @@ int famu::newton_static_solve(Store& store){
 			delta_dFvec = -1*store.NM_SPLU.solve(graddFvec);
 		
 		}else{
-
-			// //Sparse Woodbury code
-			// hessFvec.setZero();
-			// hessFvec = store.neoHess + constHess;
-			// store.NM_SPLU.factorize(hessFvec);
-			// if(store.NM_SPLU.info()!=Success){
-			// 	cout<<"SOLVER FAILED"<<endl;
-			// 	cout<<store.NM_SPLU.info()<<endl;
-			// }
-			// VectorXd InvAg = store.NM_SPLU.solve(graddFvec);
-			// MatrixXd CDAB = store.InvC + store.WoodD*store.NM_SPLU.solve(store.WoodB);
-			// FullPivLU<MatrixXd>  WoodburyDenseSolve;
-			// WoodburyDenseSolve.compute(CDAB);
-			// VectorXd temp1 = store.WoodB*WoodburyDenseSolve.solve(store.WoodD*InvAg);;
-
-			// VectorXd InvAtemp1 = store.NM_SPLU.solve(temp1);
-			// test_drt =  -InvAg + InvAtemp1;
 
 			//Dense Woodbury code
 			denseHess = constDenseHess + store.denseNeoHess;
@@ -336,20 +329,26 @@ int famu::newton_static_solve(Store& store){
 		timer.stop();
 		linetimes += timer.getElapsedTimeInMicroSec();
 		
-
-		if(fabs(alpha)<1e-9 ){
-			break;
-		}
+		// cout<<"		ls alpha: "<<alpha<<endl;
+		// cout<<"			post ls muscle E: "<<famu::muscle::energy(store, store.dFvec)<<endl;
+		// cout<<"			post ls neo E: "<<famu::stablenh::energy(store, store.dFvec)<<endl;
+		// cout<<"			post ls acapE: "<<famu::acap::fastEnergy(store, store.dFvec)<<endl;
+		// cout<<"			post ls totalE: "<<Energy(store, store.dFvec)<<endl;
 
 		store.dFvec += alpha*delta_dFvec;
 		polar_dec(store, store.dFvec);
 		double fx = Energy(store, store.dFvec);
 
 		
-
-		if(graddFvec.squaredNorm()/graddFvec.size()<1e-4 || fabs(fx - prevfx)<1e-3){
+		cout<<"grad dF vec: "<<graddFvec.norm()<<endl;
+		if(fabs(fx - prevfx)<1e-4){
+			
 			break;
 		}
+		// if(graddFvec.norm()<=1e-3){
+		// 	break;
+		// }
+		// exit(0);
 	}
 	timer1.stop();
 	double nmtime = timer1.getElapsedTimeInMicroSec();
@@ -367,6 +366,7 @@ int famu::newton_static_solve(Store& store){
 	cout<<"V, T:"<<store.V.rows()<<", "<<store.T.rows()<<endl;
 	cout<<"Threads: "<<Eigen::nbThreads()<<endl;
 	cout<<"NM Iters: "<<iter<<endl;
+	cout<<"Alpha: "<<store.alpha_arap<<endl;
 	cout<<"Total NM time: "<<nmtime<<endl;
 	cout<<"Total Hess time: "<<woodtimes<<endl;
 	cout<<"Total LS time: "<<linetimes<<endl;
@@ -374,7 +374,6 @@ int famu::newton_static_solve(Store& store){
 	cout<<"Energy: "<<acap_energy<<endl;
 	cout<<"Energy Time: "<<energy_time<<endl;
 	cout<<"ACAP time: "<<timer1.getElapsedTimeInMicroSec()<<endl;
-	// cout<<"dFvec: "<<store.dFvec.transpose()<<endl;
 	cout<<"--------------------------------"<<endl;
     return iter;
 }

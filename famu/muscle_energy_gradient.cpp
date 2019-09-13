@@ -49,6 +49,53 @@ void famu::muscle::fastGradient(Store& store, VectorXd& grad){
 	}
 }
 
+double famu::muscle::continuous_energy(Store& store, VectorXd& x){
+	double MuscleEnergy = 0;
+	VectorXd y = store.Y*x + store.x0;
+	for(int i=0; i<store.contract_muscles.size(); i++){
+		#pragma omp parallel
+		{	
+			double me_priv = 0;
+
+			#pragma omp for	
+			for(int j=0; j<store.muscle_tets[store.contract_muscles[i]].size(); j++){
+				int t = store.muscle_tets[store.contract_muscles[i]][j];
+				
+				Vector4i verts_index = store.T.row(t);
+
+				Matrix3d Dm;
+		        for(int i=0; i<3; i++)
+		        {
+		            Dm.col(i) = store.x0.segment<3>(3*verts_index(i)) - store.x0.segment<3>(3*verts_index(3));
+		        }
+		        Matrix3d m_InvRefShapeMatrix = Dm.inverse();
+		        
+
+				Matrix3d Ds;
+		        for(int i=0; i<3; i++)
+		        {
+		            Ds.col(i) = y.segment<3>(3*verts_index(i)) - y.segment<3>(3*verts_index(3));
+		        }
+
+
+		        Matrix3d F = Ds*m_InvRefShapeMatrix;
+		    				
+				Vector3d y1 = store.Uvec.row(t).transpose();
+				Vector3d z = F*y1;
+				double W = 0.5*store.muscle_mag[t]*store.rest_tet_volume[t]*(z.dot(z));
+				me_priv += W;
+			
+			}
+
+			#pragma omp critical
+			{
+				MuscleEnergy += me_priv;
+			}
+		}
+	}
+	return MuscleEnergy;
+}
+
 double famu::muscle::energy(Store& store, VectorXd& dFvec){
 	double MuscleEnergy = 0;
 
