@@ -108,7 +108,13 @@ namespace famu{
 		Eigen::VectorXd YtMg, ContactForce;
 		Eigen::SparseMatrix<double, Eigen::RowMajor> ContactP, ContactP1, ContactP2, ContactHess;
 
-
+		Eigen::Matrix3d cross_prod_mat(double wX, double wY, double wZ){
+	        Eigen::Matrix3d cross;
+	        cross<<0, -wZ, wY,
+	        		wZ, 0, -wX,
+	        		-wY, wX, 0;
+	        return cross;
+	    }
 	};
 }
 

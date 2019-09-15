@@ -343,7 +343,7 @@ int main(int argc, char *argv[])
 	
 
 	cout<<"--- ACAP Hessians"<<endl;
-		famu::acap::setJacobian(store);
+		// famu::acap::setJacobian(store);
 		
 		store.denseNeoHess = MatrixXd::Zero(store.dFvec.size(), 9);
 		store.neoHess.resize(store.dFvec.size(), store.dFvec.size());
@@ -365,9 +365,11 @@ int main(int argc, char *argv[])
 			
 	if(store.jinput["woodbury"]){
 		cout<<"--- Setup woodbury matrices"<<endl;
-			store.WoodB = -store.YtStDt_dF_DSx0.transpose()*store.G;
+
+		double aa = store.jinput["alpha_arap"];
+			store.WoodB = -1*store.YtStDt_dF_DSx0.transpose()*store.G;
 			store.WoodD = -1*store.WoodB.transpose();
-			
+			store.WoodB *= aa;
 
 			store.InvC = store.eigenvalues.asDiagonal();
 			store.WoodC = store.eigenvalues.asDiagonal().inverse();
@@ -389,17 +391,16 @@ int main(int argc, char *argv[])
 
 
 	cout<<"--- Write Meshes"<<endl;
-		double fx = 0;
-		int niters = 0;
-		niters = famu::newton_static_solve(store);
+		// double fx = 0;
+		// int niters = 0;
+		// niters = famu::newton_static_solve(store);
 
-		VectorXd y = store.Y*store.x;
-		Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
-		igl::writeOBJ(outputfile+"/EMU"+to_string(store.T.rows())+"-Alpha:"+to_string(store.alpha_arap)+".obj", (newV.transpose()+store.V), store.F);
-		exit(0);
+		// VectorXd y = store.Y*store.x;
+		// Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
+		// igl::writeOBJ(outputfile+"/EMU"+to_string(store.T.rows())+"-Alpha:"+to_string(store.alpha_arap)+".obj", (newV.transpose()+store.V), store.F);
+		// exit(0);
 
 	cout<<"--- External Forces Hard Coded Contact Matrices"<<endl;
-	    // famu::acap::adjointMethodExternalForces(store);
 	
 
 	std::cout<<"-----Display-------"<<std::endl;

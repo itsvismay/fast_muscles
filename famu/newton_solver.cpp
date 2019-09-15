@@ -183,7 +183,7 @@ void famu::fastWoodbury(Store& store, const VectorXd& g, MatrixModesxModes X, Ve
 	FullPivLU<MatrixModesxModes> WoodburyDenseSolve;
 
 	double aa = store.jinput["alpha_arap"];
-	X = store.InvC*aa;
+	X = store.InvC;
 	#pragma omp parallel
 	{
 		MatrixModesxModes Xpriv = MatrixModesxModes::Zero();
@@ -200,9 +200,10 @@ void famu::fastWoodbury(Store& store, const VectorXd& g, MatrixModesxModes X, Ve
 			drt.segment<9>(9*i) = invAg;
 
 			Matrix9xModes B = store.WoodB.block<9, NUM_MODES>(9*i, 0);
-			Xpriv = Xpriv + -B.transpose()*InvA.solve(B);
+			Matrix9xModes Dt = store.WoodD.block<NUM_MODES, 9>(0, 9*i).transpose();
+			Xpriv = Xpriv + -Dt.transpose()*InvA.solve(B);
 
-			DAgpriv  = DAgpriv + -B.transpose()*invAg;
+			DAgpriv  = DAgpriv + -Dt.transpose()*invAg;
 		}
 		#pragma omp critical
 		{

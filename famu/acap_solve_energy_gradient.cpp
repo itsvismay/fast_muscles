@@ -61,11 +61,40 @@ double famu::acap::fastEnergy(Store& store, VectorXd& dFvec){
 	return E9*aa;
 }
 
-void famu::acap::fastGradient(Store& store, VectorXd& grad){
-	grad = -store.x0tStDt_dF_DSx0;
-	grad += -store.x.transpose()*store.YtStDt_dF_DSx0;
-	grad += store.dFvec.transpose()*store.x0tStDt_dF_dF_DSx0;
-	grad -= store.Bf.transpose()*store.lambda2;
+void famu::acap::fastGradient(Store& store, VectorXd& grad, VectorXd& dEdF){
+	dEdF = -store.x0tStDt_dF_DSx0;
+	dEdF += -store.x.transpose()*store.YtStDt_dF_DSx0;
+	dEdF += store.dFvec.transpose()*store.x0tStDt_dF_dF_DSx0;
+	dEdF -= store.Bf.transpose()*store.lambda2;
+	
+
+	//SO3 BONES -> F(w) = R0 exp(J(w)) -> dE/dw = dE/dF * dF/dw
+	for(int b =0; b < store.bone_tets.size(); b++){
+		Eigen::Matrix3d R0 = Map<Eigen::Matrix3d>(store.dFvec.segment<9>(9*b).data()).transpose();
+		
+		Eigen::Matrix3d Jx = store.cross_prod_mat(1,0,0);
+		Eigen::Matrix3d Jy = store.cross_prod_mat(0,1,0);
+		Eigen::Matrix3d Jz = store.cross_prod_mat(0,0,1);
+
+		Eigen::Matrix3d dRdw1 = R0*Jx;
+		Eigen::Matrix3d dRdw2 = R0*Jy;
+		Eigen::Matrix3d dRdw3 = R0*Jz;
+		
+		Eigen::Matrix3d dEdF_i = Map<Eigen::Matrix3d>(dEdF.segment<9>(9*b).data()).transpose();
+
+		double Ew1 = dEdF_i.cwiseProduct(dRdw1).sum();
+		double Ew2 = dEdF_i.cwiseProduct(dRdw2).sum();
+		double Ew3 = dEdF_i.cwiseProduct(dRdw3).sum();
+
+		grad(3*b+0) = Ew1;
+		grad(3*b+1) = Ew2;
+		grad(3*b+2) = Ew3;
+
+	}  
+
+	grad.tail(grad.size() - 3*store.bone_tets.size()) = dEdF.tail(dEdF.size() - 9*store.bone_tets.size())
+
+
 	double aa = store.jinput["alpha_arap"];
 	grad *= aa;
 	// grad += store.ContactForce;
@@ -217,8 +246,8 @@ void famu::acap::setJacobian(Store& store){
 		igl::writeDMAT("jacKKT.dmat", result);
 
 	}
-	SparseMatrix<double, RowMajor> spRes = (result).sparseView();
-	store.JacdxdF = spRes;
-	cout<<"jac dims: "<<store.JacdxdF.rows()<<", "<<store.JacdxdF.cols()<<endl;
+	// SparseMatrix<double, RowMajor> spRes = (result).sparseView();
+	// store.JacdxdF = spRes;
+	// cout<<"jac dims: "<<store.JacdxdF.rows()<<", "<<store.JacdxdF.cols()<<endl;
 
 }
