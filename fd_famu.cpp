@@ -66,12 +66,16 @@ int main(int argc, char *argv[])
 		}
 		if(argc==3){
 			num_threads = std::stoi(argv[2]);
+			#ifdef __linux__
 			omp_set_num_threads(num_threads);
+			#endif
 			std::ifstream input_file(argv[1]);
 			input_file >> j_input;
 		}else if(argc==4){
 			num_threads = std::stoi(argv[3]);
+			#ifdef __linux__
 			omp_set_num_threads(num_threads);
+			#endif
 			std::ifstream input_file(argv[2]);
 			input_file >> j_input;
 
@@ -261,7 +265,7 @@ int main(int argc, char *argv[])
 
 	    // famu::penalty_spring_bc(springs, store.ContactP, store.V);
 
-	
+
 
 	cout<<"---ACAP Solve KKT setup"<<store.x.size()<<endl;
 		SparseMatrix<double, Eigen::RowMajor> KKT_left, KKT_left1;
@@ -276,7 +280,9 @@ int main(int argc, char *argv[])
 		SparseMatrix<double, Eigen::RowMajor> KKT_left2;
 		famu::construct_kkt_system_left(KKT_left, store.Bx,  KKT_left2, -1e-3); 
 		// MatrixXd Hkkt = MatrixXd(KKT_left2);
+		#ifdef __linux__
 		store.ACAP_KKT_SPLU.pardisoParameterArray()[2] = num_threads; 
+		#endif
 
 		store.ACAP_KKT_SPLU.analyzePattern(KKT_left2);
 		store.ACAP_KKT_SPLU.factorize(KKT_left2);

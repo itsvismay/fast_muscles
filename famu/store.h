@@ -6,13 +6,14 @@
 #include <Eigen/Dense>
 #include <igl/Timer.h>
 #include <Eigen/LU>
-#include <Eigen/UmfPackSupport>
 
-#define EIGEN_USE_MKL_ALL
-#ifdef EIGEN_USE_MKL_ALL
+
+#ifdef __linux__
 #include <Eigen/PardisoSupport>
-#endif
+#include <Eigen/UmfPackSupport>
 #include <omp.h>
+#endif
+
 
 #define NUM_MODES 48
 typedef Eigen::Triplet<double> Trip;
@@ -66,11 +67,17 @@ namespace famu{
 		Eigen::VectorXd x, dx, x0, lambda2, acap_solve_result, acap_solve_rhs;
 
 		
-		// Eigen::SparseLU<Eigen::SparseMatrix<double, Eigen::RowMajor>> SPLU;
+		#ifdef __linux__
 		Eigen::PardisoLU<Eigen::SparseMatrix<double, Eigen::RowMajor>> ACAP_KKT_SPLU;
+		Eigen::UmfPackLU<Eigen::SparseMatrix<double, Eigen::RowMajor>> NM_SPLU;//TODO: optimize this away
+		#else
+		Eigen::SparseLU<Eigen::SparseMatrix<double, Eigen::RowMajor>> ACAP_KKT_SPLU;
+		Eigen::SparseLU<Eigen::SparseMatrix<double, Eigen::RowMajor>> NM_SPLU;//TODO: optimize this away
+		#endif
+
+
 		Eigen::VectorXd acaptmp_sizex;
 		Eigen::VectorXd acaptmp_sizedFvec1, acaptmp_sizedFvec2;
-		Eigen::UmfPackLU<Eigen::SparseMatrix<double, Eigen::RowMajor>> NM_SPLU;//TODO: optimize this away
 		
 		
 		//Fast Terms

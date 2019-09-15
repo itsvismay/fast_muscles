@@ -4,7 +4,6 @@
 #include "acap_solve_energy_gradient.h"
 #include "muscle_energy_gradient.h"
 #include "stablenh_energy_gradient.h"
-#include <Eigen/UmfPackSupport>
 #include <igl/polar_dec.h>
 #include <Eigen/LU>
 #include <Eigen/Cholesky>
