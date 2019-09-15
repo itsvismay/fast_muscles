@@ -1,7 +1,6 @@
 #ifndef NEWTON_SOLVER
 #define NEWTON_SOLVER
 #include "store.h"
-#include <Eigen/UmfPackSupport>
 #include <igl/polar_dec.h>
 #include <Eigen/LU>
 #include <Eigen/Cholesky>

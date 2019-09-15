@@ -1,7 +1,6 @@
 #include "stablenh_energy_gradient.h"
 #include "store.h"
 #include <iostream>
-#include <omp.h>
 using namespace Eigen;
 using Store = famu::Store;
 typedef Eigen::Triplet<double> Trip;
