@@ -223,12 +223,11 @@ int main(int argc, char *argv[])
 	    store.lambda2 = VectorXd::Zero(store.Bf.rows());
 
 	cout<<"---ACAP Solve KKT setup"<<endl;
-		SparseMatrix<double, Eigen::RowMajor> KKT_left, KKT_left1;
+		SparseMatrix<double, Eigen::RowMajor> KKT_left, KKT_left1, KKT_left2;
 		store.YtStDtDSY = (store.D*store.S*store.Y).transpose()*(store.D*store.S*store.Y);
 		famu::construct_kkt_system_left(store.YtStDtDSY, store.JointConstraints, KKT_left);
-
-		SparseMatrix<double, Eigen::RowMajor> KKT_left2;
 		famu::construct_kkt_system_left(KKT_left, store.Bx,  KKT_left2, -1e-3); 
+
 
 		#ifdef __linux__
 		store.ACAP_KKT_SPLU.pardisoParameterArray()[2] = num_threads; 
@@ -345,9 +344,24 @@ int main(int argc, char *argv[])
 		store.acaptmp_sizedFvec2 = store.dFvec;
 
 
+	store.dFvec[9+0] = 0.7071;
+	store.dFvec[9+1] = 0.7071;
+	store.dFvec[9+2] = 0;
+	store.dFvec[9+3] = -0.7071;
+	store.dFvec[9+4] = 0.7071;
+	store.dFvec[9+5] = 0;
+	store.dFvec[9+6] = 0;
+	store.dFvec[9+7] = 0;
+	store.dFvec[9+8] = 1;
+	famu::acap::solve(store, store.dFvec);
 
-	cout<<"ACAP Energy: "<<famu::acap::energy(store, store.dFvec, store.boneDOFS)<<endl;
-
+	VectorXd grad = VectorXd::Zero(store.dFvec.size() - 6*store.bone_tets.size());
+	VectorXd dEdF = VectorXd::Zero(store.dFvec.size());
+	cout<<"ACAP Energy: "<<famu::acap::energy(store, store.dFvec, store.boneDOFS)<<"-"<<famu::acap::fastEnergy(store,store.dFvec)<<endl;
+	cout<<"ACAP Grad:"<<endl;
+	famu::acap::fastGradient(store, grad, dEdF);
+	cout<<grad.segment<20>(0).transpose()<<endl;
+	cout<<famu::acap::fd_gradient(store).transpose()<<endl;
 	exit(0);
 	cout<<"--- Write Meshes"<<endl;
 		// double fx = 0;
