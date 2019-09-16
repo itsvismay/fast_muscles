@@ -319,22 +319,8 @@ int main(int argc, char *argv[])
 		store.NM_SPLU.factorize(hessFvec);
 
 			
-	if(store.jinput["woodbury"]){
-		cout<<"--- Setup woodbury matrices"<<endl;
-
-		double aa = store.jinput["alpha_arap"];
-			store.WoodB = -1*store.YtStDt_dF_DSx0.transpose()*store.G;
-			store.WoodD = -1*store.WoodB.transpose();
-			store.WoodB *= aa;
-
-			store.InvC = store.eigenvalues.asDiagonal();
-			store.WoodC = store.eigenvalues.asDiagonal().inverse();
-			for(int i=0; i<store.dFvec.size()/9; i++){
-				LDLT<Matrix9d> InvA;
-				store.vecInvA.push_back(InvA);
-			}
-
-	}
+	cout<<"--- Setup woodbury matrices"<<endl;
+	famu::acap::setupWoodbury(store);
 
 
     cout<<"---Setup TMP Vars"<<endl;

@@ -121,16 +121,26 @@ void famu::acap::fastGradient(Store& store, VectorXd& grad, VectorXd& dEdF){
 		Eigen::Matrix3d dRdw1 = R0*Jx;
 		Eigen::Matrix3d dRdw2 = R0*Jy;
 		Eigen::Matrix3d dRdw3 = R0*Jz;
+
+		Eigen::Matrix3d dRdw1t = dRdw1.transpose();
+		Eigen::Matrix3d dRdw2t = dRdw2.transpose();
+		Eigen::Matrix3d dRdw3t = dRdw3.transpose();
+		Eigen::Matrix<double,3, 9> dRdw;
+		dRdw.row(0) = Map<Vector9d>(dRdw1t.data());
+		dRdw.row(1) = Map<Vector9d>(dRdw2t.data());
+		dRdw.row(2) = Map<Vector9d>(dRdw3t.data());
+
+		grad.segment<3>(3*b) = dRdw*dEdF.segment<9>(9*b);
 		
-		Eigen::Matrix3d dEdF_i = Map<Eigen::Matrix3d>(dEdF.segment<9>(9*b).data()).transpose();
+		// Eigen::Matrix3d dEdF_i = Map<Eigen::Matrix3d>(dEdF.segment<9>(9*b).data()).transpose();
 
-		double Ew1 = dEdF_i.cwiseProduct(dRdw1).sum();
-		double Ew2 = dEdF_i.cwiseProduct(dRdw2).sum();
-		double Ew3 = dEdF_i.cwiseProduct(dRdw3).sum();
+		// double Ew1 = dEdF_i.cwiseProduct(dRdw1).sum();
+		// double Ew2 = dEdF_i.cwiseProduct(dRdw2).sum();
+		// double Ew3 = dEdF_i.cwiseProduct(dRdw3).sum();
 
-		grad(3*b+0) = Ew1;
-		grad(3*b+1) = Ew2;
-		grad(3*b+2) = Ew3;
+		// grad(3*b+0) = Ew1;
+		// grad(3*b+1) = Ew2;
+		// grad(3*b+2) = Ew3;
 
 	}  
 
@@ -144,18 +154,59 @@ void famu::acap::fastGradient(Store& store, VectorXd& grad, VectorXd& dEdF){
 
 void famu::acap::fastHessian(Store& store, SparseMatrix<double, RowMajor>& hess, Eigen::MatrixXd& denseHess){
 	hess.setZero();
-	hess = store.jinput["alpha_arap"]*store.x0tStDt_dF_dF_DSx0; //PtZtZP
+	store.x0tStDt_dF_dF_DSx0; //PtZtZP
+
+	//SO3 BONES -> F(w) = R0 exp(J(w)) -> dE/dw = dE/dF * dF/dw
+	for(int b =0; b < store.bone_tets.size(); b++){
+		Matrix9d A;
+		#pragma omp parallel for collapse(2)
+		for(int j =0; j<9; j++){
+			for(int k=0; k<9; k++){
+				A(j, k) = store.x0tStDt_dF_dF_DSx0.coeffRef(9*b + j, 9*b +k);
+			}
+		}
+
+		Eigen::Matrix3d R0 = Map<Eigen::Matrix3d>(store.dFvec.segment<9>(9*b).data()).transpose();
+		
+		Eigen::Matrix3d Jx = store.cross_prod_mat(1,0,0);
+		Eigen::Matrix3d Jy = store.cross_prod_mat(0,1,0);
+		Eigen::Matrix3d Jz = store.cross_prod_mat(0,0,1);
+
+		Eigen::Matrix3d dRdw1 = R0*Jx;
+		Eigen::Matrix3d dRdw2 = R0*Jy;
+		Eigen::Matrix3d dRdw3 = R0*Jz;
+		Eigen::Matrix3d dRdw1t = dRdw1.transpose();
+		Eigen::Matrix3d dRdw2t = dRdw2.transpose();
+		Eigen::Matrix3d dRdw3t = dRdw3.transpose();
 
 
-	if(store.jinput["woodbury"]){
-		//if woodbury, store PtZtZP as dense block diag hessian
-	
-	}else{
-		//else compute dense jacobian based hessian
-		SparseMatrix<double, RowMajor> temp = store.YtStDt_dF_DSx0.transpose()*store.JacdxdF;
-		hess -= temp;
+		Eigen::Matrix<double,3, 9> dRdw;
+		dRdw.row(0) = Map<Vector9d>(dRdw1t.data());
+		dRdw.row(1) = Map<Vector9d>(dRdw2t.data());
+		dRdw.row(2) = Map<Vector9d>(dRdw3t.data());
+
+		
+
 	}
 
+
+	hess *= store.alpha_arap;
+}
+
+void famu::acap::setupWoodbury(Store& store){
+	double aa = store.jinput["alpha_arap"];
+	store.WoodB = -1*store.YtStDt_dF_DSx0.transpose()*store.G;
+	store.WoodD = -1*store.WoodB.transpose();
+	store.WoodB *= aa;
+
+	store.InvC = store.eigenvalues.asDiagonal();
+	store.WoodC = store.eigenvalues.asDiagonal().inverse();
+	for(int i=0; i<store.dFvec.size()/9; i++){
+		LDLT<Matrix9d> InvA;
+		store.vecInvA.push_back(InvA);
+	}
+
+	
 }
 
 VectorXd famu::acap::fd_gradient(Store& store){

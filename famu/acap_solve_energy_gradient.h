@@ -24,6 +24,8 @@ namespace famu
 
 		void fastHessian(Store& store, Eigen::SparseMatrix<double, Eigen::RowMajor>& hess, Eigen::MatrixXd& denseHess);
 
+		void setupWoodbury(Store& store);
+
 		Eigen::VectorXd fd_gradient(Store& store);
 
 		Eigen::MatrixXd fd_hessian(Store& store);
