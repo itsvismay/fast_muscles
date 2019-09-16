@@ -6,7 +6,7 @@ using Store = famu::Store;
 #include <igl/writeDMAT.h>
 #include <igl/readDMAT.h>
 #include<Eigen/LU>
-
+#include <unsupported/Eigen/MatrixFunctions>
 using namespace std;
 using Store = famu::Store;
 
@@ -22,19 +22,53 @@ std::vector<Eigen::Triplet<double>> to_Triplets(Eigen::SparseMatrix<double, Eige
 }
 
 
-double famu::acap::energy(Store& store){
-	SparseMatrix<double, RowMajor> DS = store.D*store.S;
-	double E1 =  0.5*(store.D*store.S*(store.x+store.x0) - store.dF*store.DSx0).squaredNorm();
+double famu::acap::energy(Store& store, VectorXd& dFvec, VectorXd& boneDOFS){
+	VectorXd DSx0 = store.D*store.S*store.x0;
+	VectorXd DSx = store.D*store.S*(store.Y*store.x + store.x0);
 
-	double E2 = 0.5*store.x.transpose()*store.StDtDS*store.x;
-	double E3 = store.x0.transpose()*store.StDtDS*store.x;
-	double E4 = 0.5*store.x0.transpose()*store.StDtDS*store.x0;
-	double E5 = -store.x.transpose()*DS.transpose()*store.dF*DS*store.x0;
-	double E6 = -store.x0.transpose()*DS.transpose()*store.dF*DS*store.x0;
-	double E7 = 0.5*(store.dF*store.DSx0).transpose()*(store.dF*store.DSx0);
-	double E8 = E2+E3+E4+E5+E6+E7;
-	assert(fabs(E1 - E8)< 1e-6);
-	return E1;
+	double E = 0;
+	//Energy for muscles
+	for(int m=0; m<store.muscle_tets.size(); m++){
+		for(int i=0; i<store.muscle_tets[m].size(); i++){
+			int t = store.muscle_tets[m][i];
+			int f_index = store.bone_or_muscle[t];
+
+			Matrix3d F = Map<Matrix3d>(dFvec.segment<9>(9*f_index).data()).transpose();
+
+			E += (DSx.segment<3>(12*t + 0) - F*DSx0.segment<3>(12*t + 0)).norm();
+			E += (DSx.segment<3>(12*t + 3) - F*DSx0.segment<3>(12*t + 3)).norm();
+			E += (DSx.segment<3>(12*t + 6) - F*DSx0.segment<3>(12*t + 6)).norm();
+			E += (DSx.segment<3>(12*t + 9) - F*DSx0.segment<3>(12*t + 9)).norm();
+		}
+	}
+
+	//Energy for bones (single rotation cluster)
+	for(int m=0; m<store.bone_tets.size(); m++){
+		int f_index = m;
+		Matrix3d R0 = Map<Matrix3d>(dFvec.segment<9>(9*f_index).data()).transpose();
+		double wX = boneDOFS(3*m + 0);
+		double wY = boneDOFS(3*m + 1);
+		double wZ = boneDOFS(3*m + 2);
+		Matrix3d cross;
+        cross<<0, -wZ, wY,
+                wZ, 0, -wX,
+                -wY, wX, 0;
+        Matrix3d Rot = cross.exp();
+		Matrix3d R = R0*Rot;
+
+		for(int i=0; i<store.bone_tets[m].size(); i++){
+			int t = store.bone_tets[m][i];
+
+			E += (DSx.segment<3>(12*t + 0) - R*DSx0.segment<3>(12*t + 0)).norm();
+			E += (DSx.segment<3>(12*t + 3) - R*DSx0.segment<3>(12*t + 3)).norm();
+			E += (DSx.segment<3>(12*t + 6) - R*DSx0.segment<3>(12*t + 6)).norm();
+			E += (DSx.segment<3>(12*t + 9) - R*DSx0.segment<3>(12*t + 9)).norm();
+
+		}
+
+	}
+
+	return E;
 }
 
 double famu::acap::fastEnergy(Store& store, VectorXd& dFvec){
@@ -92,7 +126,7 @@ void famu::acap::fastGradient(Store& store, VectorXd& grad, VectorXd& dEdF){
 
 	}  
 
-	grad.tail(grad.size() - 3*store.bone_tets.size()) = dEdF.tail(dEdF.size() - 9*store.bone_tets.size())
+	grad.tail(grad.size() - 3*store.bone_tets.size()) = dEdF.tail(dEdF.size() - 9*store.bone_tets.size());
 
 
 	double aa = store.jinput["alpha_arap"];

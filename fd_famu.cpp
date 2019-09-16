@@ -24,7 +24,6 @@
 
 #include <sstream>
 #include <iomanip>
-// #include <omp.h>
 
 #include "famu/store.h"
 #include "famu/read_config_files.h"
@@ -64,23 +63,10 @@ int main(int argc, char *argv[])
 			cout<<"Run as: ./famu input.json <threads>"<<endl;
 			exit(0);
 		}
-		if(argc==3){
-			num_threads = std::stoi(argv[2]);
-			#ifdef __linux__
-			omp_set_num_threads(num_threads);
-			#endif
+		else{
 			std::ifstream input_file(argv[1]);
 			input_file >> j_input;
-		}else if(argc==4){
-			num_threads = std::stoi(argv[3]);
-			#ifdef __linux__
-			omp_set_num_threads(num_threads);
-			#endif
-			std::ifstream input_file(argv[2]);
-			input_file >> j_input;
-
 		}
-		Eigen::initParallel();
 	
 		
     	igl::Timer timer;
@@ -88,22 +74,11 @@ int main(int argc, char *argv[])
 		famu::Store store;
 		store.jinput = j_input;
 
-		famu::read_config_files(store.V, 
-								store.T, 
-								store.F, 
-								store.Uvec, 
-								store.bone_name_index_map, 
-								store.muscle_name_index_map, 
-								store.joint_bones_verts, 
-								store.bone_tets, 
-								store.muscle_tets, 
-								store.fix_bones, 
-								store.relativeStiffness,
-								store.contract_muscles,
-								store.jinput);  
-		store.alpha_arap = store.jinput["alpha_arap"];
-		store.alpha_neo = store.jinput["alpha_neo"];
-		
+		num_threads = store.jinput["threads"];
+		omp_set_num_threads(num_threads);
+
+		Eigen::initParallel();
+		famu::read_config_files(store);  
 
 
 	cout<<"---Record Mesh Setup Info"<<endl;
@@ -115,8 +90,6 @@ int main(int argc, char *argv[])
 		igl::boundary_facets(store.T, store.F);
 
 	cout<<"---Set Fixed Vertices"<<endl;
-		// store.mfix = famu::getMaxVerts(store.V, 1);
-		// store.mmov = {};//famu::getMinVerts(store.V, 1);
 		cout<<"If it fails here, make sure indexing is within bounds"<<endl;
 	    std::set<int> fix_verts_set;
 	    for(int ii=0; ii<store.fix_bones.size(); ii++){
@@ -130,7 +103,7 @@ int main(int argc, char *argv[])
 	    store.mfix.assign(fix_verts_set.begin(), fix_verts_set.end());
 	    std::sort (store.mfix.begin(), store.mfix.end());
 	
-	cout<<"---Set Mesh Params"<<store.x.size()<<endl;
+	cout<<"---Set Mesh Params"<<endl;
 		//YM, poissons
 		store.eY = 1e10*VectorXd::Ones(store.T.rows());
 		store.eP = 0.49*VectorXd::Ones(store.T.rows());
@@ -145,7 +118,9 @@ int main(int argc, char *argv[])
 				store.muscle_mag[store.muscle_tets[m][t]] = j_input["muscle_starting_strength"];
 			}
 		}
+
 		igl::writeDMAT("youngs_per_tet.dmat", store.eY);
+        //For Display purposes
         {
           store.elogVY = Eigen::VectorXd::Zero(store.V.rows());
           // volume associated with each vertex
@@ -173,28 +148,20 @@ int main(int argc, char *argv[])
 		//bone dF map
 		//start off all as -1
 		store.bone_or_muscle = -1*Eigen::VectorXi::Ones(store.T.rows());
-		if(store.jinput["reduced"]){
+		// // // assign bone tets to 1 dF for each bone, starting at 0...bone_tets.size()
+		for(int i=0; i<store.bone_tets.size(); i++){
+	    	for(int j=0; j<store.bone_tets[i].size(); j++){
+	    		store.bone_or_muscle[store.bone_tets[i][j]] = i;
+	    	}
+	    }
 
-			// // // assign bone tets to 1 dF for each bone, starting at 0...bone_tets.size()
-			for(int i=0; i<store.bone_tets.size(); i++){
-		    	for(int j=0; j<store.bone_tets[i].size(); j++){
-		    		store.bone_or_muscle[store.bone_tets[i][j]] = i;
-		    	}
-		    }
-
-		    //assign muscle tets, dF per element, starting at bone_tets.size()
-		    int muscle_ind = store.bone_tets.size();
-		    for(int i=0; i<store.T.rows(); i++){
-		    	if(store.bone_or_muscle[i]<-1e-8){
-		    		store.bone_or_muscle[i] = muscle_ind;
-		    		muscle_ind +=1;
-		    	}
-		    }
-		}
-	    else{
-			for(int i=0; i<store.T.rows(); i++){
-				store.bone_or_muscle[i] = i;
-			}
+	    //assign muscle tets, dF per element, starting at bone_tets.size()
+	    int muscle_ind = store.bone_tets.size();
+	    for(int i=0; i<store.T.rows(); i++){
+	    	if(store.bone_or_muscle[i]<-1e-8){
+	    		store.bone_or_muscle[i] = muscle_ind;
+	    		muscle_ind +=1;
+	    	}
 	    }
 
 	    //Rest state volumes
@@ -221,34 +188,32 @@ int main(int argc, char *argv[])
 	    	store.bone_vols.push_back(bone_vol);
 	    }
 
-	cout<<"---Setup continuous mesh"<<store.x.size()<<endl;
+	cout<<"---Setup continuous mesh"<<endl;
 		store.x0.resize(3*store.V.rows());
 		for(int i=0; i<store.V.rows(); i++){
 			store.x0[3*i+0] = store.V(i,0); 
 			store.x0[3*i+1] = store.V(i,1); 
 			store.x0[3*i+2] = store.V(i,2);   
 	    }
-	    store.dx = VectorXd::Zero(3*store.V.rows());
 
-
-	cout<<"---Cont. to Discont. matrix"<<store.x.size()<<endl;
+	cout<<"---Cont. to Discont. matrix"<<endl;
 		famu::cont_to_discont_tets(store.S, store.T, store.V);
 	    
-    cout<<"---Set Vertex Constraint Matrices"<<store.x.size()<<endl;
+    cout<<"---Set Vertex Constraint Matrices"<<endl;
 		famu::vertex_bc(store.mmov, store.mfix, store.UnconstrainProjection, store.ConstrainProjection, store.V);
 
-	cout<<"---Set Discontinuous Tet Centroid vector matrix"<<store.x.size()<<endl;
+	cout<<"---Set Discontinuous Tet Centroid vector matrix"<<endl;
 		famu::discontinuous_edge_vectors(store, store.D, store._D, store.T, store.muscle_tets);
 
-	cout<<"---Set Centroid Matrix"<<store.x.size()<<endl;
+	cout<<"---Set Centroid Matrix"<<endl;
 		famu::discontinuous_centroids_matrix(store.C, store.T);
 
-	cout<<"---Set Disc T and V"<<store.x.size()<<endl;
+	cout<<"---Set Disc T and V"<<endl;
 		famu::setDiscontinuousMeshT(store.T, store.discT);
 		igl::boundary_facets(store.discT, store.discF);
 		store.discV.resize(4*store.T.rows(), 3);
 
-	cout<<"---Set Joints Constraint Matrix"<<store.x.size()<<endl;
+	cout<<"---Set Joints Constraint Matrix"<<endl;
 		famu::fixed_bones_projection_matrix(store, store.Y);
 	    store.x = VectorXd::Zero(store.Y.cols());
 		famu::joint_constraint_matrix(store, store.JointConstraints);
@@ -257,29 +222,14 @@ int main(int argc, char *argv[])
 		famu::bone_acap_deformation_constraints(store, store.Bx, store.Bf);
 	    store.lambda2 = VectorXd::Zero(store.Bf.rows());
 
-	    // std::vector<std::pair<int, int>> springs;
-	    // std::vector<int> bcMuscle1 = getMinVerts_Axis_Tolerance(store.T, store.V, 2, 1e-1, store.muscle_tets[0]);
-	    // std::vector<int> bcMuscle2 = getMaxVerts_Axis_Tolerance(store.T, store.V, 2, 1e-1, store.muscle_tets[1]);
-	    // // famu::make_closest_point_springs(store.T, store.V, store.muscle_tets[1],  bcMuscle1, springs);
-	    // famu::make_closest_point_springs(store.T, store.V, store.muscle_tets[0],  bcMuscle2, springs);
-
-	    // famu::penalty_spring_bc(springs, store.ContactP, store.V);
-
-
-
-	cout<<"---ACAP Solve KKT setup"<<store.x.size()<<endl;
+	cout<<"---ACAP Solve KKT setup"<<endl;
 		SparseMatrix<double, Eigen::RowMajor> KKT_left, KKT_left1;
 		store.YtStDtDSY = (store.D*store.S*store.Y).transpose()*(store.D*store.S*store.Y);
 		famu::construct_kkt_system_left(store.YtStDtDSY, store.JointConstraints, KKT_left);
 
-		double k = store.jinput["springk"];
-		// SparseMatrix<double, Eigen::RowMajor> PY = k*store.ContactP*store.Y;
-		// famu::construct_kkt_system_left(KKT_left, PY, KKT_left1, -1);
-
-
 		SparseMatrix<double, Eigen::RowMajor> KKT_left2;
 		famu::construct_kkt_system_left(KKT_left, store.Bx,  KKT_left2, -1e-3); 
-		// MatrixXd Hkkt = MatrixXd(KKT_left2);
+
 		#ifdef __linux__
 		store.ACAP_KKT_SPLU.pardisoParameterArray()[2] = num_threads; 
 		#endif
@@ -295,7 +245,8 @@ int main(int argc, char *argv[])
 			exit(0);
 		}
 		
-	cout<<"---Setup dFvec and dF"<<endl;
+	cout<<"---Setup dFvec and boneDOFS (w)"<<endl;
+		store.boneDOFS = VectorXd::Zero(3*store.bone_tets.size());
 		store.dFvec = VectorXd::Zero(store.ProjectF.cols());
 		for(int t=0; t<store.dFvec.size()/9; t++){
 			store.dFvec[9*t + 0] = 1;
@@ -395,7 +346,9 @@ int main(int argc, char *argv[])
 
 
 
+	cout<<"ACAP Energy: "<<famu::acap::energy(store, store.dFvec, store.boneDOFS)<<endl;
 
+	exit(0);
 	cout<<"--- Write Meshes"<<endl;
 		// double fx = 0;
 		// int niters = 0;

@@ -16,11 +16,11 @@ namespace famu
 	namespace acap
 	{
 
-		double energy(Store& store);
+		double energy(Store& store , Eigen::VectorXd& dFvec, Eigen::VectorXd& boneDOFS);
 
 		double fastEnergy(Store& store, Eigen::VectorXd& dFvec);
 
-		void fastGradient(Store& store, Eigen::VectorXd& grad);
+		void fastGradient(Store& store, Eigen::VectorXd& grad, Eigen::VectorXd& dEdF);
 
 		void fastHessian(Store& store, Eigen::SparseMatrix<double, Eigen::RowMajor>& hess, Eigen::MatrixXd& denseHess);
 

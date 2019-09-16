@@ -10,7 +10,6 @@
 
 #ifdef __linux__
 #include <Eigen/PardisoSupport>
-#include <Eigen/UmfPackSupport>
 #include <omp.h>
 #endif
 
@@ -63,13 +62,13 @@ namespace famu{
 		Eigen::SparseMatrix<double, Eigen::RowMajor> Y, Bx, Bf;
 		Eigen::MatrixXd G;
 
-		Eigen::VectorXd dFvec, BfI0;
+		Eigen::VectorXd dFvec, BfI0, boneDOFS;
 		Eigen::VectorXd x, dx, x0, lambda2, acap_solve_result, acap_solve_rhs;
 
 		
 		#ifdef __linux__
 		Eigen::PardisoLU<Eigen::SparseMatrix<double, Eigen::RowMajor>> ACAP_KKT_SPLU;
-		Eigen::UmfPackLU<Eigen::SparseMatrix<double, Eigen::RowMajor>> NM_SPLU;//TODO: optimize this away
+		Eigen::PardisoLU<Eigen::SparseMatrix<double, Eigen::RowMajor>> NM_SPLU;//TODO: optimize this away
 		#else
 		Eigen::SparseLU<Eigen::SparseMatrix<double, Eigen::RowMajor>> ACAP_KKT_SPLU;
 		Eigen::SparseLU<Eigen::SparseMatrix<double, Eigen::RowMajor>> NM_SPLU;//TODO: optimize this away
