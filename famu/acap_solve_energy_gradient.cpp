@@ -25,7 +25,7 @@ std::vector<Eigen::Triplet<double>> to_Triplets(Eigen::SparseMatrix<double, Eige
 double famu::acap::energy(Store& store, VectorXd& dFvec, VectorXd& boneDOFS){
 	VectorXd DSx0 = store.D*store.S*store.x0;
 	VectorXd DSx = store.D*store.S*(store.Y*store.x + store.x0);
-
+	VectorXd F = dFvec;
 	double E = 0;
 	//Energy for muscles
 	for(int m=0; m<store.muscle_tets.size(); m++){
@@ -39,6 +39,7 @@ double famu::acap::energy(Store& store, VectorXd& dFvec, VectorXd& boneDOFS){
 			E += 0.5*(DSx.segment<3>(12*t + 3) - F*DSx0.segment<3>(12*t + 3)).squaredNorm();
 			E += 0.5*(DSx.segment<3>(12*t + 6) - F*DSx0.segment<3>(12*t + 6)).squaredNorm();
 			E += 0.5*(DSx.segment<3>(12*t + 9) - F*DSx0.segment<3>(12*t + 9)).squaredNorm();
+		
 		}
 	}
 
@@ -55,6 +56,8 @@ double famu::acap::energy(Store& store, VectorXd& dFvec, VectorXd& boneDOFS){
                 -wY, wX, 0;
         Matrix3d Rot = cross.exp();
 		Matrix3d R = R0*Rot;
+		Matrix3d Rt = R.transpose();
+		F.segment<9>(9*m) = Map<Vector9d>(Rt.data());
 
 		for(int i=0; i<store.bone_tets[m].size(); i++){
 			int t = store.bone_tets[m][i];
@@ -68,7 +71,11 @@ double famu::acap::energy(Store& store, VectorXd& dFvec, VectorXd& boneDOFS){
 
 	}
 
-	return E;
+	double E7 = store.lambda2.transpose()*store.Bx*store.x;
+ 	E7 -= store.lambda2.transpose()*store.Bf*F;
+ 	E7 += store.lambda2.transpose()*store.BfI0;
+ 	
+	return E+E7;
 }
 
 double famu::acap::fastEnergy(Store& store, VectorXd& dFvec){
@@ -83,9 +90,10 @@ double famu::acap::fastEnergy(Store& store, VectorXd& dFvec){
 
 	store.acaptmp_sizedFvec2 = store.x0tStDt_dF_dF_DSx0*dFvec;
 	double E6 = 0.5*dFvec.transpose()*store.acaptmp_sizedFvec2;
- 	
- 	double E7 = 0;
 
+ 	double E7 = store.lambda2.transpose()*store.Bx*store.x;
+ 	E7 -= store.lambda2.transpose()*store.Bf*store.dFvec;
+ 	E7 += store.lambda2.transpose()*store.BfI0;
  	double k = store.jinput["springk"];
  	double E8 = 0;//0.5*k*temp1.dot(temp1);
 	
@@ -220,11 +228,11 @@ MatrixXd famu::acap::fd_hessian(Store& store){
 void famu::acap::solve(Store& store, VectorXd& dFvec){
 	store.acap_solve_rhs.setZero();
 	store.acap_solve_rhs.head(store.x.size()) = store.YtStDt_dF_DSx0*dFvec - store.x0tStDtDSY;
-	store.acap_solve_rhs.tail(store.BfI0.size()) = store.Bf*store.dFvec - store.BfI0;;
+	store.acap_solve_rhs.tail(store.BfI0.size()) = store.Bf*store.dFvec - store.BfI0;
 
 	store.acap_solve_result = store.ACAP_KKT_SPLU.solve(store.acap_solve_rhs);
 	store.x = store.acap_solve_result.head(store.x.size());
-	// store.lambda2 = store.acap_solve_result.tail(store.BfI0.size());	
+	store.lambda2 = store.acap_solve_result.tail(store.BfI0.size());	
 
 }
 
