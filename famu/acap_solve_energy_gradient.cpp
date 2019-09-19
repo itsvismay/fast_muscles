@@ -103,13 +103,9 @@ double famu::acap::fastEnergy(Store& store, VectorXd& dFvec){
 	return E9*aa;
 }
 
-void famu::acap::fastGradient(Store& store, VectorXd& grad, VectorXd& dEdF){
-	dEdF = -store.x0tStDt_dF_DSx0;
-	dEdF += -store.x.transpose()*store.YtStDt_dF_DSx0;
-	dEdF += store.dFvec.transpose()*store.x0tStDt_dF_dF_DSx0;
-	dEdF -= store.Bf.transpose()*store.lambda2;
-	
-
+void famu::acap::updatedRdW(Store& store){
+	vector<Trip> dRdW_trips;
+	store.dRdW.setZero();
 	//SO3 BONES -> F(w) = R0 exp(J(w)) -> dE/dw = dE/dF * dF/dw
 	for(int b =0; b < store.bone_tets.size(); b++){
 		Eigen::Matrix3d R0 = Map<Eigen::Matrix3d>(store.dFvec.segment<9>(9*b).data()).transpose();
@@ -129,23 +125,29 @@ void famu::acap::fastGradient(Store& store, VectorXd& grad, VectorXd& dEdF){
 		dRdw.row(0) = Map<Vector9d>(dRdw1t.data());
 		dRdw.row(1) = Map<Vector9d>(dRdw2t.data());
 		dRdw.row(2) = Map<Vector9d>(dRdw3t.data());
-
-		grad.segment<3>(3*b) = dRdw*dEdF.segment<9>(9*b);
 		
-		// Eigen::Matrix3d dEdF_i = Map<Eigen::Matrix3d>(dEdF.segment<9>(9*b).data()).transpose();
+		for(int ii=0; ii<3; ii++){
+			for(int jj=0; jj<9; jj++){
+				dRdW_trips.push_back(Trip(3*b+ii,9*b+jj, dRdw(ii, jj)));
+			}
+		}
+	}
 
-		// double Ew1 = dEdF_i.cwiseProduct(dRdw1).sum();
-		// double Ew2 = dEdF_i.cwiseProduct(dRdw2).sum();
-		// double Ew3 = dEdF_i.cwiseProduct(dRdw3).sum();
+	//fill in the rest of dRdW as mxm Id
+	for(int t =0; t<store.dFvec.size()-9*store.bone_tets.size(); t++){
+		//fill it in backwards, bottom right to top left.
+		dRdW_trips.push_back(Trip( store.dRdW.rows() - t -1, store.dRdW.cols() - t -1, 1));
+	}
+	store.dRdW.setFromTriplets(dRdW_trips.begin(), dRdW_trips.end());
+}
 
-		// grad(3*b+0) = Ew1;
-		// grad(3*b+1) = Ew2;
-		// grad(3*b+2) = Ew3;
+void famu::acap::fastGradient(Store& store, VectorXd& grad, VectorXd& dEdF){
+	dEdF = -store.x0tStDt_dF_DSx0;
+	dEdF += -store.x.transpose()*store.YtStDt_dF_DSx0;
+	dEdF += store.dFvec.transpose()*store.x0tStDt_dF_dF_DSx0;
+	dEdF -= store.Bf.transpose()*store.lambda2;
 
-	}  
-
-	grad.tail(grad.size() - 3*store.bone_tets.size()) = dEdF.tail(dEdF.size() - 9*store.bone_tets.size());
-
+	grad = store.dRdW*dEdF;
 
 	double aa = store.jinput["alpha_arap"];
 	grad *= aa;
@@ -154,43 +156,8 @@ void famu::acap::fastGradient(Store& store, VectorXd& grad, VectorXd& dEdF){
 
 void famu::acap::fastHessian(Store& store, SparseMatrix<double, RowMajor>& hess, Eigen::MatrixXd& denseHess){
 	hess.setZero();
-	store.x0tStDt_dF_dF_DSx0; //PtZtZP
+	hess = store.alpha_arap*store.x0tStDt_dF_dF_DSx0; //PtZtZP
 
-	//SO3 BONES -> F(w) = R0 exp(J(w)) -> dE/dw = dE/dF * dF/dw
-	for(int b =0; b < store.bone_tets.size(); b++){
-		Matrix9d A;
-		#pragma omp parallel for collapse(2)
-		for(int j =0; j<9; j++){
-			for(int k=0; k<9; k++){
-				A(j, k) = store.x0tStDt_dF_dF_DSx0.coeffRef(9*b + j, 9*b +k);
-			}
-		}
-
-		Eigen::Matrix3d R0 = Map<Eigen::Matrix3d>(store.dFvec.segment<9>(9*b).data()).transpose();
-		
-		Eigen::Matrix3d Jx = store.cross_prod_mat(1,0,0);
-		Eigen::Matrix3d Jy = store.cross_prod_mat(0,1,0);
-		Eigen::Matrix3d Jz = store.cross_prod_mat(0,0,1);
-
-		Eigen::Matrix3d dRdw1 = R0*Jx;
-		Eigen::Matrix3d dRdw2 = R0*Jy;
-		Eigen::Matrix3d dRdw3 = R0*Jz;
-		Eigen::Matrix3d dRdw1t = dRdw1.transpose();
-		Eigen::Matrix3d dRdw2t = dRdw2.transpose();
-		Eigen::Matrix3d dRdw3t = dRdw3.transpose();
-
-
-		Eigen::Matrix<double,3, 9> dRdw;
-		dRdw.row(0) = Map<Vector9d>(dRdw1t.data());
-		dRdw.row(1) = Map<Vector9d>(dRdw2t.data());
-		dRdw.row(2) = Map<Vector9d>(dRdw3t.data());
-
-		
-
-	}
-
-
-	hess *= store.alpha_arap;
 }
 
 void famu::acap::setupWoodbury(Store& store){
@@ -205,6 +172,9 @@ void famu::acap::setupWoodbury(Store& store){
 		LDLT<Matrix9d> InvA;
 		store.vecInvA.push_back(InvA);
 	}
+
+	store.dRdW_WoodB = store.dRdW*store.WoodB;
+	store.dRdW_WoodD = store.dRdW*store.WoodD;
 
 	
 }
@@ -250,29 +220,75 @@ VectorXd famu::acap::fd_gradient(Store& store){
 }
 
 MatrixXd famu::acap::fd_hessian(Store& store){
-	MatrixXd fake = MatrixXd::Zero(store.dFvec.size(), store.dFvec.size());
-	VectorXd dFvec = store.dFvec;
-	double eps = 1e-3;
-	double E0 = fastEnergy(store, dFvec);
-	for(int i=0; i<11; i++){
-		for(int j=0; j<11; j++){
-			dFvec[i] += eps;
-			dFvec[j] += eps;
-			double Eij = fastEnergy(store, dFvec);
-			dFvec[i] -= eps;
-			dFvec[j] -= eps;
+	MatrixXd fake = MatrixXd::Zero(20,20);
+	double eps = 1e-4;
+	double E0 = energy(store, store.dFvec, store.boneDOFS);
 
-			dFvec[i] += eps;
-			double Ei = fastEnergy(store, dFvec);
-			dFvec[i] -=eps;
+	for(int i=0; i<store.boneDOFS.size(); i++){
+		for(int j=0; j<store.boneDOFS.size(); j++){
+			store.boneDOFS[i] += eps;
+			store.boneDOFS[j] += eps;
+			double Eij = energy(store, store.dFvec, store.boneDOFS);
+			store.boneDOFS[i] -= eps;
+			store.boneDOFS[j] -= eps;
 
-			dFvec[j] += eps;
-			double Ej = fastEnergy(store, dFvec);
-			dFvec[j] -=eps;
+			store.boneDOFS[i] += eps;
+			double Ei = energy(store, store.dFvec, store.boneDOFS);
+			store.boneDOFS[i] -= eps;
 
-			fake(i,j) = ((Eij - Ei - Ej + E0)/(eps*eps));
+			store.boneDOFS[j] += eps;
+			double Ej = energy(store, store.dFvec, store.boneDOFS);
+			store.boneDOFS[j] -= eps;
+
+			fake(i, j) = ((Eij - Ei - Ej + E0)/(eps*eps));
 		}
 	}
+	int jj= 0;
+	int ii =0;
+	for(int i=9*store.bone_tets.size(); i<9*store.bone_tets.size() + 20 - store.boneDOFS.size(); i++){
+		jj =0;
+		for(int j=9*store.bone_tets.size(); j<9*store.bone_tets.size() + 20 - store.boneDOFS.size(); j++){
+			store.dFvec[i] += eps;
+			store.dFvec[j] += eps;
+			double Eij = energy(store, store.dFvec, store.boneDOFS);
+			store.dFvec[i] -= eps;
+			store.dFvec[j] -= eps;
+
+			store.dFvec[i] += eps;
+			double Ei = energy(store, store.dFvec, store.boneDOFS);
+			store.dFvec[i] -=eps;
+
+			store.dFvec[j] += eps;
+			double Ej = energy(store, store.dFvec, store.boneDOFS);
+			store.dFvec[j] -=eps;
+
+			fake(store.boneDOFS.size()+ii, store.boneDOFS.size()+jj) = ((Eij - Ei - Ej + E0)/(eps*eps));
+
+			jj += 1;
+		}
+
+		ii += 1;
+	}
+
+	// for(int i=0; i<20; i++){
+	// 	for(int j=0; j<20; j++){
+	// 		dFvec[i] += eps;
+	// 		dFvec[j] += eps;
+	// 		double Eij = energy(store, store.dFvec, store.boneDOFS);
+	// 		dFvec[i] -= eps;
+	// 		dFvec[j] -= eps;
+
+	// 		dFvec[i] += eps;
+	// 		double Ei = energy(store, store.dFvec, store.boneDOFS);
+	// 		dFvec[i] -=eps;
+
+	// 		dFvec[j] += eps;
+	// 		double Ej = energy(store, store.dFvec, store.boneDOFS);
+	// 		dFvec[j] -=eps;
+
+	// 		fake(i,j) = ((Eij - Ei - Ej + E0)/(eps*eps));
+	// 	}
+	// }
 	return fake;
 }
 

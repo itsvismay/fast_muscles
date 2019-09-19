@@ -18,6 +18,8 @@ namespace famu
 
 		double energy(Store& store , Eigen::VectorXd& dFvec, Eigen::VectorXd& boneDOFS);
 
+		void updatedRdW(Store& store);
+
 		double fastEnergy(Store& store, Eigen::VectorXd& dFvec);
 
 		void fastGradient(Store& store, Eigen::VectorXd& grad, Eigen::VectorXd& dEdF);

@@ -64,6 +64,7 @@ namespace famu{
 
 		Eigen::VectorXd dFvec, BfI0, boneDOFS;
 		Eigen::VectorXd x, dx, x0, lambda2, acap_solve_result, acap_solve_rhs;
+		Eigen::SparseMatrix<double, Eigen::RowMajor> dRdW, dRdW0;
 
 		
 		#ifdef __linux__
@@ -105,7 +106,7 @@ namespace famu{
 		//C = Inv(GtYtStDtDSYG)
 		//D = G'Y'S'D'ZP
 		std::vector<Eigen::LDLT<Matrix9d>> vecInvA;
-		Eigen::MatrixXd WoodB, WoodD, InvC, WoodC;
+		Eigen::MatrixXd WoodB, WoodD, InvC, WoodC, dRdW_WoodB, dRdW_WoodD;
 		Eigen::VectorXd eigenvalues;
 		std::vector<int> contract_muscles;
 

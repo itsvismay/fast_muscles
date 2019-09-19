@@ -300,8 +300,20 @@ int main(int argc, char *argv[])
 
 	cout<<"--- ACAP Hessians"<<endl;
 		// famu::acap::setJacobian(store);
+		int numdofs = store.dFvec.size() - 6*store.bone_tets.size();
+		store.dRdW.resize(numdofs, store.dFvec.size());
 		
-		store.denseNeoHess = MatrixXd::Zero(store.dFvec.size(), 9);
+		store.dRdW0.resize(numdofs, store.dFvec.size());
+		vector<Trip> dRdW_trips;
+		store.dRdW0.setZero();
+		//fill in the rest of dRdW as mxm Id
+		for(int t =0; t<store.dFvec.size()-9*store.bone_tets.size(); t++){
+			//fill it in backwards, bottom right to top left.
+			dRdW_trips.push_back(Trip( store.dRdW.rows() - t -1, store.dRdW.cols() - t -1, 1));
+		}
+		store.dRdW0.setFromTriplets(dRdW_trips.begin(), dRdW_trips.end());
+
+		store.denseNeoHess = MatrixXd::Zero(numdofs, 9);
 		store.neoHess.resize(store.dFvec.size(), store.dFvec.size());
 		famu::stablenh::hessian(store, store.neoHess, store.denseNeoHess);
 
@@ -313,11 +325,6 @@ int main(int argc, char *argv[])
 		store.acapHess.resize(store.dFvec.size(), store.dFvec.size());
 		famu::acap::fastHessian(store, store.acapHess, store.denseAcapHess);
 		
-
-		SparseMatrix<double> hessFvec = store.neoHess + store.acapHess + store.muscleHess;
-		store.NM_SPLU.analyzePattern(hessFvec);
-		store.NM_SPLU.factorize(hessFvec);
-
 			
 	cout<<"--- Setup woodbury matrices"<<endl;
 	famu::acap::setupWoodbury(store);
@@ -344,10 +351,10 @@ int main(int argc, char *argv[])
 	VectorXd grad = VectorXd::Zero(store.dFvec.size() - 6*store.bone_tets.size());
 	VectorXd dEdF = VectorXd::Zero(store.dFvec.size());
 	cout<<"ACAP Energy: "<<famu::acap::energy(store, store.dFvec, store.boneDOFS)<<"-"<<famu::acap::fastEnergy(store,store.dFvec)<<endl;
-	cout<<"ACAP Grad:"<<endl;
 	famu::acap::fastGradient(store, grad, dEdF);
-	cout<<grad.segment<20>(0).transpose()<<endl;
-	cout<<famu::acap::fd_gradient(store).transpose()<<endl;
+	cout<<"ACAP Grad:"<< (famu::acap::fd_gradient(store).transpose() -grad.segment<20>(0).transpose()).squaredNorm()<<endl;
+	cout<<"ACAP Hess:"<<endl;
+	cout<<famu::acap::fd_hessian(store)<<endl;
 	exit(0);
 	cout<<"--- Write Meshes"<<endl;
 		// double fx = 0;

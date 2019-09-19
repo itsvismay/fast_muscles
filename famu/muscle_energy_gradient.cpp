@@ -35,19 +35,19 @@ void famu::muscle::setupFastMuscles(Store& store){
 	}
 }
 
-double famu::muscle::fastEnergy(Store& store, VectorXd& dFvec){
-	double W =0;
-	for(int i=0; i<store.contract_muscles.size(); i++){
-		W += 0.5*dFvec.transpose()*store.fastMuscles[store.contract_muscles[i]]*dFvec;
-	}
-	return W;
-}
+// double famu::muscle::fastEnergy(Store& store, VectorXd& dFvec){
+// 	double W =0;
+// 	for(int i=0; i<store.contract_muscles.size(); i++){
+// 		W += 0.5*dFvec.transpose()*store.fastMuscles[store.contract_muscles[i]]*dFvec;
+// 	}
+// 	return W;
+// }
 
-void famu::muscle::fastGradient(Store& store, VectorXd& grad){
-	for(int i=0; i<store.contract_muscles.size(); i++){
-		grad += store.fastMuscles[store.contract_muscles[i]]*store.dFvec;
-	}
-}
+// void famu::muscle::fastGradient(Store& store, VectorXd& grad){
+// 	for(int i=0; i<store.contract_muscles.size(); i++){
+// 		grad += store.fastMuscles[store.contract_muscles[i]]*store.dFvec;
+// 	}
+// }
 
 double famu::muscle::energy(Store& store, VectorXd& dFvec){
 	double MuscleEnergy = 0;
