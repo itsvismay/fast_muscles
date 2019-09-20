@@ -22,7 +22,7 @@ namespace famu
 
 		double fastEnergy(Store& store, Eigen::VectorXd& dFvec);
 
-		void fastGradient(Store& store, Eigen::VectorXd& grad, Eigen::VectorXd& dEdF);
+		void fastGradient(Store& store, Eigen::VectorXd& dEdF);
 
 		void fastHessian(Store& store, Eigen::SparseMatrix<double, Eigen::RowMajor>& hess, Eigen::MatrixXd& denseHess);
 

@@ -8,6 +8,7 @@
 #include <igl/jet.h>
 #include <igl/png/readPNG.h>
 #include <igl/png/writePNG.h>
+#include <igl/per_vertex_normals.h>
 #include <igl/volume.h>
 #include <igl/slice.h>
 #include <igl/boundary_facets.h>
@@ -299,11 +300,11 @@ int main(int argc, char *argv[])
 	
 
 	cout<<"--- ACAP Hessians"<<endl;
-		// famu::acap::setJacobian(store);
+		famu::acap::setJacobian(store);
 		int numdofs = store.dFvec.size() - 6*store.bone_tets.size();
 		store.dRdW.resize(numdofs, store.dFvec.size());
-		
 		store.dRdW0.resize(numdofs, store.dFvec.size());
+		
 		vector<Trip> dRdW_trips;
 		store.dRdW0.setZero();
 		//fill in the rest of dRdW as mxm Id
@@ -312,6 +313,7 @@ int main(int argc, char *argv[])
 			dRdW_trips.push_back(Trip( store.dRdW.rows() - t -1, store.dRdW.cols() - t -1, 1));
 		}
 		store.dRdW0.setFromTriplets(dRdW_trips.begin(), dRdW_trips.end());
+		famu::acap::updatedRdW(store);
 
 		store.denseNeoHess = MatrixXd::Zero(numdofs, 9);
 		store.neoHess.resize(store.dFvec.size(), store.dFvec.size());
@@ -325,6 +327,9 @@ int main(int argc, char *argv[])
 		store.acapHess.resize(store.dFvec.size(), store.dFvec.size());
 		famu::acap::fastHessian(store, store.acapHess, store.denseAcapHess);
 		
+		SparseMatrix<double> hessFvec = store.dRdW0*store.neoHess*store.dRdW0.transpose() + store.dRdW*store.acapHess*store.dRdW.transpose() + store.dRdW0*store.muscleHess*store.dRdW0.transpose();
+		store.NM_SPLU.analyzePattern(hessFvec);
+		store.NM_SPLU.factorize(hessFvec);
 			
 	cout<<"--- Setup woodbury matrices"<<endl;
 	famu::acap::setupWoodbury(store);
@@ -348,13 +353,15 @@ int main(int argc, char *argv[])
 	store.dFvec[9+8] = 1;
 	famu::acap::solve(store, store.dFvec);
 
-	VectorXd grad = VectorXd::Zero(store.dFvec.size() - 6*store.bone_tets.size());
 	VectorXd dEdF = VectorXd::Zero(store.dFvec.size());
 	cout<<"ACAP Energy: "<<famu::acap::energy(store, store.dFvec, store.boneDOFS)<<"-"<<famu::acap::fastEnergy(store,store.dFvec)<<endl;
-	famu::acap::fastGradient(store, grad, dEdF);
+	famu::acap::fastGradient(store, dEdF);
+	VectorXd grad = store.dRdW*dEdF;
 	cout<<"ACAP Grad:"<< (famu::acap::fd_gradient(store).transpose() -grad.segment<20>(0).transpose()).squaredNorm()<<endl;
 	cout<<"ACAP Hess:"<<endl;
-	cout<<famu::acap::fd_hessian(store)<<endl;
+	MatrixXd testH = MatrixXd(store.acapHess);
+	cout<<(famu::acap::fd_hessian(store)<<endl<<endl;
+	cout<<testH.block<20,20>(0,0))<<endl;
 	exit(0);
 	cout<<"--- Write Meshes"<<endl;
 		// double fx = 0;
@@ -372,6 +379,8 @@ int main(int argc, char *argv[])
 	std::cout<<"-----Display-------"<<std::endl;
     	igl::opengl::glfw::Viewer viewer;
     	int currentStep = 0;
+		Eigen::MatrixXd N_vertices;
+		igl::per_vertex_normals(store.V,store.F,N_vertices);
     	viewer.callback_post_draw= [&](igl::opengl::glfw::Viewer & viewer) {
 	    
 	    // std::stringstream out_file;
@@ -589,20 +598,26 @@ int main(int argc, char *argv[])
         return false;
     };
 
+  
+
+
   fancy_data_index = viewer.selected_data_index;
   viewer.data_list[fancy_data_index].set_mesh(store.V, store.F);
+  viewer.data_list[fancy_data_index].set_normals(N_vertices);
   viewer.data_list[fancy_data_index].show_lines = false;
   viewer.data_list[fancy_data_index].invert_normals = true;
   viewer.data_list[fancy_data_index].set_face_based(false);
   viewer.append_mesh();
   debug_data_index = viewer.selected_data_index;
   viewer.data_list[debug_data_index].set_mesh(store.V, store.F);
+  viewer.data_list[debug_data_index].set_normals(N_vertices);
   viewer.data_list[debug_data_index].show_faces = false;
   viewer.data_list[debug_data_index].invert_normals = true;
   viewer.data_list[debug_data_index].show_lines = false;
   viewer.append_mesh();
   discontinuous_data_index = viewer.selected_data_index;
   viewer.data_list[discontinuous_data_index].set_mesh(store.discV, store.discF);
+  // viewer.data_list[discontinuous_data_index].set_normals(N_vertices);
   viewer.data_list[discontinuous_data_index].show_lines = true;
   viewer.data_list[discontinuous_data_index].show_faces = false;
   // set fancy rendered mesh to be selected.

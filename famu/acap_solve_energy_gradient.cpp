@@ -141,22 +141,23 @@ void famu::acap::updatedRdW(Store& store){
 	store.dRdW.setFromTriplets(dRdW_trips.begin(), dRdW_trips.end());
 }
 
-void famu::acap::fastGradient(Store& store, VectorXd& grad, VectorXd& dEdF){
+void famu::acap::fastGradient(Store& store, VectorXd& dEdF){
 	dEdF = -store.x0tStDt_dF_DSx0;
 	dEdF += -store.x.transpose()*store.YtStDt_dF_DSx0;
 	dEdF += store.dFvec.transpose()*store.x0tStDt_dF_dF_DSx0;
 	dEdF -= store.Bf.transpose()*store.lambda2;
 
-	grad = store.dRdW*dEdF;
-
 	double aa = store.jinput["alpha_arap"];
-	grad *= aa;
-	// grad += store.ContactForce;
+	dEdF *= aa;
 }
 
 void famu::acap::fastHessian(Store& store, SparseMatrix<double, RowMajor>& hess, Eigen::MatrixXd& denseHess){
 	hess.setZero();
 	hess = store.alpha_arap*store.x0tStDt_dF_dF_DSx0; //PtZtZP
+
+
+	SparseMatrix<double, RowMajor> temp = store.YtStDt_dF_DSx0.transpose()*store.JacdxdF;
+	hess -= temp;
 
 }
 
@@ -173,8 +174,10 @@ void famu::acap::setupWoodbury(Store& store){
 		store.vecInvA.push_back(InvA);
 	}
 
+	// cout<<"WoodB: "<<store.WoodB.rows()<<", "<<store.WoodB.cols()<<endl;
+	// cout<<"dRdW: "<<store.dRdW.rows()<<", "<<store.dRdW.cols()<<endl;
 	store.dRdW_WoodB = store.dRdW*store.WoodB;
-	store.dRdW_WoodD = store.dRdW*store.WoodD;
+	store.dRdW_WoodD = store.WoodD*store.dRdW.transpose();
 
 	
 }
@@ -224,30 +227,54 @@ MatrixXd famu::acap::fd_hessian(Store& store){
 	double eps = 1e-4;
 	double E0 = energy(store, store.dFvec, store.boneDOFS);
 
-	for(int i=0; i<store.boneDOFS.size(); i++){
-		for(int j=0; j<store.boneDOFS.size(); j++){
-			store.boneDOFS[i] += eps;
-			store.boneDOFS[j] += eps;
-			double Eij = energy(store, store.dFvec, store.boneDOFS);
-			store.boneDOFS[i] -= eps;
-			store.boneDOFS[j] -= eps;
+	// for(int i=0; i<store.boneDOFS.size(); i++){
+	// 	for(int j=0; j<store.boneDOFS.size(); j++){
+	// 		store.boneDOFS[i] += eps;
+	// 		store.boneDOFS[j] += eps;
+	// 		double Eij = energy(store, store.dFvec, store.boneDOFS);
+	// 		store.boneDOFS[i] -= eps;
+	// 		store.boneDOFS[j] -= eps;
 
-			store.boneDOFS[i] += eps;
-			double Ei = energy(store, store.dFvec, store.boneDOFS);
-			store.boneDOFS[i] -= eps;
+	// 		store.boneDOFS[i] += eps;
+	// 		double Ei = energy(store, store.dFvec, store.boneDOFS);
+	// 		store.boneDOFS[i] -= eps;
 
-			store.boneDOFS[j] += eps;
-			double Ej = energy(store, store.dFvec, store.boneDOFS);
-			store.boneDOFS[j] -= eps;
+	// 		store.boneDOFS[j] += eps;
+	// 		double Ej = energy(store, store.dFvec, store.boneDOFS);
+	// 		store.boneDOFS[j] -= eps;
 
-			fake(i, j) = ((Eij - Ei - Ej + E0)/(eps*eps));
-		}
-	}
-	int jj= 0;
-	int ii =0;
-	for(int i=9*store.bone_tets.size(); i<9*store.bone_tets.size() + 20 - store.boneDOFS.size(); i++){
-		jj =0;
-		for(int j=9*store.bone_tets.size(); j<9*store.bone_tets.size() + 20 - store.boneDOFS.size(); j++){
+	// 		fake(i, j) = ((Eij - Ei - Ej + E0)/(eps*eps));
+	// 	}
+	// }
+	// int jj= 0;
+	// int ii =0;
+	// for(int i=9*store.bone_tets.size(); i<9*store.bone_tets.size() + 20 - store.boneDOFS.size(); i++){
+	// 	jj =0;
+	// 	for(int j=9*store.bone_tets.size(); j<9*store.bone_tets.size() + 20 - store.boneDOFS.size(); j++){
+	// 		store.dFvec[i] += eps;
+	// 		store.dFvec[j] += eps;
+	// 		double Eij = energy(store, store.dFvec, store.boneDOFS);
+	// 		store.dFvec[i] -= eps;
+	// 		store.dFvec[j] -= eps;
+
+	// 		store.dFvec[i] += eps;
+	// 		double Ei = energy(store, store.dFvec, store.boneDOFS);
+	// 		store.dFvec[i] -=eps;
+
+	// 		store.dFvec[j] += eps;
+	// 		double Ej = energy(store, store.dFvec, store.boneDOFS);
+	// 		store.dFvec[j] -=eps;
+
+	// 		fake(store.boneDOFS.size()+ii, store.boneDOFS.size()+jj) = ((Eij - Ei - Ej + E0)/(eps*eps));
+
+	// 		jj += 1;
+	// 	}
+
+	// 	ii += 1;
+	// }
+
+	for(int i=0; i<fake.rows(); i++){
+		for(int j=0; j<fake.cols(); j++){
 			store.dFvec[i] += eps;
 			store.dFvec[j] += eps;
 			double Eij = energy(store, store.dFvec, store.boneDOFS);
@@ -262,33 +289,9 @@ MatrixXd famu::acap::fd_hessian(Store& store){
 			double Ej = energy(store, store.dFvec, store.boneDOFS);
 			store.dFvec[j] -=eps;
 
-			fake(store.boneDOFS.size()+ii, store.boneDOFS.size()+jj) = ((Eij - Ei - Ej + E0)/(eps*eps));
-
-			jj += 1;
+			fake(i,j) = ((Eij - Ei - Ej + E0)/(eps*eps));
 		}
-
-		ii += 1;
 	}
-
-	// for(int i=0; i<20; i++){
-	// 	for(int j=0; j<20; j++){
-	// 		dFvec[i] += eps;
-	// 		dFvec[j] += eps;
-	// 		double Eij = energy(store, store.dFvec, store.boneDOFS);
-	// 		dFvec[i] -= eps;
-	// 		dFvec[j] -= eps;
-
-	// 		dFvec[i] += eps;
-	// 		double Ei = energy(store, store.dFvec, store.boneDOFS);
-	// 		dFvec[i] -=eps;
-
-	// 		dFvec[j] += eps;
-	// 		double Ej = energy(store, store.dFvec, store.boneDOFS);
-	// 		dFvec[j] -=eps;
-
-	// 		fake(i,j) = ((Eij - Ei - Ej + E0)/(eps*eps));
-	// 	}
-	// }
 	return fake;
 }
 
@@ -378,8 +381,8 @@ void famu::acap::setJacobian(Store& store){
 		igl::writeDMAT("jacKKT.dmat", result);
 
 	}
-	// SparseMatrix<double, RowMajor> spRes = (result).sparseView();
-	// store.JacdxdF = spRes;
-	// cout<<"jac dims: "<<store.JacdxdF.rows()<<", "<<store.JacdxdF.cols()<<endl;
+	SparseMatrix<double, RowMajor> spRes = (result).sparseView();
+	store.JacdxdF = spRes;
+	cout<<"jac dims: "<<store.JacdxdF.rows()<<", "<<store.JacdxdF.cols()<<endl;
 
 }

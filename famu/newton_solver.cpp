@@ -4,71 +4,59 @@
 #include "acap_solve_energy_gradient.h"
 #include "muscle_energy_gradient.h"
 #include "stablenh_energy_gradient.h"
-#include <igl/polar_dec.h>
 #include <Eigen/LU>
 #include <Eigen/Cholesky>
 #include <igl/Timer.h>
+#include <igl/polar_dec.h>
+#include <unsupported/Eigen/MatrixFunctions>
+
 
 using Store = famu::Store;
 using namespace Eigen;
 using namespace std;
 
-double famu::Energy(Store& store, VectorXd& dFvec){
-	double EM = famu::muscle::energy(store, dFvec);
-	double ENH = famu::stablenh::energy(store, dFvec);
-	double EACAP = famu::acap::energy(store, dFvec, store.boneDOFS);
+double famu::Energy(Store& store){
+	double EM = famu::muscle::energy(store, store.dFvec);
+	double ENH = famu::stablenh::energy(store, store.dFvec);
+	double EACAP = famu::acap::energy(store, store.dFvec, store.boneDOFS);
 
 	return EM + ENH + EACAP;
 }
 
-void famu::polar_dec(Store& store, VectorXd& dFvec){
-	if(store.jinput["polar_dec"]){
-		//project bones dF back to rotations
-		if(store.jinput["reduced"]){
-			for(int b =0; b < store.bone_tets.size(); b++){
-				Eigen::Matrix3d _r, _t;
-				Matrix3d dFb = Map<Matrix3d>(dFvec.segment<9>(9*b).data()).transpose();
-				igl::polar_dec(dFb, _r, _t);
+void famu::update_dofs(Store& store, VectorXd& new_dofs){
+		for(int b =0; b < store.bone_tets.size(); b++){
+			Matrix3d R0 = Map<Matrix3d>(store.dFvec.segment<9>(9*b).data()).transpose();
+			double wX = new_dofs(3*b + 0);
+			double wY = new_dofs(3*b + 1);
+			double wZ = new_dofs(3*b + 2);
+			Matrix3d cross;
+	        cross<<0, -wZ, wY,
+	                wZ, 0, -wX,
+	                -wY, wX, 0;
+	        Matrix3d Rot = cross.exp();
+			Matrix3d R = R0*Rot;
 
-				dFvec[9*b+0] = _r(0,0);
-	      		dFvec[9*b+1] = _r(0,1);
-	      		dFvec[9*b+2] = _r(0,2);
-	      		dFvec[9*b+3] = _r(1,0);
-	      		dFvec[9*b+4] = _r(1,1);
-	      		dFvec[9*b+5] = _r(1,2);
-	      		dFvec[9*b+6] = _r(2,0);
-	      		dFvec[9*b+7] = _r(2,1);
-	      		dFvec[9*b+8] = _r(2,2);
-			
-			}
+			store.dFvec[9*b+0] = R(0,0);
+      		store.dFvec[9*b+1] = R(0,1);
+      		store.dFvec[9*b+2] = R(0,2);
+      		store.dFvec[9*b+3] = R(1,0);
+      		store.dFvec[9*b+4] = R(1,1);
+      		store.dFvec[9*b+5] = R(1,2);
+      		store.dFvec[9*b+6] = R(2,0);
+      		store.dFvec[9*b+7] = R(2,1);
+      		store.dFvec[9*b+8] = R(2,2);
 
-		}else{
-			for(int t = 0; t < store.bone_tets.size(); t++){
-				for(int i=0; i<store.bone_tets[t].size(); i++){
-					int b =store.bone_tets[t][i];
-
-					Eigen::Matrix3d _r, _t;
-					Matrix3d dFb = Map<Matrix3d>(dFvec.segment<9>(9*b).data()).transpose();
-					igl::polar_dec(dFb, _r, _t);
-
-					dFvec[9*b+0] = _r(0,0);
-		      		dFvec[9*b+1] = _r(0,1);
-		      		dFvec[9*b+2] = _r(0,2);
-		      		dFvec[9*b+3] = _r(1,0);
-		      		dFvec[9*b+4] = _r(1,1);
-		      		dFvec[9*b+5] = _r(1,2);
-		      		dFvec[9*b+6] = _r(2,0);
-		      		dFvec[9*b+7] = _r(2,1);
-		      		dFvec[9*b+8] = _r(2,2);
-				}
-			}
+      		new_dofs(3*b + 0) = 0;
+			new_dofs(3*b + 1) = 0;
+			new_dofs(3*b + 2) = 0;
+		
 		}
-	}
+		store.dFvec.tail(new_dofs.size() - 3*store.bone_tets.size()) = new_dofs.tail(new_dofs.size() - 3*store.bone_tets.size());
 }
 
-double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd& drt){
+double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd& drt, VectorXd& new_dofs){
 	// Decreasing and increasing factors
-	VectorXd x = store.dFvec;
+	VectorXd x = new_dofs;
 	VectorXd xp = x;
 	double step = 50;
     const double dec = 0.5;
@@ -85,9 +73,9 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
     if(step <= double(0))
         std::invalid_argument("'step' must be positive");
 
-    polar_dec(store, x);
-    famu::acap::solve(store, x);
-   	double fx = Energy(store, x);
+    update_dofs(store, x);
+    famu::acap::solve(store, store.dFvec);
+   	double fx = Energy(store);
     // Save the function value at the current x
     const double fx_init = fx;
     // Projection of gradient on the search direction
@@ -105,11 +93,11 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
     {
         // x_{k+1} = x_k + step * d_k
         x.noalias() = xp + step * drt;
-        polar_dec(store, x);
+        update_dofs(store, x);
 
         // Evaluate this candidate
         famu::acap::solve(store, x);
-       	fx = Energy(store, x);
+       	fx = Energy(store);
 
         if(fx > fx_init + step * dg_test)
         {
@@ -235,7 +223,7 @@ void famu::sparse_to_dense(const Store& store, SparseMatrix<double, Eigen::RowMa
 int famu::newton_static_solve(Store& store){
 	int MAX_ITERS = store.jinput["NM_MAX_ITERS"];
 	int dFvec_size = store.dFvec.size();
-	int numDOFS = store.dFvec - 6*store.bone_tets.size();
+	int numDOFS = store.dFvec.size() - 6*store.bone_tets.size();
 
 	VectorXd muscle_grad, neo_grad, acap_grad;
 	muscle_grad.resize(dFvec_size);
@@ -251,11 +239,13 @@ int famu::newton_static_solve(Store& store){
 	SparseMatrix<double, Eigen::RowMajor> constHess = bNH + bMH + bAH;
 	constHess -= bNH;
 
-	MatrixXd denseHess = MatrixXd::Zero(numDOFS,  9);
-	MatrixXd constDenseHess = MatrixXd::Zero(numDOFS,  9);
-	sparse_to_dense(store, constHess, constDenseHess);
+	// MatrixXd denseHess = MatrixXd::Zero(numDOFS,  9);
+	// MatrixXd constDenseHess = MatrixXd::Zero(numDOFS,  9);
+	// sparse_to_dense(store, constHess, constDenseHess);
 
 	VectorXd delta_dofs = VectorXd::Zero(numDOFS);
+	VectorXd dofs = VectorXd::Zero(numDOFS);
+	dofs.tail(numDOFS - 3*store.bone_tets.size()) = store.dFvec.tail(numDOFS - 3*store.bone_tets.size());
 
 	VectorXd graddofs = VectorXd::Zero(numDOFS);
 	
@@ -270,19 +260,20 @@ int famu::newton_static_solve(Store& store){
 	timer1.start();
 	for(iter=1; iter<MAX_ITERS; iter++){
 		graddofs.setZero();
-		double prevfx = Energy(store, store.dFvec);
-
+		double prevfx = Energy(store);
 		famu::acap::solve(store, store.dFvec);
+
 		famu::muscle::gradient(store, muscle_grad);
 		famu::stablenh::gradient(store, neo_grad);
 		famu::acap::fastGradient(store, acap_grad);
 
 		graddofs = store.dRdW*acap_grad + store.dRdW0*(muscle_grad + neo_grad);
 
-		// cout<<"		muscle grad: "<<muscle_grad.norm()<<endl;
-		// cout<<"		neo grad: "<<neo_grad.norm()<<endl;
-		// cout<<"		acap grad: "<<acap_grad.norm()<<endl;
-		// cout<<"		total grad: "<<graddFvec.norm()<<endl;
+		cout<<"		dFvec: "<<store.dFvec.norm()<<endl;
+		cout<<"		muscle grad: "<<muscle_grad.norm()<<endl;
+		cout<<"		neo grad: "<<neo_grad.norm()<<endl;
+		cout<<"		acap grad: "<<acap_grad.norm()<<endl;
+		cout<<"		total grad: "<<graddofs.norm()<<endl<<endl;
 		
 		if(graddofs != graddofs){
 			cout<<"Error: nans in grad"<<endl;
@@ -301,7 +292,7 @@ int famu::newton_static_solve(Store& store){
 				cout<<"SOLVER FAILED"<<endl;
 				cout<<store.NM_SPLU.info()<<endl;
 			}
-			delta_dFvec = -1*store.NM_SPLU.solve(graddFvec);
+			delta_dofs = -.1*store.NM_SPLU.solve(graddofs);
 		}
 		
 	// 	}else{
@@ -333,56 +324,56 @@ int famu::newton_static_solve(Store& store){
 
 	// 	}
 
-	// 	if(delta_dFvec != delta_dFvec){
-	// 		cout<<"Error: nans"<<endl;
-	// 		exit(0);
-	// 	}
+		if(delta_dofs != delta_dofs){
+			cout<<"Error: nans"<<endl;
+			exit(0);
+		}
 		
+		double alpha =1;
 	// 	//line search
 	// 	timer.start();
 	// 	double alpha = line_search(tot_ls_its, store, graddFvec, delta_dFvec);
 	// 	timer.stop();
 	// 	linetimes += timer.getElapsedTimeInMicroSec();
+		dofs += delta_dofs;
+
+		if(fabs(alpha)<1e-9 ){
+			break;
+		}
+
+		update_dofs(store, dofs);
+		famu::acap::updatedRdW(store);
+
+		double fx = Energy(store);
 		
 
-	// 	if(fabs(alpha)<1e-9 ){
-	// 		break;
-	// 	}
+		if(graddofs.squaredNorm()/graddofs.size()<1e-2 || fabs(fx - prevfx)<1e-3){
+			break;
+		}
+	}
+	famu::acap::solve(store, store.dFvec);
+	timer1.stop();
+	double nmtime = timer1.getElapsedTimeInMicroSec();
 
-	// 	store.dFvec += alpha*delta_dFvec;
-	// 	polar_dec(store, store.dFvec);
-	// 	double fx = Energy(store, store.dFvec);
-
-		
-
-	// 	if(graddFvec.squaredNorm()/graddFvec.size()<1e-4 || fabs(fx - prevfx)<1e-3){
-	// 		break;
-	// 	}
-	// }
-	// timer1.stop();
-	// double nmtime = timer1.getElapsedTimeInMicroSec();
-
-	// timer1.start();
-	// double acap_energy = famu::acap::fastEnergy(store, store.dFvec);
-	// timer1.stop();
-	// double energy_time = timer1.getElapsedTimeInMicroSec();
-
-	// timer1.start();
-	// famu::acap::solve(store, store.dFvec);
-	// timer1.stop();
-
-	// cout<<"-----------QS STEP INFO----------"<<endl;
-	// cout<<"V, T:"<<store.V.rows()<<", "<<store.T.rows()<<endl;
-	// cout<<"Threads: "<<Eigen::nbThreads()<<endl;
-	// cout<<"NM Iters: "<<iter<<endl;
-	// cout<<"Total NM time: "<<nmtime<<endl;
-	// cout<<"Total Hess time: "<<woodtimes<<endl;
-	// cout<<"Total LS time: "<<linetimes<<endl;
-	// cout<<"LS iters: "<<tot_ls_its<<endl;
+	cout<<"-----------QS STEP INFO----------"<<endl;
+	cout<<"V, T:"<<store.V.rows()<<", "<<store.T.rows()<<endl;
+	cout<<"Threads: "<<Eigen::nbThreads()<<endl;
+	cout<<"NM Iters: "<<iter<<endl;
+	cout<<"Total NM time: "<<nmtime<<endl;
+	cout<<"Total Hess time: "<<woodtimes<<endl;
+	cout<<"Total LS time: "<<linetimes<<endl;
+	cout<<"LS iters: "<<tot_ls_its<<endl;
+	cout<<"Bone rotations"<<endl;
+	for(int b =0; b<store.bone_tets.size(); b++){
+		Matrix3d R = Map<Matrix3d>(store.dFvec.segment<9>(9*b).data()).transpose();
+		Eigen::Matrix3d _r, _t;
+		igl::polar_dec(R, _r, _t);	
+		cout<<(R - _r)<<endl<<endl;
+	}
 	// cout<<"Energy: "<<acap_energy<<endl;
 	// cout<<"Energy Time: "<<energy_time<<endl;
 	// cout<<"ACAP time: "<<timer1.getElapsedTimeInMicroSec()<<endl;
-	// // cout<<"dFvec: "<<store.dFvec.transpose()<<endl;
-	// cout<<"--------------------------------"<<endl;
+	// cout<<"dFvec: "<<store.dFvec.transpose()<<endl;
+	cout<<"--------------------------------"<<endl;
     return 0;
 }
