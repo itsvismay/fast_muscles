@@ -156,8 +156,8 @@ void famu::acap::fastHessian(Store& store, SparseMatrix<double, RowMajor>& hess,
 	hess = store.alpha_arap*store.x0tStDt_dF_dF_DSx0; //PtZtZP
 
 
-	SparseMatrix<double, RowMajor> temp = store.YtStDt_dF_DSx0.transpose()*store.JacdxdF;
-	hess -= temp;
+	// SparseMatrix<double, RowMajor> temp = store.YtStDt_dF_DSx0.transpose()*store.JacdxdF;
+	// hess -= temp;
 
 }
 
@@ -224,7 +224,7 @@ VectorXd famu::acap::fd_gradient(Store& store){
 
 MatrixXd famu::acap::fd_hessian(Store& store){
 	MatrixXd fake = MatrixXd::Zero(20,20);
-	double eps = 1e-4;
+	double eps = 1e-3;
 	double E0 = energy(store, store.dFvec, store.boneDOFS);
 
 	// for(int i=0; i<store.boneDOFS.size(); i++){
@@ -292,6 +292,7 @@ MatrixXd famu::acap::fd_hessian(Store& store){
 			fake(i,j) = ((Eij - Ei - Ej + E0)/(eps*eps));
 		}
 	}
+
 	return fake;
 }
 

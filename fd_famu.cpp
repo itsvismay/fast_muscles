@@ -360,8 +360,11 @@ int main(int argc, char *argv[])
 	cout<<"ACAP Grad:"<< (famu::acap::fd_gradient(store).transpose() -grad.segment<20>(0).transpose()).squaredNorm()<<endl;
 	cout<<"ACAP Hess:"<<endl;
 	MatrixXd testH = MatrixXd(store.acapHess);
-	cout<<famu::acap::fd_hessian(store)<<endl<<endl;
-	cout<<testH.block<20,20>(0,0)<<endl;
+	MatrixXd fdH = famu::acap::fd_hessian(store);
+	cout<<fdH<<endl<<endl;
+	cout<<testH.block<20,20>(0,0)<<endl<<endl;
+	cout<<(testH.block<20,20>(0,0) - fdH).squaredNorm()<<endl;
+
 	exit(0);
 	cout<<"--- Write Meshes"<<endl;
 		// double fx = 0;
