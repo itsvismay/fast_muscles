@@ -38,6 +38,9 @@ void famu::read_config_files(Eigen::MatrixXd& V,
     igl::readDMAT(datafile+"/generated_files/combined_fiber_directions.dmat", Uvec);
     igl::readDMAT(datafile+"/generated_files/tet_is_tendon.dmat", relativeStiffness);
     
+    V /= 30;
+    
+
     //Read Geometry
     json j_geometries;
     std::ifstream muscle_config_file(datafile+"/config.json");

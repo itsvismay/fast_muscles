@@ -17,7 +17,7 @@ double famu::Energy(Store& store, VectorXd& dFvec){
 	double EM = famu::muscle::energy(store, dFvec);
 	double ENH = famu::stablenh::energy(store, dFvec);
 	double EACAP = famu::acap::fastEnergy(store, dFvec);
-
+	cout<<"E: "<<EM<<", "<<ENH<<", "<<EACAP<<endl;
 	return EM + ENH + EACAP;
 }
 
