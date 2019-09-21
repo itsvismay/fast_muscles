@@ -271,10 +271,11 @@ int famu::newton_static_solve(Store& store){
 		famu::acap::fastGradient(store, acap_grad);
 		graddFvec = muscle_grad + neo_grad + acap_grad;
 
-		// cout<<"		muscle grad: "<<muscle_grad.norm()<<endl;
-		// cout<<"		neo grad: "<<neo_grad.norm()<<endl;
-		// cout<<"		acap grad: "<<acap_grad.norm()<<endl;
-		// cout<<"		total grad: "<<graddFvec.norm()<<endl;
+		cout<<"		dFvec: "<<store.dFvec.norm()<<endl;
+		cout<<"		muscle grad: "<<muscle_grad.norm()<<endl;
+		cout<<"		neo grad: "<<neo_grad.norm()<<endl;
+		cout<<"		acap grad: "<<acap_grad.norm()<<endl;
+		cout<<"		total grad: "<<graddFvec.norm()<<endl;
 		
 		if(graddFvec != graddFvec){
 			cout<<"Error: nans in grad"<<endl;
@@ -282,58 +283,58 @@ int famu::newton_static_solve(Store& store){
 		}
 
 		
-		famu::stablenh::hessian(store, store.neoHess, store.denseNeoHess, store.jinput["woodbury"]);
+		famu::stablenh::hessian(store, store.neoHess, store.denseNeoHess, false);
 
-		if(!store.jinput["woodbury"]){
+		// if(!store.jinput["woodbury"]){
 			
-			hessFvec.setZero();
-			hessFvec = store.neoHess + constHess;
-			store.NM_SPLU.factorize(hessFvec);
-			if(store.NM_SPLU.info()!=Success){
-				cout<<"SOLVER FAILED"<<endl;
-				cout<<store.NM_SPLU.info()<<endl;
-			}
-			delta_dFvec = -1*store.NM_SPLU.solve(graddFvec);
-		
-		}else{
-
-			// //Sparse Woodbury code
-			// hessFvec.setZero();
-			// hessFvec = store.neoHess + constHess;
-			// store.NM_SPLU.factorize(hessFvec);
-			// if(store.NM_SPLU.info()!=Success){
-			// 	cout<<"SOLVER FAILED"<<endl;
-			// 	cout<<store.NM_SPLU.info()<<endl;
-			// }
-			// VectorXd InvAg = store.NM_SPLU.solve(graddFvec);
-			// MatrixXd CDAB = store.InvC + store.WoodD*store.NM_SPLU.solve(store.WoodB);
-			// FullPivLU<MatrixXd>  WoodburyDenseSolve;
-			// WoodburyDenseSolve.compute(CDAB);
-			// VectorXd temp1 = store.WoodB*WoodburyDenseSolve.solve(store.WoodD*InvAg);;
-
-			// VectorXd InvAtemp1 = store.NM_SPLU.solve(temp1);
-			// test_drt =  -InvAg + InvAtemp1;
-
-			//Dense Woodbury code
-			denseHess = constDenseHess + store.denseNeoHess;
-			timer.start();
-			fastWoodbury(store, graddFvec, X, BInvXDy, denseHess, delta_dFvec);
-			timer.stop();
-			woodtimes += timer.getElapsedTimeInMicroSec();
-			// cout<<"		woodbury diff: "<<(delta_dFvec - test_drt).norm()<<endl;
-
+		hessFvec.setZero();
+		hessFvec = store.neoHess + constHess;
+		store.NM_SPLU.factorize(hessFvec);
+		if(store.NM_SPLU.info()!=Success){
+			cout<<"SOLVER FAILED"<<endl;
+			cout<<store.NM_SPLU.info()<<endl;
 		}
+		delta_dFvec = -1*store.NM_SPLU.solve(graddFvec);
+		
+		// }else{
+
+		// 	// //Sparse Woodbury code
+		// 	// hessFvec.setZero();
+		// 	// hessFvec = store.neoHess + constHess;
+		// 	// store.NM_SPLU.factorize(hessFvec);
+		// 	// if(store.NM_SPLU.info()!=Success){
+		// 	// 	cout<<"SOLVER FAILED"<<endl;
+		// 	// 	cout<<store.NM_SPLU.info()<<endl;
+		// 	// }
+		// 	// VectorXd InvAg = store.NM_SPLU.solve(graddFvec);
+		// 	// MatrixXd CDAB = store.InvC + store.WoodD*store.NM_SPLU.solve(store.WoodB);
+		// 	// FullPivLU<MatrixXd>  WoodburyDenseSolve;
+		// 	// WoodburyDenseSolve.compute(CDAB);
+		// 	// VectorXd temp1 = store.WoodB*WoodburyDenseSolve.solve(store.WoodD*InvAg);;
+
+		// 	// VectorXd InvAtemp1 = store.NM_SPLU.solve(temp1);
+		// 	// test_drt =  -InvAg + InvAtemp1;
+
+		// 	//Dense Woodbury code
+		// 	denseHess = constDenseHess + store.denseNeoHess;
+		// 	timer.start();
+		// 	fastWoodbury(store, graddFvec, X, BInvXDy, denseHess, delta_dFvec);
+		// 	timer.stop();
+		// 	woodtimes += timer.getElapsedTimeInMicroSec();
+		// 	// cout<<"		woodbury diff: "<<(delta_dFvec - test_drt).norm()<<endl;
+
+		// }
 
 		if(delta_dFvec != delta_dFvec){
 			cout<<"Error: nans"<<endl;
 			exit(0);
 		}
-		
+		double alpha = .1;
 		//line search
-		timer.start();
-		double alpha = line_search(tot_ls_its, store, graddFvec, delta_dFvec);
-		timer.stop();
-		linetimes += timer.getElapsedTimeInMicroSec();
+		// timer.start();
+		// double alpha = line_search(tot_ls_its, store, graddFvec, delta_dFvec);
+		// timer.stop();
+		// linetimes += timer.getElapsedTimeInMicroSec();
 		
 
 		if(fabs(alpha)<1e-9 ){
