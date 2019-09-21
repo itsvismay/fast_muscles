@@ -18,13 +18,29 @@ using namespace std;
 double famu::Energy(Store& store){
 	double EM = famu::muscle::energy(store, store.dFvec);
 	double ENH = famu::stablenh::energy(store, store.dFvec);
-	double EACAP = famu::acap::energy(store, store.dFvec, store.boneDOFS);
-
+	double EACAP = famu::acap::fastEnergy(store, store.dFvec);
+	cout<<"E: "<<EM<<", "<<ENH<<", "<<EACAP<<endl;
 	return EM + ENH + EACAP;
 }
 
 void famu::update_dofs(Store& store, VectorXd& new_dofs){
-	store.dFvec = new_dofs;
+	// store.dFvec = new_dofs;
+	for(int b =0; b < store.bone_tets.size(); b++){
+				Eigen::Matrix3d _r, _t;
+				Matrix3d dFb = Map<Matrix3d>(store.dFvec.segment<9>(9*b).data()).transpose();
+				igl::polar_dec(dFb, _r, _t);
+
+				store.dFvec[9*b+0] = _r(0,0);
+	      		store.dFvec[9*b+1] = _r(0,1);
+	      		store.dFvec[9*b+2] = _r(0,2);
+	      		store.dFvec[9*b+3] = _r(1,0);
+	      		store.dFvec[9*b+4] = _r(1,1);
+	      		store.dFvec[9*b+5] = _r(1,2);
+	      		store.dFvec[9*b+6] = _r(2,0);
+	      		store.dFvec[9*b+7] = _r(2,1);
+	      		store.dFvec[9*b+8] = _r(2,2);
+			
+			}
 		// for(int b =0; b < store.bone_tets.size(); b++){
 		// 	Matrix3d R0 = Map<Matrix3d>(store.dFvec.segment<9>(9*b).data()).transpose();
 		// 	double wX = new_dofs(3*b + 0);
@@ -245,8 +261,8 @@ int famu::newton_static_solve(Store& store){
 	// sparse_to_dense(store, constHess, constDenseHess);
 
 	VectorXd delta_dofs = VectorXd::Zero(numDOFS);
-	VectorXd dofs = VectorXd::Zero(numDOFS);
-	dofs.tail(numDOFS - 3*store.bone_tets.size()) = store.dFvec.tail(numDOFS - 3*store.bone_tets.size());
+	// VectorXd dofs = store.dFvec;//VectorXd::Zero(numDOFS);
+	// dofs.tail(numDOFS - 3*store.bone_tets.size()) = store.dFvec.tail(numDOFS - 3*store.bone_tets.size());
 
 	VectorXd graddofs = VectorXd::Zero(numDOFS);
 	
@@ -259,100 +275,154 @@ int famu::newton_static_solve(Store& store){
 	int tot_ls_its = 0;
 	int iter =1;
 	timer1.start();
+	// for(iter=1; iter<MAX_ITERS; iter++){
+	// 	graddofs.setZero();
+	// 	double prevfx = Energy(store);
+
+	// 	famu::acap::solve(store, store.dFvec);
+	// 	famu::muscle::gradient(store, muscle_grad);
+	// 	famu::stablenh::gradient(store, neo_grad);
+	// 	famu::acap::fastGradient(store, acap_grad);
+
+	// 	graddofs = store.dRdW*acap_grad + store.dRdW0*(muscle_grad + neo_grad);
+
+	// 	cout<<"		dFvec: "<<store.dFvec.norm()<<endl;
+	// 	cout<<"		muscle grad: "<<muscle_grad.norm()<<endl;
+	// 	cout<<"		neo grad: "<<neo_grad.norm()<<endl;
+	// 	cout<<"		acap grad: "<<acap_grad.norm()<<endl;
+	// 	cout<<"		total grad: "<<graddofs.norm()<<endl<<endl;
+		
+	// 	if(graddofs != graddofs){
+	// 		cout<<"Error: nans in grad"<<endl;
+	// 		exit(0);
+	// 	}
+
+		
+	// 	famu::stablenh::hessian(store, store.neoHess, store.denseNeoHess, false);
+	// 	bNH = store.dRdW0*store.neoHess*store.dRdW0.transpose();
+	// 	if(true){ //TestNotWoodbury
+			
+	// 		SparseMatrix<double, Eigen::RowMajor> hessFvec = bNH + constHess;
+			
+	// 		store.NM_SPLU.factorize(hessFvec);
+	// 		if(store.NM_SPLU.info()!=Success){
+	// 			cout<<"SOLVER FAILED"<<endl;
+	// 			cout<<store.NM_SPLU.info()<<endl;
+	// 		}
+	// 		delta_dofs = -1*store.NM_SPLU.solve(graddofs);
+	// 	}
+		
+	// 	// 	}else{
+
+	// 	// 		// //Sparse Woodbury code
+	// 	// 		// hessFvec.setZero();
+	// 	// 		// hessFvec = store.neoHess + constHess;
+	// 	// 		// store.NM_SPLU.factorize(hessFvec);
+	// 	// 		// if(store.NM_SPLU.info()!=Success){
+	// 	// 		// 	cout<<"SOLVER FAILED"<<endl;
+	// 	// 		// 	cout<<store.NM_SPLU.info()<<endl;
+	// 	// 		// }
+	// 	// 		// VectorXd InvAg = store.NM_SPLU.solve(graddFvec);
+	// 	// 		// MatrixXd CDAB = store.InvC + store.WoodD*store.NM_SPLU.solve(store.WoodB);
+	// 	// 		// FullPivLU<MatrixXd>  WoodburyDenseSolve;
+	// 	// 		// WoodburyDenseSolve.compute(CDAB);
+	// 	// 		// VectorXd temp1 = store.WoodB*WoodburyDenseSolve.solve(store.WoodD*InvAg);;
+
+	// 	// 		// VectorXd InvAtemp1 = store.NM_SPLU.solve(temp1);
+	// 	// 		// test_drt =  -InvAg + InvAtemp1;
+
+	// 	// 		//Dense Woodbury code
+	// 	// 		denseHess = constDenseHess + store.denseNeoHess;
+	// 	// 		timer.start();
+	// 	// 		fastWoodbury(store, graddFvec, X, BInvXDy, denseHess, delta_dofs);
+	// 	// 		timer.stop();
+	// 	// 		woodtimes += timer.getElapsedTimeInMicroSec();
+	// 	// 		// cout<<"		woodbury diff: "<<(delta_dofs - test_drt).norm()<<endl;
+
+	// 	// 	}
+
+	// 	if(delta_dofs != delta_dofs){
+	// 		cout<<"Error: nans"<<endl;
+	// 		exit(0);
+	// 	}
+		
+	// 	double alpha = 0.1;
+	// 	// 	//line search
+	// 	// 	timer.start();
+	// 	// 	double alpha = line_search(tot_ls_its, store, graddFvec, delta_dofs);
+	// 	// 	timer.stop();
+	// 	// 	linetimes += timer.getElapsedTimeInMicroSec();
+	// 	store.dFvec += alpha*delta_dofs;
+	// 	update_dofs(store, store.dFvec);
+	// 	// famu::acap::updatedRdW(store);
+
+	// 	if(fabs(alpha)<1e-9 ){
+	// 		break;
+	// 	}
+
+
+	// 	double fx = Energy(store);
+		
+
+	// 	if(graddofs.squaredNorm()/graddofs.size()<1e-2 || fabs(fx - prevfx)<1e-3){
+	// 		break;
+	// 	}
+	// }
+
 	for(iter=1; iter<MAX_ITERS; iter++){
 		graddofs.setZero();
 		double prevfx = Energy(store);
-		famu::acap::solve(store, store.dFvec);
 
+		famu::acap::solve(store, store.dFvec);
 		famu::muscle::gradient(store, muscle_grad);
 		famu::stablenh::gradient(store, neo_grad);
 		famu::acap::fastGradient(store, acap_grad);
-
-		graddofs = store.dRdW*acap_grad + store.dRdW0*(muscle_grad + neo_grad);
+		graddofs = muscle_grad + neo_grad + acap_grad;
 
 		cout<<"		dFvec: "<<store.dFvec.norm()<<endl;
 		cout<<"		muscle grad: "<<muscle_grad.norm()<<endl;
 		cout<<"		neo grad: "<<neo_grad.norm()<<endl;
 		cout<<"		acap grad: "<<acap_grad.norm()<<endl;
-		cout<<"		total grad: "<<graddofs.norm()<<endl<<endl;
+		cout<<"		total grad: "<<graddofs.norm()<<endl;
 		
 		if(graddofs != graddofs){
 			cout<<"Error: nans in grad"<<endl;
 			exit(0);
 		}
 
-		
 		famu::stablenh::hessian(store, store.neoHess, store.denseNeoHess, false);
-		bNH = store.dRdW0*store.neoHess*store.dRdW0.transpose();
-		if(true){ //TestNotWoodbury
-			
-			SparseMatrix<double, Eigen::RowMajor> hessFvec = bNH + constHess;
-			
-			store.NM_SPLU.factorize(hessFvec);
-			if(store.NM_SPLU.info()!=Success){
-				cout<<"SOLVER FAILED"<<endl;
-				cout<<store.NM_SPLU.info()<<endl;
-			}
-			delta_dofs = -.1*store.NM_SPLU.solve(graddofs);
-		}
 		
-	// 	}else{
-
-	// 		// //Sparse Woodbury code
-	// 		// hessFvec.setZero();
-	// 		// hessFvec = store.neoHess + constHess;
-	// 		// store.NM_SPLU.factorize(hessFvec);
-	// 		// if(store.NM_SPLU.info()!=Success){
-	// 		// 	cout<<"SOLVER FAILED"<<endl;
-	// 		// 	cout<<store.NM_SPLU.info()<<endl;
-	// 		// }
-	// 		// VectorXd InvAg = store.NM_SPLU.solve(graddFvec);
-	// 		// MatrixXd CDAB = store.InvC + store.WoodD*store.NM_SPLU.solve(store.WoodB);
-	// 		// FullPivLU<MatrixXd>  WoodburyDenseSolve;
-	// 		// WoodburyDenseSolve.compute(CDAB);
-	// 		// VectorXd temp1 = store.WoodB*WoodburyDenseSolve.solve(store.WoodD*InvAg);;
-
-	// 		// VectorXd InvAtemp1 = store.NM_SPLU.solve(temp1);
-	// 		// test_drt =  -InvAg + InvAtemp1;
-
-	// 		//Dense Woodbury code
-	// 		denseHess = constDenseHess + store.denseNeoHess;
-	// 		timer.start();
-	// 		fastWoodbury(store, graddFvec, X, BInvXDy, denseHess, delta_dFvec);
-	// 		timer.stop();
-	// 		woodtimes += timer.getElapsedTimeInMicroSec();
-	// 		// cout<<"		woodbury diff: "<<(delta_dFvec - test_drt).norm()<<endl;
-
-	// 	}
+	
+		SparseMatrix<double> hessFvec = store.neoHess + constHess;
+		store.NM_SPLU.factorize(hessFvec);
+		if(store.NM_SPLU.info()!=Success){
+			cout<<"SOLVER FAILED"<<endl;
+			cout<<store.NM_SPLU.info()<<endl;
+		}
+		delta_dofs = -1*store.NM_SPLU.solve(graddofs);
 
 		if(delta_dofs != delta_dofs){
 			cout<<"Error: nans"<<endl;
 			exit(0);
 		}
-		
-		double alpha =1;
-	// 	//line search
-	// 	timer.start();
-	// 	double alpha = line_search(tot_ls_its, store, graddFvec, delta_dFvec);
-	// 	timer.stop();
-	// 	linetimes += timer.getElapsedTimeInMicroSec();
-		dofs += delta_dofs;
+		double alpha = .1;
 
 		if(fabs(alpha)<1e-9 ){
 			break;
 		}
 
-		update_dofs(store, dofs);
-		// famu::acap::updatedRdW(store);
-
+		store.dFvec += alpha*delta_dofs;
+		update_dofs(store, store.dFvec);
 		double fx = Energy(store);
-		
 
-		if(graddofs.squaredNorm()/graddofs.size()<1e-2 || fabs(fx - prevfx)<1e-3){
+		if(graddofs.squaredNorm()/graddofs.size()<1e-4 || fabs(fx - prevfx)<1e-3){
 			break;
 		}
 	}
+
+
 	famu::acap::solve(store, store.dFvec);
+	
 	timer1.stop();
 	double nmtime = timer1.getElapsedTimeInMicroSec();
 

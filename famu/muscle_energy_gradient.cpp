@@ -77,6 +77,7 @@ double famu::muscle::energy(Store& store, VectorXd& dFvec){
 	return MuscleEnergy;
 }
 
+
 void famu::muscle::gradient(Store& store, VectorXd& grad){
 	grad.setZero();
 

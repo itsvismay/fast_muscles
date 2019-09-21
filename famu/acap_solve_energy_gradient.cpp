@@ -75,7 +75,7 @@ double famu::acap::energy(Store& store, VectorXd& dFvec, VectorXd& boneDOFS){
  	E7 -= store.lambda2.transpose()*store.Bf*F;
  	E7 += store.lambda2.transpose()*store.BfI0;
 
- 	double E8 = store.lambda1.transpose()*store.JointConstraints*store.x;
+ 	double E8 = 0;//store.lambda1.transpose()*store.JointConstraints*store.x;
  	
 	return E+E7+E8;
 }
@@ -97,7 +97,7 @@ double famu::acap::fastEnergy(Store& store, VectorXd& dFvec){
  	E7 -= store.lambda2.transpose()*store.Bf*store.dFvec;
  	E7 += store.lambda2.transpose()*store.BfI0;
  	double k = store.jinput["springk"];
- 	double E8 = store.lambda1.transpose()*store.JointConstraints*store.x;
+ 	double E8 = 0;
 
  	//0.5*k*temp1.dot(temp1);
 	

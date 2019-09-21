@@ -562,8 +562,6 @@ void famu::stablenh::hessian(const Store& store, Eigen::SparseMatrix<double, Eig
 
 		denseHess *= store.alpha_neo;
 
-
-
 	}else{
 
 		hess.setZero();
