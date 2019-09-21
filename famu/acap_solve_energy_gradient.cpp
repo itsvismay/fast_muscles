@@ -74,8 +74,10 @@ double famu::acap::energy(Store& store, VectorXd& dFvec, VectorXd& boneDOFS){
 	double E7 = store.lambda2.transpose()*store.Bx*store.x;
  	E7 -= store.lambda2.transpose()*store.Bf*F;
  	E7 += store.lambda2.transpose()*store.BfI0;
+
+ 	double E8 = store.lambda1.transpose()*store.JointConstraints*store.x;
  	
-	return E+E7;
+	return E+E7+E8;
 }
 
 double famu::acap::fastEnergy(Store& store, VectorXd& dFvec){
@@ -95,7 +97,9 @@ double famu::acap::fastEnergy(Store& store, VectorXd& dFvec){
  	E7 -= store.lambda2.transpose()*store.Bf*store.dFvec;
  	E7 += store.lambda2.transpose()*store.BfI0;
  	double k = store.jinput["springk"];
- 	double E8 = 0;//0.5*k*temp1.dot(temp1);
+ 	double E8 = store.lambda1.transpose()*store.JointConstraints*store.x;
+
+ 	//0.5*k*temp1.dot(temp1);
 	
 	double E9 = E1+E2+E3+E4+E5+E6+E7+E8;
 	
@@ -145,7 +149,8 @@ void famu::acap::fastGradient(Store& store, VectorXd& dEdF){
 	dEdF = -store.x0tStDt_dF_DSx0;
 	dEdF += -store.x.transpose()*store.YtStDt_dF_DSx0;
 	dEdF += store.dFvec.transpose()*store.x0tStDt_dF_dF_DSx0;
-	dEdF -= store.Bf.transpose()*store.lambda2;
+	dEdF -= store.lambda2.transpose()*store.Bf;
+	// dEdF + store.lambda1.transpose()*store.JointConstraints;
 
 	double aa = store.jinput["alpha_arap"];
 	dEdF *= aa;
@@ -156,8 +161,8 @@ void famu::acap::fastHessian(Store& store, SparseMatrix<double, RowMajor>& hess,
 	hess = store.alpha_arap*store.x0tStDt_dF_dF_DSx0; //PtZtZP
 
 
-	// SparseMatrix<double, RowMajor> temp = store.YtStDt_dF_DSx0.transpose()*store.JacdxdF;
-	// hess -= temp;
+	SparseMatrix<double, RowMajor> temp = store.YtStDt_dF_DSx0.transpose()*store.JacdxdF;
+	hess -= temp;
 
 }
 
@@ -224,7 +229,7 @@ VectorXd famu::acap::fd_gradient(Store& store){
 
 MatrixXd famu::acap::fd_hessian(Store& store){
 	MatrixXd fake = MatrixXd::Zero(20,20);
-	double eps = 1e-3;
+	double eps = 1;
 	double E0 = energy(store, store.dFvec, store.boneDOFS);
 
 	// for(int i=0; i<store.boneDOFS.size(); i++){
@@ -272,28 +277,56 @@ MatrixXd famu::acap::fd_hessian(Store& store){
 
 	// 	ii += 1;
 	// }
-
+	///////////////////////////////////////////////////////////////////
 	for(int i=0; i<fake.rows(); i++){
 		for(int j=0; j<fake.cols(); j++){
 			store.dFvec[i] += eps;
 			store.dFvec[j] += eps;
+			solve(store, store.dFvec);
 			double Eij = energy(store, store.dFvec, store.boneDOFS);
 			store.dFvec[i] -= eps;
 			store.dFvec[j] -= eps;
 
 			store.dFvec[i] += eps;
+			solve(store, store.dFvec);
 			double Ei = energy(store, store.dFvec, store.boneDOFS);
 			store.dFvec[i] -=eps;
 
 			store.dFvec[j] += eps;
+			solve(store, store.dFvec);
 			double Ej = energy(store, store.dFvec, store.boneDOFS);
 			store.dFvec[j] -=eps;
 
 			fake(i,j) = ((Eij - Ei - Ej + E0)/(eps*eps));
 		}
 	}
+	///////////////////////////////////////////////////////////////////
+	// VectorXd grad = VectorXd::Zero(store.dFvec.size());
+	// VectorXd grad0 = grad;
+	// fastGradient(store, grad0);
+	// for(int i=0; i<fake.rows(); i++){
+	// 	store.dFvec[i] += eps;
+	// 	solve(store, store.dFvec);
+	// 	fastGradient(store, grad);
+	// 	store.dFvec[i] -= eps;
+	// 	fake.row(i) = (grad.segment<12>(0) - grad0.segment<12>(0))/eps;
+	// }
 
 	return fake;
+}
+
+MatrixXd famu::acap::fd_dxdF(Store& store){
+	MatrixXd fake = MatrixXd::Zero(20,20);
+	double eps = 10000000;
+	VectorXd x0 = store.x;
+	for(int i=0; i<fake.rows(); i++){
+		store.dFvec[i] += eps;
+		solve(store, store.dFvec);
+		store.dFvec[i] -= eps;
+		fake.row(i) = (store.x.segment<20>(0) - x0.segment<20>(0))/eps;
+	}
+
+	return fake.transpose();
 }
 
 void famu::acap::solve(Store& store, VectorXd& dFvec){
@@ -303,7 +336,9 @@ void famu::acap::solve(Store& store, VectorXd& dFvec){
 
 	store.acap_solve_result = store.ACAP_KKT_SPLU.solve(store.acap_solve_rhs);
 	store.x = store.acap_solve_result.head(store.x.size());
-	store.lambda2 = store.acap_solve_result.tail(store.BfI0.size());	
+	store.lambda2 = store.acap_solve_result.tail(store.BfI0.size());
+	store.lambda1 = store.acap_solve_result.head(store.x.size()+store.JointConstraints.rows()).tail(store.JointConstraints.rows());
+
 
 }
 
@@ -363,7 +398,8 @@ void famu::acap::setJacobian(Store& store){
 
 	//Sparse jacobian
 	MatrixXd result;
-	igl::readDMAT("jacKKT.dmat", result);
+	std::string file = store.jinput["output"];
+	igl::readDMAT(file+"/jacKKT.dmat", result);
 
 	if(result.rows()==0){
 		//DENSE REDUCED JAC
@@ -379,7 +415,7 @@ void famu::acap::setJacobian(Store& store){
 			exit(0);
 		}
 		
-		igl::writeDMAT("jacKKT.dmat", result);
+		igl::writeDMAT(file+"/jacKKT.dmat", result);
 
 	}
 	SparseMatrix<double, RowMajor> spRes = (result).sparseView();

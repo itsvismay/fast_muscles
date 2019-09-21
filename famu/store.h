@@ -63,7 +63,7 @@ namespace famu{
 		Eigen::MatrixXd G;
 
 		Eigen::VectorXd dFvec, BfI0, boneDOFS;
-		Eigen::VectorXd x, dx, x0, lambda2, acap_solve_result, acap_solve_rhs;
+		Eigen::VectorXd x, dx, x0, lambda1, lambda2, acap_solve_result, acap_solve_rhs;
 		Eigen::SparseMatrix<double, Eigen::RowMajor> dRdW, dRdW0;
 
 		

@@ -28,7 +28,7 @@ void famu::read_config_files(Store& store)
     igl::readDMAT(datafile+"/generated_files/tet_mesh_T.dmat", store.T);
     igl::readDMAT(datafile+"/generated_files/combined_fiber_directions.dmat", store.Uvec);
     igl::readDMAT(datafile+"/generated_files/tet_is_tendon.dmat", store.relativeStiffness);
-    store.V /= 30;
+    // store.V /= 30;
     
     //Read Geometry
     json j_geometries;

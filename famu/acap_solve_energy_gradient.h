@@ -31,6 +31,7 @@ namespace famu
 		Eigen::VectorXd fd_gradient(Store& store);
 
 		Eigen::MatrixXd fd_hessian(Store& store);
+		Eigen::MatrixXd fd_dxdF(Store& store);
 
 		void adjointMethodExternalForces(Store& store);
 

@@ -102,6 +102,7 @@ int main(int argc, char *argv[])
 	        fix_verts_set.insert(store.T.row(store.bone_tets[bone_ind][0])[3]);
 	    }
 	    store.mfix.assign(fix_verts_set.begin(), fix_verts_set.end());
+	    // store.mfix = famu::getMaxVerts_Axis_Tolerance(store.T, store.V, 1, 1e-2,store.muscle_tets[0]);
 	    std::sort (store.mfix.begin(), store.mfix.end());
 	
 	cout<<"---Set Mesh Params"<<endl;
@@ -222,6 +223,7 @@ int main(int argc, char *argv[])
 		famu::bone_def_grad_projection_matrix(store, store.ProjectF, store.PickBoneF);
 		famu::bone_acap_deformation_constraints(store, store.Bx, store.Bf);
 	    store.lambda2 = VectorXd::Zero(store.Bf.rows());
+	    store.lambda1 = VectorXd::Zero(store.JointConstraints.rows());
 
 	cout<<"---ACAP Solve KKT setup"<<endl;
 		SparseMatrix<double, Eigen::RowMajor> KKT_left, KKT_left1, KKT_left2;
@@ -302,18 +304,19 @@ int main(int argc, char *argv[])
 	cout<<"--- ACAP Hessians"<<endl;
 		famu::acap::setJacobian(store);
 		int numdofs = store.dFvec.size() - 6*store.bone_tets.size();
-		store.dRdW.resize(numdofs, store.dFvec.size());
-		store.dRdW0.resize(numdofs, store.dFvec.size());
-		
-		vector<Trip> dRdW_trips;
-		store.dRdW0.setZero();
-		//fill in the rest of dRdW as mxm Id
-		for(int t =0; t<store.dFvec.size()-9*store.bone_tets.size(); t++){
-			//fill it in backwards, bottom right to top left.
-			dRdW_trips.push_back(Trip( store.dRdW.rows() - t -1, store.dRdW.cols() - t -1, 1));
-		}
-		store.dRdW0.setFromTriplets(dRdW_trips.begin(), dRdW_trips.end());
-		famu::acap::updatedRdW(store);
+		store.dRdW.resize(store.dFvec.size(), store.dFvec.size());
+		store.dRdW0.resize(store.dFvec.size(), store.dFvec.size());
+		store.dRdW.setIdentity();
+		store.dRdW0.setIdentity();
+		// vector<Trip> dRdW_trips;
+		// store.dRdW0.setZero();
+		// //fill in the rest of dRdW as mxm Id
+		// for(int t =0; t<store.dFvec.size()-9*store.bone_tets.size(); t++){
+		// 	//fill it in backwards, bottom right to top left.
+		// 	dRdW_trips.push_back(Trip( store.dRdW.rows() - t -1, store.dRdW.cols() - t -1, 1));
+		// }
+		// store.dRdW0.setFromTriplets(dRdW_trips.begin(), dRdW_trips.end());
+		// famu::acap::updatedRdW(store);
 
 		store.denseNeoHess = MatrixXd::Zero(numdofs, 9);
 		store.neoHess.resize(store.dFvec.size(), store.dFvec.size());
@@ -342,16 +345,16 @@ int main(int argc, char *argv[])
 		store.acaptmp_sizedFvec2 = store.dFvec;
 
 
-	store.dFvec[9+0] = 0.7071;
-	store.dFvec[9+1] = 0.7071;
-	store.dFvec[9+2] = 0;
-	store.dFvec[9+3] = -0.7071;
-	store.dFvec[9+4] = 0.7071;
-	store.dFvec[9+5] = 0;
-	store.dFvec[9+6] = 0;
-	store.dFvec[9+7] = 0;
-	store.dFvec[9+8] = 1;
-	famu::acap::solve(store, store.dFvec);
+	// store.dFvec[9+0] = 0.7071;
+	// store.dFvec[9+1] = 0.7071;
+	// store.dFvec[9+2] = 0;
+	// store.dFvec[9+3] = -0.7071;
+	// store.dFvec[9+4] = 0.7071;
+	// store.dFvec[9+5] = 0;
+	// store.dFvec[9+6] = 0;
+	// store.dFvec[9+7] = 0;
+	// store.dFvec[9+8] = 1;
+	// famu::acap::solve(store, store.dFvec);
 
 	VectorXd dEdF = VectorXd::Zero(store.dFvec.size());
 	cout<<"ACAP Energy: "<<famu::acap::energy(store, store.dFvec, store.boneDOFS)<<"-"<<famu::acap::fastEnergy(store,store.dFvec)<<endl;
@@ -364,8 +367,14 @@ int main(int argc, char *argv[])
 	cout<<fdH<<endl<<endl;
 	cout<<testH.block<20,20>(0,0)<<endl<<endl;
 	cout<<(testH.block<20,20>(0,0) - fdH).squaredNorm()<<endl;
+	// cout<<"ACAP dxdF:"<<endl;
+	// MatrixXd testJac = MatrixXd(store.JacdxdF);
+	// MatrixXd fdJac = famu::acap::fd_dxdF(store);
+	// cout<<testJac.block<15,15>(0,0)<<endl<<endl;
+	// cout<<fdJac.block<15,15>(0,0)<<endl<<endl;
+	// cout<<(testJac.block<15,15>(0,0) - fdJac.block<15,15>(0,0)).squaredNorm()<<endl;
 
-	exit(0);
+	// exit(0);
 	cout<<"--- Write Meshes"<<endl;
 		// double fx = 0;
 		// int niters = 0;

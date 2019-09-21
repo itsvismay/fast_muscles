@@ -24,34 +24,35 @@ double famu::Energy(Store& store){
 }
 
 void famu::update_dofs(Store& store, VectorXd& new_dofs){
-		for(int b =0; b < store.bone_tets.size(); b++){
-			Matrix3d R0 = Map<Matrix3d>(store.dFvec.segment<9>(9*b).data()).transpose();
-			double wX = new_dofs(3*b + 0);
-			double wY = new_dofs(3*b + 1);
-			double wZ = new_dofs(3*b + 2);
-			Matrix3d cross;
-	        cross<<0, -wZ, wY,
-	                wZ, 0, -wX,
-	                -wY, wX, 0;
-	        Matrix3d Rot = cross.exp();
-			Matrix3d R = R0*Rot;
+	store.dFvec = new_dofs;
+		// for(int b =0; b < store.bone_tets.size(); b++){
+		// 	Matrix3d R0 = Map<Matrix3d>(store.dFvec.segment<9>(9*b).data()).transpose();
+		// 	double wX = new_dofs(3*b + 0);
+		// 	double wY = new_dofs(3*b + 1);
+		// 	double wZ = new_dofs(3*b + 2);
+		// 	Matrix3d cross;
+	 //        cross<<0, -wZ, wY,
+	 //                wZ, 0, -wX,
+	 //                -wY, wX, 0;
+	 //        Matrix3d Rot = cross.exp();
+		// 	Matrix3d R = R0*Rot;
 
-			store.dFvec[9*b+0] = R(0,0);
-      		store.dFvec[9*b+1] = R(0,1);
-      		store.dFvec[9*b+2] = R(0,2);
-      		store.dFvec[9*b+3] = R(1,0);
-      		store.dFvec[9*b+4] = R(1,1);
-      		store.dFvec[9*b+5] = R(1,2);
-      		store.dFvec[9*b+6] = R(2,0);
-      		store.dFvec[9*b+7] = R(2,1);
-      		store.dFvec[9*b+8] = R(2,2);
+		// 	store.dFvec[9*b+0] = R(0,0);
+  //     		store.dFvec[9*b+1] = R(0,1);
+  //     		store.dFvec[9*b+2] = R(0,2);
+  //     		store.dFvec[9*b+3] = R(1,0);
+  //     		store.dFvec[9*b+4] = R(1,1);
+  //     		store.dFvec[9*b+5] = R(1,2);
+  //     		store.dFvec[9*b+6] = R(2,0);
+  //     		store.dFvec[9*b+7] = R(2,1);
+  //     		store.dFvec[9*b+8] = R(2,2);
 
-      		new_dofs(3*b + 0) = 0;
-			new_dofs(3*b + 1) = 0;
-			new_dofs(3*b + 2) = 0;
+  //     		new_dofs(3*b + 0) = 0;
+		// 	new_dofs(3*b + 1) = 0;
+		// 	new_dofs(3*b + 2) = 0;
 		
-		}
-		store.dFvec.tail(new_dofs.size() - 3*store.bone_tets.size()) = new_dofs.tail(new_dofs.size() - 3*store.bone_tets.size());
+		// }
+		// store.dFvec.tail(new_dofs.size() - 3*store.bone_tets.size()) = new_dofs.tail(new_dofs.size() - 3*store.bone_tets.size());
 }
 
 double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd& drt, VectorXd& new_dofs){
@@ -223,7 +224,7 @@ void famu::sparse_to_dense(const Store& store, SparseMatrix<double, Eigen::RowMa
 int famu::newton_static_solve(Store& store){
 	int MAX_ITERS = store.jinput["NM_MAX_ITERS"];
 	int dFvec_size = store.dFvec.size();
-	int numDOFS = store.dFvec.size() - 6*store.bone_tets.size();
+	int numDOFS = store.dFvec.size();// - 6*store.bone_tets.size();
 
 	VectorXd muscle_grad, neo_grad, acap_grad;
 	muscle_grad.resize(dFvec_size);
@@ -342,7 +343,7 @@ int famu::newton_static_solve(Store& store){
 		}
 
 		update_dofs(store, dofs);
-		famu::acap::updatedRdW(store);
+		// famu::acap::updatedRdW(store);
 
 		double fx = Energy(store);
 		
