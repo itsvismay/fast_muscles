@@ -88,19 +88,7 @@ int main(int argc, char *argv[])
 		famu::Store store;
 		store.jinput = j_input;
 
-		famu::read_config_files(store.V, 
-								store.T, 
-								store.F, 
-								store.Uvec, 
-								store.bone_name_index_map, 
-								store.muscle_name_index_map, 
-								store.joint_bones_verts, 
-								store.bone_tets, 
-								store.muscle_tets, 
-								store.fix_bones, 
-								store.relativeStiffness,
-								store.contract_muscles,
-								store.jinput);  
+		famu::read_config_files(store);  
 		store.alpha_arap = store.jinput["alpha_arap"];
 		store.alpha_neo = store.jinput["alpha_neo"];
 		

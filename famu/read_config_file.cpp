@@ -11,33 +11,22 @@ using namespace Eigen;
 using json = nlohmann::json;
 // json j_input;
 
-void famu::read_config_files(Eigen::MatrixXd& V, 
-                        Eigen::MatrixXi& T, 
-                        Eigen::MatrixXi& F, 
-                        Eigen::MatrixXd& Uvec, 
-                        std::map<std::string, int>& bone_name_index_map,
-                        std::map<std::string, int>& muscle_name_index_map,
-                        std::vector< std::pair<std::vector<std::string>, 
-                        Eigen::MatrixXd>>& joint_bones_verts,
-                        std::vector<VectorXi>& bone_tets,
-                        std::vector<VectorXi>& muscle_tets,
-                        std::vector<std::string>& fix_bones,
-                        Eigen::VectorXd& relativeStiffness,
-                        std::vector<int>& contract_muscles,
-                        json& j_input)
+void famu::read_config_files(Store& store)
 {
     std::cout<<"EIGEN"<<std::endl;
     std::cout<<EIGEN_MAJOR_VERSION<<std::endl;
     std::cout<<EIGEN_MINOR_VERSION<<std::endl;
 
+    store.alpha_arap = store.jinput["alpha_arap"];
+    store.alpha_neo = store.jinput["alpha_neo"];
 
-    std::string datafile = j_input["data"];
+    std::string datafile = store.jinput["data"];
     //Read Mesh
-    igl::readDMAT(datafile+"/generated_files/tet_mesh_V.dmat", V);
-    igl::readDMAT(datafile+"/generated_files/tet_mesh_T.dmat", T);
-    igl::readDMAT(datafile+"/generated_files/combined_fiber_directions.dmat", Uvec);
-    igl::readDMAT(datafile+"/generated_files/tet_is_tendon.dmat", relativeStiffness);
-
+    igl::readDMAT(datafile+"/generated_files/tet_mesh_V.dmat", store.V);
+    igl::readDMAT(datafile+"/generated_files/tet_mesh_T.dmat", store.T);
+    igl::readDMAT(datafile+"/generated_files/combined_fiber_directions.dmat", store.Uvec);
+    igl::readDMAT(datafile+"/generated_files/tet_is_tendon.dmat", store.relativeStiffness);
+    
     //Read Geometry
     json j_geometries;
     std::ifstream muscle_config_file(datafile+"/config.json");
@@ -47,34 +36,34 @@ void famu::read_config_files(Eigen::MatrixXd& V,
     json j_bones = j_geometries["bones"];
     json j_joints = j_geometries["joints"];
 
-    std::vector<std::string> fixed = j_input["fix_bones"];
-    fix_bones.insert(fix_bones.end(), fixed.begin(), fixed.end());
-    for(int t = 0; t<T.rows(); t++){
+    std::vector<std::string> fixed = store.jinput["fix_bones"];
+    store.fix_bones.insert(store.fix_bones.end(), fixed.begin(), fixed.end());
+    for(int t = 0; t<store.T.rows(); t++){
         //TODO: update to be parametrized by input mU
-        Vector3d b = Uvec.row(t);
+        Vector3d b = store.Uvec.row(t);
         if(b!=b || b.norm()==0){
             b = 0*Vector3d::UnitY();
-            Uvec.row(t) = b;
+            store.Uvec.row(t) = b;
         }
     }
    
     //these bones are fixed, store them at the front of the
     //vector and save (names, index)
     int count_index =0;
-    for(int i=0; i<fix_bones.size(); i++){
+    for(int i=0; i<store.fix_bones.size(); i++){
         VectorXi bone_i;
-        igl::readDMAT(datafile+"/generated_files/"+fix_bones[i]+"_bone_indices.dmat", bone_i);
-        bone_tets.push_back(bone_i);
-        bone_name_index_map[fix_bones[i]]  = count_index;
-        j_bones.erase(fix_bones[i]);
+        igl::readDMAT(datafile+"/generated_files/"+store.fix_bones[i]+"_bone_indices.dmat", bone_i);
+        store.bone_tets.push_back(bone_i);
+        store.bone_name_index_map[store.fix_bones[i]]  = count_index;
+        j_bones.erase(store.fix_bones[i]);
         count_index +=1;
     }
 
     for(json::iterator it = j_bones.begin(); it != j_bones.end(); ++it){
         VectorXi bone_i;
         igl::readDMAT(datafile+"/generated_files/"+it.key()+"_bone_indices.dmat", bone_i);
-        bone_tets.push_back(bone_i);
-        bone_name_index_map[it.key()] = count_index;
+        store.bone_tets.push_back(bone_i);
+        store.bone_name_index_map[it.key()] = count_index;
         count_index +=1;
     }
 
@@ -82,8 +71,8 @@ void famu::read_config_files(Eigen::MatrixXd& V,
     for(json::iterator it = j_muscles.begin(); it != j_muscles.end(); ++it){
         VectorXi muscle_i;
         igl::readDMAT(datafile+"/generated_files/"+it.key()+"_muscle_indices.dmat", muscle_i);
-        muscle_tets.push_back(muscle_i);
-        muscle_name_index_map[it.key()] = count_index;
+        store.muscle_tets.push_back(muscle_i);
+        store.muscle_name_index_map[it.key()] = count_index;
         count_index +=1;
     }
 
@@ -94,19 +83,19 @@ void famu::read_config_files(Eigen::MatrixXd& V,
         std::string joint_name = it.value()["location_obj"];
         igl::readOBJ(datafile+"/objs/"+joint_name, joint_i, joint_f);
         std::vector<std::string> bones = it.value()["bones"];
-        joint_bones_verts.push_back(std::make_pair( bones, joint_i));
+        store.joint_bones_verts.push_back(std::make_pair( bones, joint_i));
     }
 
-    std::vector<std::string> contract_muscle_names = j_input["contract_muscles"];
-    contract_muscles.clear();
+    std::vector<std::string> contract_muscle_names = store.jinput["contract_muscles"];
+    store.contract_muscles.clear();
     for(int i=0; i<contract_muscle_names.size(); i++){
-        contract_muscles.push_back(muscle_name_index_map[contract_muscle_names[i]]);
+        store.contract_muscles.push_back(store.muscle_name_index_map[contract_muscle_names[i]]);
     
     }
 
-    if(relativeStiffness.size()==0){
-        relativeStiffness = VectorXd::Ones(T.rows());
+    if(store.relativeStiffness.size()==0){
+        store.relativeStiffness = VectorXd::Ones(store.T.rows());
     }else{
-        relativeStiffness *=10;
+        store.relativeStiffness *=10;
     }
 }

@@ -182,7 +182,7 @@ VectorXd famu::acap::fd_gradient(Store& store){
 	// 	fake[i] = (Eleft - Eright)/eps;
 	// }
 	VectorXd fake = VectorXd::Zero(20);
-	double eps = 0.000001;
+	double eps = 0.0001;
 	for(int i=0; i<store.boneDOFS.size(); i++){
 		store.boneDOFS[i] += 0.5*eps;
 		double Eleft = energy(store, store.dFvec, store.boneDOFS);
