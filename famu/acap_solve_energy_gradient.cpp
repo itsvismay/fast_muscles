@@ -63,10 +63,10 @@ double famu::acap::energy(Store& store, VectorXd& dFvec, VectorXd& boneDOFS){
 		for(int i=0; i<store.bone_tets[m].size(); i++){
 			int t = store.bone_tets[m][i];
 
-			E += 0.5*(DSx.segment<3>(12*t + 0) - R0*DSx0.segment<3>(12*t + 0)).squaredNorm();
-			E += 0.5*(DSx.segment<3>(12*t + 3) - R0*DSx0.segment<3>(12*t + 3)).squaredNorm();
-			E += 0.5*(DSx.segment<3>(12*t + 6) - R0*DSx0.segment<3>(12*t + 6)).squaredNorm();
-			E += 0.5*(DSx.segment<3>(12*t + 9) - R0*DSx0.segment<3>(12*t + 9)).squaredNorm();
+			E += 0.5*(DSx.segment<3>(12*t + 0) - R*DSx0.segment<3>(12*t + 0)).squaredNorm();
+			E += 0.5*(DSx.segment<3>(12*t + 3) - R*DSx0.segment<3>(12*t + 3)).squaredNorm();
+			E += 0.5*(DSx.segment<3>(12*t + 6) - R*DSx0.segment<3>(12*t + 6)).squaredNorm();
+			E += 0.5*(DSx.segment<3>(12*t + 9) - R*DSx0.segment<3>(12*t + 9)).squaredNorm();
 
 		}
 
@@ -182,7 +182,7 @@ VectorXd famu::acap::fd_gradient(Store& store){
 	// 	fake[i] = (Eleft - Eright)/eps;
 	// }
 	VectorXd fake = VectorXd::Zero(20);
-	double eps = 0.0001;
+	double eps = 1e-6;
 	for(int i=0; i<store.boneDOFS.size(); i++){
 		store.boneDOFS[i] += 0.5*eps;
 		double Eleft = energy(store, store.dFvec, store.boneDOFS);

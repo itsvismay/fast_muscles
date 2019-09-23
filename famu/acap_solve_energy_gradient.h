@@ -23,7 +23,7 @@ namespace famu
 
 		void updatedRdW(Store& store);
 
-		void fastGradient(Store& store, Eigen::VectorXd& grad);
+		void fastGradient(Store& store, Eigen::VectorXd& dEdF);
 
 		void fastHessian(Store& store, Eigen::SparseMatrix<double, Eigen::RowMajor>& hess, Eigen::MatrixXd& denseHess);
 

@@ -264,7 +264,7 @@ int famu::newton_static_solve(Store& store){
 	for(iter=1; iter<MAX_ITERS; iter++){
 		grad_dofs.setZero();
 		double prevfx = Energy(store, store.dFvec);
-
+		
 		famu::acap::solve(store, store.dFvec);
 		famu::muscle::gradient(store, muscle_grad);
 		famu::stablenh::gradient(store, neo_grad);

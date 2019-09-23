@@ -340,10 +340,10 @@ int main(int argc, char *argv[])
 	cout<<"--- ACAP Hessians"<<endl;
 		famu::acap::setJacobian(store);
 
-		store.dRdW.resize(store.dFvec.size(), store.dFvec.size());
-		store.dRdW0.resize(store.dFvec.size(), store.dFvec.size());
-		store.dRdW.setIdentity();
-		store.dRdW0.setIdentity();
+		store.dRdW.resize(store.dFvec.size() - 6*store.bone_tets.size(), store.dFvec.size());
+		store.dRdW0.resize(store.dFvec.size()- 6*store.bone_tets.size(), store.dFvec.size());
+		store.dRdW.setZero();
+		store.dRdW0.setZero();
 		vector<Trip> dRdW_trips;
 		store.dRdW0.setZero();
 		//fill in the rest of dRdW as mxm Id
@@ -406,20 +406,18 @@ int main(int argc, char *argv[])
 	    store.dFvec[9+7] = 0;
 	    store.dFvec[9+8] = 1;
 	    famu::acap::solve(store, store.dFvec);
-	            	
+	    famu::acap::updatedRdW(store);	
 
 		cout<<"ACAP Energy: "<<famu::acap::energy(store, store.dFvec, store.boneDOFS)<<"-"<<famu::acap::fastEnergy(store,store.dFvec)<<endl;
+		cout<<"ACAP fd Grad"<<endl;
 		VectorXd dEdF = VectorXd::Zero(store.dFvec.size());
 		famu::acap::fastGradient(store, dEdF);
-		VectorXd dRdWdEdF = store.dRdW*dEdF;
 		VectorXd fdgrad = famu::acap::fd_gradient(store);
-		cout<<"ACAP Grad"<<endl;
-		cout<<fdgrad.transpose()<<endl;
-		cout<<dRdWdEdF.segment<20>(0).transpose()<<endl;
-		cout<<(fdgrad.transpose() - dRdWdEdF.segment<20>(0).transpose()).squaredNorm()<<endl;
-	// cout<<"ACAP Hess:"<<endl;
-	// MatrixXd testH = MatrixXd(store.acapHess);
-	// MatrixXd fdH = famu::acap::fd_hessian(store);
+		VectorXd grad = store.dRdW*dEdF;
+		cout<<(fdgrad.transpose() - grad.segment<20>(0).transpose()).squaredNorm()<<endl;
+		// cout<<"ACAP Hess:"<<endl;
+		// MatrixXd testH = MatrixXd(store.acapHess);
+		// MatrixXd fdH = famu::acap::fd_hessian(store);
 	// // cout<<fdH<<endl<<endl<<endl;
 	// // cout<<testH.block<20,20>(0,0)<<endl<<endl;
 	// cout<<"Norm:"<<(testH.block<20,20>(0,0) - fdH).squaredNorm()<<endl;
