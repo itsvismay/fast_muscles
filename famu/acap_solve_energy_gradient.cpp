@@ -137,8 +137,8 @@ void famu::acap::fastHessian(Store& store, SparseMatrix<double, RowMajor>& hess,
 	hess = store.jinput["alpha_arap"]*store.x0tStDt_dF_dF_DSx0; //PtZtZP
 
 	//else compute dense jacobian based hessian
-	SparseMatrix<double, RowMajor> temp = store.YtStDt_dF_DSx0.transpose()*store.JacdxdF;
-	hess -= temp;
+	// SparseMatrix<double, RowMajor> temp = store.YtStDt_dF_DSx0.transpose()*store.JacdxdF;
+	// hess -= temp;
 	
 
 }

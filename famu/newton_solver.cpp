@@ -286,13 +286,13 @@ int famu::newton_static_solve(Store& store){
 
 		// if(!store.jinput["woodbury"]){
 			
-		SparseMatrix<double, Eigen::RowMajor> hessFvec = store.neoHess + constHess;
-		store.NM_SPLU.factorize(hessFvec);
-		if(store.NM_SPLU.info()!=Success){
-			cout<<"SOLVER FAILED"<<endl;
-			cout<<store.NM_SPLU.info()<<endl;
-		}
-		delta_dFvec = -1*store.NM_SPLU.solve(grad_dofs);
+		// SparseMatrix<double, Eigen::RowMajor> hessFvec = store.neoHess + constHess;
+		// store.NM_SPLU.factorize(hessFvec);
+		// if(store.NM_SPLU.info()!=Success){
+		// 	cout<<"SOLVER FAILED"<<endl;
+		// 	cout<<store.NM_SPLU.info()<<endl;
+		// }
+		// delta_dFvec = -1*store.NM_SPLU.solve(grad_dofs);
 		
 		// }else{
 
@@ -314,11 +314,11 @@ int famu::newton_static_solve(Store& store){
 			// test_drt =  -InvAg + InvAtemp1;
 
 			//Dense Woodbury code
-			// denseHess = constDenseHess + store.denseNeoHess;
-			// timer.start();
-			// fastWoodbury(store, grad_dofs, X, BInvXDy, denseHess, delta_dFvec);
-			// timer.stop();
-			// woodtimes += timer.getElapsedTimeInMicroSec();
+			denseHess = constDenseHess + store.denseNeoHess;
+			timer.start();
+			fastWoodbury(store, grad_dofs, X, BInvXDy, denseHess, delta_dFvec);
+			timer.stop();
+			woodtimes += timer.getElapsedTimeInMicroSec();
 			// cout<<"		woodbury diff: "<<(delta_dFvec - test_drt).norm()<<endl;
 
 		// }
