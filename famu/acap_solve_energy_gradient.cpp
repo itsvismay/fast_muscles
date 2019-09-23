@@ -23,6 +23,22 @@ std::vector<Eigen::Triplet<double>> to_Triplets(Eigen::SparseMatrix<double, Eige
 	return v;
 }
 
+void famu::acap::setupWoodbury(Store& store){
+	double aa = store.jinput["alpha_arap"];
+	store.WoodB = -1*store.YtStDt_dF_DSx0.transpose()*store.G;
+	store.WoodD = -1*store.WoodB.transpose();
+	store.WoodB *= aa;
+
+	store.InvC = store.eigenvalues.asDiagonal();
+	store.WoodC = store.eigenvalues.asDiagonal().inverse();
+	for(int i=0; i<store.dFvec.size()/9; i++){
+		LDLT<Matrix9d> InvA;
+		store.vecInvA.push_back(InvA);
+	}
+
+	
+}
+
 double famu::acap::energy(Store& store, VectorXd& dFvec, VectorXd& boneDOFS){
 	VectorXd DSx0 = store.D*store.S*store.x0;
 	VectorXd DSx = store.D*store.S*(store.Y*store.x + store.x0);

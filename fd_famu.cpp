@@ -373,20 +373,8 @@ int main(int argc, char *argv[])
 		store.NM_SPLU.factorize(hessFvec);
 
 			
-	if(store.jinput["woodbury"]){
-		cout<<"--- Setup woodbury matrices"<<endl;
-			store.WoodB = -store.YtStDt_dF_DSx0.transpose()*store.G;
-			store.WoodD = -1*store.WoodB.transpose();
-			
-
-			store.InvC = store.eigenvalues.asDiagonal();
-			store.WoodC = store.eigenvalues.asDiagonal().inverse();
-			for(int i=0; i<store.dFvec.size()/9; i++){
-				LDLT<Matrix9d> InvA;
-				store.vecInvA.push_back(InvA);
-			}
-
-	}
+	cout<<"--- Setup woodbury matrices"<<endl;
+		famu::acap::setupWoodbury(store);
 
 
     cout<<"---Setup TMP Vars"<<endl;
@@ -396,25 +384,25 @@ int main(int argc, char *argv[])
 		store.acaptmp_sizedFvec2 = store.dFvec;
 
 
-		store.dFvec[9+0] = 0.7071;
-	    store.dFvec[9+1] = 0.7071;
-	    store.dFvec[9+2] = 0;
-	    store.dFvec[9+3] = -0.7071;
-	    store.dFvec[9+4] = 0.7071;
-	    store.dFvec[9+5] = 0;
-	    store.dFvec[9+6] = 0;
-	    store.dFvec[9+7] = 0;
-	    store.dFvec[9+8] = 1;
-	    famu::acap::solve(store, store.dFvec);
-	    famu::acap::updatedRdW(store);	
+		// store.dFvec[9+0] = 0.7071;
+	 //    store.dFvec[9+1] = 0.7071;
+	 //    store.dFvec[9+2] = 0;
+	 //    store.dFvec[9+3] = -0.7071;
+	 //    store.dFvec[9+4] = 0.7071;
+	 //    store.dFvec[9+5] = 0;
+	 //    store.dFvec[9+6] = 0;
+	 //    store.dFvec[9+7] = 0;
+	 //    store.dFvec[9+8] = 1;
+	 //    famu::acap::solve(store, store.dFvec);
+	 //    famu::acap::updatedRdW(store);	
 
-		cout<<"ACAP Energy: "<<famu::acap::energy(store, store.dFvec, store.boneDOFS)<<"-"<<famu::acap::fastEnergy(store,store.dFvec)<<endl;
-		cout<<"ACAP fd Grad"<<endl;
-		VectorXd dEdF = VectorXd::Zero(store.dFvec.size());
-		famu::acap::fastGradient(store, dEdF);
-		VectorXd fdgrad = famu::acap::fd_gradient(store);
-		VectorXd grad = store.dRdW*dEdF;
-		cout<<(fdgrad.transpose() - grad.segment<20>(0).transpose()).squaredNorm()<<endl;
+		// cout<<"ACAP Energy: "<<famu::acap::energy(store, store.dFvec, store.boneDOFS)<<"-"<<famu::acap::fastEnergy(store,store.dFvec)<<endl;
+		// cout<<"ACAP fd Grad"<<endl;
+		// VectorXd dEdF = VectorXd::Zero(store.dFvec.size());
+		// famu::acap::fastGradient(store, dEdF);
+		// VectorXd fdgrad = famu::acap::fd_gradient(store);
+		// VectorXd grad = store.dRdW*dEdF;
+		// cout<<(fdgrad.transpose() - grad.segment<20>(0).transpose()).squaredNorm()<<endl;
 		// cout<<"ACAP Hess:"<<endl;
 		// MatrixXd testH = MatrixXd(store.acapHess);
 		// MatrixXd fdH = famu::acap::fd_hessian(store);
@@ -428,7 +416,7 @@ int main(int argc, char *argv[])
 	// cout<<fdJac.block<15,15>(0,0)<<endl<<endl;
 	// cout<<(testJac.block<15,15>(0,0) - fdJac.block<15,15>(0,0)).squaredNorm()<<endl;
 
-	exit(0);
+	// exit(0);
 
 
 	cout<<"--- Write Meshes"<<endl;

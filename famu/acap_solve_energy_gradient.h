@@ -17,6 +17,8 @@ namespace famu
 	namespace acap
 	{
 
+		void setupWoodbury(Store& store);
+
 		double energy(Store& store, VectorXd& dFvec, VectorXd& boneDOFS);
 
 		double fastEnergy(Store& store, Eigen::VectorXd& dFvec);
