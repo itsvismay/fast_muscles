@@ -48,9 +48,9 @@ double famu::acap::energy(Store& store, VectorXd& dFvec, VectorXd& boneDOFS){
 	for(int m=0; m<store.bone_tets.size(); m++){
 		int f_index = m;
 		Matrix3d R0 = Map<Matrix3d>(dFvec.segment<9>(9*f_index).data()).transpose();
-		double wX = 0;//boneDOFS(3*m + 0);
-		double wY = 0;//boneDOFS(3*m + 1);
-		double wZ = 0;//boneDOFS(3*m + 2);
+		double wX = boneDOFS(3*m + 0);
+		double wY = boneDOFS(3*m + 1);
+		double wZ = boneDOFS(3*m + 2);
 		Matrix3d cross;
         cross<<0, -wZ, wY,
                 wZ, 0, -wX,
@@ -58,7 +58,7 @@ double famu::acap::energy(Store& store, VectorXd& dFvec, VectorXd& boneDOFS){
         Matrix3d Rot = cross.exp();
 		Matrix3d R = R0*Rot;
 		Matrix3d Rt = R.transpose();
-		// F.segment<9>(9*m) = Map<Vector9d>(Rt.data());
+		F.segment<9>(9*m) = Map<Vector9d>(Rt.data());
 
 		for(int i=0; i<store.bone_tets[m].size(); i++){
 			int t = store.bone_tets[m][i];
@@ -81,20 +81,6 @@ double famu::acap::energy(Store& store, VectorXd& dFvec, VectorXd& boneDOFS){
 	return E+E7+E8;
 }
 
-// double famu::acap::energy(Store& store){
-// 	SparseMatrix<double, RowMajor> DS = store.D*store.S;
-// 	double E1 =  0.5*(store.D*store.S*(store.x+store.x0) - store.dF*store.DSx0).squaredNorm();
-
-// 	double E2 = 0.5*store.x.transpose()*store.StDtDS*store.x;
-// 	double E3 = store.x0.transpose()*store.StDtDS*store.x;
-// 	double E4 = 0.5*store.x0.transpose()*store.StDtDS*store.x0;
-// 	double E5 = -store.x.transpose()*DS.transpose()*store.dF*DS*store.x0;
-// 	double E6 = -store.x0.transpose()*DS.transpose()*store.dF*DS*store.x0;
-// 	double E7 = 0.5*(store.dF*store.DSx0).transpose()*(store.dF*store.DSx0);
-// 	double E8 = E2+E3+E4+E5+E6+E7;
-// 	assert(fabs(E1 - E8)< 1e-6);
-// 	return E1;
-// }
 
 double famu::acap::fastEnergy(Store& store, VectorXd& dFvec){
 	double E1 = 0.5*store.x0tStDtDSx0;
@@ -122,6 +108,44 @@ double famu::acap::fastEnergy(Store& store, VectorXd& dFvec){
 	return E9*aa;
 }
 
+void famu::acap::updatedRdW(Store& store){
+	vector<Trip> dRdW_trips;
+	store.dRdW.setZero();
+	//SO3 BONES -> F(w) = R0 exp(J(w)) -> dE/dw = dE/dF * dF/dw
+	for(int b =0; b < store.bone_tets.size(); b++){
+		Eigen::Matrix3d R0 = Map<Eigen::Matrix3d>(store.dFvec.segment<9>(9*b).data()).transpose();
+		
+		Eigen::Matrix3d Jx = store.cross_prod_mat(1,0,0);
+		Eigen::Matrix3d Jy = store.cross_prod_mat(0,1,0);
+		Eigen::Matrix3d Jz = store.cross_prod_mat(0,0,1);
+
+		Eigen::Matrix3d dRdw1 = R0*Jx;
+		Eigen::Matrix3d dRdw2 = R0*Jy;
+		Eigen::Matrix3d dRdw3 = R0*Jz;
+
+		Eigen::Matrix3d dRdw1t = dRdw1.transpose();
+		Eigen::Matrix3d dRdw2t = dRdw2.transpose();
+		Eigen::Matrix3d dRdw3t = dRdw3.transpose();
+		Eigen::Matrix<double,3, 9> dRdw;
+		dRdw.row(0) = Map<Vector9d>(dRdw1t.data());
+		dRdw.row(1) = Map<Vector9d>(dRdw2t.data());
+		dRdw.row(2) = Map<Vector9d>(dRdw3t.data());
+		
+		for(int ii=0; ii<3; ii++){
+			for(int jj=0; jj<9; jj++){
+				dRdW_trips.push_back(Trip(3*b+ii,9*b+jj, dRdw(ii, jj)));
+			}
+		}
+	}
+
+	//fill in the rest of dRdW as mxm Id
+	for(int t =0; t<store.dFvec.size()-9*store.bone_tets.size(); t++){
+		//fill it in backwards, bottom right to top left.
+		dRdW_trips.push_back(Trip( store.dRdW.rows() - t -1, store.dRdW.cols() - t -1, 1));
+	}
+	store.dRdW.setFromTriplets(dRdW_trips.begin(), dRdW_trips.end());
+}
+
 void famu::acap::fastGradient(Store& store, VectorXd& grad){
 	grad = -store.x0tStDt_dF_DSx0;
 	grad += -store.x.transpose()*store.YtStDt_dF_DSx0;
@@ -144,18 +168,43 @@ void famu::acap::fastHessian(Store& store, SparseMatrix<double, RowMajor>& hess,
 }
 
 VectorXd famu::acap::fd_gradient(Store& store){
-	VectorXd fake = VectorXd::Zero(20);
-	VectorXd dFvec = store.dFvec;
-	double eps = 0.00001;
-	for(int i=0; i<fake.size(); i++){
-		dFvec[i] += 0.5*eps;
-		double Eleft = fastEnergy(store, dFvec);//energy(store, dFvec, store.boneDOFS);
-		dFvec[i] -= 0.5*eps;
+	// VectorXd fake = VectorXd::Zero(20);
+	// VectorXd dFvec = store.dFvec;
+	// double eps = 0.00001;
+	// for(int i=0; i<fake.size(); i++){
+	// 	dFvec[i] += 0.5*eps;
+	// 	double Eleft = fastEnergy(store, dFvec);//energy(store, dFvec, store.boneDOFS);
+	// 	dFvec[i] -= 0.5*eps;
 
-		dFvec[i] -= 0.5*eps;
-		double Eright = fastEnergy(store, dFvec);//energy(store, dFvec, store.boneDOFS);
-		dFvec[i] += 0.5*eps;
+	// 	dFvec[i] -= 0.5*eps;
+	// 	double Eright = fastEnergy(store, dFvec);//energy(store, dFvec, store.boneDOFS);
+	// 	dFvec[i] += 0.5*eps;
+	// 	fake[i] = (Eleft - Eright)/eps;
+	// }
+	VectorXd fake = VectorXd::Zero(20);
+	double eps = 0.000001;
+	for(int i=0; i<store.boneDOFS.size(); i++){
+		store.boneDOFS[i] += 0.5*eps;
+		double Eleft = energy(store, store.dFvec, store.boneDOFS);
+		store.boneDOFS[i] -= 0.5*eps;
+
+		store.boneDOFS[i] -= 0.5*eps;
+		double Eright = energy(store, store.dFvec, store.boneDOFS);
+		store.boneDOFS[i] += 0.5*eps;
 		fake[i] = (Eleft - Eright)/eps;
+	}
+	int j= 0;
+	for(int i=9*store.bone_tets.size(); i<9*store.bone_tets.size() + 20 - store.boneDOFS.size(); i++){
+
+		store.dFvec[i] += 0.5*eps;
+		double Eleft = energy(store, store.dFvec, store.boneDOFS);
+		store.dFvec[i] -= 0.5*eps;
+
+		store.dFvec[i] -= 0.5*eps;
+		double Eright = energy(store, store.dFvec, store.boneDOFS);
+		store.dFvec[i] += 0.5*eps;
+		fake[store.boneDOFS.size()+j] = (Eleft - Eright)/eps;
+		j+=1;
 	}
 	return fake;
 }

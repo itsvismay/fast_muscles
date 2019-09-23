@@ -296,6 +296,7 @@ int main(int argc, char *argv[])
 		}
 		
 	cout<<"---Setup dFvec and dF"<<endl;
+		store.boneDOFS = VectorXd::Zero(3*store.bone_tets.size());
 		store.dFvec = VectorXd::Zero(store.ProjectF.cols());
 		for(int t=0; t<store.dFvec.size()/9; t++){
 			store.dFvec[9*t + 0] = 1;
@@ -350,7 +351,22 @@ int main(int argc, char *argv[])
 
 	cout<<"--- ACAP Hessians"<<endl;
 		famu::acap::setJacobian(store);
-		
+
+		store.dRdW.resize(store.dFvec.size(), store.dFvec.size());
+		store.dRdW0.resize(store.dFvec.size(), store.dFvec.size());
+		store.dRdW.setIdentity();
+		store.dRdW0.setIdentity();
+		vector<Trip> dRdW_trips;
+		store.dRdW0.setZero();
+		//fill in the rest of dRdW as mxm Id
+		for(int t =0; t<store.dFvec.size()-9*store.bone_tets.size(); t++){
+			//fill it in backwards, bottom right to top left.
+			dRdW_trips.push_back(Trip( store.dRdW.rows() - t -1, store.dRdW.cols() - t -1, 1));
+		}
+		store.dRdW0.setFromTriplets(dRdW_trips.begin(), dRdW_trips.end());
+		famu::acap::updatedRdW(store);
+
+
 		store.denseNeoHess = MatrixXd::Zero(store.dFvec.size(), 9);
 		store.neoHess.resize(store.dFvec.size(), store.dFvec.size());
 		famu::stablenh::hessian(store, store.neoHess, store.denseNeoHess);
@@ -392,23 +408,27 @@ int main(int argc, char *argv[])
 		store.acaptmp_sizedFvec2 = store.dFvec;
 
 
-	// store.dFvec[9+0] = 0.7071;
-    // store.dFvec[9+1] = 0.7071;
-    // store.dFvec[9+2] = 0;
-    // store.dFvec[9+3] = -0.7071;
-    // store.dFvec[9+4] = 0.7071;
-    // store.dFvec[9+5] = 0;
-    // store.dFvec[9+6] = 0;
-    // store.dFvec[9+7] = 0;
-    // store.dFvec[9+8] = 1;
-    // famu::acap::solve(store, store.dFvec);        	
+		store.dFvec[9+0] = 0.7071;
+	    store.dFvec[9+1] = 0.7071;
+	    store.dFvec[9+2] = 0;
+	    store.dFvec[9+3] = -0.7071;
+	    store.dFvec[9+4] = 0.7071;
+	    store.dFvec[9+5] = 0;
+	    store.dFvec[9+6] = 0;
+	    store.dFvec[9+7] = 0;
+	    store.dFvec[9+8] = 1;
+	    famu::acap::solve(store, store.dFvec);
+	            	
 
-	// cout<<"ACAP Energy: "<<famu::acap::energy(store, store.dFvec, store.boneDOFS)<<"-"<<famu::acap::fastEnergy(store,store.dFvec)<<endl;
-	// VectorXd dEdF = VectorXd::Zero(store.dFvec.size());
-	// famu::acap::fastGradient(store, dEdF);
-	// VectorXd fdgrad = famu::acap::fd_gradient(store);
-	// cout<<"ACAP Grad"<<endl;
-	// cout<<(fdgrad.transpose() - dEdF.segment<20>(0).transpose()).squaredNorm()<<endl;
+		cout<<"ACAP Energy: "<<famu::acap::energy(store, store.dFvec, store.boneDOFS)<<"-"<<famu::acap::fastEnergy(store,store.dFvec)<<endl;
+		VectorXd dEdF = VectorXd::Zero(store.dFvec.size());
+		famu::acap::fastGradient(store, dEdF);
+		VectorXd dRdWdEdF = store.dRdW*dEdF;
+		VectorXd fdgrad = famu::acap::fd_gradient(store);
+		cout<<"ACAP Grad"<<endl;
+		cout<<fdgrad.transpose()<<endl;
+		cout<<dRdWdEdF.segment<20>(0).transpose()<<endl;
+		cout<<(fdgrad.transpose() - dRdWdEdF.segment<20>(0).transpose()).squaredNorm()<<endl;
 	// cout<<"ACAP Hess:"<<endl;
 	// MatrixXd testH = MatrixXd(store.acapHess);
 	// MatrixXd fdH = famu::acap::fd_hessian(store);
@@ -422,7 +442,7 @@ int main(int argc, char *argv[])
 	// cout<<fdJac.block<15,15>(0,0)<<endl<<endl;
 	// cout<<(testJac.block<15,15>(0,0) - fdJac.block<15,15>(0,0)).squaredNorm()<<endl;
 
-	// exit(0);
+	exit(0);
 
 
 	cout<<"--- Write Meshes"<<endl;

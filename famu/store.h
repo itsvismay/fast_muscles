@@ -59,7 +59,7 @@ namespace famu{
 		Eigen::SparseMatrix<double, Eigen::RowMajor> ProjectF, PickBoneF;
 		Eigen::SparseMatrix<double, Eigen::RowMajor> ConstrainProjection, UnconstrainProjection;
 		Eigen::SparseMatrix<double, Eigen::RowMajor> JointConstraints, NullJ;
-		Eigen::SparseMatrix<double, Eigen::RowMajor> Y, Bx, Bf;
+		Eigen::SparseMatrix<double, Eigen::RowMajor> Y, Bx, Bf, dRdW, dRdW0;
 		Eigen::MatrixXd G;
 
 		Eigen::VectorXd dFvec, BfI0, boneDOFS;
