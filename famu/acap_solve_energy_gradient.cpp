@@ -52,10 +52,9 @@ double famu::acap::energy(Store& store, VectorXd& dFvec, VectorXd& boneDOFS){
 
 			Matrix3d Fi = Map<Matrix3d>(dFvec.segment<9>(9*f_index).data()).transpose();
 
-			E += 0.5*(DSx.segment<3>(12*t + 0) - Fi*DSx0.segment<3>(12*t + 0)).squaredNorm();
-			E += 0.5*(DSx.segment<3>(12*t + 3) - Fi*DSx0.segment<3>(12*t + 3)).squaredNorm();
-			E += 0.5*(DSx.segment<3>(12*t + 6) - Fi*DSx0.segment<3>(12*t + 6)).squaredNorm();
-			E += 0.5*(DSx.segment<3>(12*t + 9) - Fi*DSx0.segment<3>(12*t + 9)).squaredNorm();
+			E += 0.5*(DSx.segment<3>(9*t + 0) - Fi*DSx0.segment<3>(9*t + 0)).squaredNorm();
+			E += 0.5*(DSx.segment<3>(9*t + 3) - Fi*DSx0.segment<3>(9*t + 3)).squaredNorm();
+			E += 0.5*(DSx.segment<3>(9*t + 6) - Fi*DSx0.segment<3>(9*t + 6)).squaredNorm();
 		
 		}
 	}
@@ -79,10 +78,9 @@ double famu::acap::energy(Store& store, VectorXd& dFvec, VectorXd& boneDOFS){
 		for(int i=0; i<store.bone_tets[m].size(); i++){
 			int t = store.bone_tets[m][i];
 
-			E += 0.5*(DSx.segment<3>(12*t + 0) - R*DSx0.segment<3>(12*t + 0)).squaredNorm();
-			E += 0.5*(DSx.segment<3>(12*t + 3) - R*DSx0.segment<3>(12*t + 3)).squaredNorm();
-			E += 0.5*(DSx.segment<3>(12*t + 6) - R*DSx0.segment<3>(12*t + 6)).squaredNorm();
-			E += 0.5*(DSx.segment<3>(12*t + 9) - R*DSx0.segment<3>(12*t + 9)).squaredNorm();
+			E += 0.5*(DSx.segment<3>(9*t + 0) - R*DSx0.segment<3>(9*t + 0)).squaredNorm();
+			E += 0.5*(DSx.segment<3>(9*t + 3) - R*DSx0.segment<3>(9*t + 3)).squaredNorm();
+			E += 0.5*(DSx.segment<3>(9*t + 6) - R*DSx0.segment<3>(9*t + 6)).squaredNorm();
 
 		}
 
@@ -172,6 +170,12 @@ void famu::acap::fastGradient(Store& store, VectorXd& grad){
 	double aa = store.jinput["alpha_arap"];
 	grad *= aa;
 	// grad += store.ContactForce;
+
+	// {
+	// 	store.dEdF_ddRdWdW.setZero();
+		
+	// }
+
 }
 
 void famu::acap::fastHessian(Store& store, SparseMatrix<double, RowMajor>& hess, Eigen::MatrixXd& denseHess){

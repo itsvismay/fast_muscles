@@ -59,18 +59,18 @@ void famu::update_dofs(Store& store, VectorXd& new_dofs, VectorXd& dFvec, bool l
 
 double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd& drt, VectorXd& new_dofs){
 	// Decreasing and increasing factors
-	VectorXd fakedFvec = store.dFvec;
+	// VectorXd fakedFvec = store.dFvec;
 	VectorXd x = new_dofs;
 
 	VectorXd xp = x;
-	double step = 50;
+	double step = 0.0001;
     const double dec = 0.5;
-    const double inc = 2.1;
+    const double inc = 2;
     int pmax_linesearch = 100;
-    int plinesearch = 1;//1 for armijo, 2 for wolfe
+    int plinesearch = 2;//1 for armijo, 2 for wolfe
     double pftol = 1e-4;
     double pwolfe = 0.9;
-    double pmax_step = 1e8;
+    double pmax_step = 0.25;
     double pmin_step = 1e-20;
 
 
@@ -78,9 +78,13 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
     if(step <= double(0))
         std::invalid_argument("'step' must be positive");
 
-    update_dofs(store, x, fakedFvec, true);
-    famu::acap::solve(store, fakedFvec);
-   	double fx = Energy(store, fakedFvec);
+    // update_dofs(store, x, fakedFvec, true);
+    {
+    	store.boneDOFS = x.head(store.boneDOFS.size());
+    	store.dFvec.tail(x.size() - store.boneDOFS.size()) = x.tail(x.size() - store.boneDOFS.size());
+    }
+    famu::acap::solve(store, store.dFvec);
+   	double fx = Energy(store, store.dFvec);
     // Save the function value at the current x
     const double fx_init = fx;
     // Projection of gradient on the search direction
@@ -97,13 +101,16 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
     for(iter = 0; iter < pmax_linesearch; iter++)
     {
         // x_{k+1} = x_k + step * d_k
-    	fakedFvec = store.dFvec;
         x.noalias() = xp + step * drt;
 
-        update_dofs(store, x, fakedFvec, true);
+        // update_dofs(store, x, fakedFvec, true);
+        {
+	    	store.boneDOFS = x.head(store.boneDOFS.size());
+	    	store.dFvec.tail(x.size() - store.boneDOFS.size()) = x.tail(x.size() - store.boneDOFS.size());
+	    }
         // Evaluate this candidate
-        famu::acap::solve(store, fakedFvec);
-       	fx = Energy(store, fakedFvec);
+        famu::acap::solve(store, store.dFvec);
+       	fx = Energy(store, store.dFvec);
 
         if(fx > fx_init + step * dg_test)
         {
@@ -139,13 +146,15 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
             throw std::runtime_error("the line search step became smaller than the minimum value allowed");
 
         if(step > pmax_step)
-            throw std::runtime_error("the line search step became larger than the maximum value allowed");
+        	break;
+            // throw std::runtime_error("the line search step became larger than the maximum value allowed");
 
         step *= width;
     }
     // cout<<"			ls iters: "<<iter<<endl;
     cout<<"			step: "<<step<<endl;
     tot_ls_its += iter;
+
     return step;
 }
 
@@ -252,7 +261,6 @@ void famu::fastWoodbury(Store& store, const VectorXd& g, MatrixModesxModes X, Ve
 		}
 	}
 
-
 	drt *= -1;
 }
 
@@ -357,7 +365,7 @@ int famu::newton_static_solve(Store& store){
 			exit(0);
 		}
 		
-		double alpha = 0.1;
+		double alpha = 0.2;
 		//line search
 		timer.start();
 		alpha = line_search(tot_ls_its, store, grad_dofs, delta_dFvec, new_dofs);
@@ -373,6 +381,8 @@ int famu::newton_static_solve(Store& store){
 		double fx = Energy(store, store.dFvec);
 		cout<<"gradNorm: "<<grad_dofs.squaredNorm()<<endl;
 		cout<<"delta E: "<<fabs(fx-prevfx)<<endl;
+		Matrix3d R = Map<Matrix3d>(store.dFvec.segment<9>(9).data()).transpose();
+		cout<<"rotations: "<<endl<<(R.transpose()*R)<<endl;
 
 		if(grad_dofs.squaredNorm()/grad_dofs.size()<1e-4 || fabs(fx - prevfx)<1e-3){
 			break;
