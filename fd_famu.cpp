@@ -338,8 +338,9 @@ int main(int argc, char *argv[])
 	
 
 	cout<<"--- ACAP Hessians"<<endl;
-		famu::acap::setJacobian(store);
+		// famu::acap::setJacobian(store);
 
+		store.densedRdW.resize(store.bone_tets.size());
 		store.dRdW.resize(store.dFvec.size() - 6*store.bone_tets.size(), store.dFvec.size());
 		store.dRdW0.resize(store.dFvec.size()- 6*store.bone_tets.size(), store.dFvec.size());
 		store.dRdW.setZero();

@@ -8,6 +8,8 @@
 #include <Eigen/LU>
 #include <Eigen/Cholesky>
 #include <igl/Timer.h>
+#include <unsupported/Eigen/MatrixFunctions>
+
 
 using Store = famu::Store;
 using namespace Eigen;
@@ -16,59 +18,50 @@ using namespace std;
 double famu::Energy(Store& store, VectorXd& dFvec){
 	double EM = famu::muscle::energy(store, dFvec);
 	double ENH = famu::stablenh::energy(store, dFvec);
-	double EACAP = famu::acap::fastEnergy(store, dFvec);
+	double EACAP = famu::acap::energy(store, dFvec, store.boneDOFS);
 
 	return EM + ENH + EACAP;
 }
 
-void famu::polar_dec(Store& store, VectorXd& dFvec){
-	if(store.jinput["polar_dec"]){
-		//project bones dF back to rotations
-		if(store.jinput["reduced"]){
-			for(int b =0; b < store.bone_tets.size(); b++){
-				Eigen::Matrix3d _r, _t;
-				Matrix3d dFb = Map<Matrix3d>(dFvec.segment<9>(9*b).data()).transpose();
-				igl::polar_dec(dFb, _r, _t);
+void famu::update_dofs(Store& store, VectorXd& new_dofs, VectorXd& dFvec, bool linesearch){
+		for(int b =0; b < store.bone_tets.size(); b++){
+			Matrix3d R0 = Map<Matrix3d>(store.dFvec.segment<9>(9*b).data()).transpose();
+			double wX = new_dofs(3*b + 0);
+			double wY = new_dofs(3*b + 1);
+			double wZ = new_dofs(3*b + 2);
+			Matrix3d cross;
+	        cross<<0, -wZ, wY,
+	                wZ, 0, -wX,
+	                -wY, wX, 0;
+	        Matrix3d Rot = cross.exp();
+			Matrix3d R = R0*Rot;
 
-				dFvec[9*b+0] = _r(0,0);
-	      		dFvec[9*b+1] = _r(0,1);
-	      		dFvec[9*b+2] = _r(0,2);
-	      		dFvec[9*b+3] = _r(1,0);
-	      		dFvec[9*b+4] = _r(1,1);
-	      		dFvec[9*b+5] = _r(1,2);
-	      		dFvec[9*b+6] = _r(2,0);
-	      		dFvec[9*b+7] = _r(2,1);
-	      		dFvec[9*b+8] = _r(2,2);
-			
-			}
+			dFvec[9*b+0] = R(0,0);
+	  		dFvec[9*b+1] = R(0,1);
+	  		dFvec[9*b+2] = R(0,2);
+	  		dFvec[9*b+3] = R(1,0);
+	  		dFvec[9*b+4] = R(1,1);
+	  		dFvec[9*b+5] = R(1,2);
+	  		dFvec[9*b+6] = R(2,0);
+	  		dFvec[9*b+7] = R(2,1);
+	  		dFvec[9*b+8] = R(2,2);
 
-		}else{
-			for(int t = 0; t < store.bone_tets.size(); t++){
-				for(int i=0; i<store.bone_tets[t].size(); i++){
-					int b =store.bone_tets[t][i];
-
-					Eigen::Matrix3d _r, _t;
-					Matrix3d dFb = Map<Matrix3d>(dFvec.segment<9>(9*b).data()).transpose();
-					igl::polar_dec(dFb, _r, _t);
-
-					dFvec[9*b+0] = _r(0,0);
-		      		dFvec[9*b+1] = _r(0,1);
-		      		dFvec[9*b+2] = _r(0,2);
-		      		dFvec[9*b+3] = _r(1,0);
-		      		dFvec[9*b+4] = _r(1,1);
-		      		dFvec[9*b+5] = _r(1,2);
-		      		dFvec[9*b+6] = _r(2,0);
-		      		dFvec[9*b+7] = _r(2,1);
-		      		dFvec[9*b+8] = _r(2,2);
-				}
-			}
+	  		new_dofs(3*b + 0) = 0;
+			new_dofs(3*b + 1) = 0;
+			new_dofs(3*b + 2) = 0;
+		
 		}
-	}
+	store.boneDOFS.setZero();
+	
+	dFvec.tail(dFvec.size() - 9*store.bone_tets.size()) = new_dofs.tail(new_dofs.size() - 3*store.bone_tets.size());
+	famu::acap::updatedRdW(store);
 }
 
-double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd& drt){
+double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd& drt, VectorXd& new_dofs){
 	// Decreasing and increasing factors
-	VectorXd x = store.dFvec;
+	VectorXd fakedFvec = store.dFvec;
+	VectorXd x = new_dofs;
+
 	VectorXd xp = x;
 	double step = 50;
     const double dec = 0.5;
@@ -85,9 +78,9 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
     if(step <= double(0))
         std::invalid_argument("'step' must be positive");
 
-    polar_dec(store, x);
-    famu::acap::solve(store, x);
-   	double fx = Energy(store, x);
+    update_dofs(store, x, fakedFvec, true);
+    famu::acap::solve(store, fakedFvec);
+   	double fx = Energy(store, fakedFvec);
     // Save the function value at the current x
     const double fx_init = fx;
     // Projection of gradient on the search direction
@@ -104,12 +97,13 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
     for(iter = 0; iter < pmax_linesearch; iter++)
     {
         // x_{k+1} = x_k + step * d_k
+    	fakedFvec = store.dFvec;
         x.noalias() = xp + step * drt;
-        polar_dec(store, x);
 
+        update_dofs(store, x, fakedFvec, true);
         // Evaluate this candidate
-        famu::acap::solve(store, x);
-       	fx = Energy(store, x);
+        famu::acap::solve(store, fakedFvec);
+       	fx = Energy(store, fakedFvec);
 
         if(fx > fx_init + step * dg_test)
         {
@@ -150,7 +144,7 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
         step *= width;
     }
     // cout<<"			ls iters: "<<iter<<endl;
-    // cout<<"			step: "<<step<<endl;
+    cout<<"			step: "<<step<<endl;
     tot_ls_its += iter;
     return step;
 }
@@ -176,56 +170,88 @@ void famu::sparse_to_dense(const Store& store, SparseMatrix<double, Eigen::RowMa
 
 void famu::fastWoodbury(Store& store, const VectorXd& g, MatrixModesxModes X, VectorXd& BInvXDy, MatrixXd& denseHess, VectorXd& drt){
 	//Woodbury parallel approach 1 (with reduction)
-	
+
 	Matrix<double, NUM_MODES, 1> DAg = Matrix<double, NUM_MODES, 1>::Zero(); 
 	Matrix<double, NUM_MODES, 1> InvXDAg;
 	FullPivLU<MatrixModesxModes> WoodburyDenseSolve;
 
 	X = store.InvC;
-	#pragma omp parallel
-	{
-		MatrixModesxModes Xpriv = MatrixModesxModes::Zero();
-		Matrix<double, NUM_MODES, 1> DAgpriv = Matrix<double, NUM_MODES, 1>::Zero(); 
 
-		#pragma omp for
-		for(int i=0; i<store.dFvec.size()/9; i++){
+	//bones
+	for(int b=0; b<store.bone_tets.size(); b++){
+			int i = b;
+			Eigen::Matrix<double,3, 9> dRdW = store.densedRdW[b];
+
+
+			Matrix3d A = dRdW*denseHess.block<9,9>(9*i, 0)*dRdW.transpose();
+
+			Matrix3d InvA = A.inverse();
+
+			Vector3d invAg = InvA*g.segment<3>(3*i);
+			drt.segment<3>(3*i) = invAg;
+
+			Matrix3xModes B = dRdW*store.WoodB.block<9, NUM_MODES>(9*i, 0);
+
+			Matrix3xModes Dt = (store.WoodD.block<NUM_MODES, 9>(0, 9*i)*dRdW.transpose()).transpose();
+			X += -Dt.transpose()*InvA*B;
+
+			DAg  += -Dt.transpose()*invAg;
+	}
+
+	//muscle
+	for(int m=0; m<store.muscle_tets.size(); m++){
+		for(int q=0; q<store.muscle_tets[m].size(); q++){
+			int t = store.muscle_tets[m][q];
+			int i = store.bone_or_muscle[t];
+
 			Matrix9d A = denseHess.block<9,9>(9*i, 0);
+
 			LDLT<Matrix9d> InvA;
 			InvA.compute(A);
 			store.vecInvA[i] = InvA;
 
-			Vector9d invAg = InvA.solve(g.segment<9>(9*i));
-			drt.segment<9>(9*i) = invAg;
+			Vector9d invAg = InvA.solve(g.segment<9>(9*i - 6*store.bone_tets.size()));
+			drt.segment<9>(9*i-6*store.bone_tets.size()) = invAg;
 
 			Matrix9xModes B = store.WoodB.block<9, NUM_MODES>(9*i, 0);
-	
+
 			Matrix9xModes Dt = store.WoodD.block<NUM_MODES, 9>(0, 9*i).transpose();
-			Xpriv = Xpriv + -Dt.transpose()*InvA.solve(B);
+			X += -Dt.transpose()*InvA.solve(B);
 
-			DAgpriv  = DAgpriv + -Dt.transpose()*invAg;
-		}
-		#pragma omp critical
-		{
-			X += Xpriv;
-			DAg += DAgpriv;
+			DAg  += -Dt.transpose()*invAg;
 		}
 	}
+	
 
-	#pragma omp single
-	{
+	WoodburyDenseSolve.compute(X);
+	InvXDAg = WoodburyDenseSolve.solve(DAg);
 
-		WoodburyDenseSolve.compute(X);
-		InvXDAg = WoodburyDenseSolve.solve(DAg);
+	//bones
+	for(int b=0; b<store.bone_tets.size(); b++){
+			int i = b;
+			Eigen::Matrix<double,3, 9> dRdW = store.densedRdW[b];
+			Matrix3xModes B = dRdW*store.WoodB.block<9, NUM_MODES>(9*i, 0);
+
+			Matrix3d A = dRdW*denseHess.block<9,9>(9*i, 0)*dRdW.transpose();
+			Matrix3d InvA = A.inverse();
+
+			Vector3d InvAtemp1 = InvA*B*InvXDAg;
+			drt.segment<3>(3*i) -= InvAtemp1;
 
 	}
 
-	#pragma omp parallel for
-	for(int i=0; i<store.dFvec.size()/9; i++){
-		Matrix9xModes B = store.WoodB.block<9, NUM_MODES>(9*i, 0);
+	//muscles
+	for(int m=0; m<store.muscle_tets.size(); m++){
+		for(int q=0; q<store.muscle_tets[m].size(); q++){
+			int t = store.muscle_tets[m][q];
+			int i = store.bone_or_muscle[t];
+			Matrix9xModes B = store.WoodB.block<9, NUM_MODES>(9*i, 0);
 
-		Vector9d InvAtemp1 = store.vecInvA[i].solve(B*InvXDAg);
-		drt.segment<9>(9*i) -=  InvAtemp1;
+			Vector9d InvAtemp1 = store.vecInvA[i].solve(B*InvXDAg);
+			drt.segment<9>(9*i - 6*store.bone_tets.size()) -=  InvAtemp1;
+		}
 	}
+
 
 	drt *= -1;
 }
@@ -237,23 +263,26 @@ int famu::newton_static_solve(Store& store){
 	neo_grad.resize(store.dFvec.size());
 	acap_grad.resize(store.dFvec.size());
 	
-	SparseMatrix<double, Eigen::RowMajor> constHess(store.dFvec.size(), store.dFvec.size());
-	constHess.setZero();
+	SparseMatrix<double, Eigen::RowMajor> constACAPHess = store.neoHess + store.acapHess;// + store.ContactHess;
+	constACAPHess -= store.neoHess;
+	SparseMatrix<double, Eigen::RowMajor> constMuscleHess = store.neoHess + store.muscleHess;
+	constMuscleHess -= store.neoHess;
 
 
+	MatrixXd constDenseACAPHess = MatrixXd::Zero(store.dFvec.size(),  9);
+	sparse_to_dense(store, constACAPHess, constDenseACAPHess);
+	MatrixXd constDenseMuscleHess = MatrixXd::Zero(store.dFvec.size(),  9);
+	sparse_to_dense(store, constMuscleHess, constDenseMuscleHess);
 
-	constHess = store.neoHess + store.muscleHess + store.acapHess;// + store.ContactHess;
-	constHess -= store.neoHess;
+	// DOFS
+	VectorXd new_dofs = store.dRdW0*store.dFvec;
+	cout<<"x norm: "<<new_dofs.norm()<<","<<store.dFvec.tail(store.dFvec.size() - 9*store.bone_tets.size()).norm()<<endl;
 
 	MatrixXd denseHess = MatrixXd::Zero(store.dFvec.size(),  9);
-	MatrixXd constDenseHess = MatrixXd::Zero(store.dFvec.size(),  9);
-	sparse_to_dense(store, constHess, constDenseHess);
 
-	VectorXd delta_dFvec = VectorXd::Zero(store.dFvec.size());
-	VectorXd test_drt = delta_dFvec;
-	VectorXd grad_dofs = VectorXd::Zero(store.dFvec.size());
+	VectorXd delta_dFvec = VectorXd::Zero(store.dFvec.size() - 6*store.bone_tets.size());
 	
-	VectorXd BInvXDy = VectorXd::Zero(store.dFvec.size());
+	VectorXd BInvXDy;
 	MatrixModesxModes X;
 		
 	igl::Timer timer, timer1;
@@ -263,14 +292,13 @@ int famu::newton_static_solve(Store& store){
 	int iter =1;
 	timer1.start();
 	for(iter=1; iter<MAX_ITERS; iter++){
-		grad_dofs.setZero();
 		double prevfx = Energy(store, store.dFvec);
 		
 		famu::acap::solve(store, store.dFvec);
 		famu::muscle::gradient(store, muscle_grad);
 		famu::stablenh::gradient(store, neo_grad);
 		famu::acap::fastGradient(store, acap_grad);
-		grad_dofs = muscle_grad + neo_grad + acap_grad;
+		VectorXd grad_dofs = store.dRdW0*muscle_grad + store.dRdW0*neo_grad + store.dRdW*acap_grad;
 
 		// cout<<"		muscle grad: "<<muscle_grad.norm()<<endl;
 		// cout<<"		neo grad: "<<neo_grad.norm()<<endl;
@@ -315,7 +343,7 @@ int famu::newton_static_solve(Store& store){
 			// test_drt =  -InvAg + InvAtemp1;
 
 			//Dense Woodbury code
-			denseHess = constDenseHess + store.denseNeoHess;
+			denseHess = constDenseACAPHess + constDenseMuscleHess + store.denseNeoHess;
 			timer.start();
 			fastWoodbury(store, grad_dofs, X, BInvXDy, denseHess, delta_dFvec);
 			timer.stop();
@@ -329,22 +357,22 @@ int famu::newton_static_solve(Store& store){
 			exit(0);
 		}
 		
-		//line search
-		// timer.start();
-		// double alpha = line_search(tot_ls_its, store, grad_dofs, delta_dFvec);
-		// timer.stop();
-		// linetimes += timer.getElapsedTimeInMicroSec();
 		double alpha = 0.1;
-
+		//line search
+		timer.start();
+		alpha = line_search(tot_ls_its, store, grad_dofs, delta_dFvec, new_dofs);
+		timer.stop();
+		linetimes += timer.getElapsedTimeInMicroSec();
 		if(fabs(alpha)<1e-9 ){
 			break;
 		}
 
-		store.dFvec += alpha*delta_dFvec;
-		polar_dec(store, store.dFvec);
-		double fx = Energy(store, store.dFvec);
-
+		new_dofs += alpha*delta_dFvec;
+		update_dofs(store, new_dofs, store.dFvec, false);
 		
+		double fx = Energy(store, store.dFvec);
+		cout<<"gradNorm: "<<grad_dofs.squaredNorm()<<endl;
+		cout<<"delta E: "<<fabs(fx-prevfx)<<endl;
 
 		if(grad_dofs.squaredNorm()/grad_dofs.size()<1e-4 || fabs(fx - prevfx)<1e-3){
 			break;

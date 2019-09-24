@@ -19,6 +19,7 @@ typedef Eigen::Triplet<double> Trip;
 typedef Eigen::Matrix<double, 9, 1> Vector9d;
 typedef Eigen::Matrix<double, 9, 9> Matrix9d;
 typedef Eigen::Matrix<double, 9, NUM_MODES> Matrix9xModes;
+typedef Eigen::Matrix<double, 3, NUM_MODES> Matrix3xModes;
 typedef Eigen::Matrix<double, NUM_MODES, NUM_MODES> MatrixModesxModes;
 
 namespace famu{
@@ -61,6 +62,7 @@ namespace famu{
 		Eigen::SparseMatrix<double, Eigen::RowMajor> JointConstraints, NullJ;
 		Eigen::SparseMatrix<double, Eigen::RowMajor> Y, Bx, Bf, dRdW, dRdW0;
 		Eigen::MatrixXd G;
+		std::vector<Eigen::Matrix<double,3, 9>> densedRdW;
 
 		Eigen::VectorXd dFvec, BfI0, boneDOFS;
 		Eigen::VectorXd x, dx, x0, lambda2, acap_solve_result, acap_solve_rhs;

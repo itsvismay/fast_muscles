@@ -147,6 +147,8 @@ void famu::acap::updatedRdW(Store& store){
 		dRdw.row(1) = Map<Vector9d>(dRdw2t.data());
 		dRdw.row(2) = Map<Vector9d>(dRdw3t.data());
 		
+		store.densedRdW[b] = dRdw;
+		
 		for(int ii=0; ii<3; ii++){
 			for(int jj=0; jj<9; jj++){
 				dRdW_trips.push_back(Trip(3*b+ii,9*b+jj, dRdw(ii, jj)));
