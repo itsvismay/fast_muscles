@@ -63,14 +63,14 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
 	VectorXd x = new_dofs;
 
 	VectorXd xp = x;
-	double step = 0.0001;
+	double step = 0.5;
     const double dec = 0.5;
-    const double inc = 2;
+    const double inc = 2.1;
     int pmax_linesearch = 100;
-    int plinesearch = 2;//1 for armijo, 2 for wolfe
+    int plinesearch = 1;//1 for armijo, 2 for wolfe
     double pftol = 1e-4;
     double pwolfe = 0.9;
-    double pmax_step = 0.25;
+    double pmax_step = 1;
     double pmin_step = 1e-20;
 
 
@@ -193,6 +193,7 @@ void famu::fastWoodbury(Store& store, const VectorXd& g, MatrixModesxModes X, Ve
 
 
 			Matrix3d A = dRdW*denseHess.block<9,9>(9*i, 0)*dRdW.transpose();
+			A += store.dEdF_ddRdWdW[b];
 
 			Matrix3d InvA = A.inverse();
 
@@ -242,6 +243,7 @@ void famu::fastWoodbury(Store& store, const VectorXd& g, MatrixModesxModes X, Ve
 			Matrix3xModes B = dRdW*store.WoodB.block<9, NUM_MODES>(9*i, 0);
 
 			Matrix3d A = dRdW*denseHess.block<9,9>(9*i, 0)*dRdW.transpose();
+			A += store.dEdF_ddRdWdW[b];
 			Matrix3d InvA = A.inverse();
 
 			Vector3d InvAtemp1 = InvA*B*InvXDAg;
@@ -367,10 +369,10 @@ int famu::newton_static_solve(Store& store){
 		
 		double alpha = 0.2;
 		//line search
-		timer.start();
-		alpha = line_search(tot_ls_its, store, grad_dofs, delta_dFvec, new_dofs);
-		timer.stop();
-		linetimes += timer.getElapsedTimeInMicroSec();
+		// timer.start();
+		// alpha = line_search(tot_ls_its, store, grad_dofs, delta_dFvec, new_dofs);
+		// timer.stop();
+		// linetimes += timer.getElapsedTimeInMicroSec();
 		if(fabs(alpha)<1e-9 ){
 			break;
 		}

@@ -171,10 +171,45 @@ void famu::acap::fastGradient(Store& store, VectorXd& grad){
 	grad *= aa;
 	// grad += store.ContactForce;
 
-	// {
-	// 	store.dEdF_ddRdWdW.setZero();
+	{
+		std::vector<Trip> trips;
+		Eigen::Matrix3d Jx = store.cross_prod_mat(1,0,0);
+		Eigen::Matrix3d Jy = store.cross_prod_mat(0,1,0);
+		Eigen::Matrix3d Jz = store.cross_prod_mat(0,0,1);
 		
-	// }
+		for(int b =0; b<store.bone_tets.size(); b++){
+
+			Matrix3d r0= Map<Matrix3d>(store.dFvec.segment<9>(9*b).data()).transpose();
+			Matrix3d r1 = r0*0.5*(Jx*Jx + Jx*Jx);
+			Matrix3d r2 = r0*0.5*(Jx*Jy + Jy*Jx);
+			Matrix3d r3 = r0*0.5*(Jx*Jz + Jz*Jx);
+			Matrix3d r4 = r2;
+			Matrix3d r5 = r0*0.5*(Jy*Jy + Jy*Jy);
+			Matrix3d r6 = r0*0.5*(Jy*Jz + Jz*Jy);
+			Matrix3d r7 = r3;
+			Matrix3d r8 = r6;
+			Matrix3d r9 = r0*0.5*(Jz*Jz + Jz*Jz);
+
+			Matrix3d dEdFi = Map<Matrix3d>(grad.segment<9>(9*b).data()).transpose();
+			Matrix3d EfRww_i = Matrix3d::Zero();
+
+			EfRww_i(0, 0) =  dEdFi.cwiseProduct(r1).sum();
+			EfRww_i(0, 1) =  dEdFi.cwiseProduct(r2).sum();
+			EfRww_i(0, 2) =  dEdFi.cwiseProduct(r3).sum();
+
+			EfRww_i(1, 0) =  dEdFi.cwiseProduct(r4).sum();
+			EfRww_i(1, 1) =  dEdFi.cwiseProduct(r5).sum();
+			EfRww_i(1, 2) =  dEdFi.cwiseProduct(r6).sum();
+
+			EfRww_i(2, 0) =  dEdFi.cwiseProduct(r7).sum();
+			EfRww_i(2, 1) =  dEdFi.cwiseProduct(r8).sum();
+			EfRww_i(2, 2) =  dEdFi.cwiseProduct(r9).sum();
+
+			store.dEdF_ddRdWdW[b] = EfRww_i;
+		}
+
+
+	}
 
 }
 
