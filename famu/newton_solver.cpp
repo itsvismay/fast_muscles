@@ -63,9 +63,9 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
 	VectorXd x = new_dofs;
 
 	VectorXd xp = x;
-	double step = 0.5;
+	double step = 1;
     const double dec = 0.5;
-    const double inc = 2.1;
+    const double inc = 2.0;
     int pmax_linesearch = 100;
     int plinesearch = 1;//1 for armijo, 2 for wolfe
     double pftol = 1e-4;
@@ -112,7 +112,23 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
         famu::acap::solve(store, store.dFvec);
        	fx = Energy(store, store.dFvec);
 
-        if(fx > fx_init + step * dg_test)
+       	bool rotated_over_180 = false;
+       	for(int b=0; b<store.bone_tets.size(); b++){
+			double wX = store.boneDOFS(3*b + 0);
+			double wY = store.boneDOFS(3*b + 1);
+			double wZ = store.boneDOFS(3*b + 2);
+			Matrix3d cross;
+	        cross<<0, -wZ, wY,
+	                wZ, 0, -wX,
+	                -wY, wX, 0;
+	        Matrix3d Rot = cross.exp();
+
+	        rotated_over_180 |= (0.4 < acos((Rot.trace() - 1) / 2.0));
+	        // cout<<acos((Rot.trace() - 1) / 2.0)<<endl;
+       	}
+       	// cout<<store.boneDOFS.transpose()<<endl;
+
+        if(fx > fx_init + step * dg_test || rotated_over_180)
         {
             width = dec;
         } else {
@@ -369,13 +385,13 @@ int famu::newton_static_solve(Store& store){
 		
 		double alpha = 0.2;
 		//line search
-		// timer.start();
-		// alpha = line_search(tot_ls_its, store, grad_dofs, delta_dFvec, new_dofs);
-		// timer.stop();
-		// linetimes += timer.getElapsedTimeInMicroSec();
-		if(fabs(alpha)<1e-9 ){
-			break;
-		}
+		timer.start();
+		alpha = line_search(tot_ls_its, store, grad_dofs, delta_dFvec, new_dofs);
+		timer.stop();
+		linetimes += timer.getElapsedTimeInMicroSec();
+		// if(fabs(alpha)<1e-9 ){
+		// 	break;
+		// }
 
 		new_dofs += alpha*delta_dFvec;
 		update_dofs(store, new_dofs, store.dFvec, false);
@@ -383,8 +399,8 @@ int famu::newton_static_solve(Store& store){
 		double fx = Energy(store, store.dFvec);
 		cout<<"gradNorm: "<<grad_dofs.squaredNorm()<<endl;
 		cout<<"delta E: "<<fabs(fx-prevfx)<<endl;
-		Matrix3d R = Map<Matrix3d>(store.dFvec.segment<9>(9).data()).transpose();
-		cout<<"rotations: "<<endl<<(R.transpose()*R)<<endl;
+		// Matrix3d R = Map<Matrix3d>(store.dFvec.segment<9>(9).data()).transpose();
+		// cout<<"rotations: "<<endl<<(R.transpose()*R)<<endl;
 
 		if(grad_dofs.squaredNorm()/grad_dofs.size()<1e-4 || fabs(fx - prevfx)<1e-3){
 			break;
