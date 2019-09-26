@@ -339,6 +339,8 @@ int main(int argc, char *argv[])
 
 	cout<<"--- ACAP Hessians"<<endl;
 		// famu::acap::setJacobian(store);
+		store.d2RdW2.resize(store.dFvec.size() - 6*store.bone_tets.size(), store.dFvec.size() - 6*store.bone_tets.size());
+		store.d2RdW2.setZero();
 		store.dEdF_ddRdWdW.resize(store.bone_tets.size());
 		store.densedRdW.resize(store.bone_tets.size());
 		store.dRdW.resize(store.dFvec.size() - 6*store.bone_tets.size(), store.dFvec.size());
@@ -369,7 +371,7 @@ int main(int argc, char *argv[])
 		famu::acap::fastHessian(store, store.acapHess, store.denseAcapHess);
 		
 
-		SparseMatrix<double> hessFvec = store.neoHess + store.acapHess + store.muscleHess;
+		SparseMatrix<double> hessFvec = store.dRdW*(store.neoHess + store.acapHess + store.muscleHess)*store.dRdW.transpose();
 		store.NM_SPLU.analyzePattern(hessFvec);
 		store.NM_SPLU.factorize(hessFvec);
 

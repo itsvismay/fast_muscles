@@ -172,7 +172,8 @@ void famu::acap::fastGradient(Store& store, VectorXd& grad){
 	// grad += store.ContactForce;
 
 	{
-		std::vector<Trip> trips;
+		store.d2RdW2.setZero();
+		std::vector<Trip> rr_ww_trips;
 		Eigen::Matrix3d Jx = store.cross_prod_mat(1,0,0);
 		Eigen::Matrix3d Jy = store.cross_prod_mat(0,1,0);
 		Eigen::Matrix3d Jz = store.cross_prod_mat(0,0,1);
@@ -206,9 +207,15 @@ void famu::acap::fastGradient(Store& store, VectorXd& grad){
 			EfRww_i(2, 2) =  dEdFi.cwiseProduct(r9).sum();
 
 			store.dEdF_ddRdWdW[b] = EfRww_i;
+			for(int i =0; i<EfRww_i.rows(); i++){
+				for(int j=0; j<EfRww_i.cols(); j++){
+					rr_ww_trips.push_back(Trip(3*b + i, 3*b + j, EfRww_i(i,j)));
+				}
+			}
+
 		}
 
-
+		store.d2RdW2.setFromTriplets(rr_ww_trips.begin(), rr_ww_trips.end());
 	}
 
 }

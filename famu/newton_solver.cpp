@@ -9,6 +9,7 @@
 #include <Eigen/Cholesky>
 #include <igl/Timer.h>
 #include <unsupported/Eigen/MatrixFunctions>
+#include <igl/writeOBJ.h>
 
 
 using Store = famu::Store;
@@ -64,8 +65,8 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
 
 	VectorXd xp = x;
 	double step = 1;
-    const double dec = 0.5;
-    const double inc = 2.0;
+    const double dec = 0.75;
+    const double inc = 1.5;
     int pmax_linesearch = 100;
     int plinesearch = 1;//1 for armijo, 2 for wolfe
     double pftol = 1e-4;
@@ -105,12 +106,18 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
 
         // update_dofs(store, x, fakedFvec, true);
         {
-	    	store.boneDOFS = x.head(store.boneDOFS.size());
+	    	store.boneDOFS = x.head(store.boneDOFS.size()) + 0.2*drt.head(store.boneDOFS.size());
 	    	store.dFvec.tail(x.size() - store.boneDOFS.size()) = x.tail(x.size() - store.boneDOFS.size());
 	    }
         // Evaluate this candidate
         famu::acap::solve(store, store.dFvec);
        	fx = Energy(store, store.dFvec);
+
+		std::string outputfile = store.jinput["output"];
+       	VectorXd y = store.Y*store.x;
+		Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
+		igl::writeOBJ(outputfile+"/ls_iter"+to_string(tot_ls_its)+".obj", (newV.transpose()+store.V), store.F);
+		
 
        	bool rotated_over_180 = false;
        	for(int b=0; b<store.bone_tets.size(); b++){
@@ -128,7 +135,7 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
        	}
        	// cout<<store.boneDOFS.transpose()<<endl;
 
-        if(fx > fx_init + step * dg_test || rotated_over_180)
+        if(fx > fx_init + step * dg_test)
         {
             width = dec;
         } else {
@@ -166,11 +173,10 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
             // throw std::runtime_error("the line search step became larger than the maximum value allowed");
 
         step *= width;
+	    tot_ls_its += 1;
     }
     // cout<<"			ls iters: "<<iter<<endl;
     cout<<"			step: "<<step<<endl;
-    tot_ls_its += iter;
-
     return step;
 }
 
@@ -337,11 +343,16 @@ int famu::newton_static_solve(Store& store){
 		}
 
 		
-		famu::stablenh::hessian(store, store.neoHess, store.denseNeoHess, store.jinput["woodbury"]);
+		famu::stablenh::hessian(store, store.neoHess, store.denseNeoHess, true);
 
 		// if(!store.jinput["woodbury"]){
 			
-		// SparseMatrix<double, Eigen::RowMajor> hessFvec = store.neoHess + constHess;
+		// SparseMatrix<double, Eigen::RowMajor> hessFvec = store.dRdW0*store.neoHess*store.dRdW0.transpose() 
+		// 												+ store.dRdW0*constMuscleHess*store.dRdW0.transpose()
+		// 												+ store.dRdW*constACAPHess*store.dRdW.transpose();
+		// hessFvec += store.d2RdW2;
+		// 			// cout<<hessFvec.rows()<<", "<<hessFvec.cols()<<endl;
+		// 			// cout<<store.d2RdW2.rows()<<", "<<store.d2RdW2.cols()<<endl;
 		// store.NM_SPLU.factorize(hessFvec);
 		// if(store.NM_SPLU.info()!=Success){
 		// 	cout<<"SOLVER FAILED"<<endl;
