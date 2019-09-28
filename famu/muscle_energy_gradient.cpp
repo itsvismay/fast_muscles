@@ -1,4 +1,5 @@
 #include "muscle_energy_gradient.h"
+#include <iostream>
 #include "store.h"
 using Store = famu::Store;
 using namespace Eigen;
@@ -97,12 +98,13 @@ void famu::muscle::gradient(Store& store, VectorXd& grad){
 			double s9 = store.dFvec[9*f_index + 8];
 
 			Vector3d y = store.Uvec.row(t).transpose();
+			// std::cout<<"f: "<<f_index<<": "<<y.transpose()<<std::endl;
 			double u1 = y[0];
 			double u2 = y[1];
 			double u3 = y[2];
 			double a = store.muscle_mag[t];
 
-			VectorXd tet_grad(9);
+			Vector9d tet_grad(9);
 
 			tet_grad[0] = 0.5*a*(s2*u1*u2 + s3*u1*u3 + u1*(2*s1*u1 + s2*u2 + s3*u3));
 			tet_grad[1] = 0.5*a*(s1*u1*u2 + s3*u2*u3 + u2*(s1*u1 + 2*s2*u2 + s3*u3));

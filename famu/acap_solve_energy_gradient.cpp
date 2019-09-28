@@ -245,7 +245,7 @@ VectorXd famu::acap::fd_gradient(Store& store){
 	// 	dFvec[i] += 0.5*eps;
 	// 	fake[i] = (Eleft - Eright)/eps;
 	// }
-	VectorXd fake = VectorXd::Zero(20);
+	VectorXd fake = VectorXd::Zero(store.dFvec.size());
 	double eps = 1e-6;
 	for(int i=0; i<store.boneDOFS.size(); i++){
 		store.boneDOFS[i] += 0.5*eps;
@@ -258,7 +258,7 @@ VectorXd famu::acap::fd_gradient(Store& store){
 		fake[i] = (Eleft - Eright)/eps;
 	}
 	int j= 0;
-	for(int i=9*store.bone_tets.size(); i<9*store.bone_tets.size() + 20 - store.boneDOFS.size(); i++){
+	for(int i=9*store.bone_tets.size(); i<9*store.bone_tets.size() + fake.size() - store.boneDOFS.size(); i++){
 
 		store.dFvec[i] += 0.5*eps;
 		double Eleft = energy(store, store.dFvec, store.boneDOFS);

@@ -405,7 +405,21 @@ int main(int argc, char *argv[])
 		// famu::acap::fastGradient(store, dEdF);
 		// VectorXd fdgrad = famu::acap::fd_gradient(store);
 		// VectorXd grad = store.dRdW*dEdF;
-		// cout<<(fdgrad.transpose() - grad.segment<20>(0).transpose()).squaredNorm()<<endl;
+		// cout<<"ACAP grad:"<<(fdgrad.transpose() - grad.segment<20>(0).transpose()).squaredNorm()<<endl;
+
+	 //    VectorXd dEdF1 = VectorXd::Zero(store.dFvec.size());
+		// famu::stablenh::gradient(store, dEdF1);
+		// VectorXd grad1 = store.dRdW0*dEdF1;
+		// VectorXd fdgrad = famu::stablenh::fd_gradient(store);
+		// cout<<fdgrad.norm()<<endl;
+		// cout<<dEdF1.norm()<<endl;
+		// cout<<"Neo FD: "<<(fdgrad - dEdF1).squaredNorm()<<endl;
+
+		// famu::muscle::gradient(store, dEdF);
+		// grad = store.dRdW0*dEdF;
+		// cout<<grad.segment<20>(0).transpose()<<endl;
+		// VectorXd fdgrad1 = famu::muscle::fd_gradient(store);
+		// cout<<(dEdF.segment<40>(0) - fdgrad1.segment<40>(0)).norm()<<endl;
 		// cout<<"ACAP Hess:"<<endl;
 		// MatrixXd testH = MatrixXd(store.acapHess);
 		// MatrixXd fdH = famu::acap::fd_hessian(store);
@@ -761,6 +775,10 @@ void main()
         viewer.data_list[fancy_data_index].meshgl.shader_mesh);
     }
   }
+  // MatrixXd N_faces;
+  // // igl::per_vertex_normals(store.V,store.F,N_vertices);
+  // igl::per_face_normals(store.V,store.F,N_faces);
+  // viewer.data_list[fancy_data_index].set_normals(N_faces);
 
 
 

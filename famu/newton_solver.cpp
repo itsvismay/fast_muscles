@@ -20,7 +20,7 @@ double famu::Energy(Store& store, VectorXd& dFvec){
 	double EM = famu::muscle::energy(store, dFvec);
 	double ENH = famu::stablenh::energy(store, dFvec);
 	double EACAP = famu::acap::energy(store, dFvec, store.boneDOFS);
-
+	cout<<"EM: "<<EM<<", EACAP: "<<EACAP<<",  ENH: "<<ENH<<endl;
 	return EM + ENH + EACAP;
 }
 
@@ -291,9 +291,9 @@ void famu::fastWoodbury(Store& store, const VectorXd& g, MatrixModesxModes X, Ve
 int famu::newton_static_solve(Store& store){
 	int MAX_ITERS = store.jinput["NM_MAX_ITERS"];
 	VectorXd muscle_grad, neo_grad, acap_grad;
-	muscle_grad.resize(store.dFvec.size());
-	neo_grad.resize(store.dFvec.size());
-	acap_grad.resize(store.dFvec.size());
+	muscle_grad.resize(store.dFvec.size()); muscle_grad.setZero();
+	neo_grad.resize(store.dFvec.size()); neo_grad.setZero();
+	acap_grad.resize(store.dFvec.size()); acap_grad.setZero();
 	
 	SparseMatrix<double, Eigen::RowMajor> constACAPHess = store.neoHess + store.acapHess;// + store.ContactHess;
 	constACAPHess -= store.neoHess;
@@ -326,24 +326,31 @@ int famu::newton_static_solve(Store& store){
 	for(iter=1; iter<MAX_ITERS; iter++){
 		double prevfx = Energy(store, store.dFvec);
 		
-		famu::acap::solve(store, store.dFvec);
+		// famu::acap::solve(store, store.dFvec);
+		// famu::acap::updatedRdW(store);
+		// VectorXd fdgradneo = famu::stablenh::fd_gradient(store);
 		famu::muscle::gradient(store, muscle_grad);
 		famu::stablenh::gradient(store, neo_grad);
-		famu::acap::fastGradient(store, acap_grad);
-		VectorXd grad_dofs = store.dRdW0*muscle_grad + store.dRdW0*neo_grad + store.dRdW*acap_grad;
-
-		// cout<<"		muscle grad: "<<muscle_grad.norm()<<endl;
-		// cout<<"		neo grad: "<<neo_grad.norm()<<endl;
-		// cout<<"		acap grad: "<<acap_grad.norm()<<endl;
-		// cout<<"		total grad: "<<grad_dofs.norm()<<endl;
+		// famu::acap::fastGradient(store, acap_grad);
+		// VectorXd grad_dofs = store.dRdW0*muscle_grad + store.dRdW0*neo_grad + store.dRdW*acap_grad;
+		VectorXd grad_dofs = muscle_grad + neo_grad + acap_grad;
+		cout<<"		muscle grad: "<<muscle_grad.norm()<<endl;
+		cout<<"		neo grad: "<<neo_grad.norm()<<endl;
+		cout<<"		acap grad: "<<acap_grad.norm()<<endl;
+		cout<<"		total grad: "<<grad_dofs.norm()<<endl;
 		
+		// VectorXd fdgradacap = famu::acap::fd_gradient(store);
+		// VectorXd fdgradmuscl = famu::muscle::fd_gradient(store);
+		// VectorXd fdgrad_dofs = store.dRdW0*fdgradmuscl + store.dRdW0*fdgradneo + store.dRdW*fdgradacap;
+		// cout<<"FD::GRAD: "<<(neo_grad - fdgradneo).norm()<<endl;
+
 		if(grad_dofs != grad_dofs){
 			cout<<"Error: nans in grad"<<endl;
 			exit(0);
 		}
 
 		
-		famu::stablenh::hessian(store, store.neoHess, store.denseNeoHess, true);
+		// famu::stablenh::hessian(store, store.neoHess, store.denseNeoHess, true);
 
 		// if(!store.jinput["woodbury"]){
 			
@@ -380,11 +387,11 @@ int famu::newton_static_solve(Store& store){
 			// test_drt =  -InvAg + InvAtemp1;
 
 			//Dense Woodbury code
-			denseHess = constDenseACAPHess + constDenseMuscleHess + store.denseNeoHess;
-			timer.start();
-			fastWoodbury(store, grad_dofs, X, BInvXDy, denseHess, delta_dFvec);
-			timer.stop();
-			woodtimes += timer.getElapsedTimeInMicroSec();
+			// denseHess = constDenseACAPHess + constDenseMuscleHess + store.denseNeoHess;
+			// timer.start();
+			// fastWoodbury(store, grad_dofs, X, BInvXDy, denseHess, delta_dFvec);
+			// timer.stop();
+			// woodtimes += timer.getElapsedTimeInMicroSec();
 			// cout<<"		woodbury diff: "<<(delta_dFvec - test_drt).norm()<<endl;
 
 		// }
@@ -394,18 +401,25 @@ int famu::newton_static_solve(Store& store){
 			exit(0);
 		}
 		
-		double alpha = 0.2;
+		double alpha = 0.00001;
 		//line search
-		timer.start();
-		alpha = line_search(tot_ls_its, store, grad_dofs, delta_dFvec, new_dofs);
-		timer.stop();
-		linetimes += timer.getElapsedTimeInMicroSec();
+		// timer.start();
+		// alpha = line_search(tot_ls_its, store, grad_dofs, delta_dFvec, new_dofs);
+		// timer.stop();
+		// linetimes += timer.getElapsedTimeInMicroSec();
 		// if(fabs(alpha)<1e-9 ){
 		// 	break;
 		// }
 
-		new_dofs += alpha*delta_dFvec;
-		update_dofs(store, new_dofs, store.dFvec, false);
+		delta_dFvec = grad_dofs;
+		{
+			// new_dofs.head(store.boneDOFS.size()) = new_dofs.head(store.boneDOFS.size()) + 0.2*delta_dFvec.head(store.boneDOFS.size());
+			// new_dofs.tail(new_dofs.size() - store.boneDOFS.size()) += alpha*delta_dFvec.tail(new_dofs.size() - store.boneDOFS.size());
+			// new_dofs += alpha*delta_dFvec;
+			store.dFvec += alpha*delta_dFvec;
+		}
+		
+		// update_dofs(store, new_dofs, store.dFvec, false);
 		
 		double fx = Energy(store, store.dFvec);
 		cout<<"gradNorm: "<<grad_dofs.squaredNorm()<<endl;
@@ -417,6 +431,11 @@ int famu::newton_static_solve(Store& store){
 			break;
 		}
 	}
+	for(int b =0; b<store.bone_tets.size(); b++){
+		Matrix3d R = Map<Matrix3d>(store.dFvec.segment<9>(9*b).data()).transpose();
+		cout<<"rotations: "<<(R.transpose()*R - Matrix3d::Identity()).norm()<<endl;
+	}
+
 	timer1.stop();
 	double nmtime = timer1.getElapsedTimeInMicroSec();
 
