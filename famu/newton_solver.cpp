@@ -275,54 +275,54 @@ int famu::newton_static_solve(Store& store){
 		// cout<<"		neo grad: "<<neo_grad.norm()<<endl;
 		// cout<<"		acap grad: "<<acap_grad.norm()<<endl;
 		// cout<<"		total grad: "<<graddFvec.norm()<<endl;
-		
+		delta_dFvec = -graddFvec;
 		if(graddFvec != graddFvec){
 			cout<<"Error: nans in grad"<<endl;
 			exit(0);
 		}
 
 		
-		famu::stablenh::hessian(store, store.neoHess, store.denseNeoHess, store.jinput["woodbury"]);
+		// famu::stablenh::hessian(store, store.neoHess, store.denseNeoHess, store.jinput["woodbury"]);
 
-		if(!store.jinput["woodbury"]){
+		// if(!store.jinput["woodbury"]){
 			
-			hessFvec.setZero();
-			hessFvec = store.neoHess + constHess;
-			store.NM_SPLU.factorize(hessFvec);
-			if(store.NM_SPLU.info()!=Success){
-				cout<<"SOLVER FAILED"<<endl;
-				cout<<store.NM_SPLU.info()<<endl;
-			}
-			delta_dFvec = -1*store.NM_SPLU.solve(graddFvec);
+		// 	hessFvec.setZero();
+		// 	hessFvec = store.neoHess + constHess;
+		// 	store.NM_SPLU.factorize(hessFvec);
+		// 	if(store.NM_SPLU.info()!=Success){
+		// 		cout<<"SOLVER FAILED"<<endl;
+		// 		cout<<store.NM_SPLU.info()<<endl;
+		// 	}
+		// 	delta_dFvec = -1*store.NM_SPLU.solve(graddFvec);
 		
-		}else{
+		// }else{
 
-			// //Sparse Woodbury code
-			// hessFvec.setZero();
-			// hessFvec = store.neoHess + constHess;
-			// store.NM_SPLU.factorize(hessFvec);
-			// if(store.NM_SPLU.info()!=Success){
-			// 	cout<<"SOLVER FAILED"<<endl;
-			// 	cout<<store.NM_SPLU.info()<<endl;
-			// }
-			// VectorXd InvAg = store.NM_SPLU.solve(graddFvec);
-			// MatrixXd CDAB = store.InvC + store.WoodD*store.NM_SPLU.solve(store.WoodB);
-			// FullPivLU<MatrixXd>  WoodburyDenseSolve;
-			// WoodburyDenseSolve.compute(CDAB);
-			// VectorXd temp1 = store.WoodB*WoodburyDenseSolve.solve(store.WoodD*InvAg);;
+		// 	// //Sparse Woodbury code
+		// 	// hessFvec.setZero();
+		// 	// hessFvec = store.neoHess + constHess;
+		// 	// store.NM_SPLU.factorize(hessFvec);
+		// 	// if(store.NM_SPLU.info()!=Success){
+		// 	// 	cout<<"SOLVER FAILED"<<endl;
+		// 	// 	cout<<store.NM_SPLU.info()<<endl;
+		// 	// }
+		// 	// VectorXd InvAg = store.NM_SPLU.solve(graddFvec);
+		// 	// MatrixXd CDAB = store.InvC + store.WoodD*store.NM_SPLU.solve(store.WoodB);
+		// 	// FullPivLU<MatrixXd>  WoodburyDenseSolve;
+		// 	// WoodburyDenseSolve.compute(CDAB);
+		// 	// VectorXd temp1 = store.WoodB*WoodburyDenseSolve.solve(store.WoodD*InvAg);;
 
-			// VectorXd InvAtemp1 = store.NM_SPLU.solve(temp1);
-			// test_drt =  -InvAg + InvAtemp1;
+		// 	// VectorXd InvAtemp1 = store.NM_SPLU.solve(temp1);
+		// 	// test_drt =  -InvAg + InvAtemp1;
 
-			//Dense Woodbury code
-			denseHess = constDenseHess + store.denseNeoHess;
-			timer.start();
-			fastWoodbury(store, graddFvec, X, BInvXDy, denseHess, delta_dFvec);
-			timer.stop();
-			woodtimes += timer.getElapsedTimeInMicroSec();
-			// cout<<"		woodbury diff: "<<(delta_dFvec - test_drt).norm()<<endl;
+		// 	//Dense Woodbury code
+		// 	denseHess = constDenseHess + store.denseNeoHess;
+		// 	timer.start();
+		// 	fastWoodbury(store, graddFvec, X, BInvXDy, denseHess, delta_dFvec);
+		// 	timer.stop();
+		// 	woodtimes += timer.getElapsedTimeInMicroSec();
+		// 	// cout<<"		woodbury diff: "<<(delta_dFvec - test_drt).norm()<<endl;
 
-		}
+		// }
 
 		if(delta_dFvec != delta_dFvec){
 			cout<<"Error: nans"<<endl;
