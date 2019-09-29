@@ -329,11 +329,11 @@ int famu::newton_static_solve(Store& store){
 		}
 		
 		//line search
-		// timer.start();
-		// double alpha = line_search(tot_ls_its, store, grad_dofs, delta_dFvec);
-		// timer.stop();
-		// linetimes += timer.getElapsedTimeInMicroSec();
 		double alpha = 0.1;
+		timer.start();
+		alpha = line_search(tot_ls_its, store, grad_dofs, delta_dFvec);
+		timer.stop();
+		linetimes += timer.getElapsedTimeInMicroSec();
 
 		if(fabs(alpha)<1e-9 ){
 			break;
