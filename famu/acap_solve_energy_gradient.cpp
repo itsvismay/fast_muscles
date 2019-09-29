@@ -6,6 +6,8 @@ using Store = famu::Store;
 #include <igl/writeDMAT.h>
 #include <igl/readDMAT.h>
 #include<Eigen/LU>
+#include <unsupported/Eigen/MatrixFunctions>
+
 
 using namespace std;
 using Store = famu::Store;
@@ -21,21 +23,78 @@ std::vector<Eigen::Triplet<double>> to_Triplets(Eigen::SparseMatrix<double, Eige
 	return v;
 }
 
+double famu::acap::energy(Store& store, VectorXd& dFvec, VectorXd& boneDOFS){
+	VectorXd DSx0 = store.D*store.S*store.x0;
+	VectorXd DSx = store.D*store.S*(store.Y*store.x + store.x0);
+	VectorXd F = dFvec;
+	double E = 0;
+	//Energy for muscles
+	for(int m=0; m<store.muscle_tets.size(); m++){
+		for(int i=0; i<store.muscle_tets[m].size(); i++){
+			int t = store.muscle_tets[m][i];
+			int f_index = store.bone_or_muscle[t];
 
-double famu::acap::energy(Store& store){
-	SparseMatrix<double, RowMajor> DS = store.D*store.S;
-	double E1 =  0.5*(store.D*store.S*(store.x+store.x0) - store.dF*store.DSx0).squaredNorm();
+			Matrix3d Fi = Map<Matrix3d>(dFvec.segment<9>(9*f_index).data()).transpose();
 
-	double E2 = 0.5*store.x.transpose()*store.StDtDS*store.x;
-	double E3 = store.x0.transpose()*store.StDtDS*store.x;
-	double E4 = 0.5*store.x0.transpose()*store.StDtDS*store.x0;
-	double E5 = -store.x.transpose()*DS.transpose()*store.dF*DS*store.x0;
-	double E6 = -store.x0.transpose()*DS.transpose()*store.dF*DS*store.x0;
-	double E7 = 0.5*(store.dF*store.DSx0).transpose()*(store.dF*store.DSx0);
-	double E8 = E2+E3+E4+E5+E6+E7;
-	assert(fabs(E1 - E8)< 1e-6);
-	return E1;
+			E += 0.5*(DSx.segment<3>(12*t + 0) - Fi*DSx0.segment<3>(12*t + 0)).squaredNorm();
+			E += 0.5*(DSx.segment<3>(12*t + 3) - Fi*DSx0.segment<3>(12*t + 3)).squaredNorm();
+			E += 0.5*(DSx.segment<3>(12*t + 6) - Fi*DSx0.segment<3>(12*t + 6)).squaredNorm();
+			E += 0.5*(DSx.segment<3>(12*t + 9) - Fi*DSx0.segment<3>(12*t + 9)).squaredNorm();
+		
+		}
+	}
+
+	//Energy for bones (single rotation cluster)
+	for(int m=0; m<store.bone_tets.size(); m++){
+		int f_index = m;
+		Matrix3d R0 = Map<Matrix3d>(dFvec.segment<9>(9*f_index).data()).transpose();
+		double wX = 0;//boneDOFS(3*m + 0);
+		double wY = 0;//boneDOFS(3*m + 1);
+		double wZ = 0;//boneDOFS(3*m + 2);
+		Matrix3d cross;
+        cross<<0, -wZ, wY,
+                wZ, 0, -wX,
+                -wY, wX, 0;
+        Matrix3d Rot = cross.exp();
+		Matrix3d R = R0*Rot;
+		Matrix3d Rt = R.transpose();
+		// F.segment<9>(9*m) = Map<Vector9d>(Rt.data());
+
+		for(int i=0; i<store.bone_tets[m].size(); i++){
+			int t = store.bone_tets[m][i];
+
+			E += 0.5*(DSx.segment<3>(12*t + 0) - R0*DSx0.segment<3>(12*t + 0)).squaredNorm();
+			E += 0.5*(DSx.segment<3>(12*t + 3) - R0*DSx0.segment<3>(12*t + 3)).squaredNorm();
+			E += 0.5*(DSx.segment<3>(12*t + 6) - R0*DSx0.segment<3>(12*t + 6)).squaredNorm();
+			E += 0.5*(DSx.segment<3>(12*t + 9) - R0*DSx0.segment<3>(12*t + 9)).squaredNorm();
+
+		}
+
+	}
+
+	double E7 = store.lambda2.transpose()*store.Bx*store.x;
+ 	E7 -= store.lambda2.transpose()*store.Bf*F;
+ 	E7 += store.lambda2.transpose()*store.BfI0;
+
+ 	double E8 = 0;//store.lambda1.transpose()*store.JointConstraints*store.x;
+ 	
+	return E+E7+E8;
 }
+
+// double famu::acap::energy(Store& store){
+// 	SparseMatrix<double, RowMajor> DS = store.D*store.S;
+// 	double E1 =  0.5*(store.D*store.S*(store.x+store.x0) - store.dF*store.DSx0).squaredNorm();
+
+// 	double E2 = 0.5*store.x.transpose()*store.StDtDS*store.x;
+// 	double E3 = store.x0.transpose()*store.StDtDS*store.x;
+// 	double E4 = 0.5*store.x0.transpose()*store.StDtDS*store.x0;
+// 	double E5 = -store.x.transpose()*DS.transpose()*store.dF*DS*store.x0;
+// 	double E6 = -store.x0.transpose()*DS.transpose()*store.dF*DS*store.x0;
+// 	double E7 = 0.5*(store.dF*store.DSx0).transpose()*(store.dF*store.DSx0);
+// 	double E8 = E2+E3+E4+E5+E6+E7;
+// 	assert(fabs(E1 - E8)< 1e-6);
+// 	return E1;
+// }
 
 double famu::acap::fastEnergy(Store& store, VectorXd& dFvec){
 	double E1 = 0.5*store.x0tStDtDSx0;
@@ -50,7 +109,9 @@ double famu::acap::fastEnergy(Store& store, VectorXd& dFvec){
 	store.acaptmp_sizedFvec2 = store.x0tStDt_dF_dF_DSx0*dFvec;
 	double E6 = 0.5*dFvec.transpose()*store.acaptmp_sizedFvec2;
  	
- 	double E7 = 0;
+ 	double E7 = store.lambda2.transpose()*store.Bx*store.x;
+ 	E7 -= store.lambda2.transpose()*store.Bf*dFvec;
+ 	E7 += store.lambda2.transpose()*store.BfI0;
 
  	double k = store.jinput["springk"];
  	double E8 = 0;//0.5*k*temp1.dot(temp1);
@@ -75,29 +136,24 @@ void famu::acap::fastHessian(Store& store, SparseMatrix<double, RowMajor>& hess,
 	hess.setZero();
 	hess = store.jinput["alpha_arap"]*store.x0tStDt_dF_dF_DSx0; //PtZtZP
 
-
-	if(store.jinput["woodbury"]){
-		//if woodbury, store PtZtZP as dense block diag hessian
+	//else compute dense jacobian based hessian
+	// SparseMatrix<double, RowMajor> temp = store.YtStDt_dF_DSx0.transpose()*store.JacdxdF;
+	// hess -= temp;
 	
-	}else{
-		//else compute dense jacobian based hessian
-		SparseMatrix<double, RowMajor> temp = store.YtStDt_dF_DSx0.transpose()*store.JacdxdF;
-		hess -= temp;
-	}
 
 }
 
 VectorXd famu::acap::fd_gradient(Store& store){
-	VectorXd fake = VectorXd::Zero(store.dFvec.size());
+	VectorXd fake = VectorXd::Zero(20);
 	VectorXd dFvec = store.dFvec;
 	double eps = 0.00001;
-	for(int i=0; i<dFvec.size(); i++){
+	for(int i=0; i<fake.size(); i++){
 		dFvec[i] += 0.5*eps;
-		double Eleft = fastEnergy(store, dFvec);
+		double Eleft = fastEnergy(store, dFvec);//energy(store, dFvec, store.boneDOFS);
 		dFvec[i] -= 0.5*eps;
 
 		dFvec[i] -= 0.5*eps;
-		double Eright = fastEnergy(store, dFvec);
+		double Eright = fastEnergy(store, dFvec);//energy(store, dFvec, store.boneDOFS);
 		dFvec[i] += 0.5*eps;
 		fake[i] = (Eleft - Eright)/eps;
 	}
@@ -105,12 +161,12 @@ VectorXd famu::acap::fd_gradient(Store& store){
 }
 
 MatrixXd famu::acap::fd_hessian(Store& store){
-	MatrixXd fake = MatrixXd::Zero(store.dFvec.size(), store.dFvec.size());
+	MatrixXd fake = MatrixXd::Zero(20,20);
 	VectorXd dFvec = store.dFvec;
 	double eps = 1e-3;
 	double E0 = fastEnergy(store, dFvec);
-	for(int i=0; i<11; i++){
-		for(int j=0; j<11; j++){
+	for(int i=0; i<20; i++){
+		for(int j=0; j<20; j++){
 			dFvec[i] += eps;
 			dFvec[j] += eps;
 			double Eij = fastEnergy(store, dFvec);
@@ -129,6 +185,20 @@ MatrixXd famu::acap::fd_hessian(Store& store){
 		}
 	}
 	return fake;
+}
+
+MatrixXd famu::acap::fd_dxdF(Store& store){
+	MatrixXd fake = MatrixXd::Zero(20,20);
+	double eps = 1000;
+	VectorXd x0 = store.x;
+	for(int i=0; i<fake.rows(); i++){
+		store.dFvec[i] += eps;
+		solve(store, store.dFvec);
+		store.dFvec[i] -= eps;
+		fake.row(i) = (store.x.segment<20>(0) - x0.segment<20>(0))/eps;
+	}
+
+	return fake.transpose();
 }
 
 void famu::acap::solve(Store& store, VectorXd& dFvec){
@@ -198,7 +268,8 @@ void famu::acap::setJacobian(Store& store){
 
 	//Sparse jacobian
 	MatrixXd result;
-	igl::readDMAT("jacKKT.dmat", result);
+	std::string file = store.jinput["output"];
+	igl::readDMAT(file+"/jacKKT.dmat", result);
 
 	if(result.rows()==0){
 		//DENSE REDUCED JAC
@@ -214,7 +285,7 @@ void famu::acap::setJacobian(Store& store){
 			exit(0);
 		}
 		
-		igl::writeDMAT("jacKKT.dmat", result);
+		igl::writeDMAT(file+"/jacKKT.dmat", result);
 
 	}
 	SparseMatrix<double, RowMajor> spRes = (result).sparseView();

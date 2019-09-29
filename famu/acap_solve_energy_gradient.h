@@ -10,13 +10,14 @@
 using namespace famu;
 using namespace std;
 using Store = famu::Store;
+using namespace Eigen;
 
 namespace famu
 {
 	namespace acap
 	{
 
-		double energy(Store& store);
+		double energy(Store& store, VectorXd& dFvec, VectorXd& boneDOFS);
 
 		double fastEnergy(Store& store, Eigen::VectorXd& dFvec);
 
@@ -27,6 +28,8 @@ namespace famu
 		Eigen::VectorXd fd_gradient(Store& store);
 
 		Eigen::MatrixXd fd_hessian(Store& store);
+
+		MatrixXd fd_dxdF(Store& store);
 
 		void adjointMethodExternalForces(Store& store);
 

@@ -62,7 +62,7 @@ namespace famu{
 		Eigen::SparseMatrix<double, Eigen::RowMajor> Y, Bx, Bf;
 		Eigen::MatrixXd G;
 
-		Eigen::VectorXd dFvec, BfI0;
+		Eigen::VectorXd dFvec, BfI0, boneDOFS;
 		Eigen::VectorXd x, dx, x0, lambda2, acap_solve_result, acap_solve_rhs;
 
 		
@@ -114,6 +114,13 @@ namespace famu{
 		Eigen::VectorXd YtMg, ContactForce;
 		Eigen::SparseMatrix<double, Eigen::RowMajor> ContactP, ContactP1, ContactP2, ContactHess;
 
+		Eigen::Matrix3d cross_prod_mat(double wX, double wY, double wZ){
+	        Eigen::Matrix3d cross;
+	        cross<<0, -wZ, wY,
+	        		wZ, 0, -wX,
+	        		-wY, wX, 0;
+	        return cross;
+	    }
 
 	};
 }
