@@ -30,12 +30,7 @@ double famu::stablenh::energy(const Store& store, Eigen::VectorXd& dFvec){
 				double alpha = (1 + (C1/D1) - (C1/(D1*4)));
 				double W = 0.5*C1*(I1 -3) + 0.5*D1*(J-alpha)*(J-alpha) - 0.5*C1*log(I1 + 1);
 				sNHpriv += W*store.rest_tet_volume[t];
-				if ((F-Matrix3d::Identity()).norm()>1){
-					std::cout<<"M:"<<(F-Matrix3d::Identity()).norm()<<std::endl;
-					std::cout<<t<<", "<<youngsModulus<<", "<<poissonsRatio<<", "<<f_index<<", "<<store.rest_tet_volume[t]<<std::endl<<std::endl;
-					std::cout<<F<<std::endl;
-				}
-
+	
 			}
 
 			#pragma omp critical
@@ -57,9 +52,6 @@ double famu::stablenh::energy(const Store& store, Eigen::VectorXd& dFvec){
 		double J = F.determinant();
 		double alpha = (1 + (C1/D1) - (C1/(D1*4)));
 		double W = 0.5*C1*(I1 -3) + 0.5*D1*(J-alpha)*(J-alpha) - 0.5*C1*log(I1 + 1);
-		if ((F-Matrix3d::Identity()).norm()>1e-6)
-			std::cout<<"B:"<<(F-Matrix3d::Identity()).norm()<<",";
-
 		stableNHEnergy += store.bone_vols[m]*W;
 
 	}
@@ -110,55 +102,55 @@ void famu::stablenh::gradient(const Store& store, Eigen::VectorXd& grad){
 	    		(1.*C1*s8)/(1 + std::pow(s1,2) + std::pow(s2,2) + std::pow(s3,2) + std::pow(s4,2) + std::pow(s5,2) + std::pow(s6,2) + std::pow(s7,2) + std::pow(s8,2) + std::pow(s9,2));
 			tet_grad[8] = 1.*C1*s9 - (1.*C1*s9)/(1 + std::pow(s1,2) + std::pow(s2,2) + std::pow(s3,2) + std::pow(s4,2) + std::pow(s5,2) + std::pow(s6,2) + std::pow(s7,2) + std::pow(s8,2) + std::pow(s9,2)) + 
 	    		1.*(s2*s4 - 1.*s1*s5)*(0.75*C1 + D1*(1 + s3*s5*s7 - 1.*s2*s6*s7 - 1.*s3*s4*s8 + s1*s6*s8 + s2*s4*s9 - 1.*s1*s5*s9));		
-	   		std::cout<<"f: "<<f_index<<": "<<tet_grad.norm()<<", ";
+
 			grad.segment<9>(9*f_index)  += store.alpha_neo*store.rest_tet_volume[t]*tet_grad;
 		}
 	}
 
-	// for(int m=0; m<store.bone_tets.size(); m++){
-	// 	double s1 = store.dFvec[9*m + 0];
-	// 	double s2 = store.dFvec[9*m + 1];
-	// 	double s3 = store.dFvec[9*m + 2];
-	// 	double s4 = store.dFvec[9*m + 3];
-	// 	double s5 = store.dFvec[9*m + 4];
-	// 	double s6 = store.dFvec[9*m + 5];
-	// 	double s7 = store.dFvec[9*m + 6];
-	// 	double s8 = store.dFvec[9*m + 7];
-	// 	double s9 = store.dFvec[9*m + 8];
-	// 	int t = store.bone_tets[m][0];
-	// 	double youngsModulus = store.eY[t];
-	// 	double poissonsRatio = store.eP[t];
+	for(int m=0; m<store.bone_tets.size(); m++){
+		double s1 = store.dFvec[9*m + 0];
+		double s2 = store.dFvec[9*m + 1];
+		double s3 = store.dFvec[9*m + 2];
+		double s4 = store.dFvec[9*m + 3];
+		double s5 = store.dFvec[9*m + 4];
+		double s6 = store.dFvec[9*m + 5];
+		double s7 = store.dFvec[9*m + 6];
+		double s8 = store.dFvec[9*m + 7];
+		double s9 = store.dFvec[9*m + 8];
+		int t = store.bone_tets[m][0];
+		double youngsModulus = store.eY[t];
+		double poissonsRatio = store.eP[t];
 
-	// 	double C1 = youngsModulus/(2.0*(1.0+poissonsRatio));
-	// 	double D1 = (youngsModulus*poissonsRatio)/((1.0+poissonsRatio)*(1.0-2.0*poissonsRatio));
+		double C1 = youngsModulus/(2.0*(1.0+poissonsRatio));
+		double D1 = (youngsModulus*poissonsRatio)/((1.0+poissonsRatio)*(1.0-2.0*poissonsRatio));
 		
-	// 	// int f_index = store.bone_or_muscle[t];
+		// int f_index = store.bone_or_muscle[t];
 
 
-	// 	VectorXd tet_grad(9);
-	// 	tet_grad[0] = 1.*C1*s1 - (1.*C1*s1)/(1 + std::pow(s1,2) + std::pow(s2,2) + std::pow(s3,2) + std::pow(s4,2) + std::pow(s5,2) + std::pow(s6,2) + std::pow(s7,2) + std::pow(s8,2) + std::pow(s9,2)) + 
- //    		1.*(s6*s8 - 1.*s5*s9)*(0.75*C1 + D1*(1 + s3*s5*s7 - 1.*s2*s6*s7 - 1.*s3*s4*s8 + s1*s6*s8 + s2*s4*s9 - 1.*s1*s5*s9));
-	// 	tet_grad[1] = 1.*C1*s2 + 1.*D1*(s6*s7 - s4*s9)*(-1 - (0.75*C1)/D1 - s3*s5*s7 + s2*s6*s7 + s3*s4*s8 - s1*s6*s8 - s2*s4*s9 + s1*s5*s9) - 
- //    		(1.*C1*s2)/(1 + std::pow(s1,2) + std::pow(s2,2) + std::pow(s3,2) + std::pow(s4,2) + std::pow(s5,2) + std::pow(s6,2) + std::pow(s7,2) + std::pow(s8,2) + std::pow(s9,2));
-	// 	tet_grad[2] = 1.*C1*s3 - (1.*C1*s3)/(1 + std::pow(s1,2) + std::pow(s2,2) + std::pow(s3,2) + std::pow(s4,2) + std::pow(s5,2) + std::pow(s6,2) + std::pow(s7,2) + std::pow(s8,2) + std::pow(s9,2)) + 
- //    		1.*(s5*s7 - 1.*s4*s8)*(0.75*C1 + D1*(1 + s3*s5*s7 - 1.*s2*s6*s7 - 1.*s3*s4*s8 + s1*s6*s8 + s2*s4*s9 - 1.*s1*s5*s9));
-	// 	tet_grad[3] = 1.*C1*s4 + 1.*D1*(s3*s8 - s2*s9)*(-1 - (0.75*C1)/D1 - s3*s5*s7 + s2*s6*s7 + s3*s4*s8 - s1*s6*s8 - s2*s4*s9 + s1*s5*s9) - 
- //    		(1.*C1*s4)/(1 + std::pow(s1,2) + std::pow(s2,2) + std::pow(s3,2) + std::pow(s4,2) + std::pow(s5,2) + std::pow(s6,2) + std::pow(s7,2) + std::pow(s8,2) + std::pow(s9,2));
-	// 	tet_grad[4] = 1.*C1*s5 - (1.*C1*s5)/(1 + std::pow(s1,2) + std::pow(s2,2) + std::pow(s3,2) + std::pow(s4,2) + std::pow(s5,2) + std::pow(s6,2) + std::pow(s7,2) + std::pow(s8,2) + std::pow(s9,2)) + 
- //    		1.*(s3*s7 - 1.*s1*s9)*(0.75*C1 + D1*(1 + s3*s5*s7 - 1.*s2*s6*s7 - 1.*s3*s4*s8 + s1*s6*s8 + s2*s4*s9 - 1.*s1*s5*s9));
-	// 	tet_grad[5] = 1.*C1*s6 + 1.*D1*(s2*s7 - s1*s8)*(-1 - (0.75*C1)/D1 - s3*s5*s7 + s2*s6*s7 + s3*s4*s8 - s1*s6*s8 - s2*s4*s9 + s1*s5*s9) - 
- //    		(1.*C1*s6)/(1 + std::pow(s1,2) + std::pow(s2,2) + std::pow(s3,2) + std::pow(s4,2) + std::pow(s5,2) + std::pow(s6,2) + std::pow(s7,2) + std::pow(s8,2) + std::pow(s9,2));
-	// 	tet_grad[6] = 1.*C1*s7 - (1.*C1*s7)/(1 + std::pow(s1,2) + std::pow(s2,2) + std::pow(s3,2) + std::pow(s4,2) + std::pow(s5,2) + std::pow(s6,2) + std::pow(s7,2) + std::pow(s8,2) + std::pow(s9,2)) + 
- //    		1.*(s3*s5 - 1.*s2*s6)*(0.75*C1 + D1*(1 + s3*s5*s7 - 1.*s2*s6*s7 - 1.*s3*s4*s8 + s1*s6*s8 + s2*s4*s9 - 1.*s1*s5*s9));
-	// 	tet_grad[7] = 1.*C1*s8 + 1.*D1*(s3*s4 - s1*s6)*(-1 - (0.75*C1)/D1 - s3*s5*s7 + s2*s6*s7 + s3*s4*s8 - s1*s6*s8 - s2*s4*s9 + s1*s5*s9) - 
- //    		(1.*C1*s8)/(1 + std::pow(s1,2) + std::pow(s2,2) + std::pow(s3,2) + std::pow(s4,2) + std::pow(s5,2) + std::pow(s6,2) + std::pow(s7,2) + std::pow(s8,2) + std::pow(s9,2));
-	// 	tet_grad[8] = 1.*C1*s9 - (1.*C1*s9)/(1 + std::pow(s1,2) + std::pow(s2,2) + std::pow(s3,2) + std::pow(s4,2) + std::pow(s5,2) + std::pow(s6,2) + std::pow(s7,2) + std::pow(s8,2) + std::pow(s9,2)) + 
- //    		1.*(s2*s4 - 1.*s1*s5)*(0.75*C1 + D1*(1 + s3*s5*s7 - 1.*s2*s6*s7 - 1.*s3*s4*s8 + s1*s6*s8 + s2*s4*s9 - 1.*s1*s5*s9));		
+		VectorXd tet_grad(9);
+		tet_grad[0] = 1.*C1*s1 - (1.*C1*s1)/(1 + std::pow(s1,2) + std::pow(s2,2) + std::pow(s3,2) + std::pow(s4,2) + std::pow(s5,2) + std::pow(s6,2) + std::pow(s7,2) + std::pow(s8,2) + std::pow(s9,2)) + 
+    		1.*(s6*s8 - 1.*s5*s9)*(0.75*C1 + D1*(1 + s3*s5*s7 - 1.*s2*s6*s7 - 1.*s3*s4*s8 + s1*s6*s8 + s2*s4*s9 - 1.*s1*s5*s9));
+		tet_grad[1] = 1.*C1*s2 + 1.*D1*(s6*s7 - s4*s9)*(-1 - (0.75*C1)/D1 - s3*s5*s7 + s2*s6*s7 + s3*s4*s8 - s1*s6*s8 - s2*s4*s9 + s1*s5*s9) - 
+    		(1.*C1*s2)/(1 + std::pow(s1,2) + std::pow(s2,2) + std::pow(s3,2) + std::pow(s4,2) + std::pow(s5,2) + std::pow(s6,2) + std::pow(s7,2) + std::pow(s8,2) + std::pow(s9,2));
+		tet_grad[2] = 1.*C1*s3 - (1.*C1*s3)/(1 + std::pow(s1,2) + std::pow(s2,2) + std::pow(s3,2) + std::pow(s4,2) + std::pow(s5,2) + std::pow(s6,2) + std::pow(s7,2) + std::pow(s8,2) + std::pow(s9,2)) + 
+    		1.*(s5*s7 - 1.*s4*s8)*(0.75*C1 + D1*(1 + s3*s5*s7 - 1.*s2*s6*s7 - 1.*s3*s4*s8 + s1*s6*s8 + s2*s4*s9 - 1.*s1*s5*s9));
+		tet_grad[3] = 1.*C1*s4 + 1.*D1*(s3*s8 - s2*s9)*(-1 - (0.75*C1)/D1 - s3*s5*s7 + s2*s6*s7 + s3*s4*s8 - s1*s6*s8 - s2*s4*s9 + s1*s5*s9) - 
+    		(1.*C1*s4)/(1 + std::pow(s1,2) + std::pow(s2,2) + std::pow(s3,2) + std::pow(s4,2) + std::pow(s5,2) + std::pow(s6,2) + std::pow(s7,2) + std::pow(s8,2) + std::pow(s9,2));
+		tet_grad[4] = 1.*C1*s5 - (1.*C1*s5)/(1 + std::pow(s1,2) + std::pow(s2,2) + std::pow(s3,2) + std::pow(s4,2) + std::pow(s5,2) + std::pow(s6,2) + std::pow(s7,2) + std::pow(s8,2) + std::pow(s9,2)) + 
+    		1.*(s3*s7 - 1.*s1*s9)*(0.75*C1 + D1*(1 + s3*s5*s7 - 1.*s2*s6*s7 - 1.*s3*s4*s8 + s1*s6*s8 + s2*s4*s9 - 1.*s1*s5*s9));
+		tet_grad[5] = 1.*C1*s6 + 1.*D1*(s2*s7 - s1*s8)*(-1 - (0.75*C1)/D1 - s3*s5*s7 + s2*s6*s7 + s3*s4*s8 - s1*s6*s8 - s2*s4*s9 + s1*s5*s9) - 
+    		(1.*C1*s6)/(1 + std::pow(s1,2) + std::pow(s2,2) + std::pow(s3,2) + std::pow(s4,2) + std::pow(s5,2) + std::pow(s6,2) + std::pow(s7,2) + std::pow(s8,2) + std::pow(s9,2));
+		tet_grad[6] = 1.*C1*s7 - (1.*C1*s7)/(1 + std::pow(s1,2) + std::pow(s2,2) + std::pow(s3,2) + std::pow(s4,2) + std::pow(s5,2) + std::pow(s6,2) + std::pow(s7,2) + std::pow(s8,2) + std::pow(s9,2)) + 
+    		1.*(s3*s5 - 1.*s2*s6)*(0.75*C1 + D1*(1 + s3*s5*s7 - 1.*s2*s6*s7 - 1.*s3*s4*s8 + s1*s6*s8 + s2*s4*s9 - 1.*s1*s5*s9));
+		tet_grad[7] = 1.*C1*s8 + 1.*D1*(s3*s4 - s1*s6)*(-1 - (0.75*C1)/D1 - s3*s5*s7 + s2*s6*s7 + s3*s4*s8 - s1*s6*s8 - s2*s4*s9 + s1*s5*s9) - 
+    		(1.*C1*s8)/(1 + std::pow(s1,2) + std::pow(s2,2) + std::pow(s3,2) + std::pow(s4,2) + std::pow(s5,2) + std::pow(s6,2) + std::pow(s7,2) + std::pow(s8,2) + std::pow(s9,2));
+		tet_grad[8] = 1.*C1*s9 - (1.*C1*s9)/(1 + std::pow(s1,2) + std::pow(s2,2) + std::pow(s3,2) + std::pow(s4,2) + std::pow(s5,2) + std::pow(s6,2) + std::pow(s7,2) + std::pow(s8,2) + std::pow(s9,2)) + 
+    		1.*(s2*s4 - 1.*s1*s5)*(0.75*C1 + D1*(1 + s3*s5*s7 - 1.*s2*s6*s7 - 1.*s3*s4*s8 + s1*s6*s8 + s2*s4*s9 - 1.*s1*s5*s9));		
 
     	
-	// 	grad.segment<9>(9*m) +=  store.alpha_neo*store.bone_vols[m]*tet_grad;
+		grad.segment<9>(9*m) +=  store.alpha_neo*store.bone_vols[m]*tet_grad;
 
-	// }
+	}
 }
 
 void famu::stablenh::hessian(const Store& store, Eigen::SparseMatrix<double, Eigen::RowMajor>& hess, Eigen::MatrixXd& denseHess, bool dense){

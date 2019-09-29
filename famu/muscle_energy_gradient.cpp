@@ -98,7 +98,6 @@ void famu::muscle::gradient(Store& store, VectorXd& grad){
 			double s9 = store.dFvec[9*f_index + 8];
 
 			Vector3d y = store.Uvec.row(t).transpose();
-			// std::cout<<"f: "<<f_index<<": "<<y.transpose()<<std::endl;
 			double u1 = y[0];
 			double u2 = y[1];
 			double u3 = y[2];
