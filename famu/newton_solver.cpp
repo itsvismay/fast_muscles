@@ -25,7 +25,7 @@ double famu::Energy(Store& store, VectorXd& dFvec){
 }
 
 void famu::update_dofs(Store& store, VectorXd& new_dofs, VectorXd& dFvec, bool linesearch){
-		for(int b =0; b < store.bone_tets.size(); b++){
+	for(int b =0; b < store.bone_tets.size(); b++){
 			Matrix3d R0 = Map<Matrix3d>(store.dFvec.segment<9>(9*b).data()).transpose();
 			double wX = new_dofs(3*b + 0);
 			double wY = new_dofs(3*b + 1);
@@ -51,7 +51,7 @@ void famu::update_dofs(Store& store, VectorXd& new_dofs, VectorXd& dFvec, bool l
 			new_dofs(3*b + 1) = 0;
 			new_dofs(3*b + 2) = 0;
 		
-		}
+	}
 	store.boneDOFS.setZero();
 	
 	dFvec.tail(dFvec.size() - 9*store.bone_tets.size()) = new_dofs.tail(new_dofs.size() - 3*store.bone_tets.size());
@@ -106,7 +106,7 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
 
         // update_dofs(store, x, fakedFvec, true);
         {
-	    	store.boneDOFS = x.head(store.boneDOFS.size()) + 0.2*drt.head(store.boneDOFS.size());
+	    	store.boneDOFS = x.head(store.boneDOFS.size());
 	    	store.dFvec.tail(x.size() - store.boneDOFS.size()) = x.tail(x.size() - store.boneDOFS.size());
 	    }
         // Evaluate this candidate
@@ -114,27 +114,10 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
        	fx = Energy(store, store.dFvec);
 
 		std::string outputfile = store.jinput["output"];
-       	VectorXd y = store.Y*store.x;
+ 		VectorXd y = store.Y*store.x;
 		Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
-		igl::writeOBJ(outputfile+"/ls_iter"+to_string(tot_ls_its)+".obj", (newV.transpose()+store.V), store.F);
+		igl::writeOBJ(outputfile+"/rigid_rotations_ls_iter"+to_string(tot_ls_its)+".obj", (newV.transpose()+store.V), store.F);
 		
-
-       	bool rotated_over_180 = false;
-       	for(int b=0; b<store.bone_tets.size(); b++){
-			double wX = store.boneDOFS(3*b + 0);
-			double wY = store.boneDOFS(3*b + 1);
-			double wZ = store.boneDOFS(3*b + 2);
-			Matrix3d cross;
-	        cross<<0, -wZ, wY,
-	                wZ, 0, -wX,
-	                -wY, wX, 0;
-	        Matrix3d Rot = cross.exp();
-
-	        rotated_over_180 |= (0.4 < acos((Rot.trace() - 1) / 2.0));
-	        // cout<<acos((Rot.trace() - 1) / 2.0)<<endl;
-       	}
-       	// cout<<store.boneDOFS.transpose()<<endl;
-
         if(fx > fx_init + step * dg_test)
         {
             width = dec;
@@ -396,10 +379,10 @@ int famu::newton_static_solve(Store& store){
 		
 		double alpha = 0.2;
 		//line search
-		timer.start();
-		alpha = line_search(tot_ls_its, store, grad_dofs, delta_dFvec, new_dofs);
-		timer.stop();
-		linetimes += timer.getElapsedTimeInMicroSec();
+		// timer.start();
+		// alpha = line_search(tot_ls_its, store, grad_dofs, delta_dFvec, new_dofs);
+		// timer.stop();
+		// linetimes += timer.getElapsedTimeInMicroSec();
 		// if(fabs(alpha)<1e-9 ){
 		// 	break;
 		// }
@@ -407,13 +390,18 @@ int famu::newton_static_solve(Store& store){
 		new_dofs += alpha*delta_dFvec;
 		update_dofs(store, new_dofs, store.dFvec, false);
 		
+		std::string outputfile = store.jinput["output"];
+ 		VectorXd y = store.Y*store.x;
+		Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
+		igl::writeOBJ(outputfile+"/rigid_rotations_nm_iter_fixed_step_size"+to_string(tot_ls_its)+".obj", (newV.transpose()+store.V), store.F);
+		tot_ls_its +=1;
 		double fx = Energy(store, store.dFvec);
 		cout<<"gradNorm: "<<grad_dofs.squaredNorm()<<endl;
 		cout<<"delta E: "<<fabs(fx-prevfx)<<endl;
 		// Matrix3d R = Map<Matrix3d>(store.dFvec.segment<9>(9).data()).transpose();
 		// cout<<"rotations: "<<endl<<(R.transpose()*R)<<endl;
 
-		if(grad_dofs.squaredNorm()/grad_dofs.size()<1e-4 || fabs(fx - prevfx)<1e-3){
+		if(grad_dofs.squaredNorm()/grad_dofs.size()<10){
 			break;
 		}
 	}
