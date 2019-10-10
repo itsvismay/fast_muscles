@@ -7,6 +7,7 @@
 #include <igl/polar_dec.h>
 #include <Eigen/LU>
 #include <Eigen/Cholesky>
+#include <igl/writeOBJ.h>
 #include <igl/Timer.h>
 
 using Store = famu::Store;
@@ -70,7 +71,7 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
 	// Decreasing and increasing factors
 	VectorXd x = store.dFvec;
 	VectorXd xp = x;
-	double step = 50;
+	double step = 1;
     const double dec = 0.5;
     const double inc = 2.1;
     int pmax_linesearch = 100;
@@ -110,6 +111,11 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
         // Evaluate this candidate
         famu::acap::solve(store, x);
        	fx = Energy(store, x);
+       	std::string outputfile = store.jinput["output"];
+ 		VectorXd y = store.Y*store.x;
+		Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
+		igl::writeOBJ(outputfile+"/emu_nm_iter_fixed_step_size"+to_string(tot_ls_its)+".obj", (newV.transpose()+store.V), store.F);
+
 
         if(fx > fx_init + step * dg_test)
         {
@@ -148,10 +154,10 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
             throw std::runtime_error("the line search step became larger than the maximum value allowed");
 
         step *= width;
+	    tot_ls_its += 1;
     }
     // cout<<"			ls iters: "<<iter<<endl;
     // cout<<"			step: "<<step<<endl;
-    tot_ls_its += iter;
     return step;
 }
 
@@ -344,9 +350,7 @@ int famu::newton_static_solve(Store& store){
 		polar_dec(store, store.dFvec);
 		double fx = Energy(store, store.dFvec);
 
-		
-
-		if(graddFvec.squaredNorm()/graddFvec.size()<1e-4 || fabs(fx - prevfx)<1e-3){
+		if(graddFvec.squaredNorm()/graddFvec.size()<1e-4 || fabs(fx - prevfx)<1e-4){
 			break;
 		}
 	}
