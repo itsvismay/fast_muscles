@@ -111,10 +111,10 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
         // Evaluate this candidate
         famu::acap::solve(store, x);
        	fx = Energy(store, x);
-       	std::string outputfile = store.jinput["output"];
- 		VectorXd y = store.Y*store.x;
-		Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
-		igl::writeOBJ(outputfile+"/emu_nm_iter_fixed_step_size"+to_string(tot_ls_its)+".obj", (newV.transpose()+store.V), store.F);
+  //      	std::string outputfile = store.jinput["output"];
+ 	// 	VectorXd y = store.Y*store.x;
+		// Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
+		// igl::writeOBJ(outputfile+"/emu_nm_iter_fixed_step_size"+to_string(tot_ls_its)+".obj", (newV.transpose()+store.V), store.F);
 
 
         if(fx > fx_init + step * dg_test)
