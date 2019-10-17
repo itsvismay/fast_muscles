@@ -34,13 +34,12 @@ using json = nlohmann::json;
 using Store = famu::Store;
 json j_input;
 
-
 int main(int argc, char *argv[])
 {
 	std::cout<<"-----Configs-------"<<std::endl;	
 		std::string inputfile;
 		if(argc<1){
-			cout<<"Run as: ./famu input.json"<<endl;
+			cout<<"Run as: ./famu <path-to-input>/input.json <path-to-objs>/"<<endl;
 			exit(0);
 		}
 		std::ifstream input_file(argv[1]);
@@ -85,6 +84,16 @@ int main(int argc, char *argv[])
 		std::string outputfile = j_input["output"];
 		igl::boundary_facets(store.T, store.F);
 
+  cout<<"--READ OBJ FILES"<<endl;
+    std::string files_to_read(argv[2]);
+    int start_int = 0;
+    int fin_int = stoi(argv[3]);
+    cout<<files_to_read<<endl;
+    cout<<fin_int<<endl;
+    MatrixXd newV = store.V;
+    MatrixXi newF = store.F;
+
+
 	cout<<"---Set Mesh Params"<<store.x.size()<<endl;
 		//YM, poissons
 		store.eY = 1e10*VectorXd::Ones(store.T.rows());
@@ -123,12 +132,41 @@ int main(int argc, char *argv[])
             store.elogVY(i) /= Vvol(i);
           }
         }
-	
-	
+
+
 
 	std::cout<<"-----Display-------"<<std::endl;
-		int fancy_data_index,debug_data_index,discontinuous_data_index;
+		  int fancy_data_index,debug_data_index,discontinuous_data_index;
     	igl::opengl::glfw::Viewer viewer;
+
+      // Attach a menu plugin
+      igl::opengl::glfw::imgui::ImGuiMenu menu;
+      viewer.plugins.push_back(&menu);
+
+      // Customize the menu
+      double doubleVariable = 0.1f; // Shared between two menus
+      // Draw additional windows
+      menu.callback_draw_custom_window = [&]()
+      {
+        // Define next window position + size
+        ImGui::SetNextWindowPos(ImVec2(180.f * menu.menu_scaling(), 10), ImGuiSetCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2(200, 160), ImGuiSetCond_FirstUseEver);
+        ImGui::Begin(
+            "New Window", nullptr,
+            ImGuiWindowFlags_NoSavedSettings
+        );
+
+    
+
+        static int i1=start_int;
+        ImGui::SliderInt("slider int", &i1, start_int, fin_int);
+        cout<<i1<<endl;
+        // load the mesh
+        igl::readOBJ(files_to_read+to_string(i1)+".obj",newV, newF);
+        viewer.data_list[fancy_data_index].set_vertices(newV);        
+        ImGui::End();
+      };
+
 
     	int currentStep = 0;
     	viewer.callback_post_draw= [&](igl::opengl::glfw::Viewer & viewer) {
