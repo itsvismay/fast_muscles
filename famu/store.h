@@ -62,7 +62,7 @@ namespace famu{
 		Eigen::SparseMatrix<double, Eigen::RowMajor> Y, Bx, Bf;
 		Eigen::MatrixXd G;
 
-		Eigen::VectorXd dFvec, BfI0;
+		Eigen::VectorXd dFvec, BfI0, I0;
 		Eigen::VectorXd x, dx, x0, lambda2, acap_solve_result, acap_solve_rhs;
 
 		
@@ -108,7 +108,7 @@ namespace famu{
 		Eigen::MatrixXd WoodB, WoodD, InvC, WoodC;
 		Eigen::VectorXd eigenvalues;
 		std::vector<int> contract_muscles;
-
+		std::vector<nlohmann::json> muscle_steps;
 
 		//External Force matrices
 		Eigen::VectorXd YtMg, ContactForce;

@@ -71,7 +71,8 @@ int main(int argc, char *argv[])
 								store.fix_bones, 
 								store.relativeStiffness,
 								store.contract_muscles,
-								store.jinput);  
+								store.muscle_steps,
+                                                                store.jinput);  
 	
 		
 

@@ -26,6 +26,8 @@ namespace famu
 		VectorXd fd_gradient(Store& store);
 
 		MatrixXd fd_hessian(Store& store);
+
+		void set_muscle_mag(Store& store, int step);
 	}
 }
 

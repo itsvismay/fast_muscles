@@ -24,9 +24,13 @@ if(APPLE)
 
 	file(GLOB SRCFILES famu/*.cpp)
 
-	add_executable(famu "fd_famu.cpp" ${SRCFILES} ${EXTERNALS})
-
+	add_executable(famu "famu.cpp" ${SRCFILES} ${EXTERNALS})
     target_link_libraries(famu  igl::core igl::png igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui )
+
+
+    add_executable(fd_famu "fd_famu.cpp" ${SRCFILES} ${EXTERNALS})
+    target_link_libraries(fd_famu  igl::core igl::png igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui )
+    
 else()
 	set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 	set(JSON_HPP_SRC_DIR "ThirdParty/json/single_include/nlohmann")
@@ -60,7 +64,12 @@ else()
 
 	file(GLOB SRCFILES famu/*.cpp)
 
-	add_executable(famu "fd_famu.cpp" ${SRCFILES} ${EXTERNALS})
+	add_executable(famu "famu.cpp" ${SRCFILES} ${EXTERNALS})
 
     target_link_libraries(famu  ${MKL_LIBS} Eigen3::Eigen -lblas -llapack -lglfw -lumfpack -lamd igl::core igl::png igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui OpenMP::OpenMP_CXX ${SUITESPARSE_LIBRARIES} )
+
+    add_executable(fd_famu "fd_famu.cpp" ${SRCFILES} ${EXTERNALS})
+
+    target_link_libraries(fd_famu  ${MKL_LIBS} Eigen3::Eigen -lblas -llapack -lglfw -lumfpack -lamd igl::core igl::png igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui OpenMP::OpenMP_CXX ${SUITESPARSE_LIBRARIES} )
+
 endif(APPLE)

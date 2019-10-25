@@ -87,49 +87,6 @@ void famu::acap::fastHessian(Store& store, SparseMatrix<double, RowMajor>& hess,
 
 }
 
-VectorXd famu::acap::fd_gradient(Store& store){
-	VectorXd fake = VectorXd::Zero(store.dFvec.size());
-	VectorXd dFvec = store.dFvec;
-	double eps = 0.00001;
-	for(int i=0; i<dFvec.size(); i++){
-		dFvec[i] += 0.5*eps;
-		double Eleft = fastEnergy(store, dFvec);
-		dFvec[i] -= 0.5*eps;
-
-		dFvec[i] -= 0.5*eps;
-		double Eright = fastEnergy(store, dFvec);
-		dFvec[i] += 0.5*eps;
-		fake[i] = (Eleft - Eright)/eps;
-	}
-	return fake;
-}
-
-MatrixXd famu::acap::fd_hessian(Store& store){
-	MatrixXd fake = MatrixXd::Zero(store.dFvec.size(), store.dFvec.size());
-	VectorXd dFvec = store.dFvec;
-	double eps = 1e-3;
-	double E0 = fastEnergy(store, dFvec);
-	for(int i=0; i<11; i++){
-		for(int j=0; j<11; j++){
-			dFvec[i] += eps;
-			dFvec[j] += eps;
-			double Eij = fastEnergy(store, dFvec);
-			dFvec[i] -= eps;
-			dFvec[j] -= eps;
-
-			dFvec[i] += eps;
-			double Ei = fastEnergy(store, dFvec);
-			dFvec[i] -=eps;
-
-			dFvec[j] += eps;
-			double Ej = fastEnergy(store, dFvec);
-			dFvec[j] -=eps;
-
-			fake(i,j) = ((Eij - Ei - Ej + E0)/(eps*eps));
-		}
-	}
-	return fake;
-}
 
 void famu::acap::solve(Store& store, VectorXd& dFvec){
 	store.acap_solve_rhs.setZero();
@@ -198,8 +155,6 @@ void famu::acap::setJacobian(Store& store){
 
 	//Sparse jacobian
 	MatrixXd result;
-	igl::readDMAT("jacKKT.dmat", result);
-
 	if(result.rows()==0){
 		//DENSE REDUCED JAC
 		MatrixXd top = MatrixXd(store.YtStDt_dF_DSx0);
@@ -214,11 +169,8 @@ void famu::acap::setJacobian(Store& store){
 			exit(0);
 		}
 		
-		igl::writeDMAT("jacKKT.dmat", result);
-
 	}
 	SparseMatrix<double, RowMajor> spRes = (result).sparseView();
 	store.JacdxdF = spRes;
-	cout<<"jac dims: "<<store.JacdxdF.rows()<<", "<<store.JacdxdF.cols()<<endl;
 
 }

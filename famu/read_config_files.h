@@ -23,6 +23,7 @@ namespace famu
 					    std::vector<std::string>& fix_bones,
 					    Eigen::VectorXd& relativeStiffness,
 					    std::vector<int>& contract_muscles,
+					    std::vector<nlohmann::json>& muscle_script_steps,
 					    nlohmann::json& jinput);
 }
 

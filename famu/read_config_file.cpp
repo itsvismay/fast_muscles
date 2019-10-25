@@ -3,7 +3,7 @@
 #include <igl/readDMAT.h>
 #include "read_config_files.h"
 #include <fstream>
-#include <ostream>
+#include <iostream>
 
 
 
@@ -24,6 +24,7 @@ void famu::read_config_files(Eigen::MatrixXd& V,
                         std::vector<std::string>& fix_bones,
                         Eigen::VectorXd& relativeStiffness,
                         std::vector<int>& contract_muscles,
+                        std::vector<nlohmann::json>& muscle_steps,
                         json& j_input)
 {
     std::cout<<"EIGEN"<<std::endl;
@@ -103,6 +104,9 @@ void famu::read_config_files(Eigen::MatrixXd& V,
         contract_muscles.push_back(muscle_name_index_map[contract_muscle_names[i]]);
     
     }
+
+    std::vector<nlohmann::json> temp = j_input["muscle_starting_strength"];
+    muscle_steps = temp;
 
     if(relativeStiffness.size()==0){
         relativeStiffness = VectorXd::Ones(T.rows());

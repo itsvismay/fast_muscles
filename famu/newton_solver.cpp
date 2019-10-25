@@ -349,8 +349,8 @@ int famu::newton_static_solve(Store& store){
 		store.dFvec += alpha*delta_dFvec;
 		polar_dec(store, store.dFvec);
 		double fx = Energy(store, store.dFvec);
-
-		if(graddFvec.squaredNorm()/graddFvec.size()<1e-4 || fabs(fx - prevfx)<1e-4){
+		std::cout<<(graddFvec.squaredNorm()/graddFvec.size())<<", "<<(fabs(fx-prevfx)) <<endl;
+		if(graddFvec.squaredNorm()/graddFvec.size()<1){
 			break;
 		}
 	}
@@ -358,7 +358,8 @@ int famu::newton_static_solve(Store& store){
 	double nmtime = timer1.getElapsedTimeInMicroSec();
 
 	timer1.start();
-	double acap_energy = famu::acap::fastEnergy(store, store.dFvec);
+	// double acap_energy = famu::acap::fastEnergy(store, store.dFvec);
+	double acap_energy = Energy(store, store.dFvec) - Energy(store, store.I0);
 	timer1.stop();
 	double energy_time = timer1.getElapsedTimeInMicroSec();
 
