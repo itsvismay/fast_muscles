@@ -71,19 +71,19 @@ void famu::acap::fastGradient(Store& store, VectorXd& grad){
 	// grad += store.ContactForce;
 }
 
-void famu::acap::fastHessian(Store& store, SparseMatrix<double, RowMajor>& hess, Eigen::MatrixXd& denseHess){
+void famu::acap::fastHessian(Store& store, SparseMatrix<double, RowMajor>& hess, Eigen::MatrixXd& denseHess, bool include_dense){
 	hess.setZero();
-	hess = store.jinput["alpha_arap"]*store.x0tStDt_dF_dF_DSx0; //PtZtZP
+	hess = store.x0tStDt_dF_dF_DSx0; //PtZtZP
 
 
-	if(store.jinput["woodbury"]){
-		//if woodbury, store PtZtZP as dense block diag hessian
-	
-	}else{
+	if(include_dense){
 		//else compute dense jacobian based hessian
 		SparseMatrix<double, RowMajor> temp = store.YtStDt_dF_DSx0.transpose()*store.JacdxdF;
 		hess -= temp;
 	}
+	double aa = store.jinput["alpha_arap"];
+	hess *= aa;
+
 
 }
 
@@ -151,14 +151,16 @@ void famu::acap::adjointMethodExternalForces(Store& store){
 
 }
 
-void famu::acap::setJacobian(Store& store){
-
+void famu::acap::setJacobian(Store& store, bool include_dense){
+	if(!include_dense){
+		return;
+	}
 	//Sparse jacobian
 	MatrixXd result;
 	if(result.rows()==0){
 		//DENSE REDUCED JAC
 		MatrixXd top = MatrixXd(store.YtStDt_dF_DSx0);
-		MatrixXd zer = MatrixXd(store.JointConstraints.rows(), top.cols());
+		MatrixXd zer = MatrixXd::Zero(store.JointConstraints.rows(), top.cols());
 		MatrixXd bone_def = MatrixXd(store.Bf);
 		MatrixXd KKT_right(top.rows() + zer.rows()+ bone_def.rows(), top.cols());
 		KKT_right<<top,zer, bone_def;

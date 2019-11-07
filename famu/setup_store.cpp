@@ -323,9 +323,10 @@ void famu::setupStore(Store& store){
 			
 	if(store.jinput["woodbury"]){
 		cout<<"--- Setup woodbury matrices"<<endl;
+			double aa = store.jinput["alpha_arap"];
 			store.WoodB = -store.YtStDt_dF_DSx0.transpose()*store.G;
 			store.WoodD = -1*store.WoodB.transpose();
-			
+			store.WoodB *= aa;
 
 			store.InvC = store.eigenvalues.asDiagonal();
 			store.WoodC = store.eigenvalues.asDiagonal().inverse();
@@ -334,6 +335,8 @@ void famu::setupStore(Store& store){
 				store.vecInvA.push_back(InvA);
 			}
 	}
+
+	//GInv(L)G = UCV
 
     cout<<"---Setup TMP Vars"<<endl;
     	famu::discontinuousV(store);

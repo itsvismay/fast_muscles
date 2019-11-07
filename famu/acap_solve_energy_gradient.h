@@ -22,7 +22,7 @@ namespace famu
 
 		void fastGradient(Store& store, Eigen::VectorXd& grad);
 
-		void fastHessian(Store& store, Eigen::SparseMatrix<double, Eigen::RowMajor>& hess, Eigen::MatrixXd& denseHess);
+		void fastHessian(Store& store, Eigen::SparseMatrix<double, Eigen::RowMajor>& hess, Eigen::MatrixXd& denseHess, bool include_dense=false);
 
 		Eigen::VectorXd fd_gradient(Store& store);
 
@@ -32,7 +32,7 @@ namespace famu
 
 		void solve(Store& store, Eigen::VectorXd& dFvec);
 
-		void setJacobian(Store& store);
+		void setJacobian(Store& store, bool include_dense = false);
 
 	}
 }

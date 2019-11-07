@@ -187,8 +187,7 @@ void famu::fastWoodbury(Store& store, const VectorXd& g, MatrixModesxModes X, Ve
 	Matrix<double, NUM_MODES, 1> InvXDAg;
 	FullPivLU<MatrixModesxModes> WoodburyDenseSolve;
 
-	double aa = store.jinput["alpha_arap"];
-	X = store.InvC*aa;
+	X = store.InvC;
 	#pragma omp parallel
 	{
 		MatrixModesxModes Xpriv = MatrixModesxModes::Zero();
@@ -199,15 +198,20 @@ void famu::fastWoodbury(Store& store, const VectorXd& g, MatrixModesxModes X, Ve
 			Matrix9d A = denseHess.block<9,9>(9*i, 0);
 			LDLT<Matrix9d> InvA;
 			InvA.compute(A);
-			store.vecInvA[i] = InvA;
+			// store.vecInvA[i] = InvA;
 
 			Vector9d invAg = InvA.solve(g.segment<9>(9*i));
 			drt.segment<9>(9*i) = invAg;
 
 			Matrix9xModes B = store.WoodB.block<9, NUM_MODES>(9*i, 0);
-			Xpriv = Xpriv + -B.transpose()*InvA.solve(B);
+			
+			// Xpriv = Xpriv + -B.transpose()*InvA.solve(B);
+			// DAgpriv  = DAgpriv + -B.transpose()*invAg;
 
-			DAgpriv  = DAgpriv + -B.transpose()*invAg;
+			Matrix9xModes Dt = store.WoodD.block<NUM_MODES, 9>(0, 9*i).transpose();
+			Xpriv += Dt.transpose()*InvA.solve(B);
+			DAgpriv  += Dt.transpose()*invAg;
+
 		}
 		#pragma omp critical
 		{
@@ -226,9 +230,13 @@ void famu::fastWoodbury(Store& store, const VectorXd& g, MatrixModesxModes X, Ve
 
 	#pragma omp parallel for
 	for(int i=0; i<store.dFvec.size()/9; i++){
+		Matrix9d A = denseHess.block<9,9>(9*i, 0);
+			LDLT<Matrix9d> InvA;
+			InvA.compute(A);
+
 		Matrix9xModes B = store.WoodB.block<9, NUM_MODES>(9*i, 0);
 
-		Vector9d InvAtemp1 = store.vecInvA[i].solve(B*InvXDAg);
+		Vector9d InvAtemp1 = InvA.solve(B*InvXDAg);
 		drt.segment<9>(9*i) -=  InvAtemp1;
 	}
 
@@ -350,7 +358,7 @@ int famu::newton_static_solve(Store& store){
 		polar_dec(store, store.dFvec);
 		double fx = Energy(store, store.dFvec);
 		std::cout<<(graddFvec.squaredNorm()/graddFvec.size())<<", "<<(fabs(fx-prevfx)) <<endl;
-		if(graddFvec.squaredNorm()/graddFvec.size()<1){
+		if(graddFvec.squaredNorm()/graddFvec.size()<1e-3){
 			break;
 		}
 	}

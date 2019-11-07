@@ -7,7 +7,6 @@
 #include <igl/Timer.h>
 #include <Eigen/LU>
 
-
 #ifdef __linux__
 #include <Eigen/PardisoSupport>
 #include <omp.h>
@@ -71,7 +70,7 @@ namespace famu{
 		Eigen::PardisoLU<Eigen::SparseMatrix<double, Eigen::RowMajor>> NM_SPLU;//TODO: optimize this away
 		#else
 		Eigen::SparseLU<Eigen::SparseMatrix<double, Eigen::RowMajor>> ACAP_KKT_SPLU;
-		Eigen::SparseLU<Eigen::SparseMatrix<double, Eigen::RowMajor>> NM_SPLU;//TODO: optimize this away
+		Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> NM_SPLU;//TODO: optimize this away
 		#endif
 
 
