@@ -104,6 +104,8 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
     int iter;
     for(iter = 0; iter < pmax_linesearch; iter++)
     {
+    	tot_ls_its += 1;
+
         // x_{k+1} = x_k + step * d_k
         x.noalias() = xp + step * drt;
         polar_dec(store, x);
@@ -111,11 +113,6 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
         // Evaluate this candidate
         famu::acap::solve(store, x);
        	fx = Energy(store, x);
-  //      	std::string outputfile = store.jinput["output"];
- 	// 	VectorXd y = store.Y*store.x;
-		// Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
-		// igl::writeOBJ(outputfile+"/emu_nm_iter_fixed_step_size"+to_string(tot_ls_its)+".obj", (newV.transpose()+store.V), store.F);
-
 
         if(fx > fx_init + step * dg_test)
         {
@@ -154,10 +151,9 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
             throw std::runtime_error("the line search step became larger than the maximum value allowed");
 
         step *= width;
-	    tot_ls_its += 1;
+	    
     }
-    // cout<<"			ls iters: "<<iter<<endl;
-    // cout<<"			step: "<<step<<endl;
+
     return step;
 }
 
@@ -350,15 +346,15 @@ int famu::newton_static_solve(Store& store){
 		linetimes += timer.getElapsedTimeInMicroSec();
 		
 
-		if(fabs(alpha)<1e-9 ){
-			break;
-		}
+		// if(fabs(alpha)<1e-9 ){
+		// 	break;
+		// }
 
 		store.dFvec += alpha*delta_dFvec;
 		polar_dec(store, store.dFvec);
 		double fx = Energy(store, store.dFvec);
 		std::cout<<(graddFvec.squaredNorm()/graddFvec.size())<<", "<<(fabs(fx-prevfx)) <<endl;
-		if(graddFvec.squaredNorm()/graddFvec.size()<1e-3){
+		if(graddFvec.squaredNorm()/graddFvec.size()<1e-4){
 			break;
 		}
 	}
@@ -375,6 +371,8 @@ int famu::newton_static_solve(Store& store){
 	famu::acap::solve(store, store.dFvec);
 	timer1.stop();
 
+	
+	
 	cout<<"-----------QS STEP INFO----------"<<endl;
 	cout<<"V, T:"<<store.V.rows()<<", "<<store.T.rows()<<endl;
 	cout<<"Threads: "<<Eigen::nbThreads()<<endl;

@@ -6,6 +6,7 @@
 #include <Eigen/Dense>
 #include <igl/Timer.h>
 #include <Eigen/LU>
+#include <igl/writeOBJ.h>
 
 #ifdef __linux__
 #include <Eigen/PardisoSupport>
@@ -112,9 +113,28 @@ namespace famu{
 		//External Force matrices
 		Eigen::VectorXd YtMg, ContactForce;
 		Eigen::SparseMatrix<double, Eigen::RowMajor> ContactP, ContactP1, ContactP2, ContactHess;
+		nlohmann::json joutput = {{"info",nlohmann::json::object()}, {"run", nlohmann::json::array()}, {"summary",nlohmann::json::object()}};
+
+		int printState(int step, std::string name){
+			std::string outputfile = jinput["output"];
+			Eigen::VectorXd y = Y*x;
+			Eigen::Map<Eigen::MatrixXd> newV(y.data(), V.cols(), V.rows());
+
+			igl::writeOBJ(outputfile+"/"+name+std::to_string(step)+".obj", (newV.transpose()+V), F); //output mesh
+		
+		}
+
+		int saveResults(){
+			std::string out = jinput["output"];
+			std::ofstream o(out+"/results.json");
+			o << std::setw(4) << joutput << std::endl;
+		}
+
 
 
 	};
+
+
 }
 
 #endif

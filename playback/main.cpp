@@ -39,7 +39,7 @@ int main(int argc, char *argv[])
 	std::cout<<"-----Configs-------"<<std::endl;	
 		std::string inputfile;
 		if(argc<1){
-			cout<<"Run as: ./famu <path-to-input>/input.json <path-to-objs>/"<<endl;
+			cout<<"Run as: ./playback <path-to-input>/input.json <path-to-objs>/ num"<<endl;
 			exit(0);
 		}
 		std::ifstream input_file(argv[1]);
@@ -72,7 +72,7 @@ int main(int argc, char *argv[])
 								store.relativeStiffness,
 								store.contract_muscles,
 								store.muscle_steps,
-                                                                store.jinput);  
+                store.jinput);  
 	
 		
 
@@ -107,7 +107,6 @@ int main(int argc, char *argv[])
 				}else{
 					store.eY[store.muscle_tets[m][t]] = 60000;
 				}
-				store.muscle_mag[store.muscle_tets[m][t]] = j_input["muscle_starting_strength"];
 			}
 		}
 

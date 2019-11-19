@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
 		Eigen::initParallel();
 	
 		
-    	igl::Timer timer;
+    igl::Timer timer;
 
 		famu::Store store;
 		store.jinput = j_input;
@@ -54,14 +54,18 @@ int main(int argc, char *argv[])
 
 		
 	cout<<"--- Write Meshes"<<endl;
-		// double fx = 0;
-		// int niters = 0;
-		// niters = famu::newton_static_solve(store);
-
-		// VectorXd y = store.Y*store.x;
-		// Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
-		// igl::writeOBJ(outputfile+"/EMU"+to_string(store.T.rows())+"-Alpha:"+to_string(store.alpha_arap)+".obj", (newV.transpose()+store.V), store.F);
-		// exit(0);
+		double fx = 0;
+		int niters = 0;
+    int iii=0;
+    std::string name = "skeleton-";
+    for(iii=0; iii<store.muscle_steps.size(); iii++){
+      store.printState(iii, name);
+      famu::muscle::set_muscle_mag(store, iii);
+		  niters = famu::newton_static_solve(store);
+    }
+    store.printState(iii, name);
+		store.saveResults();
+    exit(0);
 
 	cout<<"--- External Forces Hard Coded Contact Matrices"<<endl;
 	    // famu::acap::adjointMethodExternalForces(store);

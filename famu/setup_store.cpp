@@ -71,13 +71,19 @@ void famu::setupStore(Store& store){
 		
 
 
+		igl::boundary_facets(store.T, store.F);
 	cout<<"---Record Mesh Setup Info"<<endl;
 		cout<<"V size: "<<store.V.rows()<<endl;
 		cout<<"T size: "<<store.T.rows()<<endl;
 		cout<<"F size: "<<store.F.rows()<<endl;
+		store.joutput["info"]["Vsize"] = store.V.rows();
+		store.joutput["info"]["Tsize"] = store.T.rows();
+		store.joutput["info"]["Fsize"] = store.F.rows();
+		store.joutput["info"]["NumModes"] = NUM_MODES;
+
+
 		store.jinput["number_modes"] = NUM_MODES;
 		std::string outputfile = store.jinput["output"];
-		igl::boundary_facets(store.T, store.F);
 
 	cout<<"---Set Fixed Vertices"<<endl;
 		// store.mfix = famu::getMaxVerts(store.V, 1);
@@ -110,9 +116,10 @@ void famu::setupStore(Store& store){
 			}
 		}
 
-		
-		igl::writeDMAT("youngs_per_tet.dmat", store.eY);
+        std::string inputfile = store.jinput["data"];
+        
         {
+          VectorXd vertex_wise_YM =Eigen::VectorXd::Zero(store.V.rows());
           store.elogVY = Eigen::VectorXd::Zero(store.V.rows());
           // volume associated with each vertex
           Eigen::VectorXd Vvol = Eigen::VectorXd::Zero(store.V.rows());
@@ -126,6 +133,7 @@ void famu::setupStore(Store& store){
             {
               Vvol(store.T(i,j)) += vol4;
               store.elogVY(store.T(i,j)) += vol4*log10(store.eY(i));
+              vertex_wise_YM(store.T(i,j)) = store.eY(i);
             }
           }
           // loop over vertices to divide to take average
@@ -133,8 +141,20 @@ void famu::setupStore(Store& store){
           {
             store.elogVY(i) /= Vvol(i);
           }
+
+        VectorXd surface_youngs = VectorXd::Zero(store.F.rows());
+
+        for(int ff =0 ; ff<store.F.rows(); ff++){
+        	Vector3i face = store.F.row(ff);
+        	Vector3d face_material_YM(vertex_wise_YM(face(0)), vertex_wise_YM(face(1)), vertex_wise_YM(face(2)));
+        	double minYM = face_material_YM.minCoeff();
+        	surface_youngs(ff) = minYM;
+        
         }
 
+        igl::writeDMAT(inputfile +"/surface_mesh_youngs.dmat", surface_youngs, true);
+
+        }
 
 		//bone dF map
 		//start off all as -1
@@ -289,12 +309,12 @@ void famu::setupStore(Store& store){
 			store.NullJ.setIdentity();
 		}
         SparseMatrix<double> NjtYtStDtDSYNj = store.NullJ.transpose()*store.Y.transpose()*store.S.transpose()*store.D.transpose()*store.D*store.S*store.Y*store.NullJ;
-        igl::readDMAT(outputfile+"/"+to_string((int)store.jinput["number_modes"])+"modes.dmat", temp1);
+        igl::readDMAT(inputfile+"/"+to_string((int)store.jinput["number_modes"])+"modes.dmat", temp1);
         if(temp1.rows() == 0){
 			famu::setup_hessian_modes(store, NjtYtStDtDSYNj, temp1);
 		}else{
 			//read eigenvalues (for the woodbury solve)
-			igl::readDMAT(outputfile+"/"+to_string((int)store.jinput["number_modes"])+"eigs.dmat", store.eigenvalues);
+			igl::readDMAT(inputfile+"/"+to_string((int)store.jinput["number_modes"])+"eigs.dmat", store.eigenvalues);
 		}
 		store.G = store.NullJ*temp1;
 	}
