@@ -254,7 +254,7 @@ void famu::setupStore(Store& store){
 		famu::construct_kkt_system_left(KKT_left, store.Bx,  KKT_left2, -1e-3); 
 		// MatrixXd Hkkt = MatrixXd(KKT_left2);
 		#ifdef __linux__
-		store.ACAP_KKT_SPLU.pardisoParameterArray()[2] = num_threads; 
+		store.ACAP_KKT_SPLU.pardisoParameterArray()[2] = Eigen::nbThreads(); 
 		#endif
 
 		store.ACAP_KKT_SPLU.analyzePattern(KKT_left2);

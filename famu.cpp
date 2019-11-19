@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
 		double fx = 0;
 		int niters = 0;
     int iii=0;
-    std::string name = "skeleton-";
+    std::string name = "mesh";
     for(iii=0; iii<store.muscle_steps.size(); iii++){
       store.printState(iii, name);
       famu::muscle::set_muscle_mag(store, iii);

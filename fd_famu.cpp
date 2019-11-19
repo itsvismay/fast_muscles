@@ -140,6 +140,245 @@ VectorXd ACAPGradient(Store& store, int num_indices){
 	return fake;
 }
 
+void woodburyCorrectnessTests(Store& store){
+	//ACAP solve
+ 	famu::acap::solve(store, store.dFvec);
+
+ 	cout<<"gradients"<<endl;
+ 	//Get gradients
+ 	VectorXd muscle_grad, neo_grad, acap_grad;
+	muscle_grad.resize(store.dFvec.size());
+	neo_grad.resize(store.dFvec.size());
+	acap_grad.resize(store.dFvec.size());
+	famu::muscle::gradient(store, muscle_grad);
+	famu::stablenh::gradient(store, neo_grad);
+	famu::acap::fastGradient(store, acap_grad);
+	VectorXd graddFvec = muscle_grad + neo_grad + acap_grad;
+
+	VectorXd res1, res2, res3, res4;
+ 	// First, the unreduced code
+ 	{
+ 		famu::acap::setJacobian(store, true);
+ 		famu::muscle::fastHessian(store, store.muscleHess, store.denseMuscleHess);
+ 		famu::stablenh::hessian(store, store.neoHess, store.denseNeoHess, false);
+ 		famu::acap::fastHessian(store, store.acapHess, store.denseAcapHess, true);
+ 		Eigen::SparseMatrix<double> fullHess = store.muscleHess + store.neoHess + store.acapHess;
+ 		cout<<fullHess.rows()<<", "<<fullHess.cols()<<endl;
+ 		cout<<fullHess.nonZeros()<<endl;
+ 		store.NM_SPLU.compute(fullHess);
+ 		if(store.NM_SPLU.info() == Eigen::NumericalIssue)
+ 	    {
+ 	        throw std::runtime_error("Possibly non semi-positive definitie matrix!");
+ 	    }
+ 		res1 = -store.NM_SPLU.solve(graddFvec);
+ 		cout<<res1.segment<50>(0).transpose()<<endl<<endl;
+ 	}
+
+
+	//Second, unoptimized woodbury solve
+	{
+		famu::muscle::fastHessian(store, store.muscleHess, store.denseMuscleHess);
+		famu::stablenh::hessian(store, store.neoHess, store.denseNeoHess, false);
+		famu::acap::fastHessian(store, store.acapHess, store.denseAcapHess, false);
+		Eigen::SparseMatrix<double> sparseHess = store.muscleHess + store.neoHess + store.acapHess;
+		store.NM_SPLU.compute(sparseHess);
+		VectorXd InvAg = store.NM_SPLU.solve(graddFvec);
+		MatrixXd CDAB = store.InvC + store.WoodD*store.NM_SPLU.solve(store.WoodB);
+		FullPivLU<MatrixXd>  WoodburyDenseSolve;
+		WoodburyDenseSolve.compute(CDAB);
+		VectorXd temp1 = store.WoodB*WoodburyDenseSolve.solve(store.WoodD*InvAg);;
+
+		VectorXd InvAtemp1 = store.NM_SPLU.solve(temp1);
+		res2 =  -InvAg + InvAtemp1;
+		cout<<res2.segment<50>(0).transpose()<<endl<<endl;
+	}
+
+
+	// //Third, the optimized woodbury solve
+	{
+		famu::acap::fastHessian(store, store.acapHess, store.denseAcapHess, false);
+		res3 = VectorXd::Zero(graddFvec.size());
+		VectorXd BInvXDy = VectorXd::Zero(store.dFvec.size());
+		MatrixModesxModes X;
+		SparseMatrix<double, Eigen::RowMajor> constHess(store.dFvec.size(), store.dFvec.size());
+		constHess.setZero();
+		constHess = store.neoHess + store.muscleHess + store.acapHess;// + store.ContactHess;
+		constHess -= store.neoHess;
+		MatrixXd denseHess = MatrixXd::Zero(store.dFvec.size(),  9);
+		MatrixXd constDenseHess = MatrixXd::Zero(store.dFvec.size(),  9);
+		famu::sparse_to_dense(store, constHess, denseHess);
+		famu::stablenh::hessian(store, store.neoHess, store.denseNeoHess, true);
+		denseHess += store.denseNeoHess;
+		famu::fastWoodbury(store, graddFvec, X, BInvXDy, denseHess, res3);
+		cout<<res3.segment<50>(0).transpose()<<endl<<endl;
+	}
+
+	//Fourth, totally unoptimized woodbury solve
+	{
+
+		famu::muscle::fastHessian(store, store.muscleHess, store.denseMuscleHess);
+		famu::stablenh::hessian(store, store.neoHess, store.denseNeoHess, false);
+		famu::acap::fastHessian(store, store.acapHess, store.denseAcapHess, false);
+		// Eigen::SparseMatrix<double> A = store.muscleHess + store.neoHess + store.acapHess;
+		Eigen::SparseMatrix<double> sparseHess = store.muscleHess + store.neoHess + store.acapHess;
+		MatrixXd BCD = store.WoodB*store.WoodC*store.WoodD;
+		Eigen::SparseMatrix<double> ABCD = sparseHess + BCD.sparseView();
+		store.NM_SPLU.compute(ABCD);
+		if(store.NM_SPLU.info() == Eigen::NumericalIssue)
+	    {
+	        throw std::runtime_error("Possibly non semi-positive definitie matrix!");
+	    }
+		res4 = -store.NM_SPLU.solve(graddFvec);
+		cout<<res4.segment<50>(0).transpose()<<endl<<endl<<endl;
+	}
+
+	// igl::writeDMAT("ABCD.dmat", MatrixXd(ABCD),false);
+	// igl::writeDMAT("b.dmat", graddFvec, false);
+	// igl::writeDMAT("res2.dmat", res2, false);
+	// igl::writeDMAT("res4.dmat", res4, false);
+	// cout<<store.eigenvalues.transpose()<<endl;
+
+	// cout<<"residuals from optimized woodbury: "<<(res4 - res2).norm()<<endl;
+	// cout<<"Residuals: "<<(ABCD*res2 - graddFvec).norm()<<", "<<(ABCD*res4 - graddFvec).norm()<<endl;
+
+}
+
+void woodburyParallelizedTests(Store& store){
+	//ACAP solve
+ 	famu::acap::solve(store, store.dFvec);
+
+ 	cout<<"gradients"<<endl;
+ 	//Get gradients
+ 	VectorXd muscle_grad, neo_grad, acap_grad;
+	muscle_grad.resize(store.dFvec.size());
+	neo_grad.resize(store.dFvec.size());
+	acap_grad.resize(store.dFvec.size());
+	famu::muscle::gradient(store, muscle_grad);
+	famu::stablenh::gradient(store, neo_grad);
+	famu::acap::fastGradient(store, acap_grad);
+	VectorXd graddFvec = muscle_grad + neo_grad + acap_grad;
+
+	VectorXd res1, res2, res3, res4;
+	int num_threads = 1;
+	// optimized woodbury solve with 1 core
+	{	
+		#ifdef __linux__
+			num_threads = 1;
+			omp_set_num_threads(num_threads);
+			Eigen::initParallel();
+			store.ACAP_KKT_SPLU.pardisoParameterArray()[2] = num_threads;
+		#endif
+		famu::acap::fastHessian(store, store.acapHess, store.denseAcapHess, false);
+		res3 = VectorXd::Zero(graddFvec.size());
+		VectorXd BInvXDy = VectorXd::Zero(store.dFvec.size());
+		MatrixModesxModes X;
+		SparseMatrix<double, Eigen::RowMajor> constHess(store.dFvec.size(), store.dFvec.size());
+		constHess.setZero();
+		constHess = store.neoHess + store.muscleHess + store.acapHess;// + store.ContactHess;
+		constHess -= store.neoHess;
+		MatrixXd denseHess = MatrixXd::Zero(store.dFvec.size(),  9);
+		MatrixXd constDenseHess = MatrixXd::Zero(store.dFvec.size(),  9);
+		famu::sparse_to_dense(store, constHess, denseHess);
+		famu::stablenh::hessian(store, store.neoHess, store.denseNeoHess, true);
+		denseHess += store.denseNeoHess;
+		store.timer.start();
+		famu::fastWoodbury(store, graddFvec, X, BInvXDy, denseHess, res3);
+		store.timer.stop();
+		double woodTime = store.timer.getElapsedTimeInMicroSec();
+		cout<<"Threads: "<<Eigen::nbThreads()<<", Time:"<<woodTime<<endl;
+		cout<<res3.segment<50>(0).transpose()<<endl<<endl;
+	}
+
+	// Optimized woodbury with 2 cores
+	{
+		#ifdef __linux__
+			num_threads = 2;
+			omp_set_num_threads(num_threads);
+			Eigen::initParallel();
+			store.ACAP_KKT_SPLU.pardisoParameterArray()[2] = num_threads;
+		#endif
+		famu::acap::fastHessian(store, store.acapHess, store.denseAcapHess, false);
+		res3 = VectorXd::Zero(graddFvec.size());
+		VectorXd BInvXDy = VectorXd::Zero(store.dFvec.size());
+		MatrixModesxModes X;
+		SparseMatrix<double, Eigen::RowMajor> constHess(store.dFvec.size(), store.dFvec.size());
+		constHess.setZero();
+		constHess = store.neoHess + store.muscleHess + store.acapHess;// + store.ContactHess;
+		constHess -= store.neoHess;
+		MatrixXd denseHess = MatrixXd::Zero(store.dFvec.size(),  9);
+		MatrixXd constDenseHess = MatrixXd::Zero(store.dFvec.size(),  9);
+		famu::sparse_to_dense(store, constHess, denseHess);
+		famu::stablenh::hessian(store, store.neoHess, store.denseNeoHess, true);
+		denseHess += store.denseNeoHess;
+		store.timer.start();
+		famu::fastWoodbury(store, graddFvec, X, BInvXDy, denseHess, res3);
+		store.timer.stop();
+		double woodTime = store.timer.getElapsedTimeInMicroSec();
+		cout<<"Threads: "<<Eigen::nbThreads()<<", Time:"<<woodTime<<endl;
+		cout<<res3.segment<50>(0).transpose()<<endl<<endl;
+	}
+
+	//Woodbury with 3 cores
+	{
+		#ifdef __linux__
+			num_threads = 3;
+			omp_set_num_threads(num_threads);
+			Eigen::initParallel();
+			store.ACAP_KKT_SPLU.pardisoParameterArray()[2] = num_threads;
+		#endif
+		famu::acap::fastHessian(store, store.acapHess, store.denseAcapHess, false);
+		res3 = VectorXd::Zero(graddFvec.size());
+		VectorXd BInvXDy = VectorXd::Zero(store.dFvec.size());
+		MatrixModesxModes X;
+		SparseMatrix<double, Eigen::RowMajor> constHess(store.dFvec.size(), store.dFvec.size());
+		constHess.setZero();
+		constHess = store.neoHess + store.muscleHess + store.acapHess;// + store.ContactHess;
+		constHess -= store.neoHess;
+		MatrixXd denseHess = MatrixXd::Zero(store.dFvec.size(),  9);
+		MatrixXd constDenseHess = MatrixXd::Zero(store.dFvec.size(),  9);
+		famu::sparse_to_dense(store, constHess, denseHess);
+		famu::stablenh::hessian(store, store.neoHess, store.denseNeoHess, true);
+		denseHess += store.denseNeoHess;
+		store.timer.start();
+		famu::fastWoodbury(store, graddFvec, X, BInvXDy, denseHess, res3);
+		store.timer.stop();
+		double woodTime = store.timer.getElapsedTimeInMicroSec();
+		cout<<"Threads: "<<Eigen::nbThreads()<<", Time:"<<woodTime<<endl;
+		cout<<res3.segment<50>(0).transpose()<<endl<<endl;
+	}
+
+	//Woodbury with 4 cores
+	{
+		#ifdef __linux__
+			num_threads = 4;
+			omp_set_num_threads(num_threads);
+			Eigen::initParallel();
+			store.ACAP_KKT_SPLU.pardisoParameterArray()[2] = num_threads;
+		#endif
+		famu::acap::fastHessian(store, store.acapHess, store.denseAcapHess, false);
+		res3 = VectorXd::Zero(graddFvec.size());
+		VectorXd BInvXDy = VectorXd::Zero(store.dFvec.size());
+		MatrixModesxModes X;
+		SparseMatrix<double, Eigen::RowMajor> constHess(store.dFvec.size(), store.dFvec.size());
+		constHess.setZero();
+		constHess = store.neoHess + store.muscleHess + store.acapHess;// + store.ContactHess;
+		constHess -= store.neoHess;
+		MatrixXd denseHess = MatrixXd::Zero(store.dFvec.size(),  9);
+		MatrixXd constDenseHess = MatrixXd::Zero(store.dFvec.size(),  9);
+		famu::sparse_to_dense(store, constHess, denseHess);
+		famu::stablenh::hessian(store, store.neoHess, store.denseNeoHess, true);
+		denseHess += store.denseNeoHess;
+		store.timer.start();
+		famu::fastWoodbury(store, graddFvec, X, BInvXDy, denseHess, res3);
+		store.timer.stop();
+		double woodTime = store.timer.getElapsedTimeInMicroSec();
+		cout<<"Threads: "<<Eigen::nbThreads()<<", Time:"<<woodTime<<endl;
+		cout<<res3.segment<50>(0).transpose()<<endl<<endl;
+	}
+
+
+}
+
 int main(int argc, char *argv[])
 {
 	
@@ -230,95 +469,6 @@ int main(int argc, char *argv[])
 	// 	std::cout<<"norm: "<<(acap_segment - fake_acap).squaredNorm()<<std::endl;
 
  	std::cout<<"----Check Woodbury Solve----"<<std::endl;
- 	//ACAP solve
- 	famu::acap::solve(store, store.dFvec);
-
- 	cout<<"gradients"<<endl;
- 	//Get gradients
- 	VectorXd muscle_grad, neo_grad, acap_grad;
-	muscle_grad.resize(store.dFvec.size());
-	neo_grad.resize(store.dFvec.size());
-	acap_grad.resize(store.dFvec.size());
-	famu::muscle::gradient(store, muscle_grad);
-	famu::stablenh::gradient(store, neo_grad);
-	famu::acap::fastGradient(store, acap_grad);
-	VectorXd graddFvec = muscle_grad + neo_grad + acap_grad;
-
-	cout<<"unreduced"<<endl;
- // 	// First, the unreduced code
- // 	famu::acap::setJacobian(store, true);
-	// famu::muscle::fastHessian(store, store.muscleHess, store.denseMuscleHess);
-	// famu::stablenh::hessian(store, store.neoHess, store.denseNeoHess, false);
-	// famu::acap::fastHessian(store, store.acapHess, store.denseAcapHess, true);
-	// Eigen::SparseMatrix<double> fullHess = store.muscleHess + store.neoHess + store.acapHess;
-	// cout<<fullHess.rows()<<", "<<fullHess.cols()<<endl;
-	// cout<<fullHess.nonZeros()<<endl;
-	// store.NM_SPLU.compute(fullHess);
-	// if(store.NM_SPLU.info() == Eigen::NumericalIssue)
- //    {
- //        throw std::runtime_error("Possibly non semi-positive definitie matrix!");
- //    }
-	// VectorXd res1 = -store.NM_SPLU.solve(graddFvec);
-	// cout<<res1.segment<50>(0).transpose()<<endl<<endl;
-
-
-	// //Third, the optimized woodbury solve
-	// famu::acap::fastHessian(store, store.acapHess, store.denseAcapHess, false);
-	// VectorXd res3 = VectorXd::Zero(graddFvec.size());
-	// VectorXd BInvXDy = VectorXd::Zero(store.dFvec.size());
-	// MatrixModesxModes X;
-	// SparseMatrix<double, Eigen::RowMajor> constHess(store.dFvec.size(), store.dFvec.size());
-	// constHess.setZero();
-	// constHess = store.neoHess + store.muscleHess + store.acapHess;// + store.ContactHess;
-	// constHess -= store.neoHess;
-	// MatrixXd denseHess = MatrixXd::Zero(store.dFvec.size(),  9);
-	// MatrixXd constDenseHess = MatrixXd::Zero(store.dFvec.size(),  9);
-	// famu::sparse_to_dense(store, constHess, denseHess);
-	// famu::stablenh::hessian(store, store.neoHess, store.denseNeoHess, true);
-	// denseHess += store.denseNeoHess;
-	// famu::fastWoodbury(store, graddFvec, X, BInvXDy, denseHess, res3);
-	// cout<<res3.segment<50>(0).transpose()<<endl<<endl;
-
-
-	//Second, unoptimized woodbury solve
-	famu::muscle::fastHessian(store, store.muscleHess, store.denseMuscleHess);
-	famu::stablenh::hessian(store, store.neoHess, store.denseNeoHess, false);
-	famu::acap::fastHessian(store, store.acapHess, store.denseAcapHess, false);
-	Eigen::SparseMatrix<double> sparseHess = store.muscleHess + store.neoHess + store.acapHess;
-	store.NM_SPLU.compute(sparseHess);
-	VectorXd InvAg = store.NM_SPLU.solve(graddFvec);
-	MatrixXd CDAB = store.InvC + store.WoodD*store.NM_SPLU.solve(store.WoodB);
-	FullPivLU<MatrixXd>  WoodburyDenseSolve;
-	WoodburyDenseSolve.compute(CDAB);
-	VectorXd temp1 = store.WoodB*WoodburyDenseSolve.solve(store.WoodD*InvAg);;
-
-	VectorXd InvAtemp1 = store.NM_SPLU.solve(temp1);
-	VectorXd res2 =  -InvAg + InvAtemp1;
-	cout<<res2.segment<50>(0).transpose()<<endl<<endl;
-
-	//Fourth, totally unoptimized woodbury solve
-	famu::muscle::fastHessian(store, store.muscleHess, store.denseMuscleHess);
-	famu::stablenh::hessian(store, store.neoHess, store.denseNeoHess, false);
-	famu::acap::fastHessian(store, store.acapHess, store.denseAcapHess, false);
-	// Eigen::SparseMatrix<double> A = store.muscleHess + store.neoHess + store.acapHess;
-	MatrixXd BCD = store.WoodB*store.WoodC*store.WoodD;
-	Eigen::SparseMatrix<double> ABCD = sparseHess + BCD.sparseView();
-	store.NM_SPLU.compute(ABCD);
-	if(store.NM_SPLU.info() == Eigen::NumericalIssue)
-    {
-        throw std::runtime_error("Possibly non semi-positive definitie matrix!");
-    }
-	VectorXd res4 = -store.NM_SPLU.solve(graddFvec);
-	cout<<res4.segment<50>(0).transpose()<<endl<<endl<<endl;
-	igl::writeDMAT("ABCD.dmat", MatrixXd(ABCD),false);
-	igl::writeDMAT("b.dmat", graddFvec, false);
-	igl::writeDMAT("res2.dmat", res2, false);
-	igl::writeDMAT("res4.dmat", res4, false);
-
-	cout<<store.eigenvalues.transpose()<<endl;
-	cout<<"residuals from optimized woodbury: "<<(res4 - res2).norm()<<endl;
-	cout<<"Residuals: "<<(ABCD*res2 - graddFvec).norm()<<", "<<(ABCD*res4 - graddFvec).norm()<<endl;
-	// cout<<"residuals from optimized woodbury: "<<acos(res1.dot(res3)/(res1.norm()*res3.norm())) <<", "<<(res2-res3).norm()/res3.norm()<<", "<<(res4-res3).norm()/res3.norm()<<endl;
-	
-
+ 	// woodburyCorrectnessTests(store);
+ 	woodburyParallelizedTests(store);
 }
