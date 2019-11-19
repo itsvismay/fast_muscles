@@ -244,19 +244,6 @@ void woodburyCorrectnessTests(Store& store){
 }
 
 void woodburyParallelizedTests(Store& store){
-	//ACAP solve
- 	famu::acap::solve(store, store.dFvec);
-
- 	cout<<"gradients"<<endl;
- 	//Get gradients
- 	VectorXd muscle_grad, neo_grad, acap_grad;
-	muscle_grad.resize(store.dFvec.size());
-	neo_grad.resize(store.dFvec.size());
-	acap_grad.resize(store.dFvec.size());
-	famu::muscle::gradient(store, muscle_grad);
-	famu::stablenh::gradient(store, neo_grad);
-	famu::acap::fastGradient(store, acap_grad);
-	VectorXd graddFvec = muscle_grad + neo_grad + acap_grad;
 
 	VectorXd res1, res2, res3, res4;
 	int num_threads = 1;
@@ -268,6 +255,18 @@ void woodburyParallelizedTests(Store& store){
 			Eigen::initParallel();
 			store.ACAP_KKT_SPLU.pardisoParameterArray()[2] = num_threads;
 		#endif
+		//ACAP solve
+	 	famu::acap::solve(store, store.dFvec);
+	 	//Get gradients
+	 	VectorXd muscle_grad, neo_grad, acap_grad;
+		muscle_grad.resize(store.dFvec.size());
+		neo_grad.resize(store.dFvec.size());
+		acap_grad.resize(store.dFvec.size());
+		famu::muscle::gradient(store, muscle_grad);
+		famu::stablenh::gradient(store, neo_grad);
+		famu::acap::fastGradient(store, acap_grad);
+		VectorXd graddFvec = muscle_grad + neo_grad + acap_grad;
+		///////////////-----------------------------------------
 		famu::acap::fastHessian(store, store.acapHess, store.denseAcapHess, false);
 		res3 = VectorXd::Zero(graddFvec.size());
 		VectorXd BInvXDy = VectorXd::Zero(store.dFvec.size());
@@ -297,6 +296,18 @@ void woodburyParallelizedTests(Store& store){
 			Eigen::initParallel();
 			store.ACAP_KKT_SPLU.pardisoParameterArray()[2] = num_threads;
 		#endif
+		//ACAP solve
+	 	famu::acap::solve(store, store.dFvec);
+	 	//Get gradients
+	 	VectorXd muscle_grad, neo_grad, acap_grad;
+		muscle_grad.resize(store.dFvec.size());
+		neo_grad.resize(store.dFvec.size());
+		acap_grad.resize(store.dFvec.size());
+		famu::muscle::gradient(store, muscle_grad);
+		famu::stablenh::gradient(store, neo_grad);
+		famu::acap::fastGradient(store, acap_grad);
+		VectorXd graddFvec = muscle_grad + neo_grad + acap_grad;
+		///////////////-----------------------------------------
 		famu::acap::fastHessian(store, store.acapHess, store.denseAcapHess, false);
 		res3 = VectorXd::Zero(graddFvec.size());
 		VectorXd BInvXDy = VectorXd::Zero(store.dFvec.size());
@@ -326,6 +337,18 @@ void woodburyParallelizedTests(Store& store){
 			Eigen::initParallel();
 			store.ACAP_KKT_SPLU.pardisoParameterArray()[2] = num_threads;
 		#endif
+		//ACAP solve
+	 	famu::acap::solve(store, store.dFvec);
+	 	//Get gradients
+	 	VectorXd muscle_grad, neo_grad, acap_grad;
+		muscle_grad.resize(store.dFvec.size());
+		neo_grad.resize(store.dFvec.size());
+		acap_grad.resize(store.dFvec.size());
+		famu::muscle::gradient(store, muscle_grad);
+		famu::stablenh::gradient(store, neo_grad);
+		famu::acap::fastGradient(store, acap_grad);
+		VectorXd graddFvec = muscle_grad + neo_grad + acap_grad;
+		///////////////-----------------------------------------
 		famu::acap::fastHessian(store, store.acapHess, store.denseAcapHess, false);
 		res3 = VectorXd::Zero(graddFvec.size());
 		VectorXd BInvXDy = VectorXd::Zero(store.dFvec.size());
@@ -355,6 +378,18 @@ void woodburyParallelizedTests(Store& store){
 			Eigen::initParallel();
 			store.ACAP_KKT_SPLU.pardisoParameterArray()[2] = num_threads;
 		#endif
+		//ACAP solve
+	 	famu::acap::solve(store, store.dFvec);
+	 	//Get gradients
+	 	VectorXd muscle_grad, neo_grad, acap_grad;
+		muscle_grad.resize(store.dFvec.size());
+		neo_grad.resize(store.dFvec.size());
+		acap_grad.resize(store.dFvec.size());
+		famu::muscle::gradient(store, muscle_grad);
+		famu::stablenh::gradient(store, neo_grad);
+		famu::acap::fastGradient(store, acap_grad);
+		VectorXd graddFvec = muscle_grad + neo_grad + acap_grad;
+		///////////////-----------------------------------------
 		famu::acap::fastHessian(store, store.acapHess, store.denseAcapHess, false);
 		res3 = VectorXd::Zero(graddFvec.size());
 		VectorXd BInvXDy = VectorXd::Zero(store.dFvec.size());
