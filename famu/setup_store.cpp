@@ -85,7 +85,6 @@ void famu::setupStore(Store& store){
 
 
 		store.jinput["number_modes"] = NUM_MODES;
-		std::string outputfile = store.jinput["output"];
 
 	cout<<"---Set Fixed Vertices"<<endl;
 		// store.mfix = famu::getMaxVerts(store.V, 1);
@@ -310,13 +309,17 @@ void famu::setupStore(Store& store){
 			store.NullJ.resize(store.Y.cols(), store.Y.cols());
 			store.NullJ.setIdentity();
 		}
+		std::string outputfile = store.jinput["output"];
+
         SparseMatrix<double> NjtYtStDtDSYNj = store.NullJ.transpose()*store.Y.transpose()*store.S.transpose()*store.D.transpose()*store.D*store.S*store.Y*store.NullJ;
-        igl::readDMAT(inputfile+"/"+to_string((int)store.jinput["number_modes"])+"modes.dmat", temp1);
+        igl::readDMAT(outputfile+"/"+to_string((int)store.jinput["number_modes"])+"modes.dmat", temp1);
         if(temp1.rows() == 0){
 			famu::setup_hessian_modes(store, NjtYtStDtDSYNj, temp1);
+			igl::writeDMAT(outputfile+"/"+to_string((int)store.jinput["number_modes"])+"modes.dmat", temp1);
+			igl::writeDMAT(outputfile+"/"+to_string((int)store.jinput["number_modes"])+"eigs.dmat", store.eigenvalues);
 		}else{
 			//read eigenvalues (for the woodbury solve)
-			igl::readDMAT(inputfile+"/"+to_string((int)store.jinput["number_modes"])+"eigs.dmat", store.eigenvalues);
+			igl::readDMAT(outputfile+"/"+to_string((int)store.jinput["number_modes"])+"eigs.dmat", store.eigenvalues);
 		}
 		store.G = store.NullJ*temp1;
 	}
