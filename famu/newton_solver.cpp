@@ -354,37 +354,47 @@ int famu::newton_static_solve(Store& store){
 		polar_dec(store, store.dFvec);
 		double fx = Energy(store, store.dFvec);
 		std::cout<<(graddFvec.squaredNorm()/graddFvec.size())<<", "<<(fabs(fx-prevfx)) <<endl;
-		if(graddFvec.squaredNorm()/graddFvec.size()<1e-4){
+		if(graddFvec.squaredNorm()/graddFvec.size()<store.gradNormConvergence){
 			break;
 		}
 	}
 	timer1.stop();
 	double nmtime = timer1.getElapsedTimeInMicroSec();
-
-	timer1.start();
-	// double acap_energy = famu::acap::fastEnergy(store, store.dFvec);
-	double acap_energy = Energy(store, store.dFvec) - Energy(store, store.I0);
-	timer1.stop();
-	double energy_time = timer1.getElapsedTimeInMicroSec();
-
-	timer1.start();
-	famu::acap::solve(store, store.dFvec);
-	timer1.stop();
-
-	
 	
 	cout<<"-----------QS STEP INFO----------"<<endl;
-	cout<<"V, T:"<<store.V.rows()<<", "<<store.T.rows()<<endl;
-	cout<<"Threads: "<<Eigen::nbThreads()<<endl;
-	cout<<"NM Iters: "<<iter<<endl;
-	cout<<"Total NM time: "<<nmtime<<endl;
-	cout<<"Total Hess time: "<<woodtimes<<endl;
-	cout<<"Total LS time: "<<linetimes<<endl;
-	cout<<"LS iters: "<<tot_ls_its<<endl;
-	cout<<"Energy: "<<acap_energy<<endl;
-	cout<<"Energy Time: "<<energy_time<<endl;
-	cout<<"ACAP time: "<<timer1.getElapsedTimeInMicroSec()<<endl;
-	// cout<<"dFvec: "<<store.dFvec.transpose()<<endl;
+	// {total_ls_iters: ,
+	// 			 total_nm_iters: ,
+	// 			 total_nm_time: ,
+	// 			 total_woodbury_time: ,
+	// 			 total_ls_time: 
+	// 			 muscle_activations: ,
+	// 			 acap_grad: ,
+	// 			 muscle_grad: , 
+	// 			 neo_grad: ,
+	// 			 acap_E: ,
+	// 			 muscle_E: ,
+	// 			 neo_E
+	// 			 },
+	famu::muscle::gradient(store, muscle_grad);
+	famu::stablenh::gradient(store, neo_grad);
+	famu::acap::fastGradient(store, acap_grad);
+
+	nlohmann::json step_info;
+	step_info["total_ls_iters"] = tot_ls_its;
+	step_info["total_nm_iters"] = iter;
+	step_info["total_nm_time"] = nmtime;
+	step_info["total_woodbury_time"] = woodtimes;
+	step_info["total_ls_time"] = linetimes;
+	step_info["muscle_activations"] = nlohmann::json::object();
+	step_info["acap_grad"] = acap_grad.norm();
+	step_info["neo_grad"] = neo_grad.norm();
+	step_info["muscle_grad"] = muscle_grad.norm();
+	step_info["acap_E"] = famu::acap::fastEnergy(store, store.dFvec);;
+	step_info["muscle_E"] = famu::muscle::energy(store, store.dFvec);;
+	step_info["neo_E"] = famu::stablenh::energy(store, store.dFvec);;
+
+	store.joutput["run"].push_back(step_info);
+
 	cout<<"--------------------------------"<<endl;
     return iter;
 }

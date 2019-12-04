@@ -33,6 +33,7 @@ namespace famu{
 		
 		double alpha_arap = 1e4;
 		double alpha_neo = 1;
+		double gradNormConvergence = 1e-4;
 
 		Eigen::MatrixXd V, discV;
 		Eigen::MatrixXi T, discT, F, discF;
@@ -125,9 +126,86 @@ namespace famu{
 		}
 
 		int saveResults(){
+			/*
+			{	
+				#Mesh info
+				{T: ,
+				 V: ,
+				 F: ,
+				 Threads: ,
+				 convergence: ,
+				 alpha: ,
+
+				 },
+
+				#Each static solve
+				{total_ls_iters: ,
+				 total_nm_iters: ,
+				 total_nm_time: ,
+				 total_woodbury_time: ,
+				 total_ls_time: 
+				 muscle_activations: ,
+				 acap_grad: ,
+				 muscle_grad: , 
+				 neo_grad: ,
+				 acap_E: ,
+				 muscle_E: ,
+				 neo_E
+				 },
+
+				 #summary
+				 {
+					total_sim_time:
+					num_nm_its:
+					num_ls_its:
+					nm_time: 
+					ls_time:
+					wood_time:
+					avg_nm_time:
+					avg_wood_time: 
+					avg_ls_time:
+				 }
+				
+			}
+			*/
+			double total_sim_time = 0;
+			int num_nm_its = 0;
+			int num_ls_its = 0;
+			double nm_time = 0;
+			double ls_time = 0;
+			double wood_time = 0;
+			double avg_nm_time = 0;
+			double avg_wood_time = 0;
+			double avg_ls_time = 0;
+
+			int ii=0;
+			for(ii=0; ii<joutput["run"].size(); ii++){
+				nlohmann::json step = joutput["run"][ii];
+				total_sim_time += (double) step["total_nm_time"];
+				num_nm_its += (int) step["total_nm_iters"];
+				num_ls_its += (int) step["total_ls_iters"];
+				nm_time += (double) step["total_nm_time"];
+				ls_time += (double) step["total_ls_time"];
+				wood_time += (double) step["total_woodbury_time"];
+			}
+			avg_nm_time = nm_time/ii;
+			avg_wood_time = wood_time/ii;
+			avg_ls_time = ls_time/ii;
+			joutput["summary"]["total_sim_time"] = total_sim_time;
+			joutput["summary"]["num_nm_its"] = num_nm_its;
+			joutput["summary"]["num_ls_its"] = num_ls_its;
+			joutput["summary"]["nm_time"] = nm_time;
+			joutput["summary"]["ls_time"] = ls_time;
+			joutput["summary"]["wood_time"] = wood_time;
+			joutput["summary"]["avg_nm_time"] = avg_nm_time;
+			joutput["summary"]["avg_wood_time"] = avg_wood_time;
+			joutput["summary"]["avg_ls_time"] = avg_ls_time;
+
+
 			std::string out = jinput["output"];
 			std::ofstream o(out+"/results.json");
 			o << std::setw(4) << joutput << std::endl;
+
 		}
 
 

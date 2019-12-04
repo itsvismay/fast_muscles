@@ -80,6 +80,8 @@ void famu::setupStore(Store& store){
 		store.joutput["info"]["Tsize"] = store.T.rows();
 		store.joutput["info"]["Fsize"] = store.F.rows();
 		store.joutput["info"]["NumModes"] = NUM_MODES;
+		store.joutput["info"]["NumThreads"] = Eigen::nbThreads();
+		store.joutput["info"]["acap_alpha"] = store.alpha_arap;
 
 
 		store.jinput["number_modes"] = NUM_MODES;

@@ -58,7 +58,7 @@ int main(int argc, char *argv[])
 		int niters = 0;
     int iii=0;
     std::string name = "mesh";
-    for(iii=0; iii<store.muscle_steps.size(); iii++){
+    for(iii=0; iii<20; iii++){
       store.printState(iii, name);
       famu::muscle::set_muscle_mag(store, iii);
 		  niters = famu::newton_static_solve(store);
