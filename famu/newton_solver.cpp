@@ -71,7 +71,7 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
 	// Decreasing and increasing factors
 	VectorXd x = store.dFvec;
 	VectorXd xp = x;
-	double step = 1;
+	double step = 50;
     const double dec = 0.5;
     const double inc = 2.1;
     int pmax_linesearch = 100;
@@ -104,8 +104,6 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
     int iter;
     for(iter = 0; iter < pmax_linesearch; iter++)
     {
-    	tot_ls_its += 1;
-
         // x_{k+1} = x_k + step * d_k
         x.noalias() = xp + step * drt;
         polar_dec(store, x);
@@ -151,9 +149,10 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
             throw std::runtime_error("the line search step became larger than the maximum value allowed");
 
         step *= width;
-	    
     }
-
+    //cout<<"			ls iters: "<<iter<<endl;
+    //cout<<"			step: "<<step<<endl;
+    tot_ls_its += iter;
     return step;
 }
 
@@ -346,21 +345,42 @@ int famu::newton_static_solve(Store& store){
 		linetimes += timer.getElapsedTimeInMicroSec();
 		
 
-		// if(fabs(alpha)<1e-9 ){
-		// 	break;
-		// }
+		//if(fabs(alpha)<1e-9 ){
+		//	break;
+		//}
 
 		store.dFvec += alpha*delta_dFvec;
 		polar_dec(store, store.dFvec);
 		double fx = Energy(store, store.dFvec);
-		std::cout<<(graddFvec.squaredNorm()/graddFvec.size())<<", "<<(fabs(fx-prevfx)) <<endl;
-		if(graddFvec.squaredNorm()/graddFvec.size()<store.gradNormConvergence){
+		//std::cout<<(graddFvec.squaredNorm()/graddFvec.size())<<", "<<(fabs(fx-prevfx)) <<endl;
+		if(graddFvec.squaredNorm()/graddFvec.size()<store.gradNormConvergence || fabs(fx - prevfx)< 1e-3){
 			break;
 		}
 	}
 	timer1.stop();
 	double nmtime = timer1.getElapsedTimeInMicroSec();
 	
+	famu::acap::solve(store, store.dFvec);
+	timer1.start();
+	famu::acap::solve(store, store.dFvec);
+	timer1.stop();
+	double acapsolvetime = timer1.getElapsedTimeInMicroSec();
+	
+	timer1.start();
+	famu::muscle::energy(store, store.dFvec);
+	timer1.stop();
+	double muscleenergytime = timer1.getElapsedTimeInMicroSec();
+
+	timer1.start();
+	famu::stablenh::energy(store, store.dFvec);
+	timer1.stop();
+	double neoenergytime = timer1.getElapsedTimeInMicroSec();
+
+	timer1.start();
+	famu::acap::fastEnergy(store, store.dFvec);
+	timer1.stop();
+	double acapenergytime = timer1.getElapsedTimeInMicroSec();
+
 	cout<<"-----------QS STEP INFO----------"<<endl;
 	// {total_ls_iters: ,
 	// 			 total_nm_iters: ,
@@ -375,6 +395,11 @@ int famu::newton_static_solve(Store& store){
 	// 			 muscle_E: ,
 	// 			 neo_E
 	// 			 },
+	cout<<"ACAP solve time: "<<acapsolvetime<<endl;
+	cout<<"ACAP E time: "<<acapenergytime<<endl;
+	cout<<"Muscle E time: "<<neoenergytime<<endl;
+	cout<<"Neo E time: "<<muscleenergytime<<endl;
+
 	famu::muscle::gradient(store, muscle_grad);
 	famu::stablenh::gradient(store, neo_grad);
 	famu::acap::fastGradient(store, acap_grad);
