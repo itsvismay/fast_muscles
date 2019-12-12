@@ -1,8 +1,8 @@
-fname = '../data/cartoon_skeleton/run3/input.json';
+fname = '../data/contact_test/run1/input.json';
 val = jsondecode(fileread(fname));
 waypoints = val.muscle_waypoints;
 n = fieldnames(waypoints);
-h = 0.01;
+h = 0.1;
 waymatrix = cell2mat(struct2cell(waypoints));
 fullmatrix = zeros(length(n), 1+(size(waymatrix,2)-1)/h);
 names = {};
@@ -22,7 +22,7 @@ val.muscle_starting_strength = S;
 
 %disp(jsonencode(S))
 jsontext = jsonencode(val);
-jsontext = strrep(jsontext, ',', sprintf(',\r'));
+jsontext = strrep(jsontext, ',', sprintf(',\n'));
 jsontext = strrep(jsontext, '[{', sprintf('[\r{\r'));
 jsontext = strrep(jsontext, '}]', sprintf('\r}\r]'));
 fileID = fopen(fname, 'w');

@@ -264,9 +264,11 @@ void famu::setupStore(Store& store){
 		if(springk>0){
 			SparseMatrix<double, Eigen::RowMajor> PY = springk*store.ContactP*store.Y;
 			famu::construct_kkt_system_left(KKT_left, PY, KKT_left1, -1);
+			famu::construct_kkt_system_left(KKT_left1, store.Bx,  KKT_left2, -1e-3); 
+		}else{
+			famu::construct_kkt_system_left(KKT_left, store.Bx,  KKT_left2, -1e-3);
 		}
 
-		famu::construct_kkt_system_left(KKT_left1, store.Bx,  KKT_left2, -1e-3); 
 		// MatrixXd Hkkt = MatrixXd(KKT_left2);
 		#ifdef __linux__
 		store.ACAP_KKT_SPLU.pardisoParameterArray()[2] = Eigen::nbThreads(); 
