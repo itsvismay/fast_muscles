@@ -243,16 +243,30 @@ void famu::setupStore(Store& store){
 		famu::bone_def_grad_projection_matrix(store, store.ProjectF, store.PickBoneF);
 		famu::bone_acap_deformation_constraints(store, store.Bx, store.Bf);
 	    store.lambda2 = VectorXd::Zero(store.Bf.rows());
+	
+	cout<<"---Set Contact Matrices"<<endl;
+		double springk = store.jinput["springk"];
+		if(springk>0){
+			std::vector<std::pair<int, int>> springs;
+		    // std::vector<int> bcMuscle1 = getMinVerts_Axis_Tolerance(store.T, store.V, 2, 5e-2, store.muscle_tets[0]);
+		    std::vector<int> bcMuscle2 = getMaxVerts_Axis_Tolerance(store.T, store.V, 0, 5e-2, store.muscle_tets[1]);
+		    // famu::make_closest_point_springs(store.T, store.V, store.muscle_tets[1],  bcMuscle1, springs);
+		    famu::make_closest_point_springs(store.T, store.V, store.muscle_tets[0],  bcMuscle2, springs);
+		    famu::penalty_spring_bc(springs, store.ContactP, store.V);
+		}
 
 	cout<<"---ACAP Solve KKT setup"<<store.x.size()<<endl;
-		SparseMatrix<double, Eigen::RowMajor> KKT_left, KKT_left1;
+		SparseMatrix<double, Eigen::RowMajor> KKT_left, KKT_left1, KKT_left2;
 		store.YtStDtDSY = (store.D*store.S*store.Y).transpose()*(store.D*store.S*store.Y);
 		famu::construct_kkt_system_left(store.YtStDtDSY, store.JointConstraints, KKT_left);
 
-		double k = store.jinput["springk"];
+		//---------------SPRINGS
+		if(springk>0){
+			SparseMatrix<double, Eigen::RowMajor> PY = springk*store.ContactP*store.Y;
+			famu::construct_kkt_system_left(KKT_left, PY, KKT_left1, -1);
+		}
 
-		SparseMatrix<double, Eigen::RowMajor> KKT_left2;
-		famu::construct_kkt_system_left(KKT_left, store.Bx,  KKT_left2, -1e-3); 
+		famu::construct_kkt_system_left(KKT_left1, store.Bx,  KKT_left2, -1e-3); 
 		// MatrixXd Hkkt = MatrixXd(KKT_left2);
 		#ifdef __linux__
 		store.ACAP_KKT_SPLU.pardisoParameterArray()[2] = Eigen::nbThreads(); 
@@ -326,7 +340,7 @@ void famu::setupStore(Store& store){
 	
 
 	cout<<"--- ACAP Hessians"<<endl;
-		// famu::acap::setJacobian(store);
+		famu::acap::setJacobian(store);
 		
 		store.denseNeoHess = MatrixXd::Zero(store.dFvec.size(), 9);
 		store.neoHess.resize(store.dFvec.size(), store.dFvec.size());
