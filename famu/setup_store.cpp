@@ -260,6 +260,7 @@ void famu::setupStore(Store& store){
 		store.YtStDtDSY = (store.D*store.S*store.Y).transpose()*(store.D*store.S*store.Y);
 		famu::construct_kkt_system_left(store.YtStDtDSY, store.JointConstraints, KKT_left);
 
+
 		//---------------SPRINGS
 		if(springk>0){
 			SparseMatrix<double, Eigen::RowMajor> PY = springk*store.ContactP*store.Y;
@@ -326,7 +327,6 @@ void famu::setupStore(Store& store){
 			store.NullJ.setIdentity();
 		}
 		std::string outputfile = store.jinput["output"];
-
         SparseMatrix<double> NjtYtStDtDSYNj = store.NullJ.transpose()*store.Y.transpose()*store.S.transpose()*store.D.transpose()*store.D*store.S*store.Y*store.NullJ;
         igl::readDMAT(outputfile+"/"+to_string((int)store.jinput["number_modes"])+"modes.dmat", temp1);
         if(temp1.rows() == 0){
