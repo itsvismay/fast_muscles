@@ -3,7 +3,6 @@
 #include <igl/writeDMAT.h>
 #include <igl/jet.h>
 #include <igl/png/readPNG.h>
-#include <igl/png/writePNG.h>
 #include <imgui/imgui.h>
 #include <json.hpp>
 
@@ -11,10 +10,11 @@
 #include <iomanip>
 // #include <omp.h>
 
-#include "famu/setup_store.h"
-#include "famu/newton_solver.h"
-#include "famu/muscle_energy_gradient.h"
-#include "famu/draw_disc_mesh_functions.h"
+#include "../famu/setup_store.h"
+#include "../famu/newton_solver.h"
+#include "../famu/muscle_energy_gradient.h"
+#include "../famu/draw_disc_mesh_functions.h"
+#include "../famu/acap_solve_energy_gradient.h"
 
 
 using namespace Eigen;
@@ -52,45 +52,25 @@ int main(int argc, char *argv[])
 		store.jinput = j_input;
 		famu::setupStore(store);
 
-		
-	cout<<"--- Write Meshes"<<endl;
-		double fx = 0;
-		int niters = 0;
-    int iii=0;
-    std::string name = "mesh";
-    for(iii=0; iii<store.muscle_steps.size(); iii++){
-      store.printState(iii, name);
-      famu::muscle::set_muscle_mag(store, iii);
-		  niters = famu::newton_static_solve(store);
-    }
-    store.printState(iii, name);
-		store.saveResults();
-    exit(0);
 
 	cout<<"--- External Forces Hard Coded Contact Matrices"<<endl;
-	    // famu::acap::adjointMethodExternalForces(store);
+    // famu::acap::adjointMethodExternalForces(store);
 	
+  std::cout<<"----POSE BONES MANUALLY ----"<<std::endl;
+  //Scapula -> humerus -> forearm
+    Matrix3d R;
+    R<<0.7071, 0.7071, 0,
+      -0.7071, 0.7071, 0,
+      0, 0, 1;
+    R = R*R*R;
+
+
 
 	std::cout<<"-----Display-------"<<std::endl;
     	igl::opengl::glfw::Viewer viewer;
     	int currentStep = 0;
     	viewer.callback_post_draw= [&](igl::opengl::glfw::Viewer & viewer) {
 	    
-	    // std::stringstream out_file;
-	    // //render out current view
-	    // // Allocate temporary buffers for 1280x800 image
-	    // Eigen::Matrix<unsigned char,Eigen::Dynamic,Eigen::Dynamic> R(1920,1280);
-	    // Eigen::Matrix<unsigned char,Eigen::Dynamic,Eigen::Dynamic> G(1920,1280);
-	    // Eigen::Matrix<unsigned char,Eigen::Dynamic,Eigen::Dynamic> B(1920,1280);
-	    // Eigen::Matrix<unsigned char,Eigen::Dynamic,Eigen::Dynamic> A(1920,1280);
-	    
-	    // // Draw the scene in the buffers
-	    // viewer.core.draw_buffer(viewer.data(),false,R,G,B,A);
-	    
-	    // // Save it to a PNG
-	    // out_file<<"out_"<<std::setfill('0') << std::setw(5) <<currentStep<<".png";
-	    // igl::png::writePNG(R,G,B,A,out_file.str());
-	    // currentStep += 1;
 	    return false;
 	};
 
@@ -129,8 +109,6 @@ int main(int argc, char *argv[])
 
             VectorXd y = store.Y*store.x;
         	  Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
-            std::string outputfile = store.jinput["output"];
-            igl::writeOBJ(outputfile+"EMU"+to_string(store.T.rows())+".obj", (newV.transpose()+store.V), store.F);
             viewer.data_list[fancy_data_index].set_vertices((newV.transpose()+store.V));
             viewer.data_list[debug_data_index].set_vertices((newV.transpose()+store.V));
             return true;
@@ -138,13 +116,27 @@ int main(int argc, char *argv[])
           case 'A':
           case 'a':
           {
-            if(currentStep>=store.muscle_steps.size()){
-              currentStep = 0;
-            }else{
-              famu::muscle::set_muscle_mag(store, currentStep);
-              currentStep += 1;
-            }
-            return true;
+              cout<<"Before: "<<famu::acap::fastEnergy(store, store.dFvec)<<endl;
+              store.dFvec[18+0] = R(0,0);
+              store.dFvec[18+1] = R(0,1);
+              store.dFvec[18+2] = R(0,2);
+              store.dFvec[18+3] = R(1,0);
+              store.dFvec[18+4] = R(1,1);
+              store.dFvec[18+5] = R(1,2);
+              store.dFvec[18+6] = R(2,0);
+              store.dFvec[18+7] = R(2,1);
+              store.dFvec[18+8] = R(2,2);
+
+              store.BfI0 = store.Bf*store.dFvec;
+              famu::acap::solve(store, store.dFvec);
+              cout<<"After: "<<famu::acap::fastEnergy(store, store.dFvec)<<endl;
+            // if(currentStep>=store.muscle_steps.size()){
+            //   currentStep = 0;
+            // }else{
+            //   famu::muscle::set_muscle_mag(store, currentStep);
+            //   currentStep += 1;
+            // }
+            // return true;
           }
           case 'C':
           case 'c':
