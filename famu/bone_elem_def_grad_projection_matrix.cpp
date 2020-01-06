@@ -6,40 +6,51 @@ using namespace std;
 
 void famu::bone_def_grad_projection_matrix(Store& store, Eigen::SparseMatrix<double, Eigen::RowMajor>& mN, Eigen::SparseMatrix<double, Eigen::RowMajor>& mAN){
 	int num_bones = store.bone_tets.size();
-	std::vector<Trip> mN_trips, mAN_trips;
+	std::vector<Trip> mNProjectBonesElemsToOneDef_trips,mNRemoveFixedBones_trips, mAN_trips;
+
+    Eigen::SparseMatrix<double, Eigen::RowMajor> NProjectBonesElemsToOneDef, NRemoveFixedBones;
 	
     for(int i=0; i<store.bone_or_muscle.size(); i++){
-		mN_trips.push_back(Trip(9*i+0, 9*store.bone_or_muscle[i]+0, 1.0));
-		mN_trips.push_back(Trip(9*i+1, 9*store.bone_or_muscle[i]+1, 1.0));
-		mN_trips.push_back(Trip(9*i+2, 9*store.bone_or_muscle[i]+2, 1.0));
+		mNProjectBonesElemsToOneDef_trips.push_back(Trip(9*i+0, 9*store.bone_or_muscle[i]+0, 1.0));
+		mNProjectBonesElemsToOneDef_trips.push_back(Trip(9*i+1, 9*store.bone_or_muscle[i]+1, 1.0));
+		mNProjectBonesElemsToOneDef_trips.push_back(Trip(9*i+2, 9*store.bone_or_muscle[i]+2, 1.0));
 
-		mN_trips.push_back(Trip(9*i+3, 9*store.bone_or_muscle[i]+3, 1.0));
-		mN_trips.push_back(Trip(9*i+4, 9*store.bone_or_muscle[i]+4, 1.0));
-		mN_trips.push_back(Trip(9*i+5, 9*store.bone_or_muscle[i]+5, 1.0));
+		mNProjectBonesElemsToOneDef_trips.push_back(Trip(9*i+3, 9*store.bone_or_muscle[i]+3, 1.0));
+		mNProjectBonesElemsToOneDef_trips.push_back(Trip(9*i+4, 9*store.bone_or_muscle[i]+4, 1.0));
+		mNProjectBonesElemsToOneDef_trips.push_back(Trip(9*i+5, 9*store.bone_or_muscle[i]+5, 1.0));
 
-		mN_trips.push_back(Trip(9*i+6, 9*store.bone_or_muscle[i]+6, 1.0));
-		mN_trips.push_back(Trip(9*i+7, 9*store.bone_or_muscle[i]+7, 1.0));
-		mN_trips.push_back(Trip(9*i+8, 9*store.bone_or_muscle[i]+8, 1.0));
+		mNProjectBonesElemsToOneDef_trips.push_back(Trip(9*i+6, 9*store.bone_or_muscle[i]+6, 1.0));
+		mNProjectBonesElemsToOneDef_trips.push_back(Trip(9*i+7, 9*store.bone_or_muscle[i]+7, 1.0));
+		mNProjectBonesElemsToOneDef_trips.push_back(Trip(9*i+8, 9*store.bone_or_muscle[i]+8, 1.0));
 		
     }
     int maxInd = store.bone_or_muscle.maxCoeff();
-    mN.resize(9*store.T.rows(), 9*(maxInd+1));
-    mN.setFromTriplets(mN_trips.begin(), mN_trips.end());
+    NProjectBonesElemsToOneDef.resize(9*store.T.rows(), 9*(maxInd+1));
+    NProjectBonesElemsToOneDef.setFromTriplets(mNProjectBonesElemsToOneDef_trips.begin(), mNProjectBonesElemsToOneDef_trips.end());
 
-    for(int i=0; i<store.bone_tets.size(); i++){
-        mAN_trips.push_back(Trip(9*i+0, 9*i+0, 1.0));
-        mAN_trips.push_back(Trip(9*i+1, 9*i+1, 1.0));
-        mAN_trips.push_back(Trip(9*i+2, 9*i+2, 1.0));
-        mAN_trips.push_back(Trip(9*i+3, 9*i+3, 1.0));
-        mAN_trips.push_back(Trip(9*i+4, 9*i+4, 1.0));
-        mAN_trips.push_back(Trip(9*i+5, 9*i+5, 1.0));
-        mAN_trips.push_back(Trip(9*i+6, 9*i+6, 1.0));
-        mAN_trips.push_back(Trip(9*i+7, 9*i+7, 1.0));
-        mAN_trips.push_back(Trip(9*i+8, 9*i+8, 1.0));
+    for(int i=9*store.fix_bones.size(); i<NProjectBonesElemsToOneDef.cols(); i++){
+        mNRemoveFixedBones_trips.push_back(Trip(i - 9*store.fix_bones.size(), i, 1.0));
     }
+    NRemoveFixedBones.resize(9*(maxInd+1) -  9*store.fix_bones.size(), 9*(maxInd+1));
+    NRemoveFixedBones.setFromTriplets(mNRemoveFixedBones_trips.begin(), mNRemoveFixedBones_trips.end());
 
-    mAN.resize(9*(maxInd+1), 9*store.bone_tets.size());
-    mAN.setFromTriplets(mAN_trips.begin(), mAN_trips.end());
+    mN = NProjectBonesElemsToOneDef;
+    mAN = NRemoveFixedBones;
+
+    // for(int i=0; i<store.bone_tets.size(); i++){
+    //     mAN_trips.push_back(Trip(9*i+0, 9*i+0, 1.0));
+    //     mAN_trips.push_back(Trip(9*i+1, 9*i+1, 1.0));
+    //     mAN_trips.push_back(Trip(9*i+2, 9*i+2, 1.0));
+    //     mAN_trips.push_back(Trip(9*i+3, 9*i+3, 1.0));
+    //     mAN_trips.push_back(Trip(9*i+4, 9*i+4, 1.0));
+    //     mAN_trips.push_back(Trip(9*i+5, 9*i+5, 1.0));
+    //     mAN_trips.push_back(Trip(9*i+6, 9*i+6, 1.0));
+    //     mAN_trips.push_back(Trip(9*i+7, 9*i+7, 1.0));
+    //     mAN_trips.push_back(Trip(9*i+8, 9*i+8, 1.0));
+    // }
+
+    // mAN.resize(9*(maxInd+1), 9*store.bone_tets.size());
+    // mAN.setFromTriplets(mAN_trips.begin(), mAN_trips.end());
 
     // int muscle_index = 0;
     // for(int i=0; i<store.bone_or_muscle.size(); i++){

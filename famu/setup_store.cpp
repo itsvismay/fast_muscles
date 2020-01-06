@@ -240,7 +240,7 @@ void famu::setupStore(Store& store){
 	    store.x = VectorXd::Zero(store.Y.cols());
 		famu::joint_constraint_matrix(store, store.JointConstraints);
 
-		famu::bone_def_grad_projection_matrix(store, store.ProjectF, store.PickBoneF);
+		famu::bone_def_grad_projection_matrix(store, store.ProjectF, store.RemFixedBones);
 		famu::bone_acap_deformation_constraints(store, store.Bx, store.Bf);
 	    store.lambda2 = VectorXd::Zero(store.Bf.rows());
 	
@@ -366,13 +366,15 @@ void famu::setupStore(Store& store){
 	if(store.jinput["woodbury"]){
 		cout<<"--- Setup woodbury matrices"<<endl;
 			double aa = store.jinput["alpha_arap"];
-			store.WoodB = -store.YtStDt_dF_DSx0.transpose()*store.G;
+			cout<<store.RemFixedBones.rows()<<", "<<store.RemFixedBones.cols()<<endl;
+			cout<<store.YtStDt_dF_DSx0.rows()<<", "<<store.YtStDt_dF_DSx0.cols()<<endl;
+			store.WoodB = -store.RemFixedBones*store.YtStDt_dF_DSx0.transpose()*store.G;
 			store.WoodD = -1*store.WoodB.transpose();
 			store.WoodB *= aa;
 
 			store.InvC = store.eigenvalues.asDiagonal();
 			store.WoodC = store.eigenvalues.asDiagonal().inverse();
-			for(int i=0; i<store.dFvec.size()/9; i++){
+			for(int i=0; i<store.RemFixedBones.rows()/9; i++){
 				LDLT<Matrix9d> InvA;
 				store.vecInvA.push_back(InvA);
 			}

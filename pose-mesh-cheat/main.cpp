@@ -58,11 +58,13 @@ int main(int argc, char *argv[])
 	
   std::cout<<"----POSE BONES MANUALLY ----"<<std::endl;
   //Scapula -> humerus -> forearm
-    Matrix3d R;
-    R<<0.7071, 0.7071, 0,
-      -0.7071, 0.7071, 0,
-      0, 0, 1;
-    R = R*R*R;
+    Eigen::AngleAxisd pitchAngle(68.4, Eigen::Vector3d::UnitX());
+    Eigen::AngleAxisd yawAngle(11.9, Eigen::Vector3d::UnitY());
+    Eigen::AngleAxisd rollAngle(51.8, Eigen::Vector3d::UnitZ());
+
+    Eigen::Quaternion<double> q = rollAngle * yawAngle * pitchAngle;
+
+    Eigen::Matrix3d R = q.matrix();
 
 
 
@@ -129,6 +131,7 @@ int main(int argc, char *argv[])
 
               store.BfI0 = store.Bf*store.dFvec;
               famu::acap::solve(store, store.dFvec);
+              // store.x0.segment<9>(0) = Eigen::Map<Vector9d>
               cout<<"After: "<<famu::acap::fastEnergy(store, store.dFvec)<<endl;
             // if(currentStep>=store.muscle_steps.size()){
             //   currentStep = 0;
