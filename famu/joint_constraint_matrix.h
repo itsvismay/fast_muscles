@@ -15,7 +15,7 @@ namespace famu
             MatrixXd joint = store.joint_bones_verts[i].second;
             int bone1ind = store.bone_name_index_map[store.joint_bones_verts[i].first[0]];
             int bone2ind = store.bone_name_index_map[store.joint_bones_verts[i].first[1]];
-            cout<<"bones: "<<bone1ind<<", "<<bone2ind<<", "<<joint.rows()<<", "<<endl;
+            cout<<"bones: "<<bone1ind<<", "<<bone2ind<<", "<<joint.rows()<<", "<<store.fix_bones.size()<<endl;
             if(joint.rows()>1){
                 RowVector3d p1 = joint.row(0);
                 RowVector3d p2 = joint.row(1);
@@ -87,7 +87,10 @@ namespace famu
                     joint_trips.push_back(Trip(6*hingejoints + 3*socketjoints +4, (int)12*(bone2ind - store.fix_bones.size())+10,-1));
                     joint_trips.push_back(Trip(6*hingejoints + 3*socketjoints +5, (int)12*(bone2ind - store.fix_bones.size())+11,-1));
                 }
-                hingejoints +=1;
+
+                if((bone1ind>=store.fix_bones.size()) || (bone2ind>=store.fix_bones.size())){
+                    hingejoints +=1;
+                }
 
             }else{
                 RowVector3d p1 = joint.row(0);
@@ -126,7 +129,9 @@ namespace famu
                     joint_trips.push_back(Trip(6*hingejoints+3*socketjoints+1, (int)12*(bone2ind - store.fix_bones.size())+10,-1));
                     joint_trips.push_back(Trip(6*hingejoints+3*socketjoints+2, (int)12*(bone2ind - store.fix_bones.size())+11,-1));                    
                 }
-                socketjoints +=1;
+                if((bone1ind>=store.fix_bones.size()) || (bone2ind>=store.fix_bones.size())){
+                    socketjoints +=1;
+                }
             }
         }
 

@@ -240,7 +240,7 @@ void famu::setupStore(Store& store){
 	    store.x = VectorXd::Zero(store.Y.cols());
 		famu::joint_constraint_matrix(store, store.JointConstraints);
 
-		famu::bone_def_grad_projection_matrix(store, store.ProjectF, store.PickBoneF);
+		famu::bone_def_grad_projection_matrix(store, store.ProjectF, store.RemFixedBones);
 		famu::bone_acap_deformation_constraints(store, store.Bx, store.Bf);
 	    store.lambda2 = VectorXd::Zero(store.Bf.rows());
 	
@@ -259,6 +259,7 @@ void famu::setupStore(Store& store){
 		SparseMatrix<double, Eigen::RowMajor> KKT_left, KKT_left1, KKT_left2;
 		store.YtStDtDSY = (store.D*store.S*store.Y).transpose()*(store.D*store.S*store.Y);
 		famu::construct_kkt_system_left(store.YtStDtDSY, store.JointConstraints, KKT_left);
+
 
 		//---------------SPRINGS
 		if(springk>0){
@@ -326,7 +327,6 @@ void famu::setupStore(Store& store){
 			store.NullJ.setIdentity();
 		}
 		std::string outputfile = store.jinput["output"];
-
         SparseMatrix<double> NjtYtStDtDSYNj = store.NullJ.transpose()*store.Y.transpose()*store.S.transpose()*store.D.transpose()*store.D*store.S*store.Y*store.NullJ;
         igl::readDMAT(outputfile+"/"+to_string((int)store.jinput["number_modes"])+"modes.dmat", temp1);
         if(temp1.rows() == 0){
@@ -366,13 +366,15 @@ void famu::setupStore(Store& store){
 	if(store.jinput["woodbury"]){
 		cout<<"--- Setup woodbury matrices"<<endl;
 			double aa = store.jinput["alpha_arap"];
-			store.WoodB = -store.YtStDt_dF_DSx0.transpose()*store.G;
+			cout<<store.RemFixedBones.rows()<<", "<<store.RemFixedBones.cols()<<endl;
+			cout<<store.YtStDt_dF_DSx0.rows()<<", "<<store.YtStDt_dF_DSx0.cols()<<endl;
+			store.WoodB = -store.RemFixedBones*store.YtStDt_dF_DSx0.transpose()*store.G;
 			store.WoodD = -1*store.WoodB.transpose();
 			store.WoodB *= aa;
 
 			store.InvC = store.eigenvalues.asDiagonal();
 			store.WoodC = store.eigenvalues.asDiagonal().inverse();
-			for(int i=0; i<store.dFvec.size()/9; i++){
+			for(int i=0; i<store.RemFixedBones.rows()/9; i++){
 				LDLT<Matrix9d> InvA;
 				store.vecInvA.push_back(InvA);
 			}
