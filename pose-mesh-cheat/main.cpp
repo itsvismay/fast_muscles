@@ -210,14 +210,15 @@ int main(int argc, char *argv[])
           case 'a':
           {
 
-            // famu::acap::solve(store, store.dFvec, false);
-            int niters = 0;
-            niters = famu::newton_static_solve(store);
+            famu::acap::solve(store, store.dFvec, false);
+            // int niters = 0;
+            // niters = famu::newton_static_solve(store);
 
             VectorXd y = store.Y*store.x;
             Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
             viewer.data_list[fancy_data_index].set_vertices((newV.transpose()+store.V));
             viewer.data_list[debug_data_index].set_vertices((newV.transpose()+store.V));
+            return true;
           }
           case 'C':
           case 'c':
