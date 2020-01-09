@@ -362,9 +362,8 @@ int famu::newton_static_solve(Store& store){
 	timer1.stop();
 	double nmtime = timer1.getElapsedTimeInMicroSec();
 	
-	famu::acap::solve(store, store.dFvec);
 	timer1.start();
-	famu::acap::solve(store, store.dFvec);
+	famu::acap::solve(store, store.dFvec, false);
 	timer1.stop();
 	double acapsolvetime = timer1.getElapsedTimeInMicroSec();
 	

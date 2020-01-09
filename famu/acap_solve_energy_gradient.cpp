@@ -88,8 +88,8 @@ void famu::acap::fastHessian(Store& store, SparseMatrix<double, RowMajor>& hess,
 }
 
 
-void famu::acap::solve(Store& store, VectorXd& dFvec, bool fix_scripted_bones){
-	// if(!fix_scripted_bones){
+void famu::acap::solve(Store& store, VectorXd& dFvec, bool solve1){
+	if(solve1){
 		store.acap_solve_rhs.setZero();
 		store.acap_solve_rhs.head(store.x.size()) = store.YtStDt_dF_DSx0*dFvec - store.x0tStDtDSY;
 		store.acap_solve_rhs.tail(store.BfI0.size()) = store.Bf*store.dFvec - store.BfI0;;
@@ -97,15 +97,14 @@ void famu::acap::solve(Store& store, VectorXd& dFvec, bool fix_scripted_bones){
 		store.x = store.acap_solve_result.head(store.x.size());
 		store.lambda2 = store.acap_solve_result.tail(store.BfI0.size());	
 	
-	// }else{
-	// 	store.acap_solve_rhs2.setZero();
-	// 	store.acap_solve_rhs2.head(store.x.size()) = store.YtStDt_dF_DSx0*dFvec - store.x0tStDtDSY;
-	// 	VectorXd scripted_bone_x = store.Bsx*store.x;
-	// 	store.acap_solve_rhs2.tail(scripted_bone_x.size()) = scripted_bone_x;
-	// 	store.acap_solve_result2 = store.ACAP_KKT_SPLU2.solve(store.acap_solve_rhs2);
-	// 	store.x = store.acap_solve_result2.head(store.x.size());
-	// 	store.lambda2.setZero();
-	// }
+	}else{
+		store.acap_solve_rhs.setZero();
+		store.acap_solve_rhs.head(store.x.size()) = store.YtStDt_dF_DSx0*dFvec - store.x0tStDtDSY;
+		store.acap_solve_rhs.tail(store.BfI0.size()) = store.Bf*store.dFvec - store.BfI0;;
+		store.acap_solve_result = store.ACAP_KKT_SPLU2.solve(store.acap_solve_rhs);
+		store.x = store.acap_solve_result.head(store.x.size());
+		store.lambda2 = store.acap_solve_result.tail(store.BfI0.size());
+	}
 
 }
 

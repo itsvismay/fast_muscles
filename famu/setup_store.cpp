@@ -263,16 +263,25 @@ void famu::setupStore(Store& store){
 	cout<<"---ACAP Solve KKT setup"<<store.x.size()<<endl;
 		SparseMatrix<double, Eigen::RowMajor> KKT_left, KKT_left0, KKT_left1, KKT_left2;
 		store.YtStDtDSY = (store.D*store.S*store.Y).transpose()*(store.D*store.S*store.Y);
-		famu::construct_kkt_system_left(store.YtStDtDSY, store.JointConstraints, KKT_left, -1e-4);
+		double jointSlack = 0;
+		double boneSlack = 0;
+		if(store.jinput["script_bones"].size()==0){
+			jointSlack = 0;
+			boneSlack = -1e-3;
+		}else{
+			jointSlack = -1e-4;
+			boneSlack = 0;
+		}
+		famu::construct_kkt_system_left(store.YtStDtDSY, store.JointConstraints, KKT_left, jointSlack);
 
 
 		//---------------SPRINGS
 		if(springk>0){
 			SparseMatrix<double, Eigen::RowMajor> PY = springk*store.ContactP*store.Y;
 			famu::construct_kkt_system_left(KKT_left, PY, KKT_left1, -1);
-			famu::construct_kkt_system_left(KKT_left1, store.Bx,  KKT_left2, 0); 
+			famu::construct_kkt_system_left(KKT_left1, store.Bx,  KKT_left2, boneSlack); 
 		}else{
-			famu::construct_kkt_system_left(KKT_left, store.Bx,  KKT_left2, 0);
+			famu::construct_kkt_system_left(KKT_left, store.Bx,  KKT_left2, boneSlack);
 		}
 
 		// MatrixXd Hkkt = MatrixXd(KKT_left2);
@@ -295,8 +304,18 @@ void famu::setupStore(Store& store){
 
 	cout<<"---2nd ACAP Solve KKT setup"<<store.x.size()<<endl;
 		SparseMatrix<double, Eigen::RowMajor> KKT2_0, KKT2_1;
-		famu::construct_kkt_system_left(store.YtStDtDSY, store.JointConstraints, KKT2_1, -1e-3);
-		famu::construct_kkt_system_left(KKT2_1, store.Bsx, KKT2_0);
+		if(store.jinput["script_bones"].size()==0){
+			jointSlack = -1e-4;
+			boneSlack = 0;
+			famu::construct_kkt_system_left(store.YtStDtDSY, store.JointConstraints, KKT2_1, jointSlack);
+			famu::construct_kkt_system_left(KKT2_1, store.Bx, KKT2_0, boneSlack);
+
+			store.ACAP_KKT_SPLU2.analyzePattern(KKT2_0);
+			store.ACAP_KKT_SPLU2.factorize(KKT2_0);
+		}else{
+			store.ACAP_KKT_SPLU2.analyzePattern(KKT_left2);
+			store.ACAP_KKT_SPLU2.factorize(KKT_left2);
+		}
 
 		// MatrixXd Hkkt = MatrixXd(KKT_left2);
 		#ifdef __linux__
@@ -304,8 +323,7 @@ void famu::setupStore(Store& store){
 		#endif
 
 
-		store.ACAP_KKT_SPLU2.analyzePattern(KKT2_0);
-		store.ACAP_KKT_SPLU2.factorize(KKT2_0);
+		
 
 		if(store.ACAP_KKT_SPLU2.info()!=Success){
 			cout<<"1. SBY ACAP Jacobian solve failed"<<endl;
