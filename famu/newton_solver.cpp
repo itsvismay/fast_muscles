@@ -105,7 +105,7 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
     for(iter = 0; iter < pmax_linesearch; iter++)
     {
         // x_{k+1} = x_k + step * d_k
-        x.noalias() = xp + step * store.RemFixedBones.transpose()*(drt);
+        x.tail(store.RemFixedBones.rows()) = xp.tail(store.RemFixedBones.rows()) + step * drt;
         polar_dec(store, x);
 
         // Evaluate this candidate
@@ -351,10 +351,10 @@ int famu::newton_static_solve(Store& store){
 		//	break;
 		//}
 
-		store.dFvec += alpha*store.RemFixedBones.transpose()*(delta_dFvec);
+		store.dFvec.tail(store.RemFixedBones.rows()) += alpha*delta_dFvec;
 		polar_dec(store, store.dFvec);
 		double fx = Energy(store, store.dFvec);
-		std::cout<<(graddFvec.squaredNorm()/graddFvec.size())<<", "<<(fabs(fx-prevfx)) <<endl;
+		// std::cout<<(graddFvec.squaredNorm()/graddFvec.size())<<", "<<(fabs(fx-prevfx)) <<endl;
 		if(graddFvec.squaredNorm()/graddFvec.size()<store.gradNormConvergence || fabs(fx - prevfx)< 1e-3){
 			break;
 		}

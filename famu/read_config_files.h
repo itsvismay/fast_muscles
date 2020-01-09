@@ -21,6 +21,7 @@ namespace famu
 					    std::vector<Eigen::VectorXi>& bone_tets,
 					    std::vector<Eigen::VectorXi>& muscle_tets,
 					    std::vector<std::string>& fix_bones,
+					    std::vector<std::string>& script_bones,
 					    Eigen::VectorXd& relativeStiffness,
 					    std::vector<int>& contract_muscles,
 					    std::vector<nlohmann::json>& muscle_script_steps,

@@ -30,7 +30,7 @@ namespace famu
 
 		void adjointMethodExternalForces(Store& store);
 
-		void solve(Store& store, Eigen::VectorXd& dFvec);
+		void solve(Store& store, Eigen::VectorXd& dFvec, bool fix_scripted_bones = false);
 
 		void setJacobian(Store& store, bool include_dense = false);
 

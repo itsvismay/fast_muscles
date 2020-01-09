@@ -74,7 +74,33 @@ namespace famu
             mY.setFromTriplets(mY_trips.begin(), mY_trips.end());
     }
 
-    void bone_acap_deformation_constraints(Store& store, SparseMatrix<double, Eigen::RowMajor>& mBx, SparseMatrix<double, Eigen::RowMajor>& mBf){
+    void scripted_bones_projection_matrix(Store& store, SparseMatrix<double, Eigen::RowMajor>& mSBY){
+           
+
+
+            std::vector<int> fixed_and_scripted_bones;
+            for(int i=0; i<store.fix_bones.size(); i++){
+                fixed_and_scripted_bones.push_back(store.bone_name_index_map[store.fix_bones[i]]);
+            }
+            for(int i=0; i<store.script_bones.size(); i++){
+                fixed_and_scripted_bones.push_back(store.bone_name_index_map[store.script_bones[i]]);
+            }
+            
+            std::vector<Trip> mSBY_trips = {};
+            //set top |bones|*12 dofs to be the bones
+            //set the rest to be muscles, indexed correctly 
+            int muscle_index = 0;
+            for(int i=0; i<store.Y.cols() -  12*(store.script_bones.size()); i++){
+                mSBY_trips.push_back(Trip(i+12*store.script_bones.size(), i, 1.0));
+                 
+            }
+
+
+            mSBY.resize(store.Y.cols(), store.Y.cols() -  12*(store.script_bones.size()));
+            mSBY.setFromTriplets(mSBY_trips.begin(), mSBY_trips.end());
+    }
+
+    void bone_acap_deformation_constraints(Store& store, SparseMatrix<double, Eigen::RowMajor>& mBx, SparseMatrix<double, Eigen::RowMajor>& mBf, SparseMatrix<double, Eigen::RowMajor>& mBsx){
         // std::vector<Trip> mb_trips;
 
         // for(int b=0; b<store.bone_tets.size(); b++){
@@ -99,7 +125,7 @@ namespace famu
         // mB.resize(12*store.T.rows(), 12*store.bone_tets.size());
         // mB.setFromTriplets(mb_trips.begin(), mb_trips.end());
     
-        std::vector<Trip> x_trips, f_trips;
+        std::vector<Trip> x_trips, f_trips, s_trips;
 
         for(int i=0; i<(store.bone_tets.size() - store.fix_bones.size()); i++){
             x_trips.push_back(Trip(9*i+0, 12*i+0 , 1.0));
@@ -115,6 +141,22 @@ namespace famu
 
         mBx.resize(9*(store.bone_tets.size() - store.fix_bones.size()), store.Y.cols());
         mBx.setFromTriplets(x_trips.begin(), x_trips.end());
+
+        for(int i=0; i<store.script_bones.size(); i++){
+            s_trips.push_back(Trip(9*i+0, 12*i+0 , 1.0));
+            s_trips.push_back(Trip(9*i+1, 12*i+3 , 1.0));
+            s_trips.push_back(Trip(9*i+2, 12*i+6 , 1.0));
+            s_trips.push_back(Trip(9*i+3, 12*i+1 , 1.0));
+            s_trips.push_back(Trip(9*i+4, 12*i+4 , 1.0));
+            s_trips.push_back(Trip(9*i+5, 12*i+7 , 1.0));
+            s_trips.push_back(Trip(9*i+6, 12*i+2 , 1.0));
+            s_trips.push_back(Trip(9*i+7, 12*i+5 , 1.0));
+            s_trips.push_back(Trip(9*i+8, 12*i+8 , 1.0));
+        }
+
+        mBsx.resize(9*(store.script_bones.size()), store.Y.cols());
+        mBsx.setFromTriplets(s_trips.begin(), s_trips.end());
+
 
         for(int i=0; i<(store.bone_tets.size() - store.fix_bones.size()); i++){
             f_trips.push_back(Trip( 9*i+0, 9*(i +store.fix_bones.size())+0, 1.0));

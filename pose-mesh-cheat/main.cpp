@@ -58,13 +58,7 @@ int main(int argc, char *argv[])
 	
   std::cout<<"----POSE BONES MANUALLY ----"<<std::endl;
   //Scapula -> humerus -> forearm
-    Eigen::AngleAxisd pitchAngle(68.4, Eigen::Vector3d::UnitX());
-    Eigen::AngleAxisd yawAngle(11.9, Eigen::Vector3d::UnitY());
-    Eigen::AngleAxisd rollAngle(51.8, Eigen::Vector3d::UnitZ());
-
-    Eigen::Quaternion<double> q = rollAngle * yawAngle * pitchAngle;
-
-    Eigen::Matrix3d R = q.matrix();
+    
 
 
 
@@ -108,6 +102,7 @@ int main(int argc, char *argv[])
             double fx = 0;
             int niters = 0;
             niters = famu::newton_static_solve(store);
+            cout<<"dFvec: "<<store.dFvec.segment<18>(9).transpose()<<endl;
 
             VectorXd y = store.Y*store.x;
         	  Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
@@ -118,21 +113,36 @@ int main(int argc, char *argv[])
           case 'A':
           case 'a':
           {
-              cout<<"Before: "<<famu::acap::fastEnergy(store, store.dFvec)<<endl;
-              store.dFvec[18+0] = R(0,0);
-              store.dFvec[18+1] = R(0,1);
-              store.dFvec[18+2] = R(0,2);
-              store.dFvec[18+3] = R(1,0);
-              store.dFvec[18+4] = R(1,1);
-              store.dFvec[18+5] = R(1,2);
-              store.dFvec[18+6] = R(2,0);
-              store.dFvec[18+7] = R(2,1);
-              store.dFvec[18+8] = R(2,2);
+              for(int s =0; s<store.jinput["scripted_bone_angles"].size(); s++){
+                json j_scripts = store.jinput["scripted_bone_angles"][s];
+                for(json::iterator it = j_scripts.begin(); it != j_scripts.end(); ++it){
+                std::string bone_name = it.key();
+                double pitch = it.value()["pitch"];
+                double yaw = it.value()["yaw"];
+                double roll = it.value()["roll"];
+                cout<<"ANGLE AXIS: "<<pitch<<", "<<yaw<<", "<<roll<<endl;
+                Eigen::AngleAxisd pitchAngle(pitch*M_PI, Eigen::Vector3d::UnitX());
+                Eigen::AngleAxisd yawAngle(yaw*M_PI, Eigen::Vector3d::UnitY());
+                Eigen::AngleAxisd rollAngle(roll*M_PI, Eigen::Vector3d::UnitZ());
+                Eigen::Quaternion<double> q = rollAngle * yawAngle * pitchAngle;
+                Eigen::Matrix3d R = q.matrix();
+                store.dFvec[9*store.bone_name_index_map[it.key()]+0] = R(0,0);
+                store.dFvec[9*store.bone_name_index_map[it.key()]+1] = R(0,1);
+                store.dFvec[9*store.bone_name_index_map[it.key()]+2] = R(0,2);
+                store.dFvec[9*store.bone_name_index_map[it.key()]+3] = R(1,0);
+                store.dFvec[9*store.bone_name_index_map[it.key()]+4] = R(1,1);
+                store.dFvec[9*store.bone_name_index_map[it.key()]+5] = R(1,2);
+                store.dFvec[9*store.bone_name_index_map[it.key()]+6] = R(2,0);
+                store.dFvec[9*store.bone_name_index_map[it.key()]+7] = R(2,1);
+                store.dFvec[9*store.bone_name_index_map[it.key()]+8] = R(2,2);
+              }
 
-              store.BfI0 = store.Bf*store.dFvec;
-              famu::acap::solve(store, store.dFvec);
-              // store.x0.segment<9>(0) = Eigen::Map<Vector9d>
-              cout<<"After: "<<famu::acap::fastEnergy(store, store.dFvec)<<endl;
+              }
+            
+
+              famu::acap::solve(store, store.dFvec, false);
+             
+
             // if(currentStep>=store.muscle_steps.size()){
             //   currentStep = 0;
             // }else{
@@ -140,6 +150,10 @@ int main(int argc, char *argv[])
             //   currentStep += 1;
             // }
             // return true;
+            VectorXd y = store.Y*store.x;
+            Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
+            viewer.data_list[fancy_data_index].set_vertices((newV.transpose()+store.V));
+            viewer.data_list[debug_data_index].set_vertices((newV.transpose()+store.V));
           }
           case 'C':
           case 'c':

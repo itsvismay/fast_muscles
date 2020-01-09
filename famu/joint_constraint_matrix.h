@@ -141,7 +141,9 @@ namespace famu
       
         jointsY.resize(6*hingejoints + 3*socketjoints, store.Y.cols());
         jointsY.setFromTriplets(joint_trips.begin(), joint_trips.end());
-}
+
+
+    }
 }
 
 #endif

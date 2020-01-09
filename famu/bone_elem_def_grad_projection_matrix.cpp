@@ -6,7 +6,7 @@ using namespace std;
 
 void famu::bone_def_grad_projection_matrix(Store& store, Eigen::SparseMatrix<double, Eigen::RowMajor>& mN, Eigen::SparseMatrix<double, Eigen::RowMajor>& mAN){
 	int num_bones = store.bone_tets.size();
-	std::vector<Trip> mNProjectBonesElemsToOneDef_trips,mNRemoveFixedBones_trips, mAN_trips;
+	std::vector<Trip> mNProjectBonesElemsToOneDef_trips,mNRemoveFixedScriptedBones_trips, mAN_trips;
 
     Eigen::SparseMatrix<double, Eigen::RowMajor> NProjectBonesElemsToOneDef, NRemoveFixedBones;
 	
@@ -28,14 +28,14 @@ void famu::bone_def_grad_projection_matrix(Store& store, Eigen::SparseMatrix<dou
     NProjectBonesElemsToOneDef.resize(9*store.T.rows(), 9*(maxInd+1));
     NProjectBonesElemsToOneDef.setFromTriplets(mNProjectBonesElemsToOneDef_trips.begin(), mNProjectBonesElemsToOneDef_trips.end());
 
-    for(int i=9*store.fix_bones.size(); i<NProjectBonesElemsToOneDef.cols(); i++){
-        mNRemoveFixedBones_trips.push_back(Trip(i - 9*store.fix_bones.size(), i, 1.0));
+    for(int i=9*(store.fix_bones.size()+store.script_bones.size()); i<NProjectBonesElemsToOneDef.cols(); i++){
+        mNRemoveFixedScriptedBones_trips.push_back(Trip(i - 9*(store.fix_bones.size()+store.script_bones.size()), i, 1.0));
     }
-    NRemoveFixedBones.resize(9*(maxInd+1) -  9*store.fix_bones.size(), 9*(maxInd+1));
-    NRemoveFixedBones.setFromTriplets(mNRemoveFixedBones_trips.begin(), mNRemoveFixedBones_trips.end());
+    NRemoveFixedBones.resize(9*(maxInd+1) -  9*(store.fix_bones.size()+store.script_bones.size()), 9*(maxInd+1));
+    NRemoveFixedBones.setFromTriplets(mNRemoveFixedScriptedBones_trips.begin(), mNRemoveFixedScriptedBones_trips.end());
 
     mN = NProjectBonesElemsToOneDef;
-    mAN = NRemoveFixedBones;
+    mAN = NRemoveFixedBones; //FIXED AND SCRIPTED
 
     // for(int i=0; i<store.bone_tets.size(); i++){
     //     mAN_trips.push_back(Trip(9*i+0, 9*i+0, 1.0));

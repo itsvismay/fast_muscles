@@ -61,7 +61,8 @@ void famu::setupStore(Store& store){
 								store.joint_bones_verts, 
 								store.bone_tets, 
 								store.muscle_tets, 
-								store.fix_bones, 
+								store.fix_bones,
+								store.script_bones,
 								store.relativeStiffness,
 								store.contract_muscles,
 								store.muscle_steps,
@@ -110,7 +111,7 @@ void famu::setupStore(Store& store){
 		for(int m=0; m<store.muscle_tets.size(); m++){
 			for(int t=0; t<store.muscle_tets[m].size(); t++){
 				if(store.relativeStiffness[store.muscle_tets[m][t]]>1){
-					store.eY[store.muscle_tets[m][t]] = 1.2e9;
+					store.eY[store.muscle_tets[m][t]] = 4.15e8;
 				}else{
 					store.eY[store.muscle_tets[m][t]] = 60000;
 				}
@@ -236,12 +237,16 @@ void famu::setupStore(Store& store){
 		store.discV.resize(4*store.T.rows(), 3);
 
 	cout<<"---Set Joints Constraint Matrix"<<store.x.size()<<endl;
+		cout<<"fixed bones"<<endl;
 		famu::fixed_bones_projection_matrix(store, store.Y);
+		cout<<"scripted bones"<<endl;
+		famu::scripted_bones_projection_matrix(store, store.ScriptBonesY);
+
 	    store.x = VectorXd::Zero(store.Y.cols());
 		famu::joint_constraint_matrix(store, store.JointConstraints);
 
 		famu::bone_def_grad_projection_matrix(store, store.ProjectF, store.RemFixedBones);
-		famu::bone_acap_deformation_constraints(store, store.Bx, store.Bf);
+		famu::bone_acap_deformation_constraints(store, store.Bx, store.Bf, store.Bsx);
 	    store.lambda2 = VectorXd::Zero(store.Bf.rows());
 	
 	cout<<"---Set Contact Matrices"<<endl;
@@ -256,7 +261,7 @@ void famu::setupStore(Store& store){
 		}
 
 	cout<<"---ACAP Solve KKT setup"<<store.x.size()<<endl;
-		SparseMatrix<double, Eigen::RowMajor> KKT_left, KKT_left1, KKT_left2;
+		SparseMatrix<double, Eigen::RowMajor> KKT_left, KKT_left0, KKT_left1, KKT_left2;
 		store.YtStDtDSY = (store.D*store.S*store.Y).transpose()*(store.D*store.S*store.Y);
 		famu::construct_kkt_system_left(store.YtStDtDSY, store.JointConstraints, KKT_left);
 
@@ -265,9 +270,9 @@ void famu::setupStore(Store& store){
 		if(springk>0){
 			SparseMatrix<double, Eigen::RowMajor> PY = springk*store.ContactP*store.Y;
 			famu::construct_kkt_system_left(KKT_left, PY, KKT_left1, -1);
-			famu::construct_kkt_system_left(KKT_left1, store.Bx,  KKT_left2, -1e-3); 
+			famu::construct_kkt_system_left(KKT_left1, store.Bx,  KKT_left2, -1e-4); 
 		}else{
-			famu::construct_kkt_system_left(KKT_left, store.Bx,  KKT_left2, -1e-3);
+			famu::construct_kkt_system_left(KKT_left, store.Bx,  KKT_left2, -1e-4);
 		}
 
 		// MatrixXd Hkkt = MatrixXd(KKT_left2);
@@ -285,8 +290,37 @@ void famu::setupStore(Store& store){
 
 			exit(0);
 		}
-		
+		store.acap_solve_result.resize(KKT_left2.rows());
+		store.acap_solve_rhs = VectorXd::Zero(KKT_left2.rows());
+
+	cout<<"---2nd ACAP Solve KKT setup"<<store.x.size()<<endl;
+		SparseMatrix<double, Eigen::RowMajor> KKT2_0, KKT2_1;
+		famu::construct_kkt_system_left(store.YtStDtDSY, store.JointConstraints, KKT2_1, -1e-3);
+		famu::construct_kkt_system_left(KKT2_1, store.Bsx, KKT2_0);
+
+		// MatrixXd Hkkt = MatrixXd(KKT_left2);
+		#ifdef __linux__
+		store.ACAP_KKT_SPLU2.pardisoParameterArray()[2] = Eigen::nbThreads(); 
+		#endif
+
+
+		store.ACAP_KKT_SPLU2.analyzePattern(KKT2_0);
+		store.ACAP_KKT_SPLU2.factorize(KKT2_0);
+
+		if(store.ACAP_KKT_SPLU2.info()!=Success){
+			cout<<"1. SBY ACAP Jacobian solve failed"<<endl;
+			cout<<"2. numerical issue: "<<(store.ACAP_KKT_SPLU2.info()==NumericalIssue)<<endl;
+			cout<<"3. invalid input: "<<(store.ACAP_KKT_SPLU2.info()==InvalidInput)<<endl;
+
+			exit(0);
+		}
+
+		store.acap_solve_result2.resize(KKT2_0.rows());
+		store.acap_solve_rhs2 = VectorXd::Zero(KKT2_0.rows());
+	
 	cout<<"---Setup dFvec and dF"<<endl;
+		cout<<store.ProjectF.cols()<<endl;
+		cout<<store.RemFixedBones.rows()<<endl;
 		store.dFvec = VectorXd::Zero(store.ProjectF.cols());
 		for(int t=0; t<store.dFvec.size()/9; t++){
 			store.dFvec[9*t + 0] = 1;
@@ -295,8 +329,7 @@ void famu::setupStore(Store& store){
 		}
 		store.I0 = store.dFvec;
 		store.BfI0 = store.Bf*store.dFvec;
-		store.acap_solve_result.resize(KKT_left2.rows());
-		store.acap_solve_rhs = VectorXd::Zero(KKT_left2.rows());
+		
 
 	cout<<"---Setup Fast ACAP energy"<<endl;
 		store.StDtDS = (store.D*store.S).transpose()*(store.D*store.S);

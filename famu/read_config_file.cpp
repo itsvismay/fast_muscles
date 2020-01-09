@@ -22,6 +22,7 @@ void famu::read_config_files(Eigen::MatrixXd& V,
                         std::vector<VectorXi>& bone_tets,
                         std::vector<VectorXi>& muscle_tets,
                         std::vector<std::string>& fix_bones,
+                        std::vector<std::string>& script_bones,
                         Eigen::VectorXd& relativeStiffness,
                         std::vector<int>& contract_muscles,
                         std::vector<nlohmann::json>& muscle_steps,
@@ -50,6 +51,9 @@ void famu::read_config_files(Eigen::MatrixXd& V,
 
     std::vector<std::string> fixed = j_input["fix_bones"];
     fix_bones.insert(fix_bones.end(), fixed.begin(), fixed.end());
+    std::vector<std::string> scripted = j_input["script_bones"];
+    script_bones.insert(script_bones.end(), scripted.begin(), scripted.end());
+
     for(int t = 0; t<T.rows(); t++){
         //TODO: update to be parametrized by input mU
         Vector3d b = Uvec.row(t);
@@ -68,6 +72,14 @@ void famu::read_config_files(Eigen::MatrixXd& V,
         bone_tets.push_back(bone_i);
         bone_name_index_map[fix_bones[i]]  = count_index;
         j_bones.erase(fix_bones[i]);
+        count_index +=1;
+    }
+    for(int i=0; i<script_bones.size(); i++){
+        VectorXi bone_i;
+        igl::readDMAT(datafile+"/generated_files/"+script_bones[i]+"_bone_indices.dmat", bone_i);
+        bone_tets.push_back(bone_i);
+        bone_name_index_map[script_bones[i]]  = count_index;
+        j_bones.erase(script_bones[i]);
         count_index +=1;
     }
 

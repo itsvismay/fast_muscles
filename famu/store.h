@@ -39,6 +39,7 @@ namespace famu{
 		Eigen::MatrixXi T, discT, F, discF;
 		Eigen::MatrixXd Uvec;
 		std::vector<std::string> fix_bones = {};
+		std::vector<std::string> script_bones = {};
 		std::vector<Eigen::VectorXi> bone_tets = {};
 		std::vector<Eigen::VectorXi> muscle_tets = {};
 		std::map<std::string, int> bone_name_index_map;
@@ -60,18 +61,18 @@ namespace famu{
 		Eigen::SparseMatrix<double, Eigen::RowMajor> ProjectF, RemFixedBones;
 		Eigen::SparseMatrix<double, Eigen::RowMajor> ConstrainProjection, UnconstrainProjection;
 		Eigen::SparseMatrix<double, Eigen::RowMajor> JointConstraints, NullJ;
-		Eigen::SparseMatrix<double, Eigen::RowMajor> Y, Bx, Bf;
+		Eigen::SparseMatrix<double, Eigen::RowMajor> Y, Bx, Bf, Bsx, ScriptBonesY;
 		Eigen::MatrixXd G;
 
-		Eigen::VectorXd dFvec, BfI0, I0;
-		Eigen::VectorXd x, dx, x0, lambda2, acap_solve_result, acap_solve_rhs;
+		Eigen::VectorXd dFvec, BfI0, I0, Bsx_vec;
+		Eigen::VectorXd x, dx, x0, lambda2, acap_solve_result,acap_solve_result2, acap_solve_rhs, acap_solve_rhs2;
 
 		
 		#ifdef __linux__
-		Eigen::PardisoLU<Eigen::SparseMatrix<double, Eigen::RowMajor>> ACAP_KKT_SPLU;
+		Eigen::PardisoLU<Eigen::SparseMatrix<double, Eigen::RowMajor>> ACAP_KKT_SPLU, ACAP_KKT_SPLU2;
 		Eigen::PardisoLU<Eigen::SparseMatrix<double, Eigen::RowMajor>> NM_SPLU;//TODO: optimize this away
 		#else
-		Eigen::SparseLU<Eigen::SparseMatrix<double, Eigen::RowMajor>> ACAP_KKT_SPLU;
+		Eigen::SparseLU<Eigen::SparseMatrix<double, Eigen::RowMajor>> ACAP_KKT_SPLU, ACAP_KKT_SPLU2;
 		Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> NM_SPLU;//TODO: optimize this away
 		#endif
 
@@ -82,10 +83,10 @@ namespace famu{
 		
 		//Fast Terms
 		double x0tStDtDSx0;
-		Eigen::VectorXd x0tStDtDSY;
+		Eigen::VectorXd x0tStDtDSY, x0tStDtDSY2;
 		Eigen::SparseMatrix<double, Eigen::RowMajor> YtStDtDSY; //ddE/dxdx
 		Eigen::VectorXd x0tStDt_dF_DSx0;
-		Eigen::SparseMatrix<double, Eigen::RowMajor> YtStDt_dF_DSx0; //ddE/dxdF
+		Eigen::SparseMatrix<double, Eigen::RowMajor> YtStDt_dF_DSx0, YtStDt_dF_DSx02; //ddE/dxdF
 		Eigen::SparseMatrix<double, Eigen::RowMajor> x0tStDt_dF_dF_DSx0; //ddE/dFdF
 
 		Eigen::VectorXd DSx0;
