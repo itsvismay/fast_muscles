@@ -263,16 +263,16 @@ void famu::setupStore(Store& store){
 	cout<<"---ACAP Solve KKT setup"<<store.x.size()<<endl;
 		SparseMatrix<double, Eigen::RowMajor> KKT_left, KKT_left0, KKT_left1, KKT_left2;
 		store.YtStDtDSY = (store.D*store.S*store.Y).transpose()*(store.D*store.S*store.Y);
-		famu::construct_kkt_system_left(store.YtStDtDSY, store.JointConstraints, KKT_left);
+		famu::construct_kkt_system_left(store.YtStDtDSY, store.JointConstraints, KKT_left, -1e-4);
 
 
 		//---------------SPRINGS
 		if(springk>0){
 			SparseMatrix<double, Eigen::RowMajor> PY = springk*store.ContactP*store.Y;
 			famu::construct_kkt_system_left(KKT_left, PY, KKT_left1, -1);
-			famu::construct_kkt_system_left(KKT_left1, store.Bx,  KKT_left2, -1e-4); 
+			famu::construct_kkt_system_left(KKT_left1, store.Bx,  KKT_left2, 0); 
 		}else{
-			famu::construct_kkt_system_left(KKT_left, store.Bx,  KKT_left2, -1e-4);
+			famu::construct_kkt_system_left(KKT_left, store.Bx,  KKT_left2, 0);
 		}
 
 		// MatrixXd Hkkt = MatrixXd(KKT_left2);

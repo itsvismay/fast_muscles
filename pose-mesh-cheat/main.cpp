@@ -4,6 +4,8 @@
 #include <igl/jet.h>
 #include <igl/png/readPNG.h>
 #include <imgui/imgui.h>
+#include <igl/opengl/glfw/imgui/ImGuiMenu.h>
+#include <igl/opengl/glfw/imgui/ImGuiHelpers.h>
 #include <json.hpp>
 
 #include <sstream>
@@ -74,45 +76,93 @@ int main(int argc, char *argv[])
       {
         // Define next window position + size
         ImGui::SetNextWindowPos(ImVec2(180.f * menu.menu_scaling(), 10), ImGuiSetCond_FirstUseEver);
-        ImGui::SetNextWindowSize(ImVec2(200, 160), ImGuiSetCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2(400, 160), ImGuiSetCond_FirstUseEver);
         ImGui::Begin(
-            "New Window", nullptr,
+            "Bone GUI", nullptr,
             ImGuiWindowFlags_NoSavedSettings
         );
 
+        static double bicep_activation = 0.0;
+        ImGui::InputDouble("bicep activation", &bicep_activation, 0.01f, 1.0f, "%.2f");;
+        static double tricep_activation = 0.0;
+        ImGui::InputDouble("tricep activation", &tricep_activation, 0.01f, 1.0f, "%.2f");;
+        static double brachialis_activation = 0.0;
+        ImGui::InputDouble("brachialis_activation", &brachialis_activation, 0.01f, 1.0f, "%.2f");;
+        static double front_delt_activation = 0.0;
+        ImGui::InputDouble("front_delt activation", &front_delt_activation, 0.01f, 1.0f, "%.2f");;
+        static double top_delt_activation = 0.0;
+        ImGui::InputDouble("top_delt activation", &top_delt_activation, 0.01f, 1.0f, "%.2f");;
+        static double rear_delt_activation = 0.0;
+        ImGui::InputDouble("rear_delt activation", &rear_delt_activation, 0.01f, 1.0f, "%.2f");;
 
-        json j_scripts = store.jinput["scripted_bone_angles"][s];
-        for(json::iterator it = j_scripts.begin(); it != j_scripts.end(); ++it){
-          std::string bone_name = it.key();
-          double pitch = it.value()["pitch"];
-          double yaw = it.value()["yaw"];
-          double roll = it.value()["roll"];
-          cout<<"ANGLE AXIS: "<<pitch<<", "<<yaw<<", "<<roll<<endl;
-          Eigen::AngleAxisd pitchAngle((pitch)*M_PI, Eigen::Vector3d::UnitX());
-          Eigen::AngleAxisd yawAngle((yaw)*M_PI, Eigen::Vector3d::UnitY());
-          Eigen::AngleAxisd rollAngle((roll)*M_PI, Eigen::Vector3d::UnitZ());
-          Eigen::Quaternion<double> q = rollAngle * yawAngle * pitchAngle;
-          Eigen::Matrix3d R = q.matrix();
-          store.dFvec[9*store.bone_name_index_map[it.key()]+0] = R(0,0);
-          store.dFvec[9*store.bone_name_index_map[it.key()]+1] = R(0,1);
-          store.dFvec[9*store.bone_name_index_map[it.key()]+2] = R(0,2);
-          store.dFvec[9*store.bone_name_index_map[it.key()]+3] = R(1,0);
-          store.dFvec[9*store.bone_name_index_map[it.key()]+4] = R(1,1);
-          store.dFvec[9*store.bone_name_index_map[it.key()]+5] = R(1,2);
-          store.dFvec[9*store.bone_name_index_map[it.key()]+6] = R(2,0);
-          store.dFvec[9*store.bone_name_index_map[it.key()]+7] = R(2,1);
-          store.dFvec[9*store.bone_name_index_map[it.key()]+8] = R(2,2);
-        }
-        static int =start_int;
-        ImGui::SliderInt("int", &i1, start_int, fin_int);
-        cout<<i1<<endl;
+        store.muscle_steps[0]["biceps"] = bicep_activation;
+        store.muscle_steps[0]["triceps"] = tricep_activation;
+        store.muscle_steps[0]["brachialis"] = brachialis_activation;
+        store.muscle_steps[0]["front_deltoid"] = front_delt_activation;
+        store.muscle_steps[0]["rear_deltoid"] = rear_delt_activation;
+        store.muscle_steps[0]["top_deltoid"] = top_delt_activation;
 
-        famu::acap::solve(store, store.dFvec, false);
-            
-        VectorXd y = store.Y*store.x;
-        Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
-        viewer.data_list[fancy_data_index].set_vertices((newV.transpose()+store.V));
-        viewer.data_list[debug_data_index].set_vertices((newV.transpose()+store.V));
+        famu::muscle::set_muscle_mag(store, 0);
+
+        json j_scripts = store.jinput["script_bones"];
+        static float h_p=0, h_y=0, h_r=0;
+        static float f_p=0, f_y=0, f_r=0;
+        static float s_p=0, s_y=0, s_r=0;
+          
+        ImGui::SliderFloat("humerus _rot_x", &h_p, -2, 2);
+        ImGui::SliderFloat("humerus _rot_y",   &h_y, -2, 2);
+        ImGui::SliderFloat("humerus _rot_z",  &h_r, -2, 2);
+        Eigen::AngleAxisd h_rot_xAngle((h_p)*M_PI, Eigen::Vector3d::UnitX());
+        Eigen::AngleAxisd h_rot_yAngle((h_y)*M_PI, Eigen::Vector3d::UnitY());
+        Eigen::AngleAxisd h_rot_zAngle((h_r)*M_PI, Eigen::Vector3d::UnitZ());
+        Eigen::Quaternion<double> q = h_rot_zAngle * h_rot_yAngle * h_rot_xAngle;
+        Eigen::Matrix3d R = q.matrix();
+        store.dFvec[9*store.bone_name_index_map["humerus"]+0] = R(0,0);
+        store.dFvec[9*store.bone_name_index_map["humerus"]+1] = R(0,1);
+        store.dFvec[9*store.bone_name_index_map["humerus"]+2] = R(0,2);
+        store.dFvec[9*store.bone_name_index_map["humerus"]+3] = R(1,0);
+        store.dFvec[9*store.bone_name_index_map["humerus"]+4] = R(1,1);
+        store.dFvec[9*store.bone_name_index_map["humerus"]+5] = R(1,2);
+        store.dFvec[9*store.bone_name_index_map["humerus"]+6] = R(2,0);
+        store.dFvec[9*store.bone_name_index_map["humerus"]+7] = R(2,1);
+        store.dFvec[9*store.bone_name_index_map["humerus"]+8] = R(2,2);
+        
+        ImGui::SliderFloat("forearm _rot_x", &f_p, -2, 2);
+        ImGui::SliderFloat("forearm _rot_y",   &f_y, -2, 2);
+        ImGui::SliderFloat("forearm _rot_z",  &f_r, -2, 2);
+        Eigen::AngleAxisd f_rot_xAngle((f_p)*M_PI, Eigen::Vector3d::UnitX());
+        Eigen::AngleAxisd f_rot_yAngle((f_y)*M_PI, Eigen::Vector3d::UnitY());
+        Eigen::AngleAxisd f_rot_zAngle((f_r)*M_PI, Eigen::Vector3d::UnitZ());
+        q = f_rot_zAngle * f_rot_yAngle * f_rot_xAngle;
+        R = q.matrix();
+        store.dFvec[9*store.bone_name_index_map["forearm"]+0] = R(0,0);
+        store.dFvec[9*store.bone_name_index_map["forearm"]+1] = R(0,1);
+        store.dFvec[9*store.bone_name_index_map["forearm"]+2] = R(0,2);
+        store.dFvec[9*store.bone_name_index_map["forearm"]+3] = R(1,0);
+        store.dFvec[9*store.bone_name_index_map["forearm"]+4] = R(1,1);
+        store.dFvec[9*store.bone_name_index_map["forearm"]+5] = R(1,2);
+        store.dFvec[9*store.bone_name_index_map["forearm"]+6] = R(2,0);
+        store.dFvec[9*store.bone_name_index_map["forearm"]+7] = R(2,1);
+        store.dFvec[9*store.bone_name_index_map["forearm"]+8] = R(2,2);
+        
+        // ImGui::SliderFloat("sternum _rot_x", &s_p, -2, 2);
+        // ImGui::SliderFloat("sternum _rot_y",   &s_y, -2, 2);
+        // ImGui::SliderFloat("sternum _rot_z",  &s_r, -2, 2);
+        // Eigen::AngleAxisd s_rot_xAngle((s_p)*M_PI, Eigen::Vector3d::UnitX());
+        // Eigen::AngleAxisd s_rot_yAngle((s_y)*M_PI, Eigen::Vector3d::UnitY());
+        // Eigen::AngleAxisd s_rot_zAngle((s_r)*M_PI, Eigen::Vector3d::UnitZ());
+        // q = s_rot_zAngle * s_rot_yAngle * s_rot_xAngle;
+        // R = q.matrix();
+        // store.dFvec[9*store.bone_name_index_map["sternum"]+0] = R(0,0);
+        // store.dFvec[9*store.bone_name_index_map["sternum"]+1] = R(0,1);
+        // store.dFvec[9*store.bone_name_index_map["sternum"]+2] = R(0,2);
+        // store.dFvec[9*store.bone_name_index_map["sternum"]+3] = R(1,0);
+        // store.dFvec[9*store.bone_name_index_map["sternum"]+4] = R(1,1);
+        // store.dFvec[9*store.bone_name_index_map["sternum"]+5] = R(1,2);
+        // store.dFvec[9*store.bone_name_index_map["sternum"]+6] = R(2,0);
+        // store.dFvec[9*store.bone_name_index_map["sternum"]+7] = R(2,1);
+        // store.dFvec[9*store.bone_name_index_map["sternum"]+8] = R(2,2);
+        
              
         ImGui::End();
       };
@@ -149,7 +199,6 @@ int main(int argc, char *argv[])
             double fx = 0;
             int niters = 0;
             niters = famu::newton_static_solve(store);
-            cout<<"dFvec: "<<store.dFvec.segment<18>(9).transpose()<<endl;
 
             VectorXd y = store.Y*store.x;
         	  Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
@@ -160,7 +209,15 @@ int main(int argc, char *argv[])
           case 'A':
           case 'a':
           {
-            
+
+            // famu::acap::solve(store, store.dFvec, false);
+            int niters = 0;
+            niters = famu::newton_static_solve(store);
+
+            VectorXd y = store.Y*store.x;
+            Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
+            viewer.data_list[fancy_data_index].set_vertices((newV.transpose()+store.V));
+            viewer.data_list[debug_data_index].set_vertices((newV.transpose()+store.V));
           }
           case 'C':
           case 'c':
