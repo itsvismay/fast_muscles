@@ -58,17 +58,64 @@ int main(int argc, char *argv[])
 	
   std::cout<<"----POSE BONES MANUALLY ----"<<std::endl;
   //Scapula -> humerus -> forearm
-    
+  
 
 
 
 	std::cout<<"-----Display-------"<<std::endl;
     	igl::opengl::glfw::Viewer viewer;
     	int currentStep = 0;
-    	viewer.callback_post_draw= [&](igl::opengl::glfw::Viewer & viewer) {
-	    
-	    return false;
-	};
+
+      // Attach a menu plugin
+      igl::opengl::glfw::imgui::ImGuiMenu menu;
+      viewer.plugins.push_back(&menu);
+
+      menu.callback_draw_custom_window = [&]()
+      {
+        // Define next window position + size
+        ImGui::SetNextWindowPos(ImVec2(180.f * menu.menu_scaling(), 10), ImGuiSetCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2(200, 160), ImGuiSetCond_FirstUseEver);
+        ImGui::Begin(
+            "New Window", nullptr,
+            ImGuiWindowFlags_NoSavedSettings
+        );
+
+
+        json j_scripts = store.jinput["scripted_bone_angles"][s];
+        for(json::iterator it = j_scripts.begin(); it != j_scripts.end(); ++it){
+          std::string bone_name = it.key();
+          double pitch = it.value()["pitch"];
+          double yaw = it.value()["yaw"];
+          double roll = it.value()["roll"];
+          cout<<"ANGLE AXIS: "<<pitch<<", "<<yaw<<", "<<roll<<endl;
+          Eigen::AngleAxisd pitchAngle((pitch)*M_PI, Eigen::Vector3d::UnitX());
+          Eigen::AngleAxisd yawAngle((yaw)*M_PI, Eigen::Vector3d::UnitY());
+          Eigen::AngleAxisd rollAngle((roll)*M_PI, Eigen::Vector3d::UnitZ());
+          Eigen::Quaternion<double> q = rollAngle * yawAngle * pitchAngle;
+          Eigen::Matrix3d R = q.matrix();
+          store.dFvec[9*store.bone_name_index_map[it.key()]+0] = R(0,0);
+          store.dFvec[9*store.bone_name_index_map[it.key()]+1] = R(0,1);
+          store.dFvec[9*store.bone_name_index_map[it.key()]+2] = R(0,2);
+          store.dFvec[9*store.bone_name_index_map[it.key()]+3] = R(1,0);
+          store.dFvec[9*store.bone_name_index_map[it.key()]+4] = R(1,1);
+          store.dFvec[9*store.bone_name_index_map[it.key()]+5] = R(1,2);
+          store.dFvec[9*store.bone_name_index_map[it.key()]+6] = R(2,0);
+          store.dFvec[9*store.bone_name_index_map[it.key()]+7] = R(2,1);
+          store.dFvec[9*store.bone_name_index_map[it.key()]+8] = R(2,2);
+        }
+        static int =start_int;
+        ImGui::SliderInt("int", &i1, start_int, fin_int);
+        cout<<i1<<endl;
+
+        famu::acap::solve(store, store.dFvec, false);
+            
+        VectorXd y = store.Y*store.x;
+        Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
+        viewer.data_list[fancy_data_index].set_vertices((newV.transpose()+store.V));
+        viewer.data_list[debug_data_index].set_vertices((newV.transpose()+store.V));
+             
+        ImGui::End();
+      };
 
     viewer.callback_key_down = [&](igl::opengl::glfw::Viewer & viewer, unsigned char key, int modifiers){   
         std::cout<<"Key down, "<<key<<std::endl;
@@ -113,47 +160,7 @@ int main(int argc, char *argv[])
           case 'A':
           case 'a':
           {
-              for(int s =0; s<store.jinput["scripted_bone_angles"].size(); s++){
-                json j_scripts = store.jinput["scripted_bone_angles"][s];
-                for(json::iterator it = j_scripts.begin(); it != j_scripts.end(); ++it){
-                std::string bone_name = it.key();
-                double pitch = it.value()["pitch"];
-                double yaw = it.value()["yaw"];
-                double roll = it.value()["roll"];
-                cout<<"ANGLE AXIS: "<<pitch<<", "<<yaw<<", "<<roll<<endl;
-                Eigen::AngleAxisd pitchAngle(pitch*M_PI, Eigen::Vector3d::UnitX());
-                Eigen::AngleAxisd yawAngle(yaw*M_PI, Eigen::Vector3d::UnitY());
-                Eigen::AngleAxisd rollAngle(roll*M_PI, Eigen::Vector3d::UnitZ());
-                Eigen::Quaternion<double> q = rollAngle * yawAngle * pitchAngle;
-                Eigen::Matrix3d R = q.matrix();
-                store.dFvec[9*store.bone_name_index_map[it.key()]+0] = R(0,0);
-                store.dFvec[9*store.bone_name_index_map[it.key()]+1] = R(0,1);
-                store.dFvec[9*store.bone_name_index_map[it.key()]+2] = R(0,2);
-                store.dFvec[9*store.bone_name_index_map[it.key()]+3] = R(1,0);
-                store.dFvec[9*store.bone_name_index_map[it.key()]+4] = R(1,1);
-                store.dFvec[9*store.bone_name_index_map[it.key()]+5] = R(1,2);
-                store.dFvec[9*store.bone_name_index_map[it.key()]+6] = R(2,0);
-                store.dFvec[9*store.bone_name_index_map[it.key()]+7] = R(2,1);
-                store.dFvec[9*store.bone_name_index_map[it.key()]+8] = R(2,2);
-              }
-
-              }
             
-
-              famu::acap::solve(store, store.dFvec, false);
-             
-
-            // if(currentStep>=store.muscle_steps.size()){
-            //   currentStep = 0;
-            // }else{
-            //   famu::muscle::set_muscle_mag(store, currentStep);
-            //   currentStep += 1;
-            // }
-            // return true;
-            VectorXd y = store.Y*store.x;
-            Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
-            viewer.data_list[fancy_data_index].set_vertices((newV.transpose()+store.V));
-            viewer.data_list[debug_data_index].set_vertices((newV.transpose()+store.V));
           }
           case 'C':
           case 'c':
