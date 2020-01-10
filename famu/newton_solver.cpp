@@ -241,7 +241,6 @@ void famu::fastWoodbury(Store& store, const VectorXd& g, MatrixModesxModes X, Ve
 int famu::newton_static_solve(Store& store){
 	int MAX_ITERS = store.jinput["NM_MAX_ITERS"];
 	VectorXd delta_dFvec = store.RemFixedBones*VectorXd::Zero(store.dFvec.size());
-
 	VectorXd muscle_grad, neo_grad, acap_grad;
 	muscle_grad.resize(store.dFvec.size());
 	neo_grad.resize(store.dFvec.size());
@@ -262,9 +261,10 @@ int famu::newton_static_solve(Store& store){
 	MatrixXd constDenseHess = MatrixXd::Zero(delta_dFvec.size(),  9);
 	sparse_to_dense(store, constHess, constDenseHess);
 
-	VectorXd graddFvec = VectorXd::Zero(delta_dFvec.size());
+	VectorXd test_drt = delta_dFvec;
+	VectorXd graddFvec = VectorXd::Zero(store.dFvec.size());
 	
-	VectorXd BInvXDy = VectorXd::Zero(delta_dFvec.size());
+	VectorXd BInvXDy = VectorXd::Zero(store.dFvec.size());
 	MatrixModesxModes X;
 		
 	igl::Timer timer, timer1;
@@ -354,8 +354,8 @@ int famu::newton_static_solve(Store& store){
 		store.dFvec.tail(store.RemFixedBones.rows()) += alpha*delta_dFvec;
 		polar_dec(store, store.dFvec);
 		double fx = Energy(store, store.dFvec);
-		// std::cout<<(graddFvec.squaredNorm()/graddFvec.size())<<", "<<(fabs(fx-prevfx)) <<endl;
-		if(graddFvec.squaredNorm()/graddFvec.size()<store.gradNormConvergence || fabs(fx - prevfx)< 1e-3){
+		//std::cout<<(graddFvec.squaredNorm()/graddFvec.size())<<", "<<(fabs(fx-prevfx)) <<endl;
+		if(graddFvec.squaredNorm()/graddFvec.size()<store.gradNormConvergence || fabs(fx - prevfx)< 1e-4){
 			break;
 		}
 	}

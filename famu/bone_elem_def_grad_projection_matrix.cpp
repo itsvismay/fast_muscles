@@ -36,6 +36,8 @@ void famu::bone_def_grad_projection_matrix(Store& store, Eigen::SparseMatrix<dou
 
     mN = NProjectBonesElemsToOneDef;
     mAN = NRemoveFixedBones; //FIXED AND SCRIPTED
+    // mAN.resize(9*(maxInd+1), 9*(maxInd+1));
+    // mAN.setIdentity();
 
     // for(int i=0; i<store.bone_tets.size(); i++){
     //     mAN_trips.push_back(Trip(9*i+0, 9*i+0, 1.0));
