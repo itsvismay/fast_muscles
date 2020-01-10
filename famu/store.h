@@ -54,6 +54,8 @@ namespace famu{
 		std::vector<int> fixverts, movverts;
 		std::vector<int> mfix, mmov;
 
+		std::vector<std::pair<Eigen::MatrixXd, Eigen::MatrixXi>> contact_components;
+
 		Eigen::SparseMatrix<double, Eigen::RowMajor> dF;
 		Eigen::SparseMatrix<double, Eigen::RowMajor> D, _D;
 		Eigen::SparseMatrix<double, Eigen::RowMajor> C;

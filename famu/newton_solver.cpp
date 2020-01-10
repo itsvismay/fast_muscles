@@ -355,7 +355,7 @@ int famu::newton_static_solve(Store& store){
 		polar_dec(store, store.dFvec);
 		double fx = Energy(store, store.dFvec);
 		//std::cout<<(graddFvec.squaredNorm()/graddFvec.size())<<", "<<(fabs(fx-prevfx)) <<endl;
-		if(graddFvec.squaredNorm()/graddFvec.size()<store.gradNormConvergence || fabs(fx - prevfx)< 1e-4){
+		if(graddFvec.squaredNorm()/graddFvec.size()<store.gradNormConvergence || fabs(fx - prevfx)< 1e-3){
 			break;
 		}
 	}

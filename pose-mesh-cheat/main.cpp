@@ -49,6 +49,10 @@ int main(int argc, char *argv[])
 	
 		
     igl::Timer timer;
+
+	famu::Store store;
+	store.jinput = j_input;
+
     {
       std::string craps = "../";
       std::string data = store.jinput["data"];
@@ -58,11 +62,7 @@ int main(int argc, char *argv[])
       store.jinput["output"] = craps+out;
       store.jinput["material"] = craps+material;
     }
-
-		famu::Store store;
-		store.jinput = j_input;
-		famu::setupStore(store);
-
+	famu::setupStore(store);
 
 	cout<<"--- External Forces Hard Coded Contact Matrices"<<endl;
     // famu::acap::adjointMethodExternalForces(store);
