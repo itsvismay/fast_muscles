@@ -52,7 +52,8 @@ using Store = famu::Store;
 void famu::setupStore(Store& store){
 	   	igl::Timer timer;
 
-		famu::read_config_files(store.V, 
+		famu::read_config_files(store, 
+								store.V, 
 								store.T, 
 								store.F, 
 								store.Uvec, 
@@ -72,7 +73,7 @@ void famu::setupStore(Store& store){
 		
 
 
-		igl::boundary_facets(store.T, store.F);
+		
 	cout<<"---Record Mesh Setup Info"<<endl;
 		cout<<"V size: "<<store.V.rows()<<endl;
 		cout<<"T size: "<<store.T.rows()<<endl;
@@ -111,7 +112,7 @@ void famu::setupStore(Store& store){
 		for(int m=0; m<store.muscle_tets.size(); m++){
 			for(int t=0; t<store.muscle_tets[m].size(); t++){
 				if(store.relativeStiffness[store.muscle_tets[m][t]]>1){
-					store.eY[store.muscle_tets[m][t]] = 4.15e8;
+					store.eY[store.muscle_tets[m][t]] = 4.5e8;
 				}else{
 					store.eY[store.muscle_tets[m][t]] = 60000;
 				}
@@ -249,17 +250,6 @@ void famu::setupStore(Store& store){
 		famu::bone_acap_deformation_constraints(store, store.Bx, store.Bf, store.Bsx);
 	    store.lambda2 = VectorXd::Zero(store.Bf.rows());
 	
-	cout<<"---Set Contact Matrices"<<endl;
-		double springk = store.jinput["springk"];
-		if(springk>0){
-			std::vector<std::pair<int, int>> springs;
-		    // std::vector<int> bcMuscle1 = getMinVerts_Axis_Tolerance(store.T, store.V, 2, 5e-2, store.muscle_tets[0]);
-		    std::vector<int> bcMuscle2 = getMaxVerts_Axis_Tolerance(store.T, store.V, 0, 5e-2, store.muscle_tets[1]);
-		    // famu::make_closest_point_springs(store.T, store.V, store.muscle_tets[1],  bcMuscle1, springs);
-		    famu::make_closest_point_springs(store.T, store.V, store.muscle_tets[0],  bcMuscle2, springs);
-		    famu::penalty_spring_bc(springs, store.ContactP, store.V);
-		}
-
 	cout<<"---ACAP Solve KKT setup"<<store.x.size()<<endl;
 		SparseMatrix<double, Eigen::RowMajor> KKT_left, KKT_left0, KKT_left1, KKT_left2;
 		store.YtStDtDSY = (store.D*store.S*store.Y).transpose()*(store.D*store.S*store.Y);
@@ -276,13 +266,13 @@ void famu::setupStore(Store& store){
 
 
 		//---------------SPRINGS
-		if(springk>0){
-			SparseMatrix<double, Eigen::RowMajor> PY = springk*store.ContactP*store.Y;
-			famu::construct_kkt_system_left(KKT_left, PY, KKT_left1, -1);
-			famu::construct_kkt_system_left(KKT_left1, store.Bx,  KKT_left2, boneSlack); 
-		}else{
+		// if(springk>0){
+		// 	SparseMatrix<double, Eigen::RowMajor> PY = springk*store.ContactP*store.Y;
+		// 	famu::construct_kkt_system_left(KKT_left, PY, KKT_left1, -1);
+		// 	famu::construct_kkt_system_left(KKT_left1, store.Bx,  KKT_left2, boneSlack); 
+		// }else{
 			famu::construct_kkt_system_left(KKT_left, store.Bx,  KKT_left2, boneSlack);
-		}
+		// }
 
 		// MatrixXd Hkkt = MatrixXd(KKT_left2);
 		#ifdef __linux__
@@ -438,6 +428,28 @@ void famu::setupStore(Store& store){
     	store.acaptmp_sizex = store.x;
 		store.acaptmp_sizedFvec1= store.dFvec;
 		store.acaptmp_sizedFvec2 = store.dFvec;
+
+	cout<<"---Set External Forces"<<endl;
+		Eigen::VectorXd yext;
+		famu::acap::external_forces(store, yext, true);
+		store.ContactForce = VectorXd::Zero(store.dFvec.size());
+		if(store.jinput["springk"]!=0){
+			Eigen::VectorXd temp = Eigen::VectorXd::Zero(3*store.V.rows());
+			Eigen::MatrixXd DR = Eigen::MatrixXd::Zero(store.V.rows(), store.V.cols());
+			famu::acap::mesh_collisions(store, DR);
+			
+			for(int i=0; i<store.V.rows(); i++){
+				temp[3*i+0] = DR(i,0); 
+				temp[3*i+1] = DR(i,1); 
+				temp[3*i+2] = DR(i,2);
+				if(DR.row(i).norm()>1e-7){
+					store.draw_points.push_back(i);
+				}
+		    }
+		    std::vector<int> blank;
+		    famu::vertex_bc(blank, store.draw_points, store.UnPickBoundaryForCollisions, store.PickBoundaryForCollisions, store.V);
+		}
+		
 
 	cout<<"---Setup Muscle Activations"<<endl;
 		famu::muscle::set_muscle_mag(store, 0);

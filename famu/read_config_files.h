@@ -5,12 +5,15 @@
 #include <Eigen/Dense>
 #include <iostream>
 #include <json.hpp>
+#include "store.h"
+
 
 
 namespace famu
 {
 
-	void read_config_files(Eigen::MatrixXd& V, 
+	void read_config_files(famu::Store& store,
+						Eigen::MatrixXd& V, 
 					    Eigen::MatrixXi& T, 
 					    Eigen::MatrixXi& F, 
 					    Eigen::MatrixXd& Uvec, 

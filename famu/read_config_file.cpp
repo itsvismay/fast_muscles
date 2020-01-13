@@ -1,6 +1,9 @@
 
 #include <igl/readOBJ.h>
 #include <igl/readDMAT.h>
+#include <igl/boundary_facets.h>
+
+#include "store.h"
 #include "read_config_files.h"
 #include <fstream>
 #include <iostream>
@@ -11,7 +14,8 @@ using namespace Eigen;
 using json = nlohmann::json;
 // json j_input;
 
-void famu::read_config_files(Eigen::MatrixXd& V, 
+void famu::read_config_files(famu::Store& store,
+                        Eigen::MatrixXd& V, 
                         Eigen::MatrixXi& T, 
                         Eigen::MatrixXi& F, 
                         Eigen::MatrixXd& Uvec, 
@@ -39,7 +43,7 @@ void famu::read_config_files(Eigen::MatrixXd& V,
     igl::readDMAT(datafile+"/generated_files/tet_mesh_T.dmat", T);
     igl::readDMAT(datafile+"/generated_files/combined_fiber_directions.dmat", Uvec);
     igl::readDMAT(datafile+"/generated_files/tet_is_tendon.dmat", relativeStiffness);
-    
+    igl::boundary_facets(T, F);
     //Read Geometry
     json j_geometries;
     std::ifstream muscle_config_file(datafile+"/config.json");
@@ -124,5 +128,33 @@ void famu::read_config_files(Eigen::MatrixXd& V,
         relativeStiffness = VectorXd::Ones(T.rows());
     }else{
         relativeStiffness *=10;
+    }
+
+    if(j_input["springk"]!=0){
+        //contact is ON
+        for(int i=0; i<muscle_tets.size(); i++){
+            MatrixXi Ti = MatrixXi::Zero(muscle_tets[i].size(), 4);
+            MatrixXi Fi;
+            for(int k=0; k<muscle_tets[i].size(); k++){
+                Ti.row(k) = T.row(muscle_tets[i][k]);
+            }
+
+            igl::boundary_facets(Ti, Fi);
+            store.contact_muscle_T_F.push_back(std::make_pair(Ti, Fi));
+
+        }
+
+        for(int i=0; i<bone_tets.size(); i++){
+            MatrixXi Ti = MatrixXi::Zero(bone_tets[i].size(), 4);
+            MatrixXi Fi;
+            for(int k=0; k<bone_tets[i].size(); k++){
+                Ti.row(k) = T.row(bone_tets[i][k]);
+            }
+
+            igl::boundary_facets(Ti, Fi);
+            store.contact_bone_T_F.push_back(std::make_pair(Ti, Fi));
+
+        }
+        
     }
 }

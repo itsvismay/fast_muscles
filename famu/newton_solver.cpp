@@ -9,10 +9,14 @@
 #include <Eigen/Cholesky>
 #include <igl/writeOBJ.h>
 #include <igl/Timer.h>
+#include "vertex_bc.h"
+#include <igl/writeDMAT.h>
+
 
 using Store = famu::Store;
 using namespace Eigen;
 using namespace std;
+
 
 double famu::Energy(Store& store, VectorXd& dFvec){
 	double EM = famu::muscle::energy(store, dFvec);
@@ -238,7 +242,7 @@ void famu::fastWoodbury(Store& store, const VectorXd& g, MatrixModesxModes X, Ve
 	drt *= -1;
 }
 
-int famu::newton_static_solve(Store& store){
+int famu::one_nm_solve(Store& store){
 	int MAX_ITERS = store.jinput["NM_MAX_ITERS"];
 	VectorXd delta_dFvec = store.RemFixedBones*VectorXd::Zero(store.dFvec.size());
 	VectorXd muscle_grad, neo_grad, acap_grad;
@@ -355,7 +359,7 @@ int famu::newton_static_solve(Store& store){
 		polar_dec(store, store.dFvec);
 		double fx = Energy(store, store.dFvec);
 		//std::cout<<(graddFvec.squaredNorm()/graddFvec.size())<<", "<<(fabs(fx-prevfx)) <<endl;
-		if(graddFvec.squaredNorm()/graddFvec.size()<store.gradNormConvergence || fabs(fx - prevfx)< 1e-3){
+		if(graddFvec.squaredNorm()/graddFvec.size()<store.gradNormConvergence || fabs(fx - prevfx)< 1e-4){
 			break;
 		}
 	}
@@ -363,7 +367,7 @@ int famu::newton_static_solve(Store& store){
 	double nmtime = timer1.getElapsedTimeInMicroSec();
 	
 	timer1.start();
-	famu::acap::solve(store, store.dFvec, false);
+	famu::acap::solve(store, store.dFvec, true);
 	timer1.stop();
 	double acapsolvetime = timer1.getElapsedTimeInMicroSec();
 	
@@ -423,4 +427,46 @@ int famu::newton_static_solve(Store& store){
 
 	cout<<"--------------------------------"<<endl;
     return iter;
+}
+
+int famu::newton_static_solve(Store& store){
+	//First run NM,
+	store.ContactForce.setZero();
+	one_nm_solve(store);
+	if(store.jinput["springk"]==0){
+		//NO contact handling
+		return 1;
+	}else{
+		// cout<<"CONTACT"<<endl;
+		// Second, run Alec's code to see if there is contact
+			Eigen::VectorXd f_ext = Eigen::VectorXd::Zero(3*store.V.rows());
+			Eigen::VectorXd temp = Eigen::VectorXd::Zero(3*store.V.rows());
+			Eigen::MatrixXd DR = Eigen::MatrixXd::Zero(store.V.rows(), store.V.cols());
+			for(int iii =1; iii<8; iii++){//Till max iters				
+				famu::acap::mesh_collisions(store, DR);
+				store.draw_points.clear();
+				for(int i=0; i<store.V.rows(); i++){
+					temp[3*i+0] = DR(i,0); 
+					temp[3*i+1] = DR(i,1); 
+					temp[3*i+2] = DR(i,2);   
+					if(DR.row(i).norm()>1e-7){
+						store.draw_points.push_back(i);
+					}
+			    }
+			    //break if no contact
+			    cout<<"fext: "<<temp.norm()<<endl;
+			    VectorXd qext = store.UnPickBoundaryForCollisions*store.UnPickBoundaryForCollisions.transpose()*temp;
+			    cout<<"blocked fext: "<<qext.norm()<<endl;
+			    if(qext.norm()<1e-2){
+			    	break;
+			    }
+			    f_ext = -exp(0.3*iii)*qext;
+				
+			    VectorXd y_ext = store.Y.transpose()*f_ext;
+			    famu::acap::external_forces(store, y_ext);
+			    one_nm_solve(store);
+			    
+			}
+	}
+	return 0;
 }

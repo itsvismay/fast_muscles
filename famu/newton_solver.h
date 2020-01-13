@@ -5,6 +5,8 @@
 #include <Eigen/LU>
 #include <Eigen/Cholesky>
 #include <igl/Timer.h>
+#include "get_min_max_verts.h"
+
 
 using Store = famu::Store;
 using namespace Eigen;
@@ -24,5 +26,8 @@ namespace famu
 	void fastWoodbury(Store& store, const VectorXd& g, MatrixModesxModes X, VectorXd& BInvXDy, MatrixXd& denseHess, VectorXd& drt);
 	
 	int newton_static_solve(Store& store);
+
+	int one_nm_solve(Store& store);
+
 }
 #endif

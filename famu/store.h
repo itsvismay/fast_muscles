@@ -54,14 +54,15 @@ namespace famu{
 		std::vector<int> fixverts, movverts;
 		std::vector<int> mfix, mmov;
 
-		std::vector<std::pair<Eigen::MatrixXd, Eigen::MatrixXi>> contact_components;
+		std::vector<std::pair<Eigen::MatrixXi, Eigen::MatrixXi>> contact_muscle_T_F;
+		std::vector<std::pair<Eigen::MatrixXi, Eigen::MatrixXi>> contact_bone_T_F;
 
 		Eigen::SparseMatrix<double, Eigen::RowMajor> dF;
 		Eigen::SparseMatrix<double, Eigen::RowMajor> D, _D;
 		Eigen::SparseMatrix<double, Eigen::RowMajor> C;
 		Eigen::SparseMatrix<double, Eigen::RowMajor> S;
 		Eigen::SparseMatrix<double, Eigen::RowMajor> ProjectF, RemFixedBones;
-		Eigen::SparseMatrix<double, Eigen::RowMajor> ConstrainProjection, UnconstrainProjection;
+		Eigen::SparseMatrix<double, Eigen::RowMajor> ConstrainProjection, UnconstrainProjection, PickBoundaryForCollisions, UnPickBoundaryForCollisions;
 		Eigen::SparseMatrix<double, Eigen::RowMajor> JointConstraints, NullJ;
 		Eigen::SparseMatrix<double, Eigen::RowMajor> Y, Bx, Bf, Bsx, ScriptBonesY, PickBoneF;
 		Eigen::MatrixXd G;
@@ -111,12 +112,12 @@ namespace famu{
 		std::vector<Eigen::LDLT<Matrix9d>> vecInvA;
 		Eigen::MatrixXd WoodB, WoodD, InvC, WoodC;
 		Eigen::VectorXd eigenvalues;
-		std::vector<int> contract_muscles;
+		std::vector<int> contract_muscles, draw_points;
 		std::vector<nlohmann::json> muscle_steps;
 
 		//External Force matrices
-		Eigen::VectorXd YtMg, ContactForce;
-		Eigen::SparseMatrix<double, Eigen::RowMajor> ContactP, ContactP1, ContactP2, ContactHess;
+		Eigen::VectorXd YtMg, ContactForce, f_ext, ConstantGravityForce;
+		Eigen::SparseMatrix<double, Eigen::RowMajor> ContactP, ContactP1, ContactP2, ContactHess, KKT_right;
 		nlohmann::json joutput = {{"info",nlohmann::json::object()}, {"run", nlohmann::json::array()}, {"summary",nlohmann::json::object()}};
 
 		int printState(int step, std::string name){

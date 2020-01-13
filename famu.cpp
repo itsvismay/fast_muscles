@@ -236,7 +236,7 @@ int main(int argc, char *argv[])
                 zz[store.T.row(m)[1]] += snorm;
                 zz[store.T.row(m)[2]] += snorm; 
                 zz[store.T.row(m)[3]] += snorm;
-	      }
+	            }
               set_colors_from_data(zz);
             }
             return true;
@@ -262,6 +262,10 @@ int main(int argc, char *argv[])
 
         viewer.data().points = Eigen::MatrixXd(0,6);
         viewer.data().lines = Eigen::MatrixXd(0,9);
+
+        for(int t=0; t< store.draw_points.size(); t++){
+          viewer.data().add_points(store.V.row(store.draw_points[t]),Eigen::RowVector3d(1,0,0));
+        }
  
         return false;
     };
@@ -374,8 +378,8 @@ int main(int argc, char *argv[])
 
 
 
-  viewer.core.is_animating = false;
-  viewer.core.background_color = Eigen::Vector4f(1,1,1,0);
+  viewer.core().is_animating = false;
+  viewer.core().background_color = Eigen::Vector4f(1,1,1,0);
 
   viewer.launch_rendering(true);
   viewer.launch_shut();

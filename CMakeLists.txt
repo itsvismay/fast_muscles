@@ -5,10 +5,11 @@ if(APPLE)
 	set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 	set(JSON_HPP_SRC_DIR "ThirdParty/json/single_include/nlohmann")
 	set(SPECTRA_DIR "ThirdParty/Spectra/include")
-	set(LIBIGL_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/libigl/include")
+	set(LIBIGL_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../libigl/include")
 	set(CMAKE_CXX_FLAGS "-O3 -mavx")
 
 	# libigl
+	option(LIBIGL_WITH_EMBREE		"USE EMBREE" 		ON)
 	option(LIBIGL_WITH_OPENGL           "Use OpenGL"         ON)
 	option(LIBIGL_WITH_PNG              "Use PNG"            ON)
 	option(LIBIGL_WITH_OPENGL_GLFW      "Use GLFW"           ON)
@@ -25,11 +26,11 @@ if(APPLE)
 	file(GLOB SRCFILES famu/*.cpp)
 
 	add_executable(famu "famu.cpp" ${SRCFILES} ${EXTERNALS})
-    target_link_libraries(famu  igl::core igl::png igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui )
+    target_link_libraries(famu  igl::core igl::png igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui igl::embree )
 
 
     add_executable(fd_famu "fd_famu.cpp" ${SRCFILES} ${EXTERNALS})
-    target_link_libraries(fd_famu  igl::core igl::png igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui )
+    target_link_libraries(fd_famu  igl::core igl::png igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui igl::embree)
     
 else()
 	set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
@@ -66,10 +67,10 @@ else()
 
 	add_executable(famu "famu.cpp" ${SRCFILES} ${EXTERNALS})
 
-    target_link_libraries(famu  ${MKL_LIBS} Eigen3::Eigen -lblas -llapack -lglfw -lumfpack -lamd igl::core igl::png igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui OpenMP::OpenMP_CXX ${SUITESPARSE_LIBRARIES} )
+    target_link_libraries(famu  ${MKL_LIBS} Eigen3::Eigen -lblas -llapack -lglfw -lumfpack -lamd igl::core igl::png igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui igl::embree OpenMP::OpenMP_CXX ${SUITESPARSE_LIBRARIES} )
 
     add_executable(fd_famu "fd_famu.cpp" ${SRCFILES} ${EXTERNALS})
 
-    target_link_libraries(fd_famu  ${MKL_LIBS} Eigen3::Eigen -lblas -llapack -lglfw -lumfpack -lamd igl::core igl::png igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui OpenMP::OpenMP_CXX ${SUITESPARSE_LIBRARIES} )
+    target_link_libraries(fd_famu  ${MKL_LIBS} Eigen3::Eigen -lblas -llapack -lglfw -lumfpack -lamd igl::core igl::png igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui igl::embree OpenMP::OpenMP_CXX ${SUITESPARSE_LIBRARIES} )
 
 endif(APPLE)
