@@ -75,60 +75,60 @@ int main(int argc, char *argv[])
   int max_rotation_frame = 100;
 
 
-  for(int ii=0; ii<max_rotation_frame; ii++){
-            store.muscle_steps[0]["biceps"] = 300*ii;
-            store.muscle_steps[0]["triceps"] = 10*ii;
-            store.muscle_steps[0]["brachialis"] = 200*ii;
-            store.muscle_steps[0]["front_deltoid"] = 10*ii;
-            store.muscle_steps[0]["rear_deltoid"] = 100*ii;
-            store.muscle_steps[0]["top_deltoid"] = 100*ii;
+  // for(int ii=0; ii<max_rotation_frame; ii++){
+  //           store.muscle_steps[0]["biceps"] = 300*ii;
+  //           store.muscle_steps[0]["triceps"] = 10*ii;
+  //           store.muscle_steps[0]["brachialis"] = 200*ii;
+  //           store.muscle_steps[0]["front_deltoid"] = 10*ii;
+  //           store.muscle_steps[0]["rear_deltoid"] = 100*ii;
+  //           store.muscle_steps[0]["top_deltoid"] = 100*ii;
 
-            famu::muscle::set_muscle_mag(store, 0);
+  //           famu::muscle::set_muscle_mag(store, 0);
 
-            Eigen::AngleAxisd test_h_rot_xAngle((count_rotation%max_rotation_frame)*(test_h_p/max_rotation_frame)*M_PI, Eigen::Vector3d::UnitX());
-            Eigen::AngleAxisd test_h_rot_yAngle((count_rotation%max_rotation_frame)*(test_h_y/max_rotation_frame)*M_PI, Eigen::Vector3d::UnitY());
-            Eigen::AngleAxisd test_h_rot_zAngle((count_rotation%max_rotation_frame)*(test_h_r/max_rotation_frame)*M_PI, Eigen::Vector3d::UnitZ());
-            Eigen::Quaternion<double> q = test_h_rot_zAngle * test_h_rot_yAngle * test_h_rot_xAngle;
-            Eigen::Matrix3d R = q.matrix();
-            store.dFvec[9*store.bone_name_index_map["humerus"]+0] = R(0,0);
-            store.dFvec[9*store.bone_name_index_map["humerus"]+1] = R(0,1);
-            store.dFvec[9*store.bone_name_index_map["humerus"]+2] = R(0,2);
-            store.dFvec[9*store.bone_name_index_map["humerus"]+3] = R(1,0);
-            store.dFvec[9*store.bone_name_index_map["humerus"]+4] = R(1,1);
-            store.dFvec[9*store.bone_name_index_map["humerus"]+5] = R(1,2);
-            store.dFvec[9*store.bone_name_index_map["humerus"]+6] = R(2,0);
-            store.dFvec[9*store.bone_name_index_map["humerus"]+7] = R(2,1);
-            store.dFvec[9*store.bone_name_index_map["humerus"]+8] = R(2,2);
-            cout<<"HERE2"<<endl;
+  //           Eigen::AngleAxisd test_h_rot_xAngle((count_rotation%max_rotation_frame)*(test_h_p/max_rotation_frame)*M_PI, Eigen::Vector3d::UnitX());
+  //           Eigen::AngleAxisd test_h_rot_yAngle((count_rotation%max_rotation_frame)*(test_h_y/max_rotation_frame)*M_PI, Eigen::Vector3d::UnitY());
+  //           Eigen::AngleAxisd test_h_rot_zAngle((count_rotation%max_rotation_frame)*(test_h_r/max_rotation_frame)*M_PI, Eigen::Vector3d::UnitZ());
+  //           Eigen::Quaternion<double> q = test_h_rot_zAngle * test_h_rot_yAngle * test_h_rot_xAngle;
+  //           Eigen::Matrix3d R = q.matrix();
+  //           store.dFvec[9*store.bone_name_index_map["humerus"]+0] = R(0,0);
+  //           store.dFvec[9*store.bone_name_index_map["humerus"]+1] = R(0,1);
+  //           store.dFvec[9*store.bone_name_index_map["humerus"]+2] = R(0,2);
+  //           store.dFvec[9*store.bone_name_index_map["humerus"]+3] = R(1,0);
+  //           store.dFvec[9*store.bone_name_index_map["humerus"]+4] = R(1,1);
+  //           store.dFvec[9*store.bone_name_index_map["humerus"]+5] = R(1,2);
+  //           store.dFvec[9*store.bone_name_index_map["humerus"]+6] = R(2,0);
+  //           store.dFvec[9*store.bone_name_index_map["humerus"]+7] = R(2,1);
+  //           store.dFvec[9*store.bone_name_index_map["humerus"]+8] = R(2,2);
+  //           cout<<"HERE2"<<endl;
            
            
-            Eigen::AngleAxisd test_f_rot_xAngle((count_rotation%max_rotation_frame)*(test_f_p/max_rotation_frame)*M_PI, Eigen::Vector3d::UnitX());
-            Eigen::AngleAxisd test_f_rot_yAngle((count_rotation%max_rotation_frame)*(test_f_y/max_rotation_frame)*M_PI, Eigen::Vector3d::UnitY());
-            Eigen::AngleAxisd test_f_rot_zAngle((count_rotation%max_rotation_frame)*(test_f_r/max_rotation_frame)*M_PI, Eigen::Vector3d::UnitZ());
-            q = test_f_rot_zAngle * test_f_rot_yAngle * test_f_rot_xAngle;
-            R = q.matrix();
-            store.dFvec[9*store.bone_name_index_map["forearm"]+0] = R(0,0);
-            store.dFvec[9*store.bone_name_index_map["forearm"]+1] = R(0,1);
-            store.dFvec[9*store.bone_name_index_map["forearm"]+2] = R(0,2);
-            store.dFvec[9*store.bone_name_index_map["forearm"]+3] = R(1,0);
-            store.dFvec[9*store.bone_name_index_map["forearm"]+4] = R(1,1);
-            store.dFvec[9*store.bone_name_index_map["forearm"]+5] = R(1,2);
-            store.dFvec[9*store.bone_name_index_map["forearm"]+6] = R(2,0);
-            store.dFvec[9*store.bone_name_index_map["forearm"]+7] = R(2,1);
-            store.dFvec[9*store.bone_name_index_map["forearm"]+8] = R(2,2);
-            cout<<"HERE3"<<endl;
-            // famu::acap::solve(store, store.dFvec, false);
-            cout<<"HERE4"<<endl;
-            std::string name = "mesh";
-            store.printState(ii, name);
-            int niters =famu::newton_static_solve(store);
+  //           Eigen::AngleAxisd test_f_rot_xAngle((count_rotation%max_rotation_frame)*(test_f_p/max_rotation_frame)*M_PI, Eigen::Vector3d::UnitX());
+  //           Eigen::AngleAxisd test_f_rot_yAngle((count_rotation%max_rotation_frame)*(test_f_y/max_rotation_frame)*M_PI, Eigen::Vector3d::UnitY());
+  //           Eigen::AngleAxisd test_f_rot_zAngle((count_rotation%max_rotation_frame)*(test_f_r/max_rotation_frame)*M_PI, Eigen::Vector3d::UnitZ());
+  //           q = test_f_rot_zAngle * test_f_rot_yAngle * test_f_rot_xAngle;
+  //           R = q.matrix();
+  //           store.dFvec[9*store.bone_name_index_map["forearm"]+0] = R(0,0);
+  //           store.dFvec[9*store.bone_name_index_map["forearm"]+1] = R(0,1);
+  //           store.dFvec[9*store.bone_name_index_map["forearm"]+2] = R(0,2);
+  //           store.dFvec[9*store.bone_name_index_map["forearm"]+3] = R(1,0);
+  //           store.dFvec[9*store.bone_name_index_map["forearm"]+4] = R(1,1);
+  //           store.dFvec[9*store.bone_name_index_map["forearm"]+5] = R(1,2);
+  //           store.dFvec[9*store.bone_name_index_map["forearm"]+6] = R(2,0);
+  //           store.dFvec[9*store.bone_name_index_map["forearm"]+7] = R(2,1);
+  //           store.dFvec[9*store.bone_name_index_map["forearm"]+8] = R(2,2);
+  //           cout<<"HERE3"<<endl;
+  //           // famu::acap::solve(store, store.dFvec, false);
+  //           cout<<"HERE4"<<endl;
+  //           std::string name = "mesh";
+  //           store.printState(ii, name);
+  //           int niters =famu::newton_static_solve(store);
 
 
 
-            count_rotation +=1;
-  }
-  store.saveResults();
-  exit(0);
+  //           count_rotation +=1;
+  // }
+  // store.saveResults();
+  // exit(0);
 
 
 
@@ -162,7 +162,10 @@ int main(int argc, char *argv[])
         ImGui::InputDouble("top_delt activation", &top_delt_activation, 0.01f, 1.0f, "%.2f");;
         static double rear_delt_activation = 0.0;
         ImGui::InputDouble("rear_delt activation", &rear_delt_activation, 0.01f, 1.0f, "%.2f");;
+        static double contact_weight = 1;
+        ImGui::InputDouble("contact weight", &contact_weight, 0.01f, 1.0f, "%.2f");;
 
+        store.jinput["contact_force_weight"] = contact_weight;
         store.muscle_steps[0]["biceps"] = bicep_activation;
         store.muscle_steps[0]["triceps"] = tricep_activation;
         store.muscle_steps[0]["brachialis"] = brachialis_activation;
@@ -563,8 +566,8 @@ int main(int argc, char *argv[])
 
 
 
-  viewer.core.is_animating = false;
-  viewer.core.background_color = Eigen::Vector4f(1,1,1,0);
+  viewer.core().is_animating = false;
+  viewer.core().background_color = Eigen::Vector4f(1,1,1,0);
 
   viewer.launch_rendering(true);
   viewer.launch_shut();

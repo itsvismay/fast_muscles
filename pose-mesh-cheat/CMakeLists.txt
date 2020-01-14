@@ -5,7 +5,7 @@ if(APPLE)
 	set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 	set(JSON_HPP_SRC_DIR "../ThirdParty/json/single_include/nlohmann")
 	set(SPECTRA_DIR "../ThirdParty/Spectra/include")
-	set(LIBIGL_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../ThirdParty/libigl/include")
+	set(LIBIGL_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../libigl/include")
 	set(CMAKE_CXX_FLAGS "-O3 -mavx")
 
 	# libigl
@@ -24,7 +24,7 @@ if(APPLE)
 
 	add_executable(poseMesh "main.cpp" ${SRCFILES} ${EXTERNALS})
 
-    target_link_libraries(poseMesh igl::core igl::png igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui )
+    target_link_libraries(poseMesh igl::core igl::png igl::opengl igl::opengl_glfw igl::embree igl::opengl_glfw_imgui )
 else()
 	set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 	set(JSON_HPP_SRC_DIR "ThirdParty/json/single_include/nlohmann")
@@ -51,5 +51,5 @@ else()
 
 	add_executable(famu "main.cpp" ${SRCFILES} ${EXTERNALS})
 
-    target_link_libraries(famu  Eigen3::Eigen  -lglfw  -lamd igl::core igl::png igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui )
+    target_link_libraries(famu  Eigen3::Eigen  -lglfw  -lamd igl::core igl::png igl::opengl igl::opengl_glfw igl::embree igl::opengl_glfw_imgui )
 endif(APPLE)

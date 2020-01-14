@@ -442,16 +442,12 @@ int famu::newton_static_solve(Store& store){
 			Eigen::VectorXd f_ext = Eigen::VectorXd::Zero(3*store.V.rows());
 			Eigen::VectorXd temp = Eigen::VectorXd::Zero(3*store.V.rows());
 			Eigen::MatrixXd DR = Eigen::MatrixXd::Zero(store.V.rows(), store.V.cols());
-			for(int iii =1; iii<8; iii++){//Till max iters				
+			for(int iii =1; iii<5; iii++){//Till max iters				
 				famu::acap::mesh_collisions(store, DR);
-				store.draw_points.clear();
 				for(int i=0; i<store.V.rows(); i++){
 					temp[3*i+0] = DR(i,0); 
 					temp[3*i+1] = DR(i,1); 
 					temp[3*i+2] = DR(i,2);   
-					if(DR.row(i).norm()>1e-7){
-						store.draw_points.push_back(i);
-					}
 			    }
 			    //break if no contact
 			    cout<<"fext: "<<temp.norm()<<endl;
@@ -460,7 +456,8 @@ int famu::newton_static_solve(Store& store){
 			    if(qext.norm()<1e-2){
 			    	break;
 			    }
-			    f_ext = -exp(0.3*iii)*qext;
+			    double weight = store.jinput["contact_force_weight"];
+			    f_ext = -exp(weight)*qext;
 				
 			    VectorXd y_ext = store.Y.transpose()*f_ext;
 			    famu::acap::external_forces(store, y_ext);
