@@ -59,7 +59,7 @@ int main(int argc, char *argv[])
 			store.jinput["material"] = craps+material;
 		}
 
-		famu::read_config_files(store.V, 
+		famu::read_config_files(store,store.V, 
 								store.T, 
 								store.F, 
 								store.Uvec, 
@@ -69,6 +69,7 @@ int main(int argc, char *argv[])
 								store.bone_tets, 
 								store.muscle_tets, 
 								store.fix_bones, 
+                store.script_bones,
 								store.relativeStiffness,
 								store.contract_muscles,
 								store.muscle_steps,
@@ -326,8 +327,8 @@ void main()
 
 
 
-  viewer.core.is_animating = false;
-  viewer.core.background_color = Eigen::Vector4f(1,1,1,0);
+  viewer.core().is_animating = false;
+  viewer.core().background_color = Eigen::Vector4f(1,1,1,0);
 
   viewer.launch_rendering(true);
   viewer.launch_shut();
