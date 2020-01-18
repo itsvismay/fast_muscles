@@ -144,8 +144,13 @@ void famu::acap::fastGradient(Store& store, VectorXd& grad){
 	grad -= store.Bf.transpose()*store.lambda2;
 	double aa = store.jinput["alpha_arap"];
 	grad *= aa;
-	grad += store.ContactForce;
-	grad += store.ConstantGravityForce;
+	if(store.jinput["springk"]!=0){
+		//grad += store.ContactForce;
+	}
+	if(store.jinput["gravity"]!=0){
+		grad += store.ConstantGravityForce;
+
+	}
 }
 
 void famu::acap::fastHessian(Store& store, SparseMatrix<double, RowMajor>& hess, Eigen::MatrixXd& denseHess, bool include_dense){

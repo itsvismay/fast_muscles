@@ -469,7 +469,6 @@ int famu::one_nm_solve(Store& store){
 
 int famu::newton_static_solve(Store& store){
 	//First run NM,
-	store.ContactForce.setZero();
 	one_nm_solve(store);
 	// if(store.jinput["springk"]==0){
 	// 	//NO contact handling
