@@ -1,4 +1,4 @@
-fname = '../data/realistic_upper_arm_pecs_traps/run1/input.json';
+fname = '../data/cartoon_skeleton/run5/input.json';
 val = jsondecode(fileread(fname));
 waypoints = val.muscle_waypoints;
 n = fieldnames(waypoints);
@@ -27,3 +27,4 @@ jsontext = strrep(jsontext, '[{', sprintf('[\r{\r'));
 jsontext = strrep(jsontext, '}]', sprintf('\r}\r]'));
 fileID = fopen(fname, 'w');
 fprintf(fileID, jsontext);
+size(fullmatrix)

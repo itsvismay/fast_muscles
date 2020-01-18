@@ -71,7 +71,7 @@ void famu::polar_dec(Store& store, VectorXd& dFvec){
 	}
 }
 
-double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd& drt){
+double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd& drt, MatrixXd& denseHess){
 	// Decreasing and increasing factors
 	VectorXd x = store.dFvec;
 	VectorXd xp = x;
@@ -108,8 +108,39 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
     int iter;
     for(iter = 0; iter < pmax_linesearch; iter++)
     {
-        // x_{k+1} = x_k + step * d_k
-        x.tail(store.RemFixedBones.rows()) = xp.tail(store.RemFixedBones.rows()) + step * drt;
+    	if(store.jinput["springk"]!=0){
+    		//contact stuff
+
+    			Eigen::VectorXd f_ext = Eigen::VectorXd::Zero(3*store.V.rows());
+				Eigen::VectorXd temp = Eigen::VectorXd::Zero(3*store.V.rows());
+				Eigen::MatrixXd DR = Eigen::MatrixXd::Zero(store.V.rows(), store.V.cols());
+				famu::acap::mesh_collisions(store, DR);
+				for(int i=0; i<store.V.rows(); i++){
+					temp[3*i+0] = DR(i,0); 
+					temp[3*i+1] = DR(i,1); 
+					temp[3*i+2] = DR(i,2);   
+			    }
+			    //break if no contact
+			    cout<<"		fext: "<<temp.norm()<<endl;
+			    VectorXd qext = store.UnPickBoundaryForCollisions*store.UnPickBoundaryForCollisions.transpose()*temp;
+			    cout<<"		blocked fext: "<<qext.norm()<<endl;
+			  
+			    f_ext = -1*qext;
+			    VectorXd y_ext = store.Y.transpose()*f_ext;
+			    famu::acap::external_forces(store, y_ext);
+				
+				//Woodbury variables
+				Eigen::VectorXd contact_dir = Eigen::VectorXd::Zero(store.RemFixedBones.rows());
+				MatrixModesxModes X;
+				Eigen:VectorXd contact_force = store.RemFixedBones*store.ContactForce;
+				fastWoodbury(store, contact_force, X, denseHess, contact_dir);    
+
+				x.tail(store.RemFixedBones.rows()) = xp.tail(store.RemFixedBones.rows()) + step * drt + contact_dir;
+    	}else{
+	        // x_{k+1} = x_k + step * d_k
+	        x.tail(store.RemFixedBones.rows()) = xp.tail(store.RemFixedBones.rows()) + step * drt;
+
+    	}
         polar_dec(store, x);
 
         // Evaluate this candidate
@@ -142,20 +173,28 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
                 }
             }
         }
+        // std::string name = "ls-mesh";
+        // store.printState(iter, name);
 
         if(iter >= pmax_linesearch)
-            throw std::runtime_error("the line search routine reached the maximum number of iterations");
+       		throw std::runtime_error("the line search routine reached the maximum number of iterations");
+        
+
 
         if(step < pmin_step)
-            throw std::runtime_error("the line search step became smaller than the minimum value allowed");
+        {
+        	tot_ls_its += iter;
+        	return 0; //throw std::runtime_error("the line search step became smaller than the minimum value allowed");
+        } 
+            
 
         if(step > pmax_step)
             throw std::runtime_error("the line search step became larger than the maximum value allowed");
 
         step *= width;
     }
-    //cout<<"			ls iters: "<<iter<<endl;
-    //cout<<"			step: "<<step<<endl;
+    cout<<"			ls iters: "<<iter<<endl;
+    cout<<"			step: "<<step<<endl;
     tot_ls_its += iter;
     return step;
 }
@@ -179,7 +218,7 @@ void famu::sparse_to_dense(const Store& store, SparseMatrix<double, Eigen::RowMa
 	}
 }
 
-void famu::fastWoodbury(Store& store, const VectorXd& g, MatrixModesxModes X, VectorXd& BInvXDy, MatrixXd& denseHess, VectorXd& drt){
+void famu::fastWoodbury(Store& store, const VectorXd& g, MatrixModesxModes X, MatrixXd& denseHess, VectorXd& drt){
 	//Woodbury parallel approach 1 (with reduction)
 
 	Matrix<double, NUM_MODES, 1> DAg = Matrix<double, NUM_MODES, 1>::Zero(); 
@@ -268,7 +307,6 @@ int famu::one_nm_solve(Store& store){
 	VectorXd test_drt = delta_dFvec;
 	VectorXd graddFvec = VectorXd::Zero(store.dFvec.size());
 	
-	VectorXd BInvXDy = VectorXd::Zero(store.dFvec.size());
 	MatrixModesxModes X;
 		
 	igl::Timer timer, timer1;
@@ -332,7 +370,7 @@ int famu::one_nm_solve(Store& store){
 			//Dense Woodbury code
 			denseHess = constDenseHess + store.RemFixedBones*(store.denseNeoHess);
 			timer.start();
-			fastWoodbury(store, graddFvec, X, BInvXDy, denseHess, delta_dFvec);
+			fastWoodbury(store, graddFvec, X, denseHess, delta_dFvec);
 			timer.stop();
 			woodtimes += timer.getElapsedTimeInMicroSec();
 			// cout<<"		woodbury diff: "<<(delta_dFvec - test_drt).norm()<<endl;
@@ -346,7 +384,7 @@ int famu::one_nm_solve(Store& store){
 		
 		//line search
 		timer.start();
-		double alpha = line_search(tot_ls_its, store, graddFvec, delta_dFvec);
+		double alpha = line_search(tot_ls_its, store, graddFvec, delta_dFvec, denseHess);
 		timer.stop();
 		linetimes += timer.getElapsedTimeInMicroSec();
 		
@@ -433,37 +471,38 @@ int famu::newton_static_solve(Store& store){
 	//First run NM,
 	store.ContactForce.setZero();
 	one_nm_solve(store);
-	if(store.jinput["springk"]==0){
-		//NO contact handling
-		return 1;
-	}else{
-		// cout<<"CONTACT"<<endl;
-		// Second, run Alec's code to see if there is contact
-			Eigen::VectorXd f_ext = Eigen::VectorXd::Zero(3*store.V.rows());
-			Eigen::VectorXd temp = Eigen::VectorXd::Zero(3*store.V.rows());
-			Eigen::MatrixXd DR = Eigen::MatrixXd::Zero(store.V.rows(), store.V.cols());
-			for(int iii =1; iii<5; iii++){//Till max iters				
-				famu::acap::mesh_collisions(store, DR);
-				for(int i=0; i<store.V.rows(); i++){
-					temp[3*i+0] = DR(i,0); 
-					temp[3*i+1] = DR(i,1); 
-					temp[3*i+2] = DR(i,2);   
-			    }
-			    //break if no contact
-			    cout<<"fext: "<<temp.norm()<<endl;
-			    VectorXd qext = store.UnPickBoundaryForCollisions*store.UnPickBoundaryForCollisions.transpose()*temp;
-			    cout<<"blocked fext: "<<qext.norm()<<endl;
-			    if(qext.norm()<1e-2){
-			    	break;
-			    }
-			    double weight = store.jinput["contact_force_weight"];
-			    f_ext = -exp(weight)*qext;
+	// if(store.jinput["springk"]==0){
+	// 	//NO contact handling
+	// 	return 1;
+	// }else{
+	// 	// cout<<"CONTACT"<<endl;
+	// 	// Second, run Alec's code to see if there is contact
+	// 		for(int iii =1; iii<10; iii++){//Till max iters				
+	// 			Eigen::VectorXd f_ext = Eigen::VectorXd::Zero(3*store.V.rows());
+	// 			Eigen::VectorXd temp = Eigen::VectorXd::Zero(3*store.V.rows());
+	// 			Eigen::MatrixXd DR = Eigen::MatrixXd::Zero(store.V.rows(), store.V.cols());
+	// 			famu::acap::mesh_collisions(store, DR);
+	// 			for(int i=0; i<store.V.rows(); i++){
+	// 				temp[3*i+0] = DR(i,0); 
+	// 				temp[3*i+1] = DR(i,1); 
+	// 				temp[3*i+2] = DR(i,2);   
+	// 		    }
+	// 		    //break if no contact
+	// 		    cout<<"fext: "<<temp.norm()<<endl;
+	// 		    VectorXd qext = store.UnPickBoundaryForCollisions*store.UnPickBoundaryForCollisions.transpose()*temp;
+	// 		    cout<<"blocked fext: "<<qext.norm()<<endl;
+	// 		    if(qext.norm()<1e-2){
+	// 		    	break;
+	// 		    }
+	// 		    double weight = store.jinput["contact_force_weight"];
+	// 		    f_ext = -exp(weight)*qext;
 				
-			    VectorXd y_ext = store.Y.transpose()*f_ext;
-			    famu::acap::external_forces(store, y_ext);
-			    one_nm_solve(store);
+	// 		    VectorXd y_ext = store.Y.transpose()*f_ext;
+	// 		    famu::acap::external_forces(store, y_ext);
+
+	// 		    one_nm_solve(store);
 			    
-			}
-	}
+	// 		}
+	// }
 	return 0;
 }

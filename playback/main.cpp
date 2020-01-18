@@ -59,8 +59,8 @@ int main(int argc, char *argv[])
 			store.jinput["material"] = craps+material;
 		}
 
-		famu::read_config_files(store,
-                store.V, 
+
+		famu::read_config_files(store,store.V, 
 								store.T, 
 								store.F, 
 								store.Uvec, 
@@ -339,8 +339,8 @@ void main()
 
 
 
-  viewer.core.is_animating = true;
-  viewer.core.background_color = Eigen::Vector4f(1,1,1,0);
+  viewer.core().is_animating = true;
+  viewer.core().background_color = Eigen::Vector4f(1,1,1,0);
 
   viewer.launch_rendering(true);
   viewer.launch_shut();

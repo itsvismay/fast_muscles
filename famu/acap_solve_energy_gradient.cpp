@@ -193,7 +193,7 @@ void famu::acap::external_forces(Store& store, VectorXd& f_ext, bool first){
 		for(int i=0; i<adjointP.rows(); i++){
 			adjointP.coeffRef(i,i) = 1;
 		}
-	if(first){
+		if(first){
 
 		std::vector<Trip> YtStDt_dF_DSx0_trips = to_Triplets(store.YtStDt_dF_DSx0);
 		std::vector<Trip> JointConstraints_trips = to_Triplets(store.JointConstraints);

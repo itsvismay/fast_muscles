@@ -27,13 +27,14 @@ if(APPLE)
     target_link_libraries(poseMesh igl::core igl::png igl::opengl igl::opengl_glfw igl::embree igl::opengl_glfw_imgui )
 else()
 	set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
-	set(JSON_HPP_SRC_DIR "ThirdParty/json/single_include/nlohmann")
-	set(SPECTRA_DIR "ThirdParty/Spectra/include")
-	set(LIBIGL_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/libigl/include")
+	set(JSON_HPP_SRC_DIR "../ThirdParty/json/single_include/nlohmann")
+	set(SPECTRA_DIR "../ThirdParty/Spectra/include")
+	set(LIBIGL_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../libigl/include")
 	set(MKLROOT "/opt/intel/mkl")
 
 	set(CMAKE_CXX_FLAGS "-O3 -mavx")
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -DMKL_LP64 -m64")
+	set(MKL_LIBS  -L${MKLROOT}/lib/intel64 -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core -lmkl_core -lgomp -lpthread -lm -ldl)
 
 
 	# libigl
@@ -44,12 +45,15 @@ else()
 
 	find_package(LIBIGL REQUIRED QUIET)
 	find_package (Eigen3 3.3 REQUIRED NO_MODULE)
+	find_package(OpenMP REQUIRED)
 
+	include_directories(${MKLROOT}/include)
 	include_directories(${JSON_HPP_SRC_DIR})
 	include_directories(${EIGEN335_INCLUDE_DIRS})
+	include_directories(${SPECTRA_DIR})
 
+	file(GLOB SRCFILES ../famu/*.cpp)
+	add_executable(poseMesh "main.cpp" ${SRCFILES} ${EXTERNALS})
 
-	add_executable(famu "main.cpp" ${SRCFILES} ${EXTERNALS})
-
-    target_link_libraries(famu  Eigen3::Eigen  -lglfw  -lamd igl::core igl::png igl::opengl igl::opengl_glfw igl::embree igl::opengl_glfw_imgui )
+    target_link_libraries(poseMesh ${MKL_LIBS} Eigen3::Eigen -lblas -llapack -lglfw -lumfpack -lamd igl::core igl::png igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui igl::embree OpenMP::OpenMP_CXX ${SUITESPARSE_LIBRARIES} )
 endif(APPLE)
