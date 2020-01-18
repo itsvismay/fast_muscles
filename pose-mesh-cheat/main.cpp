@@ -82,7 +82,7 @@ int main(int argc, char *argv[])
   store.muscle_steps[0]["rear_deltoid"] = 5*max_rotation_frame;
   store.muscle_steps[0]["top_deltoid"] = 5*max_rotation_frame;
 
-  max_rotation_frame = 500;
+  max_rotation_frame = 100;
   for(int ii=0; ii<max_rotation_frame; ii++){
 
             famu::muscle::set_muscle_mag(store, 0);

@@ -19,11 +19,11 @@ namespace famu
 
 	void polar_dec(Store& store, VectorXd& dFvec);
 
-	double line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd& drt);
+	double line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd& drt, MatrixXd& denseHess);
 
 	void sparse_to_dense(const Store& store, SparseMatrix<double, Eigen::RowMajor>& H, MatrixXd& denseHess);
 
-	void fastWoodbury(Store& store, const VectorXd& g, MatrixModesxModes X, VectorXd& BInvXDy, MatrixXd& denseHess, VectorXd& drt);
+	void fastWoodbury(Store& store, const VectorXd& g, MatrixModesxModes X,MatrixXd& denseHess, VectorXd& drt);
 	
 	int newton_static_solve(Store& store);
 
