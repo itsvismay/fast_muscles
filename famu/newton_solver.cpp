@@ -75,7 +75,7 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
 	// Decreasing and increasing factors
 	VectorXd x = store.dFvec;
 	VectorXd xp = x;
-	double step = 50;
+	double step = 0.2;
     const double dec = 0.5;
     const double inc = 2.1;
     int pmax_linesearch = 100;
@@ -124,9 +124,9 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
     //     			temp_x = x;
 				// 	famu::acap::mesh_collisions(store, DR);
 				// 	for(int i=0; i<store.V.rows(); i++){
-				// 		DRvec[3*i+0] += DR(i,0); 
-				// 		DRvec[3*i+1] += DR(i,1); 
-				// 		DRvec[3*i+2] += DR(i,2);   
+				// 		DRvec[3*i+0] = DR(i,0); 
+				// 		DRvec[3*i+1] = DR(i,1); 
+				// 		DRvec[3*i+2] = DR(i,2);   
 				//     }
 				//     temp += DRvec;
 				//     VectorXd qext = store.UnPickBoundaryForCollisions*store.UnPickBoundaryForCollisions.transpose()*temp;
@@ -325,14 +325,16 @@ int famu::one_nm_solve(Store& store){
 	int iter =1;
 	timer1.start();
 
-
-
 	Eigen::VectorXd contact_dir = Eigen::VectorXd::Zero(store.RemFixedBones.rows());
-    			Eigen::VectorXd temp_x = store.dFvec;
-    			Eigen::VectorXd f_ext = Eigen::VectorXd::Zero(3*store.V.rows());
-				Eigen::VectorXd temp = Eigen::VectorXd::Zero(3*store.V.rows());
-				Eigen::VectorXd DRvec = Eigen::VectorXd::Zero(3*store.V.rows());
-				Eigen::MatrixXd DR = Eigen::MatrixXd::Zero(store.V.rows(), store.V.cols());
+	Eigen::VectorXd temp_x = store.dFvec;
+	Eigen::VectorXd f_ext = Eigen::VectorXd::Zero(3*store.V.rows());
+	Eigen::VectorXd total_ext = Eigen::VectorXd::Zero(3*store.V.rows());
+	Eigen::VectorXd temp = Eigen::VectorXd::Zero(3*store.V.rows());
+	Eigen::VectorXd DRvec = Eigen::VectorXd::Zero(3*store.V.rows());
+	Eigen::MatrixXd DR = Eigen::MatrixXd::Zero(store.V.rows(), store.V.cols());
+	double initialGradient=0;
+	store.dFvec = store.I0;
+	
 	for(iter=1; iter<MAX_ITERS; iter++){
 		graddFvec.setZero();
 		double prevfx = Energy(store, store.dFvec);
@@ -341,8 +343,20 @@ int famu::one_nm_solve(Store& store){
 		famu::muscle::gradient(store, muscle_grad);
 		famu::stablenh::gradient(store, neo_grad);
 		famu::acap::fastGradient(store, acap_grad);
-		graddFvec = store.RemFixedBones*(muscle_grad + neo_grad + acap_grad);
+		famu::acap::external_forces(store, total_ext);
+		graddFvec = store.RemFixedBones*(muscle_grad + neo_grad + acap_grad - store.ContactForce);
 
+		if(store.jinput["springk"]!=0){
+			VectorXd dEdF = graddFvec;
+			std::cout<<(dEdF.squaredNorm()/dEdF.size())<<", ";
+			if(iter==1){
+				initialGradient = dEdF.squaredNorm()/dEdF.size();
+			}
+			if((dEdF.squaredNorm()/dEdF.size())/(initialGradient) <1e-2){
+				cout<<"Contact converged"<<endl;
+				break;
+			}
+		}
 		// cout<<"		muscle grad: "<<muscle_grad.norm()<<endl;
 		// cout<<"		neo grad: "<<neo_grad.norm()<<endl;
 		// cout<<"		acap grad: "<<acap_grad.norm()<<endl;
@@ -416,28 +430,35 @@ int famu::one_nm_solve(Store& store){
 		//}
 
 		store.dFvec.tail(store.RemFixedBones.rows()) += alpha*delta_dFvec;
+
 		//////////////////////////////////////
 		if(store.jinput["springk"]!=0){
     		//contact stuff
-				temp.setZero();
+    			temp.setZero();
+    			contact_dir.setZero();
         		for(int iii=0; iii<30; iii++){
         			temp_x = store.dFvec;
+					
 					famu::acap::mesh_collisions(store, DR);
 					for(int i=0; i<store.V.rows(); i++){
 						DRvec[3*i+0] = DR(i,0); 
 						DRvec[3*i+1] = DR(i,1); 
 						DRvec[3*i+2] = DR(i,2);   
 				    }
-				    temp += exp(0.2*iii)*DRvec;
-				    VectorXd qext = store.UnPickBoundaryForCollisions*store.UnPickBoundaryForCollisions.transpose()*temp;
-				    cout<<"		DRvec: "<<DRvec.norm()<<endl;
+
+				    VectorXd qext = store.UnPickBoundaryForCollisions*store.UnPickBoundaryForCollisions.transpose()*DRvec;
+				    cout<<"		qext: "<<qext.norm()<<endl;
 				    //break if no contact
-				  	if(DRvec.norm()<1e-1){
+				  	if(qext.norm()<1e-1){
 				  		break;
 				  	}
-				    f_ext = -1*qext;
+
+				    temp += exp(0.2*iii)*DRvec;
+
+				    f_ext = -1*store.UnPickBoundaryForCollisions*store.UnPickBoundaryForCollisions.transpose()*temp ;
 				    VectorXd y_ext = store.Y.transpose()*f_ext;
 				    famu::acap::external_forces(store, y_ext);//puts forces into store.ContactForce
+				    // 
 
 
 					//Woodbury variables
@@ -446,9 +467,11 @@ int famu::one_nm_solve(Store& store){
 					fastWoodbury(store, contact_force, X, denseHess, contact_dir);    
 					temp_x.tail(store.RemFixedBones.rows()) += contact_dir;
 					famu::acap::solve(store, temp_x);
-					// store.printState(iii, "ext");
+					store.printState(iii, "ext");
 
         		}
+        		total_ext += store.Y.transpose()*-1*store.UnPickBoundaryForCollisions*store.UnPickBoundaryForCollisions.transpose()*temp;
+
 				store.dFvec.tail(store.RemFixedBones.rows()) += contact_dir;
     	}
 
@@ -456,12 +479,16 @@ int famu::one_nm_solve(Store& store){
         store.printState(iter, name);
         std::cout<<std::endl;
     	////////////////////////////////////
+
+
+
+
     	polar_dec(store, store.dFvec);
 		double fx = Energy(store, store.dFvec);
 		//std::cout<<(graddFvec.squaredNorm()/graddFvec.size())<<", "<<(fabs(fx-prevfx)) <<endl;
-		if(graddFvec.squaredNorm()/graddFvec.size()<store.gradNormConvergence || fabs(fx - prevfx)< 1e-4){
-			break;
-		}
+		// if(graddFvec.squaredNorm()/graddFvec.size()<store.gradNormConvergence || fabs(fx - prevfx)< 1e-4){
+		// 	break;
+		// }
 	}
 	timer1.stop();
 	double nmtime = timer1.getElapsedTimeInMicroSec();

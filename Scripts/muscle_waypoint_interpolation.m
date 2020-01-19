@@ -1,8 +1,8 @@
-fname = '../data/cartoon_skeleton/run5/input.json';
+fname = '../data/contact_test/run4/input.json';
 val = jsondecode(fileread(fname));
 waypoints = val.muscle_waypoints;
 n = fieldnames(waypoints);
-h = 0.1;
+h = 0.5;
 waymatrix = cell2mat(struct2cell(waypoints));
 fullmatrix = zeros(length(n), 1+(size(waymatrix,2)-1)/h);
 names = {};
