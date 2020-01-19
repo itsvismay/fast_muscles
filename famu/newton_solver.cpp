@@ -75,7 +75,7 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
 	// Decreasing and increasing factors
 	VectorXd x = store.dFvec;
 	VectorXd xp = x;
-	double step = 5;
+	double step = 50;
     const double dec = 0.5;
     const double inc = 2.1;
     int pmax_linesearch = 100;
@@ -114,31 +114,42 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
         
         if(store.jinput["springk"]!=0){
     		//contact stuff
-
+				Eigen::VectorXd contact_dir = Eigen::VectorXd::Zero(store.RemFixedBones.rows());
+    			Eigen::VectorXd temp_x = x;
     			Eigen::VectorXd f_ext = Eigen::VectorXd::Zero(3*store.V.rows());
 				Eigen::VectorXd temp = Eigen::VectorXd::Zero(3*store.V.rows());
+				Eigen::VectorXd DRvec = Eigen::VectorXd::Zero(3*store.V.rows());
 				Eigen::MatrixXd DR = Eigen::MatrixXd::Zero(store.V.rows(), store.V.cols());
-				famu::acap::mesh_collisions(store, DR);
-				for(int i=0; i<store.V.rows(); i++){
-					temp[3*i+0] = DR(i,0); 
-					temp[3*i+1] = DR(i,1); 
-					temp[3*i+2] = DR(i,2);   
-			    }
-			    //break if no contact
-			    cout<<"		fext: "<<temp.norm()<<endl;
-			    VectorXd qext = store.UnPickBoundaryForCollisions*store.UnPickBoundaryForCollisions.transpose()*temp;
-			    cout<<"		blocked fext: "<<qext.norm()<<endl;
-			  
-			    f_ext = -1*qext;
-			    VectorXd y_ext = store.Y.transpose()*f_ext;
-			    famu::acap::external_forces(store, y_ext);
-				
-				//Woodbury variables
-				Eigen::VectorXd contact_dir = Eigen::VectorXd::Zero(store.RemFixedBones.rows());
-				MatrixModesxModes X;
-				Eigen:VectorXd contact_force = store.RemFixedBones*store.ContactForce;
-				fastWoodbury(store, contact_force, X, denseHess, contact_dir);    
+        		for(int iii=0; iii<10; iii++){
+        			temp_x = x;
+					famu::acap::mesh_collisions(store, DR);
+					for(int i=0; i<store.V.rows(); i++){
+						DRvec[3*i+0] += DR(i,0); 
+						DRvec[3*i+1] += DR(i,1); 
+						DRvec[3*i+2] += DR(i,2);   
+				    }
+				    temp += DRvec;
+				    cout<<"		fext: "<<temp.norm()<<endl;
+				    VectorXd qext = store.UnPickBoundaryForCollisions*store.UnPickBoundaryForCollisions.transpose()*temp;
+				    cout<<"		DRvec: "<<DRvec.norm()<<endl;
+				    
+				    //break if no contact
+				  	if(DRvec.norm()<1e-1){
+				  		break;
+				  	}
+				    f_ext = -1*qext;
+				    VectorXd y_ext = store.Y.transpose()*f_ext;
+				    famu::acap::external_forces(store, y_ext);//puts forces into store.ContactForce
 
+
+					//Woodbury variables
+					MatrixModesxModes X;
+					Eigen:VectorXd contact_force = store.RemFixedBones*store.ContactForce;
+					fastWoodbury(store, contact_force, X, denseHess, contact_dir);    
+					temp_x.tail(store.RemFixedBones.rows()) += contact_dir;
+					famu::acap::solve(store, temp_x);
+
+        		}
 				x.tail(store.RemFixedBones.rows()) += contact_dir;
     	}
 
