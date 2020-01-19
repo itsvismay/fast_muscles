@@ -70,7 +70,7 @@ void famu::acap::mesh_collisions(Store& store, Eigen::MatrixXd& DR){
 	VectorXd y = store.Y*store.x;
 	Eigen::Map<Eigen::MatrixXd> newV(y.data(), store.V.cols(), store.V.rows());
 	Eigen::MatrixXd newVt = newV.transpose()+ store.V;
-	for(int i=0; i<store.contact_muscle_T_F.size(); i++){
+	for(int i=store.contact_muscle_T_F.size()-1; i>=0; i--){
 		for(int j=0; j<store.contact_muscle_T_F.size(); j++){
 			if(i!=j){
 				MatrixXd DRi;
@@ -236,7 +236,7 @@ void famu::acap::external_forces(Store& store, VectorXd& f_ext, bool first){
 
 		SparseMatrix<double, Eigen::RowMajor> spMass(mg.size(), mg.size());
 		famu::acap::mass_matrix_mesh(spMass, store.T, density, store.rest_tet_volume);
-		 f_ext =  store.Y.transpose()*spMass*mg;
+		f_ext =  store.Y.transpose()*spMass*mg;
 		
 	}
 
