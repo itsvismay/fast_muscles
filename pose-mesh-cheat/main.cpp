@@ -44,7 +44,7 @@ int main(int argc, char *argv[])
 			input_file >> j_input;
 			std::cout<<"Threads: "<<Eigen::nbThreads( )<<std::endl;
 		}else{
-			cout<<"Run as: ./famu input.json <threads>"<<endl;
+			cout<<"Run as: ./pose-mesh-cheat input.json <threads>"<<endl;
 			exit(0);
 		}
 		Eigen::initParallel();

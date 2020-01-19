@@ -75,7 +75,7 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
 	// Decreasing and increasing factors
 	VectorXd x = store.dFvec;
 	VectorXd xp = x;
-	double step = 50;
+	double step = 5;
     const double dec = 0.5;
     const double inc = 2.1;
     int pmax_linesearch = 100;
@@ -108,7 +108,11 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
     int iter;
     for(iter = 0; iter < pmax_linesearch; iter++)
     {
-    	if(store.jinput["springk"]!=0){
+    	
+        // x_{k+1} = x_k + step * d_k
+        x.tail(store.RemFixedBones.rows()) = xp.tail(store.RemFixedBones.rows()) + step * drt;
+        
+        if(store.jinput["springk"]!=0){
     		//contact stuff
 
     			Eigen::VectorXd f_ext = Eigen::VectorXd::Zero(3*store.V.rows());
@@ -135,12 +139,9 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
 				Eigen:VectorXd contact_force = store.RemFixedBones*store.ContactForce;
 				fastWoodbury(store, contact_force, X, denseHess, contact_dir);    
 
-				x.tail(store.RemFixedBones.rows()) = xp.tail(store.RemFixedBones.rows()) + step * drt + contact_dir;
-    	}else{
-	        // x_{k+1} = x_k + step * d_k
-	        x.tail(store.RemFixedBones.rows()) = xp.tail(store.RemFixedBones.rows()) + step * drt;
-
+				x.tail(store.RemFixedBones.rows()) += contact_dir;
     	}
+
         polar_dec(store, x);
 
         // Evaluate this candidate
