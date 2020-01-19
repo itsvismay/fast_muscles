@@ -467,7 +467,7 @@ int famu::one_nm_solve(Store& store){
 					fastWoodbury(store, contact_force, X, denseHess, contact_dir);    
 					temp_x.tail(store.RemFixedBones.rows()) += contact_dir;
 					famu::acap::solve(store, temp_x);
-					store.printState(iii, "ext");
+					// store.printState(iii, "ext");
 
         		}
         		total_ext += store.Y.transpose()*-1*store.UnPickBoundaryForCollisions*store.UnPickBoundaryForCollisions.transpose()*temp;
@@ -475,8 +475,8 @@ int famu::one_nm_solve(Store& store){
 				store.dFvec.tail(store.RemFixedBones.rows()) += contact_dir;
     	}
 
-		std::string name = "nm-mesh";
-        store.printState(iter, name);
+		// std::string name = "nm-mesh";
+  //       store.printState(iter, name);
         std::cout<<std::endl;
     	////////////////////////////////////
 
