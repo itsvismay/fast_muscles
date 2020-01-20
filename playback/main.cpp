@@ -178,29 +178,31 @@ int main(int argc, char *argv[])
         Eigen::Matrix<unsigned char,Eigen::Dynamic,Eigen::Dynamic> B(1920,1280);
         Eigen::Matrix<unsigned char,Eigen::Dynamic,Eigen::Dynamic> A(1920,1280);
         
-    // 	viewer.callback_post_draw= [&](igl::opengl::glfw::Viewer & viewer) {
-    //     igl::readOBJ(files_to_read+to_string(currentStep)+".obj",newV, newF);
-    //     viewer.data_list[fancy_data_index].set_vertices(newV);
+    	viewer.callback_post_draw= [&](igl::opengl::glfw::Viewer & viewer) {
+        if(viewer.core().is_animating){
+          igl::readOBJ(files_to_read+to_string(currentStep)+".obj",newV, newF);
+          viewer.data_list[fancy_data_index].set_vertices(newV);
 
-  	 //    std::stringstream out_file;
+          std::stringstream out_file;
 
-  	  
-  	 //    // Draw the scene in the buffers
-  	 //    viewer.core.draw_buffer(viewer.data(),false,R,G,B,A);
-  	    
-  	 //    // Save it to a PNG
-  	 //    out_file<<"vid_"<<std::setfill('0') << std::setw(5) <<currentStep<<".png";
-  	    
-    //     std::string out = store.jinput["output"];
-    //     out = out+"/"+ out_file.str();
-    //     std::cout<<out<<std::endl;
-    //     igl::png::writePNG(R,G,B,A,out);
-    //     if(currentStep==fin_int)
-    //       exit(0);
-  	 //    currentStep += 1;
 
-  	 //    return false;
-	   // };
+          // Draw the scene in the buffers
+          viewer.core().draw_buffer(viewer.data(),false,R,G,B,A);
+
+          // Save it to a PNG
+          out_file<<"vid_"<<std::setfill('0') << std::setw(5) <<currentStep<<".png";
+
+          std::string out = store.jinput["output"];
+          out = out+"/"+ out_file.str();
+          std::cout<<out<<std::endl;
+          igl::png::writePNG(R,G,B,A,out);
+          if(currentStep==fin_int)
+            exit(0);
+          currentStep += 1;
+        }
+
+  	    return false;
+	   };
 
     viewer.callback_key_down = [&](igl::opengl::glfw::Viewer & viewer, unsigned char key, int modifiers){   
         std::cout<<"Key down, "<<key<<std::endl;
@@ -339,7 +341,7 @@ void main()
 
 
 
-  viewer.core().is_animating = true;
+  viewer.core().is_animating = false;
   viewer.core().background_color = Eigen::Vector4f(1,1,1,0);
 
   viewer.launch_rendering(true);

@@ -1,4 +1,4 @@
-fname = '../data/cartoon_skeleton/run5/input.json';
+fname = '../data/contact_test/run3/input.json';
 val = jsondecode(fileread(fname));
 waypoints = val.muscle_waypoints;
 n = fieldnames(waypoints);
