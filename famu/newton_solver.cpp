@@ -204,7 +204,7 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
         step *= width;
     }
     // cout<<"			ls iters: "<<iter<<endl;
-    // cout<<"			step: "<<step<<endl;
+    cout<<"			step: "<<step<<endl;
     return step;
 }
 
@@ -328,13 +328,11 @@ int famu::one_nm_solve(Store& store){
 	Eigen::VectorXd contact_dir = Eigen::VectorXd::Zero(store.RemFixedBones.rows());
 	Eigen::VectorXd temp_x = store.dFvec;
 	Eigen::VectorXd f_ext = Eigen::VectorXd::Zero(3*store.V.rows());
-	Eigen::VectorXd total_ext = Eigen::VectorXd::Zero(3*store.V.rows());
 	Eigen::VectorXd temp = Eigen::VectorXd::Zero(3*store.V.rows());
 	Eigen::VectorXd DRvec = Eigen::VectorXd::Zero(3*store.V.rows());
 	Eigen::MatrixXd DR = Eigen::MatrixXd::Zero(store.V.rows(), store.V.cols());
 	double initialGradient=0;
-	store.dFvec = store.I0;
-	
+
 	for(iter=1; iter<MAX_ITERS; iter++){
 		graddFvec.setZero();
 		double prevfx = Energy(store, store.dFvec);
@@ -343,15 +341,15 @@ int famu::one_nm_solve(Store& store){
 		famu::muscle::gradient(store, muscle_grad);
 		famu::stablenh::gradient(store, neo_grad);
 		famu::acap::fastGradient(store, acap_grad);
-		famu::acap::external_forces(store, total_ext);
+		famu::acap::external_forces(store, store.tot_Fc);
 		graddFvec = store.RemFixedBones*(muscle_grad + neo_grad + acap_grad - store.ContactForce);
 
 		if(store.jinput["springk"]!=0){
 			VectorXd dEdF = graddFvec;
-			std::cout<<(dEdF.squaredNorm()/dEdF.size())<<", ";
 			if(iter==1){
 				initialGradient = dEdF.squaredNorm()/dEdF.size();
 			}
+			std::cout<<(dEdF.squaredNorm()/dEdF.size())/(initialGradient)<<", ";
 			if((dEdF.squaredNorm()/dEdF.size())/(initialGradient) <1e-2){
 				cout<<"Contact converged"<<endl;
 				break;
@@ -425,9 +423,9 @@ int famu::one_nm_solve(Store& store){
 
 
 
-		//if(fabs(alpha)<1e-9 ){
-		//	break;
-		//}
+		if(fabs(alpha)<1e-12 ){
+			break;
+		}
 
 		store.dFvec.tail(store.RemFixedBones.rows()) += alpha*delta_dFvec;
 
@@ -466,17 +464,18 @@ int famu::one_nm_solve(Store& store){
 					Eigen:VectorXd contact_force = store.RemFixedBones*store.ContactForce;
 					fastWoodbury(store, contact_force, X, denseHess, contact_dir);    
 					temp_x.tail(store.RemFixedBones.rows()) += contact_dir;
+					polar_dec(store, temp_x);
 					famu::acap::solve(store, temp_x);
 					// store.printState(iii, "ext");
 
         		}
-        		total_ext += store.Y.transpose()*-1*store.UnPickBoundaryForCollisions*store.UnPickBoundaryForCollisions.transpose()*temp;
+        		store.tot_Fc += store.Y.transpose()*-1*store.UnPickBoundaryForCollisions*store.UnPickBoundaryForCollisions.transpose()*temp;
 
 				store.dFvec.tail(store.RemFixedBones.rows()) += contact_dir;
     	}
 
-		// std::string name = "nm-mesh";
-  //       store.printState(iter, name);
+		std::string name = "nm-mesh";
+        store.printState(iter, name);
         std::cout<<std::endl;
     	////////////////////////////////////
 
