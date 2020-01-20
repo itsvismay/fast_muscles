@@ -474,8 +474,8 @@ int famu::one_nm_solve(Store& store){
 				store.dFvec.tail(store.RemFixedBones.rows()) += contact_dir;
     	}
 
-		std::string name = "nm-mesh";
-        store.printState(iter, name);
+		// std::string name = "nm-mesh";
+  //       store.printState(iter, name);
         std::cout<<std::endl;
     	////////////////////////////////////
 
