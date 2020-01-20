@@ -198,7 +198,6 @@ void woodburyCorrectnessTests(Store& store){
 	{
 		famu::acap::fastHessian(store, store.acapHess, store.denseAcapHess, false);
 		res3 = VectorXd::Zero(graddFvec.size());
-		VectorXd BInvXDy = VectorXd::Zero(store.dFvec.size());
 		MatrixModesxModes X;
 		SparseMatrix<double, Eigen::RowMajor> constHess(store.dFvec.size(), store.dFvec.size());
 		constHess.setZero();
@@ -209,7 +208,7 @@ void woodburyCorrectnessTests(Store& store){
 		famu::sparse_to_dense(store, constHess, denseHess);
 		famu::stablenh::hessian(store, store.neoHess, store.denseNeoHess, true);
 		denseHess += store.denseNeoHess;
-		famu::fastWoodbury(store, graddFvec, X, BInvXDy, denseHess, res3);
+		famu::fastWoodbury(store, graddFvec, X, denseHess, res3);
 		cout<<res3.segment<50>(0).transpose()<<endl<<endl;
 	}
 
@@ -269,7 +268,6 @@ void woodburyParallelizedTests(Store& store){
 		///////////////-----------------------------------------
 		famu::acap::fastHessian(store, store.acapHess, store.denseAcapHess, false);
 		res3 = VectorXd::Zero(graddFvec.size());
-		VectorXd BInvXDy = VectorXd::Zero(store.dFvec.size());
 		MatrixModesxModes X;
 		SparseMatrix<double, Eigen::RowMajor> constHess(store.dFvec.size(), store.dFvec.size());
 		constHess.setZero();
@@ -281,7 +279,7 @@ void woodburyParallelizedTests(Store& store){
 		famu::stablenh::hessian(store, store.neoHess, store.denseNeoHess, true);
 		denseHess += store.denseNeoHess;
 		store.timer.start();
-		famu::fastWoodbury(store, graddFvec, X, BInvXDy, denseHess, res3);
+		famu::fastWoodbury(store, graddFvec, X, denseHess, res3);
 		store.timer.stop();
 		double woodTime = store.timer.getElapsedTimeInMicroSec();
 		cout<<"Threads: "<<Eigen::nbThreads()<<", Time:"<<woodTime<<endl;
@@ -310,7 +308,6 @@ void woodburyParallelizedTests(Store& store){
 		///////////////-----------------------------------------
 		famu::acap::fastHessian(store, store.acapHess, store.denseAcapHess, false);
 		res3 = VectorXd::Zero(graddFvec.size());
-		VectorXd BInvXDy = VectorXd::Zero(store.dFvec.size());
 		MatrixModesxModes X;
 		SparseMatrix<double, Eigen::RowMajor> constHess(store.dFvec.size(), store.dFvec.size());
 		constHess.setZero();
@@ -322,7 +319,7 @@ void woodburyParallelizedTests(Store& store){
 		famu::stablenh::hessian(store, store.neoHess, store.denseNeoHess, true);
 		denseHess += store.denseNeoHess;
 		store.timer.start();
-		famu::fastWoodbury(store, graddFvec, X, BInvXDy, denseHess, res3);
+		famu::fastWoodbury(store, graddFvec, X, denseHess, res3);
 		store.timer.stop();
 		double woodTime = store.timer.getElapsedTimeInMicroSec();
 		cout<<"Threads: "<<Eigen::nbThreads()<<", Time:"<<woodTime<<endl;
@@ -351,7 +348,6 @@ void woodburyParallelizedTests(Store& store){
 		///////////////-----------------------------------------
 		famu::acap::fastHessian(store, store.acapHess, store.denseAcapHess, false);
 		res3 = VectorXd::Zero(graddFvec.size());
-		VectorXd BInvXDy = VectorXd::Zero(store.dFvec.size());
 		MatrixModesxModes X;
 		SparseMatrix<double, Eigen::RowMajor> constHess(store.dFvec.size(), store.dFvec.size());
 		constHess.setZero();
@@ -363,7 +359,7 @@ void woodburyParallelizedTests(Store& store){
 		famu::stablenh::hessian(store, store.neoHess, store.denseNeoHess, true);
 		denseHess += store.denseNeoHess;
 		store.timer.start();
-		famu::fastWoodbury(store, graddFvec, X, BInvXDy, denseHess, res3);
+		famu::fastWoodbury(store, graddFvec, X, denseHess, res3);
 		store.timer.stop();
 		double woodTime = store.timer.getElapsedTimeInMicroSec();
 		cout<<"Threads: "<<Eigen::nbThreads()<<", Time:"<<woodTime<<endl;
@@ -392,7 +388,6 @@ void woodburyParallelizedTests(Store& store){
 		///////////////-----------------------------------------
 		famu::acap::fastHessian(store, store.acapHess, store.denseAcapHess, false);
 		res3 = VectorXd::Zero(graddFvec.size());
-		VectorXd BInvXDy = VectorXd::Zero(store.dFvec.size());
 		MatrixModesxModes X;
 		SparseMatrix<double, Eigen::RowMajor> constHess(store.dFvec.size(), store.dFvec.size());
 		constHess.setZero();
@@ -404,7 +399,7 @@ void woodburyParallelizedTests(Store& store){
 		famu::stablenh::hessian(store, store.neoHess, store.denseNeoHess, true);
 		denseHess += store.denseNeoHess;
 		store.timer.start();
-		famu::fastWoodbury(store, graddFvec, X, BInvXDy, denseHess, res3);
+		famu::fastWoodbury(store, graddFvec, X, denseHess, res3);
 		store.timer.stop();
 		double woodTime = store.timer.getElapsedTimeInMicroSec();
 		cout<<"Threads: "<<Eigen::nbThreads()<<", Time:"<<woodTime<<endl;

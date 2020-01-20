@@ -116,7 +116,7 @@ namespace famu{
 		std::vector<nlohmann::json> muscle_steps;
 
 		//External Force matrices
-		Eigen::VectorXd YtMg, ContactForce, f_ext, ConstantGravityForce;
+		Eigen::VectorXd YtMg, ContactForce, tot_Fc, f_ext, ConstantGravityForce;
 		Eigen::SparseMatrix<double, Eigen::RowMajor> ContactP, ContactP1, ContactP2, ContactHess, KKT_right;
 		nlohmann::json joutput = {{"info",nlohmann::json::object()}, {"run", nlohmann::json::array()}, {"summary",nlohmann::json::object()}};
 

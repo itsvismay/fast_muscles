@@ -337,6 +337,7 @@ void famu::setupStore(Store& store){
 		}
 		store.I0 = store.dFvec;
 		store.BfI0 = store.Bf*store.dFvec;
+		store.tot_Fc = VectorXd::Zero(3*store.V.rows());
 		
 
 	cout<<"---Setup Fast ACAP energy"<<endl;

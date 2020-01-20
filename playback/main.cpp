@@ -44,6 +44,9 @@ int main(int argc, char *argv[])
 		}
 		std::ifstream input_file(argv[1]);
 		input_file >> j_input;
+    #ifdef __linux__
+    omp_set_num_threads(1);
+    #endif
 		
 		igl::Timer timer;
 
