@@ -75,7 +75,7 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
 	// Decreasing and increasing factors
 	VectorXd x = store.dFvec;
 	VectorXd xp = x;
-	double step = 0.2;
+	double step = 1;
     const double dec = 0.5;
     const double inc = 2.1;
     int pmax_linesearch = 100;
@@ -341,7 +341,9 @@ int famu::one_nm_solve(Store& store){
 		famu::muscle::gradient(store, muscle_grad);
 		famu::stablenh::gradient(store, neo_grad);
 		famu::acap::fastGradient(store, acap_grad);
-		famu::acap::external_forces(store, store.tot_Fc);
+		if(store.jinput["springk"] != 0){
+			famu::acap::external_forces(store, store.tot_Fc);
+		}
 		graddFvec = store.RemFixedBones*(muscle_grad + neo_grad + acap_grad - store.ContactForce);
 
 		if(store.jinput["springk"]!=0){
@@ -423,7 +425,7 @@ int famu::one_nm_solve(Store& store){
 
 
 
-		if(fabs(alpha)<1e-12 ){
+		if(fabs(alpha)<1e-11 ){
 			break;
 		}
 
@@ -434,7 +436,7 @@ int famu::one_nm_solve(Store& store){
     		//contact stuff
     			temp.setZero();
     			contact_dir.setZero();
-        		for(int iii=0; iii<30; iii++){
+        		for(int iii=0; iii<50; iii++){
         			temp_x = store.dFvec;
 					
 					famu::acap::mesh_collisions(store, DR);
@@ -447,7 +449,7 @@ int famu::one_nm_solve(Store& store){
 				    VectorXd qext = store.UnPickBoundaryForCollisions*store.UnPickBoundaryForCollisions.transpose()*DRvec;
 				    cout<<"		qext: "<<qext.norm()<<endl;
 				    //break if no contact
-				  	if(qext.norm()<1e-1){
+				  	if(qext.norm()<1e-2){
 				  		break;
 				  	}
 
@@ -485,9 +487,11 @@ int famu::one_nm_solve(Store& store){
     	polar_dec(store, store.dFvec);
 		double fx = Energy(store, store.dFvec);
 		//std::cout<<(graddFvec.squaredNorm()/graddFvec.size())<<", "<<(fabs(fx-prevfx)) <<endl;
-		// if(graddFvec.squaredNorm()/graddFvec.size()<store.gradNormConvergence || fabs(fx - prevfx)< 1e-4){
-		// 	break;
-		// }
+		if(store.jinput["springk"]==0){
+			if(graddFvec.squaredNorm()/graddFvec.size()<store.gradNormConvergence || fabs(fx - prevfx)< 1e-4){
+				break;
+			}
+		}
 	}
 	timer1.stop();
 	double nmtime = timer1.getElapsedTimeInMicroSec();

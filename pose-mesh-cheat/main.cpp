@@ -74,7 +74,7 @@ int main(int argc, char *argv[])
   float test_h_p=-0.5, test_h_y=0, test_h_r=0;
   float test_f_p=-0.45, test_f_y=0, test_f_r=-0.44;
   int count_rotation = 0;
-  int max_rotation_frame = 10;
+  int max_rotation_frame = 100;
   store.muscle_steps[0]["biceps"] = 100*max_rotation_frame;
   store.muscle_steps[0]["triceps"] = 5*max_rotation_frame;
   store.muscle_steps[0]["brachialis"] = 100*max_rotation_frame;
