@@ -1,4 +1,4 @@
-fname = '../data/realistic_biceps_tendons/zero-gravity-test/input.json';
+fname = '../data/realistic_biceps_tendons/smaller-gravity-run/input.json';
 val = jsondecode(fileread(fname));
 waypoints = val.muscle_waypoints;
 n = fieldnames(waypoints);
