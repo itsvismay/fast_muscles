@@ -1,8 +1,8 @@
-fname = '../data/realistic_biceps_tendons/smaller-gravity-run/input.json';
+fname = '../data/upper_arm/biceps-triceps/input.json';
 val = jsondecode(fileread(fname));
 waypoints = val.muscle_waypoints;
 n = fieldnames(waypoints);
-h = 0.02;
+h = 0.1;
 waymatrix = cell2mat(struct2cell(waypoints));
 fullmatrix = zeros(length(n), 1+(size(waymatrix,2)-1)/h);
 names = {};
