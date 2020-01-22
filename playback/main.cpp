@@ -249,9 +249,9 @@ int main(int argc, char *argv[])
   viewer.data_list[debug_data_index].show_lines = false;
   viewer.append_mesh();
   discontinuous_data_index = viewer.selected_data_index;
-  viewer.data_list[discontinuous_data_index].set_mesh(store.discV, store.discF);
-  viewer.data_list[discontinuous_data_index].show_lines = true;
-  viewer.data_list[discontinuous_data_index].show_faces = false;
+  // viewer.data_list[discontinuous_data_index].set_mesh(store.discV, store.discF);
+  // viewer.data_list[discontinuous_data_index].show_lines = true;
+  // viewer.data_list[discontinuous_data_index].show_faces = false;
   // set fancy rendered mesh to be selected.
   viewer.selected_data_index = fancy_data_index;
 

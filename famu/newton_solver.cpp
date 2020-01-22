@@ -359,6 +359,9 @@ int famu::one_nm_solve(Store& store){
 				cout<<"Contact converged"<<endl;
 				break;
 			}
+			if((dEdF.squaredNorm()/dEdF.size())/(initialGradient) > 1e18){
+				exit(0);
+			}
 		}
 		// cout<<"		muscle grad: "<<muscle_grad.norm()<<endl;
 		// cout<<"		neo grad: "<<neo_grad.norm()<<endl;
@@ -439,7 +442,7 @@ int famu::one_nm_solve(Store& store){
     		//contact stuff
     			temp.setZero();
     			contact_dir.setZero();
-        		for(int iii=0; iii<50; iii++){
+        		for(int iii=0; iii<30; iii++){
         			temp_x = store.dFvec;
 					
 					famu::acap::mesh_collisions(store, DR);
@@ -452,7 +455,7 @@ int famu::one_nm_solve(Store& store){
 				    VectorXd qext = store.UnPickBoundaryForCollisions*store.UnPickBoundaryForCollisions.transpose()*DRvec;
 				    cout<<"		qext: "<<qext.norm()<<endl;
 				    //break if no contact
-				  	if(qext.norm()<1e-2){
+				  	if(qext.norm()<5e-2){
 				  		break;
 				  	}
 
@@ -475,12 +478,12 @@ int famu::one_nm_solve(Store& store){
 
         		}
         		store.tot_Fc += store.Y.transpose()*-1*store.UnPickBoundaryForCollisions*store.UnPickBoundaryForCollisions.transpose()*temp;
+				std::string name = "nm-mesh";
+		        store.printState(iter, name);
 
 				store.dFvec.tail(store.RemFixedBones.rows()) += contact_dir;
     	}
 
-		std::string name = "nm-mesh";
-        store.printState(iter, name);
         std::cout<<std::endl;
     	////////////////////////////////////
 
