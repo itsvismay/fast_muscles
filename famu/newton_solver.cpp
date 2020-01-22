@@ -439,7 +439,7 @@ int famu::one_nm_solve(Store& store){
     		//contact stuff
     			temp.setZero();
     			contact_dir.setZero();
-        		for(int iii=0; iii<50; iii++){
+        		for(int iii=0; iii<30; iii++){
         			temp_x = store.dFvec;
 					
 					famu::acap::mesh_collisions(store, DR);

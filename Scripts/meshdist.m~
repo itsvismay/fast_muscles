@@ -1,0 +1,14 @@
+[V1, F1] = readOBJ("../data/admm-fig-rendering/Gravity/gauss.obj");
+[V2, F2] = readOBJ("../data/admm-fig-rendering/Gravity/ADMM.obj");
+print("ADMM:",norm(V1 - V2))
+[V2, F2] = readOBJ("../data/admm-fig-rendering/Gravity/emualpha1.obj");
+print("alpha1: ", norm(V1 - V2))
+[V2, F2] = readOBJ("../data/admm-fig-rendering/Gravity/emualpha10.obj");
+print("alpha10: ", norm(V1 - V2))
+[V2, F2] = readOBJ("../data/admm-fig-rendering/Gravity/emualpha100.obj");
+print("alpha10: ", norm(V1 - V2))[V2, F2] = readOBJ("../data/admm-fig-rendering/Gravity/emualpha1000.obj");
+norm(V1 - V2)
+[V2, F2] = readOBJ("../data/admm-fig-rendering/Gravity/emualpha10000.obj");
+norm(V1 - V2)
+[V2, F2] = readOBJ("../data/admm-fig-rendering/Gravity/emualpha100000.obj");
+norm(V1 - V2)

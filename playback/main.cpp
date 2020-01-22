@@ -144,34 +144,6 @@ int main(int argc, char *argv[])
 		  int fancy_data_index,debug_data_index,discontinuous_data_index;
     	igl::opengl::glfw::Viewer viewer;
 
-      // Attach a menu plugin
-      igl::opengl::glfw::imgui::ImGuiMenu menu;
-      viewer.plugins.push_back(&menu);
-
-      // Customize the menu
-      double doubleVariable = 0.1f; // Shared between two menus
-      // Draw additional windows
-      menu.callback_draw_custom_window = [&]()
-      {
-        // Define next window position + size
-        ImGui::SetNextWindowPos(ImVec2(180.f * menu.menu_scaling(), 10), ImGuiSetCond_FirstUseEver);
-        ImGui::SetNextWindowSize(ImVec2(200, 160), ImGuiSetCond_FirstUseEver);
-        ImGui::Begin(
-            "New Window", nullptr,
-            ImGuiWindowFlags_NoSavedSettings
-        );
-
-    
-
-        static int i1=start_int;
-        ImGui::SliderInt("slider int", &i1, start_int, fin_int);
-        cout<<i1<<endl;
-        // load the mesh
-        igl::readOBJ(files_to_read+to_string(i1)+".obj",newV, newF);
-        viewer.data_list[fancy_data_index].set_vertices(newV);        
-        ImGui::End();
-      };
-
 
     	int currentStep = 0;
         //render out current view
@@ -183,9 +155,6 @@ int main(int argc, char *argv[])
         
     	viewer.callback_post_draw= [&](igl::opengl::glfw::Viewer & viewer) {
         if(viewer.core().is_animating){
-          igl::readOBJ(files_to_read+to_string(currentStep)+".obj",newV, newF);
-          viewer.data_list[fancy_data_index].set_vertices(newV);
-
           std::stringstream out_file;
 
 
@@ -193,14 +162,13 @@ int main(int argc, char *argv[])
           viewer.core().draw_buffer(viewer.data(),false,R,G,B,A);
 
           // Save it to a PNG
-          out_file<<"vid_"<<std::setfill('0') << std::setw(5) <<currentStep<<".png";
+          out_file<<files_to_read<<".png";
 
           std::string out = store.jinput["output"];
-          out = out+"/"+ out_file.str();
+          out = out_file.str();
           std::cout<<out<<std::endl;
           igl::png::writePNG(R,G,B,A,out);
-          if(currentStep==fin_int)
-            exit(0);
+          exit(0);
           currentStep += 1;
         }
 
@@ -231,13 +199,15 @@ int main(int argc, char *argv[])
           viewer.data_list[fancy_data_index].show_faces = false;
           return false;
         };
+        igl::readOBJ(files_to_read+".obj",newV, newF);
+        viewer.data_list[fancy_data_index].set_vertices(newV);
         
 
         return false;
     };
-
+  igl::readOBJ("../../data/admm-fig-rendering/NoGravity/gauss.obj",newV, newF);
   fancy_data_index = viewer.selected_data_index;
-  viewer.data_list[fancy_data_index].set_mesh(store.V, store.F);
+  viewer.data_list[fancy_data_index].set_mesh(newV, store.F);
   viewer.data_list[fancy_data_index].show_lines = false;
   viewer.data_list[fancy_data_index].invert_normals = true;
   viewer.data_list[fancy_data_index].set_face_based(false);
@@ -249,9 +219,9 @@ int main(int argc, char *argv[])
   viewer.data_list[debug_data_index].show_lines = false;
   viewer.append_mesh();
   discontinuous_data_index = viewer.selected_data_index;
-  viewer.data_list[discontinuous_data_index].set_mesh(store.discV, store.discF);
-  viewer.data_list[discontinuous_data_index].show_lines = true;
-  viewer.data_list[discontinuous_data_index].show_faces = false;
+  // viewer.data_list[discontinuous_data_index].set_mesh(store.discV, store.discF);
+  // viewer.data_list[discontinuous_data_index].show_lines = true;
+  // viewer.data_list[discontinuous_data_index].show_faces = false;
   // set fancy rendered mesh to be selected.
   viewer.selected_data_index = fancy_data_index;
 

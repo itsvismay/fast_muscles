@@ -1,0 +1,15 @@
+[V1, F1] = readOBJ("../data/admm-fig-rendering/NoGravity/gauss.obj");
+[V2, F2] = readOBJ("../data/admm-fig-rendering/NoGravity/ADMM.obj");
+fprintf("ADMM: %0.5f",norm(V1 - V2));
+[V2, F2] = readOBJ("../data/admm-fig-rendering/NoGravity/alpha1.obj");
+fprintf("alpha1: %f", norm(V1 - V2));
+[V2, F2] = readOBJ("../data/admm-fig-rendering/NoGravity/alpha10.obj");
+fprintf("alpha10: %f", norm(V1 - V2));
+[V2, F2] = readOBJ("../data/admm-fig-rendering/NoGravity/alpha100.obj");
+fprintf("alpha10: %f", norm(V1 - V2));
+[V2, F2] = readOBJ("../data/admm-fig-rendering/NoGravity/alpha1000.obj");
+fprintf("alpha10: %f", norm(V1 - V2));
+[V2, F2] = readOBJ("../data/admm-fig-rendering/NoGravity/alpha10000.obj");
+fprintf("alpha10: %f", norm(V1 - V2));
+[V2, F2] = readOBJ("../data/admm-fig-rendering/NoGravity/alpha100000.obj");
+fprintf("alpha10: %f", norm(V1 - V2));
