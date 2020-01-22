@@ -118,10 +118,10 @@ int main(int argc, char *argv[])
             store.dFvec[9*store.bone_name_index_map["forearm"]+7] = R(2,1);
             store.dFvec[9*store.bone_name_index_map["forearm"]+8] = R(2,2);
             cout<<"HERE3"<<endl;
-            // famu::acap::solve(store, store.dFvec, false);
-            cout<<"HERE4"<<endl;
             std::string name = "mesh";
             store.printState(ii, name);
+            cout<<"HERE4"<<endl;
+            // famu::acap::solve(store, store.dFvec, false);
             int niters =famu::newton_static_solve(store);
             count_rotation +=1;
 

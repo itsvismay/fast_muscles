@@ -29,7 +29,7 @@ else()
 	set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 	set(JSON_HPP_SRC_DIR "../ThirdParty/json/single_include/nlohmann")
 	set(SPECTRA_DIR "../ThirdParty/Spectra/include")
-	set(LIBIGL_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../libigl/include")
+	set(LIBIGL_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../ThirdParty/libigl/include")
 	set(MKLROOT "/opt/intel/mkl")
 
 	set(CMAKE_CXX_FLAGS "-O3 -mavx")

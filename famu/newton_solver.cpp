@@ -474,12 +474,12 @@ int famu::one_nm_solve(Store& store){
 					temp_x.tail(store.RemFixedBones.rows()) += contact_dir;
 					polar_dec(store, temp_x);
 					famu::acap::solve(store, temp_x);
-					store.printState(iii, "ext");
+					// store.printState(iii, "ext");
 
         		}
         		store.tot_Fc += store.Y.transpose()*-1*store.UnPickBoundaryForCollisions*store.UnPickBoundaryForCollisions.transpose()*temp;
-				std::string name = "nm-mesh";
-		        store.printState(iter, name);
+				// std::string name = "nm-mesh";
+		  //       store.printState(iter, name);
 
 				store.dFvec.tail(store.RemFixedBones.rows()) += contact_dir;
     	}
