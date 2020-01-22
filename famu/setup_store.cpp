@@ -372,7 +372,7 @@ void famu::setupStore(Store& store){
         SparseMatrix<double> NjtYtStDtDSYNj = store.NullJ.transpose()*store.Y.transpose()*store.S.transpose()*store.D.transpose()*store.D*store.S*store.Y*store.NullJ;
         igl::readDMAT(outputfile+"/"+to_string((int)store.jinput["number_modes"])+"modes.dmat", temp1);
         if(temp1.rows() == 0){
-        	igl::writeDMAT(outputfile+"/"+"NjtYtStDtDSYNj.dmat", Eigen::MatrixXd(NjtYtStDtDSYNj));
+        	// igl::writeDMAT(outputfile+"/"+"NjtYtStDtDSYNj.dmat", Eigen::MatrixXd(NjtYtStDtDSYNj));
 			famu::setup_hessian_modes(store, NjtYtStDtDSYNj, temp1);
 			igl::writeDMAT(outputfile+"/"+to_string((int)store.jinput["number_modes"])+"modes.dmat", temp1);
 			igl::writeDMAT(outputfile+"/"+to_string((int)store.jinput["number_modes"])+"eigs.dmat", store.eigenvalues);

@@ -1,4 +1,4 @@
-fname = '../data/penetration_example/run1/input.json';
+fname = '../data/elephant/simple_trunk/input.json';
 val = jsondecode(fileread(fname));
 waypoints = val.muscle_waypoints;
 n = fieldnames(waypoints);
