@@ -38,7 +38,7 @@ else()
 	set(LIBIGL_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../ThirdParty/libigl/include")
 	set(MKLROOT "/opt/intel/mkl")
 
-	set(CMAKE_CXX_FLAGS "-O3 -mavx")
+	set(CMAKE_CXX_FLAGS "-O3")
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -DMKL_LP64 -m64")
 	set(MKL_LIBS  -L${MKLROOT}/lib/intel64 -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core -lmkl_core -lgomp -lpthread -lm -ldl)
 

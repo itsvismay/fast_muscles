@@ -88,6 +88,8 @@ int main(int argc, char *argv[])
       igl::opengl::glfw::imgui::ImGuiMenu menu;
       viewer.plugins.push_back(&menu);
 
+      menu.callback_draw_viewer_window = [](){};
+
       menu.callback_draw_custom_window = [&]()
       {
         // Define next window position + size

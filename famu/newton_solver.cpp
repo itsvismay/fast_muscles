@@ -75,7 +75,7 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
 	// Decreasing and increasing factors
 	VectorXd x = store.dFvec;
 	VectorXd xp = x;
-	double step = 50;
+	double step = 1;
 	if(store.jinput["springk"]!=0){
 		step = store.jinput["ls_max_alpha"];
 	}
