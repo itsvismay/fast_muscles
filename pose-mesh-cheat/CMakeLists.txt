@@ -24,7 +24,13 @@ if(APPLE)
 
 	add_executable(poseMesh "main.cpp" ${SRCFILES} ${EXTERNALS})
 
+	add_executable(elephant "elephant.cpp" ${SRCFILES} ${EXTERNALS})
+
+
     target_link_libraries(poseMesh igl::core igl::png igl::opengl igl::opengl_glfw igl::embree igl::opengl_glfw_imgui )
+
+    target_link_libraries(elephant igl::core igl::png igl::opengl igl::opengl_glfw igl::embree igl::opengl_glfw_imgui )
+
 else()
 	set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 	set(JSON_HPP_SRC_DIR "../ThirdParty/json/single_include/nlohmann")
@@ -53,7 +59,14 @@ else()
 	include_directories(${SPECTRA_DIR})
 
 	file(GLOB SRCFILES ../famu/*.cpp)
+
 	add_executable(poseMesh "main.cpp" ${SRCFILES} ${EXTERNALS})
 
+	add_executable(elephant "elephant.cpp" ${SRCFILES} ${EXTERNALS})
+
     target_link_libraries(poseMesh ${MKL_LIBS} Eigen3::Eigen -lblas -llapack -lglfw -lumfpack -lamd igl::core igl::png igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui igl::embree OpenMP::OpenMP_CXX ${SUITESPARSE_LIBRARIES} )
+
+    target_link_libraries(elephant ${MKL_LIBS} Eigen3::Eigen -lblas -llapack -lglfw -lumfpack -lamd igl::core igl::png igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui igl::embree OpenMP::OpenMP_CXX ${SUITESPARSE_LIBRARIES} )
+
+
 endif(APPLE)
