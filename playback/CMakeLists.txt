@@ -18,12 +18,14 @@ if(APPLE)
 
 	include_directories(${JSON_HPP_SRC_DIR})
 	include_directories(${EIGEN335_INCLUDE_DIRS})
+	include_directories(${SPECTRA_DIR})
 
-	file(GLOB SRCFILES ../famu/read_config_file.cpp)
+
+	file(GLOB SRCFILES ../famu/*.cpp)
 
 	add_executable(playback "main.cpp" ${SRCFILES} ${EXTERNALS})
 
-    target_link_libraries(playback igl::core igl::png igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui )
+    target_link_libraries(playback igl::core igl::embree igl::png igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui )
 else()
 	set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 	set(JSON_HPP_SRC_DIR "../ThirdParty/json/single_include/nlohmann")

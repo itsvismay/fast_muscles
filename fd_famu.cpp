@@ -499,6 +499,6 @@ int main(int argc, char *argv[])
 	// 	std::cout<<"norm: "<<(acap_segment - fake_acap).squaredNorm()<<std::endl;
 
  	std::cout<<"----Check Woodbury Solve----"<<std::endl;
- 	// woodburyCorrectnessTests(store);
- 	woodburyParallelizedTests(store);
+ 	woodburyCorrectnessTests(store);
+ 	// woodburyParallelizedTests(store);
 }

@@ -25,7 +25,9 @@
 #include <iomanip>
 
 #include "../famu/store.h"
+#include "../famu/draw_disc_mesh_functions.h"
 #include "../famu/read_config_files.h"
+
 
 using namespace Eigen;
 using namespace std;
@@ -90,6 +92,11 @@ int main(int argc, char *argv[])
 		std::string outputfile = j_input["output"];
 		igl::boundary_facets(store.T, store.F);
 
+    cout<<"---Set Disc T and V"<<store.x.size()<<endl;
+    famu::setDiscontinuousMeshT(store.T, store.discT);
+    igl::boundary_facets(store.discT, store.discF);
+    store.discV.resize(4*store.T.rows(), 3);
+
   cout<<"--READ OBJ FILES"<<endl;
     std::string files_to_read(argv[2]);
     int start_int = 0;
@@ -153,27 +160,27 @@ int main(int argc, char *argv[])
         Eigen::Matrix<unsigned char,Eigen::Dynamic,Eigen::Dynamic> B(1920,1280);
         Eigen::Matrix<unsigned char,Eigen::Dynamic,Eigen::Dynamic> A(1920,1280);
         
-    	viewer.callback_post_draw= [&](igl::opengl::glfw::Viewer & viewer) {
-        if(viewer.core().is_animating){
-          std::stringstream out_file;
+    // 	viewer.callback_post_draw= [&](igl::opengl::glfw::Viewer & viewer) {
+    //     if(viewer.core().is_animating){
+    //       std::stringstream out_file;
 
 
-          // Draw the scene in the buffers
-          viewer.core().draw_buffer(viewer.data(),false,R,G,B,A);
+    //       // Draw the scene in the buffers
+    //       viewer.core().draw_buffer(viewer.data(),false,R,G,B,A);
 
-          // Save it to a PNG
-          out_file<<files_to_read<<".png";
+    //       // Save it to a PNG
+    //       out_file<<files_to_read<<".png";
 
-          std::string out = store.jinput["output"];
-          out = out_file.str();
-          std::cout<<out<<std::endl;
-          igl::png::writePNG(R,G,B,A,out);
-          exit(0);
-          currentStep += 1;
-        }
+    //       std::string out = store.jinput["output"];
+    //       out = out_file.str();
+    //       std::cout<<out<<std::endl;
+    //       igl::png::writePNG(R,G,B,A,out);
+    //       exit(0);
+    //       currentStep += 1;
+    //     }
 
-  	    return false;
-	   };
+  	 //    return false;
+	   // };
 
     viewer.callback_key_down = [&](igl::opengl::glfw::Viewer & viewer, unsigned char key, int modifiers){   
         std::cout<<"Key down, "<<key<<std::endl;
@@ -199,15 +206,169 @@ int main(int argc, char *argv[])
           viewer.data_list[fancy_data_index].show_faces = false;
           return false;
         };
-        igl::readOBJ(files_to_read+".obj",newV, newF);
-        viewer.data_list[fancy_data_index].set_vertices(newV);
-        
+        switch(key)
+        {
+          case ' ':
+          {
+                  std::stringstream out_file;
 
+
+                  // Draw the scene in the buffers
+                  viewer.core().draw_buffer(viewer.data(),false,R,G,B,A);
+
+                  // Save it to a PNG
+                  out_file<<files_to_read<<".png";
+
+                  std::string out = store.jinput["output"];
+                  out = out_file.str();
+                  std::cout<<out<<std::endl;
+                  igl::png::writePNG(R,G,B,A,out);
+                  currentStep += 1;
+          }
+        
+          case 'A':
+          case 'a':
+          {
+
+            
+            igl::readOBJ("../../data/leg_with_foot/run2/mesh90.obj",newV, newF);
+
+            viewer.data_list[fancy_data_index].set_vertices(newV);
+            viewer.data_list[debug_data_index].set_vertices(newV);
+            return true;
+          }
+          case 'B':
+          case 'b':
+          {
+
+            
+            igl::readOBJ("../../data/leg_with_foot/run2/mesh0.obj",newV, newF);
+
+            viewer.data_list[fancy_data_index].set_vertices(newV);
+            viewer.data_list[debug_data_index].set_vertices(newV);
+            return true;
+          }
+          case 'C':
+          case 'c':
+          {
+            std::cout<<"C..."<<std::endl;
+            if(!hide_debug())
+            {
+              std::cout<<" C..."<<std::endl;
+              VectorXd zz = VectorXd::Ones(store.V.rows());
+              // probably want to have this visualization update with each press
+              // of space ' '... I'd consider having a little lambda that will
+              // update the geometry _and_ any active visualizations. Might want
+              // to have an enum or something to tell which debug visualization
+              // is active.
+              VectorXd y = store.Y*store.x;
+              for(int m=0; m<store.T.rows(); m++){
+                Matrix3d Dm;
+                for(int i=0; i<3; i++){
+                  Dm.col(i) = store.V.row(store.T.row(m)[i]) - store.V.row(store.T.row(m)[3]);
+                }
+                Matrix3d m_InvRefShapeMatrix = Dm.inverse();
+
+                Matrix3d Ds;
+                for(int i=0; i<3; i++)
+                {
+                  Ds.col(i) = y.segment<3>(3*store.T.row(m)[i]) - y.segment<3>(3*store.T.row(m)[3]);
+                }
+
+                Matrix3d F = Matrix3d::Identity() + Ds*m_InvRefShapeMatrix;
+
+                double snorm = (F.transpose()*F - Matrix3d::Identity()).norm();
+
+                zz[store.T.row(m)[0]] += snorm;
+                zz[store.T.row(m)[1]] += snorm;
+                zz[store.T.row(m)[2]] += snorm; 
+                zz[store.T.row(m)[3]] += snorm;
+              }
+              set_colors_from_data(zz);
+            }
+            return true;
+          }
+          case 'D':
+          case 'd':
+          {
+            viewer.data_list[discontinuous_data_index].show_lines =
+              !viewer.data_list[discontinuous_data_index].show_lines;
+            if(viewer.data_list[discontinuous_data_index].show_lines)
+            {
+              famu::discontinuousV(store);
+              viewer.data_list[discontinuous_data_index].set_vertices(store.discV);
+            }
+            return true;
+          }
+          case 'E':
+          case 'e':
+          {
+            if(!hide_debug())
+            {
+              VectorXd zz = VectorXd::Ones(store.V.rows());
+              //map ACAP energy over the meseh
+              VectorXd ls = store.DSY*store.x + store.DSx0;
+              VectorXd rs = store.DSx0_mat*store.ProjectF*store.dFvec;
+              for(int i=0; i<store.T.rows(); i++){
+                double enorm = (ls.segment<12>(12*i) - rs.segment<12>(12*i)).norm();
+
+                zz[store.T.row(i)[0]] += enorm;
+                zz[store.T.row(i)[1]] += enorm;
+                zz[store.T.row(i)[2]] += enorm; 
+                zz[store.T.row(i)[3]] += enorm;
+
+              }
+              set_colors_from_data(zz);
+            }
+            return true;
+          }
+          case 'S':
+          case 's':
+          {
+            if(!hide_debug())
+            {
+              VectorXd zz = VectorXd::Ones(store.V.rows());
+              //map strains
+              VectorXd fulldFvec = store.ProjectF*store.dFvec;
+              for(int m=0; m<store.T.rows(); m++){
+                Matrix3d F = Map<Matrix3d>(fulldFvec.segment<9>(9*m).data()).transpose();
+                double snorm = (F.transpose()*F - Matrix3d::Identity()).norm();
+
+                zz[store.T.row(m)[0]] += snorm;
+                zz[store.T.row(m)[1]] += snorm;
+                zz[store.T.row(m)[2]] += snorm; 
+                zz[store.T.row(m)[3]] += snorm;
+        }
+              set_colors_from_data(zz);
+            }
+            return true;
+          }
+          case 'V':
+          case 'v':
+          {
+            if(!hide_debug())
+            {
+              VectorXd zz = VectorXd::Ones(store.V.rows());
+              //Display tendon areas
+              for(int i=0; i<store.T.rows(); i++){
+                zz[store.T.row(i)[0]] = store.relativeStiffness[i];
+                zz[store.T.row(i)[1]] = store.relativeStiffness[i];
+                zz[store.T.row(i)[2]] = store.relativeStiffness[i];
+                zz[store.T.row(i)[3]] = store.relativeStiffness[i];
+              }
+              set_colors_from_data(zz);
+            }
+            return true;
+          }
+        }
+
+        viewer.data().points = Eigen::MatrixXd(0,6);
+        viewer.data().lines = Eigen::MatrixXd(0,9);
+ 
         return false;
     };
-  igl::readOBJ("../../data/admm-fig-rendering/NoGravity/gauss.obj",newV, newF);
   fancy_data_index = viewer.selected_data_index;
-  viewer.data_list[fancy_data_index].set_mesh(newV, store.F);
+  viewer.data_list[fancy_data_index].set_mesh(store.V, store.F);
   viewer.data_list[fancy_data_index].show_lines = false;
   viewer.data_list[fancy_data_index].invert_normals = true;
   viewer.data_list[fancy_data_index].set_face_based(false);
@@ -219,9 +380,9 @@ int main(int argc, char *argv[])
   viewer.data_list[debug_data_index].show_lines = false;
   viewer.append_mesh();
   discontinuous_data_index = viewer.selected_data_index;
-  // viewer.data_list[discontinuous_data_index].set_mesh(store.discV, store.discF);
-  // viewer.data_list[discontinuous_data_index].show_lines = true;
-  // viewer.data_list[discontinuous_data_index].show_faces = false;
+  viewer.data_list[discontinuous_data_index].set_mesh(store.discV, store.discF);
+  viewer.data_list[discontinuous_data_index].show_lines = true;
+  viewer.data_list[discontinuous_data_index].show_faces = false;
   // set fancy rendered mesh to be selected.
   viewer.selected_data_index = fancy_data_index;
 

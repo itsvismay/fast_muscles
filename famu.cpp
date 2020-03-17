@@ -54,18 +54,18 @@ int main(int argc, char *argv[])
 
 		
 	cout<<"--- Write Meshes"<<endl;
-		double fx = 0;
-		int niters = 0;
-    int iii=0;
-    std::string name = "mesh";
-    for(iii=0; iii<store.muscle_steps.size(); iii++){
-      store.printState(iii, name);
-      famu::muscle::set_muscle_mag(store, iii);
-		  niters = famu::newton_static_solve(store);
-    }
-    store.printState(iii, name);
-		store.saveResults();
-    exit(0);
+		// double fx = 0;
+		// int niters = 0;
+  //   int iii=0;
+  //   std::string name = "mesh";
+  //   for(iii=0; iii<store.muscle_steps.size(); iii++){
+  //     store.printState(iii, name);
+  //     famu::muscle::set_muscle_mag(store, iii);
+		//   niters = famu::newton_static_solve(store);
+  //   }
+  //   store.printState(iii, name);
+		// store.saveResults();
+  //   exit(0);
 
 	cout<<"--- External Forces Hard Coded Contact Matrices"<<endl;
 	    // famu::acap::adjointMethodExternalForces(store);
