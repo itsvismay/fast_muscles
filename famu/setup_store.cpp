@@ -279,8 +279,9 @@ void famu::setupStore(Store& store){
 		store.ACAP_KKT_SPLU.pardisoParameterArray()[2] = Eigen::nbThreads(); 
 		#endif
 
-		store.ACAP_KKT_SPLU.analyzePattern(KKT_left2);
-		store.ACAP_KKT_SPLU.factorize(KKT_left2);
+		// store.ACAP_KKT_SPLU.analyzePattern(KKT_left2);
+		// store.ACAP_KKT_SPLU.factorize(KKT_left2);
+		store.ACAP_KKT_SPLU.compute(KKT_left2);
 
 		if(store.ACAP_KKT_SPLU.info()!=Success){
 			cout<<"1. ACAP Jacobian solve failed"<<endl;
@@ -300,11 +301,13 @@ void famu::setupStore(Store& store){
 			famu::construct_kkt_system_left(store.YtStDtDSY, store.JointConstraints, KKT2_1, jointSlack);
 			famu::construct_kkt_system_left(KKT2_1, store.Bx, KKT2_0, boneSlack);
 
-			store.ACAP_KKT_SPLU2.analyzePattern(KKT2_0);
-			store.ACAP_KKT_SPLU2.factorize(KKT2_0);
+			// store.ACAP_KKT_SPLU2.analyzePattern(KKT2_0);
+			// store.ACAP_KKT_SPLU2.factorize(KKT2_0);
+			store.ACAP_KKT_SPLU2.compute(KKT2_0);
 		}else{
-			store.ACAP_KKT_SPLU2.analyzePattern(KKT_left2);
-			store.ACAP_KKT_SPLU2.factorize(KKT_left2);
+			// store.ACAP_KKT_SPLU2.analyzePattern(KKT_left2);
+			// store.ACAP_KKT_SPLU2.factorize(KKT_left2);
+			store.ACAP_KKT_SPLU2.compute(KKT_left2);
 		}
 
 		// MatrixXd Hkkt = MatrixXd(KKT_left2);
