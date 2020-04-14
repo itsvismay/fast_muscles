@@ -494,7 +494,7 @@ int famu::one_nm_solve(Store& store){
 		double fx = Energy(store, store.dFvec);
 		if(store.jinput["springk"]==0){
 			std::cout<<(graddFvec.squaredNorm()/graddFvec.size())<<", "<<(fabs(fx-prevfx)) <<endl;
-			if(graddFvec.squaredNorm()/graddFvec.size()<store.gradNormConvergence || fabs(fx - prevfx)< 1e-4){
+			if(graddFvec.squaredNorm()/graddFvec.size()<1e-4 || fabs(fx - prevfx)< 1e-3){
 				
 				break;
 			}
@@ -565,6 +565,7 @@ int famu::one_nm_solve(Store& store){
 	cout<<"--------------------------------"<<endl;
     return iter;
 }
+
 
 int famu::newton_static_solve(Store& store){
 	//First run NM,

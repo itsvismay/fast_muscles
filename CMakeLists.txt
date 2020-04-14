@@ -6,6 +6,7 @@ if(APPLE)
 	set(JSON_HPP_SRC_DIR "ThirdParty/json/single_include/nlohmann")
 	set(SPECTRA_DIR "ThirdParty/Spectra/include")
 	set(LIBIGL_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../libigl/include")
+	set(NEW_BFGSB_SRC_DIR "ThirdParty/LBFGSpp/include")
 	set(CMAKE_CXX_FLAGS "-O3 -mavx")
 
 	# libigl
@@ -22,6 +23,7 @@ if(APPLE)
 	include_directories(${JSON_HPP_SRC_DIR})
 	include_directories(${SPECTRA_DIR})
 	include_directories(${EIGEN335_INCLUDE_DIRS})
+	include_directories(${NEW_BFGSB_SRC_DIR})
 
 	file(GLOB SRCFILES famu/*.cpp)
 
@@ -38,6 +40,7 @@ else()
 	set(SPECTRA_DIR "ThirdParty/Spectra/include")
 	set(LIBIGL_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/libigl/include")
 	set(MKLROOT "/opt/intel/mkl")
+	set(NEW_BFGSB_SRC_DIR "ThirdParty/LBFGSpp/include")
 
 	set(CMAKE_CXX_FLAGS "-O3 -mavx")
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -DMKL_LP64 -m64")
@@ -62,6 +65,7 @@ else()
 	include_directories(${JSON_HPP_SRC_DIR})
 	include_directories(${SPECTRA_DIR})
 	include_directories(${EIGEN335_INCLUDE_DIRS})
+	include_directories(${NEW_BFGSB_SRC_DIR})
 
 	file(GLOB SRCFILES famu/*.cpp)
 

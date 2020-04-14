@@ -6,6 +6,8 @@
 #include <igl/png/writePNG.h>
 #include <imgui/imgui.h>
 #include <json.hpp>
+#include <LBFGS.h>
+
 
 #include <sstream>
 #include <iomanip>
@@ -13,6 +15,7 @@
 
 #include "famu/setup_store.h"
 #include "famu/newton_solver.h"
+#include "famu/bfgs_solver.h"
 #include "famu/muscle_energy_gradient.h"
 #include "famu/draw_disc_mesh_functions.h"
 
@@ -20,6 +23,7 @@
 using namespace Eigen;
 using namespace std;
 using json = nlohmann::json;
+using namespace LBFGSpp;
 
 using Store = famu::Store;
 json j_input;
@@ -54,6 +58,16 @@ int main(int argc, char *argv[])
 
 		
 	cout<<"--- Write Meshes"<<endl;
+      int DIM = store.dFvec.size();
+      famu::FullSolver fullsolver(DIM, &store);
+      LBFGSParam<double> param;
+      param.epsilon = 1e-1;
+      param.delta = 1e-5;
+      param.past = 1;
+      
+      param.linesearch = LBFGSpp::LBFGS_LINESEARCH_BACKTRACKING_ARMIJO;
+      LBFGSSolver<double> solver(param);
+
 		double fx = 0;
 		int niters = 0;
     int iii=0;
@@ -62,6 +76,8 @@ int main(int argc, char *argv[])
       store.printState(iii, name);
       famu::muscle::set_muscle_mag(store, iii);
 		  niters = famu::newton_static_solve(store);
+      //niters = solver.minimizeWithPreconditioner(fullsolver, store.dFvec, fx, LDLT);
+      // niters = solver.minimize(fullsolver, store.dFvec, fx);
     }
     store.printState(iii, name);
 		store.saveResults();

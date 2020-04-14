@@ -22,6 +22,7 @@
 #include <igl/null.h>
 #include <json.hpp>
 #include <Eigen/SparseCholesky>
+#include <LBFGS.h>
 
 #include <sstream>
 #include <iomanip>
@@ -45,9 +46,12 @@
 #include "fixed_bones_projection_matrix.h"
 #include "bone_elem_def_grad_projection_matrix.h"
 #include "setup_hessian_modes.h"
+#include "bfgs_solver.h"
+
 
 using namespace Eigen;
 using Store = famu::Store;
+using namespace LBFGSpp;
 
 void famu::setupStore(Store& store){
 	   	igl::Timer timer;
@@ -118,6 +122,7 @@ void famu::setupStore(Store& store){
 				}
 			}
 		}
+		store.eY = 60000*VectorXd::Ones(store.T.rows());
 
         std::string inputfile = store.jinput["data"];
         
