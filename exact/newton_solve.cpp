@@ -56,8 +56,22 @@ int exact::newton_solve(const Store& store, VectorXd& Fvec, VectorXd& d, MatrixX
 			exit(0);
 		}
 		exact::woodbury(lambda, Fvec, g, d, Hinv, H, Ai, Vtilde, J);
-
 		deltaF = -1*Hinv.solve(g + J.transpose()*lambda);
+
+		//KKT 
+		// VectorXd rhs(g.size()+d.size());
+		// rhs<<-g, (d - J*Fvec);
+		// MatrixXd fH = MatrixXd(H);
+		// MatrixXd KKT = MatrixXd::Zero(H.rows() + J.rows(), H.cols()+J.rows());
+		// KKT.block(0,0, H.rows(), H.cols()) = fH;
+		// KKT.block(H.rows(), 0, J.rows(), J.cols()) = J;
+		// KKT.block(0, H.cols(), J.cols(), J.rows()) = J.transpose();
+		// FullPivLU<MatrixXd> KKTinv(KKT);
+		// VectorXd res = KKTinv.solve(rhs);
+		// deltaF = res.head(Fvec.size());
+		// exit(0);
+
+
 		Fvec += deltaF;
 
 		if(deltaF != deltaF){

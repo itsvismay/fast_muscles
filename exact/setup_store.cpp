@@ -151,11 +151,13 @@ void exact::setupStore(Store& store){
 		// igl::writeDMAT(inputfile+"/grad_m.dmat", MatrixXd(store.grad_m));
 		// igl::writeDMAT(inputfile+"/H_n.dmat", MatrixXd(store.H_n));
 		// igl::writeDMAT(inputfile+"/grad_n.dmat", MatrixXd(store.grad_n));
-		store.printState(0, "testing_exact", store.x);
-		exact::newton_solve(store, store.Fvec, d, Ai, Vtilde, J, 30000);
-		VectorXd c = store.b + store.P.transpose()*store.P*q0;
-		exact::acap_solve(store.x, ACAP, store.P, store.B, store.Fvec, c);
-		store.printState(1, "testing_exact", store.x);
+		store.printState(0, "woodbury", store.x);
+		for(int it = 1; it<100; it++){
+			exact::newton_solve(store, store.Fvec, d, Ai, Vtilde, J, (30000/100)*it);
+			VectorXd c = store.b + store.P.transpose()*store.P*q0;
+			exact::acap_solve(store.x, ACAP, store.P, store.B, store.Fvec, c);
+			store.printState(it, "woodbury", store.x);
+		}
 
 
 	std::cout<<"---Viewer parameters"<<std::endl;
