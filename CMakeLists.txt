@@ -1,11 +1,13 @@
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 3.14)
 project(elastic)
 
 if(APPLE)
+	set(CMAKE_CXX_STANDARD 14)
 	set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 	set(JSON_HPP_SRC_DIR "ThirdParty/json/single_include/nlohmann")
 	set(SPECTRA_DIR "ThirdParty/Spectra/include")
 	set(LIBIGL_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../libigl/include")
+	set(BARTELS_INCLUDE_DIR "ThirdParty/Bartels/include")
 	set(NEW_BFGSB_SRC_DIR "ThirdParty/LBFGSpp/include")
 	set(CMAKE_CXX_FLAGS "-O3 -mavx")
 
@@ -24,15 +26,22 @@ if(APPLE)
 	include_directories(${SPECTRA_DIR})
 	include_directories(${EIGEN335_INCLUDE_DIRS})
 	include_directories(${NEW_BFGSB_SRC_DIR})
+	include_directories(${BARTELS_INCLUDE_DIR})
 
 	file(GLOB SRCFILES famu/*.cpp)
+	file(GLOB SRCFILES exact/*.cpp)
 
-	add_executable(famu "famu.cpp" ${SRCFILES} ${EXTERNALS})
-    target_link_libraries(famu  igl::core igl::png igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui igl::embree )
+	file(GLOB SRCFILES exact/*.cpp)
+
+	add_executable(exact "exact.cpp" ${SRCFILES} ${EXTERNALS})
+    target_link_libraries(exact  igl::core igl::png igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui igl::embree )
+
+	#add_executable(famu "famu.cpp" ${SRCFILES} ${EXTERNALS})
+    #target_link_libraries(famu  igl::core igl::png igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui igl::embree )
 
 
-    add_executable(fd_famu "fd_famu.cpp" ${SRCFILES} ${EXTERNALS})
-    target_link_libraries(fd_famu  igl::core igl::png igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui igl::embree)
+    #add_executable(fd_famu "fd_famu.cpp" ${SRCFILES} ${EXTERNALS})
+    #target_link_libraries(fd_famu  igl::core igl::png igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui igl::embree)
     
 else()
 	set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)

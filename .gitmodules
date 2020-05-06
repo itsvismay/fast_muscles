@@ -16,3 +16,6 @@
 [submodule "ThirdParty/suitesparse"]
 	path = ThirdParty/suitesparse
 	url = https://github.com/jluttine/suitesparse.git
+[submodule "ThirdParty/Bartels"]
+	path = ThirdParty/Bartels
+	url = git@github.com:itsvismay/Bartels.git
