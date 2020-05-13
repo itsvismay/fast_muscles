@@ -32,6 +32,8 @@
 
 #include <sstream>
 #include <iomanip>
+#include <Eigen/Sparse>
+#include <unsupported/Eigen/SparseExtra>
 // #include <omp.h>
 
 #include "store.h"
@@ -41,12 +43,16 @@
 #include "construct_kkt_system.h"
 #include "acap_solve.h"
 #include "newton_solve.h"
+#include "setup_hessian_modes.h"
+#include "project_bone_F.h"
+#include "bone_vertices_projection.h"
 
 
 
 using namespace Eigen;
 using Store = exact::Store;
 using namespace LBFGSpp;
+using namespace std;
 
 void exact::setupStore(Store& store){
 	std::cout<<"---Read Mesh"<<std::endl;
@@ -63,6 +69,53 @@ void exact::setupStore(Store& store){
 		store.joutput["info"]["NumModes"] = NUM_MODES;
 		store.joutput["info"]["NumThreads"] = Eigen::nbThreads();
 
+	std::cout<<"---Set boundary conditions"<<std::endl;
+		cout<<"If it fails here, make sure indexing is within bounds"<<endl;
+	    std::set<int> fix_verts_set;
+	    for(int ii=0; ii<store.fix_bones.size(); ii++){
+	        int bone_ind = store.bone_name_index_map[store.fix_bones[ii]];
+	        fix_verts_set.insert(store.T.row(store.bone_tets[bone_ind][0])[0]);
+	        fix_verts_set.insert(store.T.row(store.bone_tets[bone_ind][0])[1]);
+	        fix_verts_set.insert(store.T.row(store.bone_tets[bone_ind][0])[2]);
+	        fix_verts_set.insert(store.T.row(store.bone_tets[bone_ind][0])[3]);
+	    }
+		std::vector<int> idxs;
+		idxs.assign(fix_verts_set.begin(), fix_verts_set.end());
+		std::sort (idxs.begin(), idxs.end());
+		Eigen::Map<Eigen::VectorXi> indx(idxs.data(), idxs.size());
+		// sim::fixed_point_constraint_matrix(store.P, store.V, indx);
+
+	cout<<"---Set Vertex Constraint Matrix"<<endl;
+		SparseMatrix<double, Eigen::RowMajor> Y;
+		exact::bone_vertices_projection(store, Y);
+
+	std::cout<<"---Project Bone F, remove fixed bones"<<std::endl;
+		//bone dF map
+		//start off all as -1
+		VectorXi bone_or_muscle = -1*Eigen::VectorXi::Ones(store.T.rows());
+		// // // assign bone tets to 1 dF for each bone, starting at 0...bone_tets.size()
+		for(int i=0; i<store.bone_tets.size(); i++){
+	    	for(int j=0; j<store.bone_tets[i].size(); j++){
+	    		bone_or_muscle[store.bone_tets[i][j]] = i;
+	    	}
+	    }
+
+	    //assign muscle tets, dF per element, starting at bone_tets.size()
+	    int muscle_ind = store.bone_tets.size();
+	    for(int i=0; i<store.T.rows(); i++){
+	    	if(bone_or_muscle[i]<-1e-8){
+	    		bone_or_muscle[i] = muscle_ind;
+	    		muscle_ind +=1;
+	    	}
+	    }
+		
+	   
+		SparseMatrix<double, Eigen::RowMajor> ProjectF, RemFixedBones;
+		//exact::project_bone_F(store, bone_or_muscle, ProjectF, RemFixedBones);
+		ProjectF.resize(9*store.T.rows(), 9*store.T.rows());
+		ProjectF.setIdentity();
+		//ProjectF -> 9T x 9|muscles elements| + 9|bones|
+
 	std::cout<<"---Set variables"<<std::endl;
 		Eigen::VectorXd q0 = VectorXd::Zero(3*store.V.rows());
 		for(int i=0; i<store.V.rows(); i++){
@@ -70,25 +123,28 @@ void exact::setupStore(Store& store){
 			q0[3*i+1] = store.V(i,1); 
 			q0[3*i+2] = store.V(i,2);   
 	    }
-		sim::linear_tetmesh_B(store.B, store.V, store.T);
-		store.Fvec = store.B*q0;
-		store.Fvec0 = store.B*q0;
-		store.x0 = q0;
-
-	std::cout<<"---Set boundary conditions"<<std::endl;
-		double minY = store.V.col(1).maxCoeff();
-		std::vector<int> idxs;
-		for(int i=0; i<store.V.rows(); i++){
-			if(fabs(store.V.row(i)[1] - minY)<1e-2)
-				idxs.push_back(i);
+	    SparseMatrix<double, Eigen::RowMajor> B;
+		sim::linear_tetmesh_B(B, store.V, store.T);
+		store.B = ProjectF.transpose()*B;
+		VectorXd Fvec = VectorXd::Zero(ProjectF.cols());
+		for(int t=0; t<Fvec.size()/9; t++){
+			Fvec[9*t + 0] = 1;
+			Fvec[9*t + 4] = 1;
+			Fvec[9*t + 8] = 1;
 		}
-		Eigen::Map<Eigen::VectorXi> indx(idxs.data(), idxs.size());
-		sim::fixed_point_constraint_matrix(store.P, store.V, indx);
-
-		store.b = q0 - store.P.transpose()*store.P*q0;
+		VectorXd Fvec0 = Fvec;
+		store.x0 = q0;
+		store.b = q0 - Y*Y.transpose()*q0;
 
 	std::cout<<"---Physics parameters"<<std::endl;
 		igl::volume(store.V, store.T, store.rest_tet_vols);
+		for(int i=0; i<store.bone_tets.size(); i++){
+			double bone_vol = 0;
+	    	for(int j=0; j<store.bone_tets[i].size(); j++){
+	    		bone_vol += store.rest_tet_vols[store.bone_tets[i][j]];
+	    	}
+	    	store.bone_vols.push_back(bone_vol);
+	    }
 		store.muscle_mag = VectorXd::Zero(store.T.rows());
 		//YM, poissons
 		store.eY = 1e10*VectorXd::Ones(store.T.rows());
@@ -110,53 +166,85 @@ void exact::setupStore(Store& store){
 
 
 	std::cout<<"--Hessians, gradients"<<std::endl;
-		store.H_n.resize(store.Fvec.size(), store.Fvec.size());
-		store.H_m.resize(store.Fvec.size(), store.Fvec.size());
-		store.grad_n = VectorXd::Zero(store.Fvec.size());
-		store.grad_m = VectorXd::Zero(store.Fvec.size());
+		store.H_n.resize(Fvec.size(), Fvec.size());
+		store.H_m.resize(Fvec.size(), Fvec.size());
+		store.grad_n = VectorXd::Zero(Fvec.size());
+		store.grad_m = VectorXd::Zero(Fvec.size());
 
-		exact::muscle::hessian(store, store.Fvec, store.H_m);
-		exact::stablenh::hessian(store, store.Fvec, store.H_n);
-		exact::muscle::gradient(store, store.Fvec, store.grad_m);
-		exact::stablenh::gradient(store, store.Fvec, store.grad_n);
+		exact::muscle::hessian(store, Fvec, store.H_m);
+		exact::stablenh::hessian(store, Fvec, store.H_n);
+		exact::muscle::gradient(store, Fvec, store.grad_m);
+		exact::stablenh::gradient(store, Fvec, store.grad_n);
 
 
 
 	std::cout<<"--ACAP solve constraint"<<std::endl;
-		store.H_a = store.P*(store.B.transpose()*store.B)*store.P.transpose();
+		store.H_a = Y.transpose()*(B.transpose()*B)*Y;
 		//x = P'*((P*B'*B*P')\(P*B'*F - P*B'*B*b)) + b;
 		Eigen::SparseLU<Eigen::SparseMatrix<double, Eigen::RowMajor>> ACAP;
 		ACAP.compute(store.H_a);
-		store.x = store.P.transpose()*ACAP.solve(store.P*store.B.transpose()*(store.Fvec - store.B*store.b)) + store.b;
+		VectorXd x = Y*ACAP.solve(Y.transpose()*B.transpose()*(ProjectF*Fvec - B*store.b)) + store.b;
 
 
 	std::cout<<"--Modes"<<std::endl;
-		SparseMatrix<double, Eigen::RowMajor> G(store.P.rows(), store.P.rows());
-		G.setIdentity();
+		MatrixXd temp1;
+		VectorXd eigenvalues;
+		int num_modes = 50;
+		std::string outputfile = store.jinput["output"];
+		igl::readDMAT(outputfile+"/"+std::to_string(num_modes)+"modes.dmat", temp1);
+		if(temp1.rows() == 0){			
+			SparseMatrix<double> FindMyModes = Y.transpose()*B.transpose()*ProjectF*(store.H_n + 100000*store.H_m)*ProjectF.transpose()*B*Y;
+			SparseMatrix<double> FindMyModesMass = Y.transpose()*store.M*Y;
+			Eigen::saveMarket(FindMyModes, outputfile+"/FindMyModes.txt");
+			Eigen::saveMarket(FindMyModesMass, outputfile+"/FindMyModesMass.txt");
+			
+			exact::setup_hessian_modes(FindMyModes, temp1, eigenvalues, num_modes);
+			igl::writeDMAT(outputfile+"/"+std::to_string(num_modes)+"modes.dmat", temp1);
+			igl::writeDMAT(outputfile+"/"+std::to_string(num_modes)+"eigs.dmat", eigenvalues);
+			// exit(0);
+		}else{
+			//read eigenvalues (for the woodbury solve)
+			igl::readDMAT(outputfile+"/"+std::to_string(num_modes)+"eigs.dmat", eigenvalues);
+		}
+		
+		MatrixXd G = temp1;
 
-	std::cout<<"--Other constants"<<std::endl;
-		MatrixXd Ai = MatrixXd(G.transpose()*store.H_a*G).inverse();
-		MatrixXd Vtilde = store.B*store.P.transpose()*G;
-		MatrixXd J = MatrixXd::Identity(store.Fvec.size(), store.Fvec.size()) - Vtilde*Ai*Vtilde.transpose();
-		VectorXd d = J*(store.B*(store.b + store.P.transpose()*store.P*q0));
+	
 
 
 	std::cout<<"--Woodbury solve setup"<<std::endl;
 		SparseMatrix<double, Eigen::RowMajor> H = store.H_m + store.H_n;
+		MatrixXd Ai = MatrixXd(G.transpose()*store.H_a*G).inverse();
+		MatrixXd Vtilde = B*Y*G;
+		VectorXd Bc = B*(store.b + Y*Y.transpose()*q0);
+		SparseMatrix<double> Id9T(9*store.T.rows(), 9*store.T.rows());
+		Id9T.setIdentity();
+		// store.J = (Id9T - Vtilde*Ai*Vtilde.transpose());
+
+		VectorXd d = Id9T*Bc;
+		VectorXd d1 = Vtilde.transpose()*Bc;
+		VectorXd d2 = Ai*d1;
+		VectorXd d3 = Vtilde*d2;
+		d -= d3;
 
 
 	std::cout<<"--Write out"<<std::endl;
 		//H_m
+		// igl::writeDMAT(outputfile+"/PF.dmat", MatrixXd(ProjectF));
+		// igl::writeDMAT(outputfile+"/P.dmat", MatrixXd(store.P));
+		// igl::writeDMAT(outputfile+"/Y.dmat", MatrixXd(Y));
+		// exit(0);
 		// igl::writeDMAT(inputfile+"/H_m.dmat", MatrixXd(store.H_m));
 		// igl::writeDMAT(inputfile+"/grad_m.dmat", MatrixXd(store.grad_m));
 		// igl::writeDMAT(inputfile+"/H_n.dmat", MatrixXd(store.H_n));
 		// igl::writeDMAT(inputfile+"/grad_n.dmat", MatrixXd(store.grad_n));
-		store.printState(0, "woodbury", store.x);
-		for(int it = 1; it<100; it++){
-			exact::newton_solve(store, store.Fvec, d, Ai, Vtilde, J, (30000/100)*it);
-			VectorXd c = store.b + store.P.transpose()*store.P*q0;
-			exact::acap_solve(store.x, ACAP, store.P, store.B, store.Fvec, c);
-			store.printState(it, "woodbury", store.x);
+		store.printState(0, "wood", x);
+		
+		for(int it = 1; it<200; it++){
+			exact::newton_solve(store, Fvec, bone_or_muscle, ProjectF, d, Ai, Vtilde, (60000/200)*it);
+			VectorXd c = store.b + Y*Y.transpose()*q0;
+			exact::acap_solve(x, ProjectF, ACAP, Y, B, Fvec, c);
+			store.printState(it, "wood", x);
 		}
 
 

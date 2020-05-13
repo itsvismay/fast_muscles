@@ -28,9 +28,10 @@ namespace exact{
 		nlohmann::json jinput;
 		igl::Timer timer;
 
-		Eigen::MatrixXd V, discV;
+		Eigen::MatrixXd V, discV, J;
 		Eigen::MatrixXi T, discT, F, discF;
 		Eigen::MatrixXd Uvec;
+		std::vector<double> bone_vols;
 		std::vector<std::string> fix_bones = {}, script_bones = {};
 		std::vector<Eigen::VectorXi> bone_tets = {}, muscle_tets = {};
 		std::map<std::string, int> bone_name_index_map, muscle_name_index_map;
@@ -40,7 +41,7 @@ namespace exact{
 		std::vector<std::pair<Eigen::MatrixXi, Eigen::MatrixXi>> contact_bone_T_F;
 
 		Eigen::SparseMatrix<double, Eigen::RowMajor> Y, B, P, M, H_n, H_m, H_a;
-		Eigen::VectorXd x, x0, b, Fvec, Fvec0, rest_tet_vols, muscle_mag, eY, eP, elogVY, relativeStiffness,
+		Eigen::VectorXd x0, b, rest_tet_vols, muscle_mag, eY, eP, elogVY, relativeStiffness,
 			grad_n, grad_m;
 
 		#ifdef __linux__
@@ -56,6 +57,7 @@ namespace exact{
 
 
 		nlohmann::json joutput = {{"info",nlohmann::json::object()}, {"run", nlohmann::json::array()}, {"summary",nlohmann::json::object()}};
+		
 		int printState(int step, std::string name, Eigen::VectorXd& y){
 			std::string outputfile = jinput["output"];
 			Eigen::Map<Eigen::MatrixXd> newV(y.data(), V.cols(), V.rows());

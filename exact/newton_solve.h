@@ -10,8 +10,7 @@ using namespace Eigen;
 
 namespace exact
 {
-
-	int newton_solve(const Store& store, VectorXd& Fvec, VectorXd& d, MatrixXd& Ai, MatrixXd& Vtilde, MatrixXd& J, double activation);	
+	int newton_solve(const Store& store, VectorXd& Fvec, VectorXi& bone_or_muscle, SparseMatrix<double, Eigen::RowMajor>& PF, VectorXd& d, MatrixXd& Ai, MatrixXd& Vtilde, double activation);	
 
 }
 #endif

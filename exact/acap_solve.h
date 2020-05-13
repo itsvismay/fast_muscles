@@ -9,7 +9,13 @@ using namespace Eigen;
 namespace exact
 {
 
-	int acap_solve(VectorXd&  x, Eigen::SparseLU<Eigen::SparseMatrix<double, Eigen::RowMajor>>& Ha_inv, SparseMatrix<double, Eigen::RowMajor>& P, SparseMatrix<double, Eigen::RowMajor>& B, VectorXd& F, VectorXd&  c);	
+	int acap_solve(VectorXd&  x, 
+					SparseMatrix<double, Eigen::RowMajor>& PF, 
+					Eigen::SparseLU<Eigen::SparseMatrix<double, Eigen::RowMajor>>& Ha_inv, 
+					SparseMatrix<double, Eigen::RowMajor>& P, 
+					SparseMatrix<double, Eigen::RowMajor>& B, 
+					VectorXd& F, 
+					VectorXd& c);	
 
 }
 #endif
