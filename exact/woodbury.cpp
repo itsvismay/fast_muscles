@@ -19,57 +19,63 @@ int exact::woodbury(VectorXd& lambda,
 				const SparseMatrix<double, Eigen::RowMajor>& PF,
 				const VectorXd& d,
 				const MatrixXd& Ai, 
-				const MatrixXd& Vtilde){
+				const MatrixXd& V,
+				const SparseMatrix<double, Eigen::RowMajor>& Id9T,
+				const MatrixXd& VAi,
+				MatrixXd& HiV,
+				MatrixXd& HiVAi,
+				MatrixXd& C,
+				MatrixXd& Phi,
+				MatrixXd& L,
+				const MatrixXd& IdL,
+				MatrixXd& Q){
 
-	SparseMatrix<double, Eigen::RowMajor> Id9T(H.rows(), H.cols());
-	Id9T.setIdentity();
+	igl::Timer timer;
 
-	MatrixXd VAi = PF.transpose()*Vtilde*Ai;
-	MatrixXd HiVAi = Hinv.solve(VAi);
-	MatrixXd C =  VAi.transpose()*HiVAi;
+	timer.start();
+	HiV = Hinv.solve(V);
+	HiVAi = HiV*Ai;
+	C =  VAi.transpose()*HiVAi;
+	Phi<<HiV, V;
+	timer.stop();
+	double time1 = timer.getElapsedTimeInMicroSec();
 
-	MatrixXd HiV = PF*Hinv.solve(PF.transpose()*Vtilde);
-	MatrixXd Phi (HiV.rows(), HiV.cols() + Vtilde.cols());
-	Phi<<HiV, Vtilde;
-
-	MatrixXd L = 1e-6*MatrixXd::Identity(2*Ai.rows(), 2*Ai.cols());
+	timer.start();
+	L = 1e-6*IdL;
 	L.block(0,0, Ai.rows(), Ai.rows()) = MatrixXd::Zero(Ai.rows(), Ai.cols()); //TL
 	L.block(0, Ai.cols(), Ai.rows(), Ai.cols()) = -Ai; //BL
 	L.block(Ai.rows(), 0, Ai.rows(), Ai.cols()) = -Ai; //TR
 	L.block(Ai.rows(), Ai.cols(), Ai.rows(), Ai.cols()) = C; //BR
 
-	MatrixXd  Id = MatrixXd::Identity(L.rows(), L.cols());
 
-	MatrixXd Q = L.inverse() + Phi.transpose()*H*Phi;
+	Q = L.inverse() + Phi.transpose()*H*Phi;
 	LDLT<MatrixXd> Qinv;
 	Qinv.compute(Q);
+	timer.stop();
+	double time2 = timer.getElapsedTimeInMicroSec();
 
-	VectorXd PHig = PF*Hinv.solve(g);
-		VectorXd JHig = Id9T*PHig;
-		VectorXd d1 = Vtilde.transpose()*PHig;
+	timer.start();
+	VectorXd Hig = Hinv.solve(g);
+		VectorXd JHig = Id9T*Hig;
+		VectorXd d1 = V.transpose()*Hig;
 		VectorXd d2 = Ai*d1;
-		VectorXd d3 = Vtilde*d2;
+		VectorXd d3 = V*d2;
 		JHig -= d3;
-	// VectorXd JHig = store.J*Hig;
 
-	VectorXd JFvec = Id9T*PF*Fvec;
-		VectorXd d4 = Vtilde.transpose()*PF*Fvec;
+	VectorXd JFvec = Id9T*Fvec;
+		VectorXd d4 = V.transpose()*Fvec;
 		VectorXd d5 = Ai*d4;
-		VectorXd d6 = Vtilde*d5;
+		VectorXd d6 = V*d5;
 		JFvec -= d6;
-	// VectorXd JFvec = store.J*PF*Fvec;
 
 	VectorXd rhs = -JHig - (d - JFvec);
 	VectorXd w1 = Phi.transpose()*H*rhs;
 	VectorXd w2 = Qinv.solve(w1);
 	VectorXd w3 = H*Phi*w2;
 	lambda = H*rhs - w3;
-
-	// igl::writeDMAT("rhs.dmat", rhs);
-	// igl::writeDMAT("w1.dmat", w1);
-	// igl::writeDMAT("w2.dmat", w2);
-	// igl::writeDMAT("w3.dmat", w3);
-	// igl::writeDMAT("lambda.dmat", lambda);
+	timer.stop();
+	double time3 = timer.getElapsedTimeInMicroSec();
+	// std::cout<<"wood times: "<<time1<<", "<<time2<<", "<<time3<<std::endl;
 	
 	return 1;
 }

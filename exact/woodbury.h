@@ -20,7 +20,16 @@ namespace exact
 				const SparseMatrix<double, Eigen::RowMajor>& PF,
 				const VectorXd& d,
 				const MatrixXd& Ai, 
-				const MatrixXd& Vtilde);	
+				const MatrixXd& V,
+				const SparseMatrix<double, Eigen::RowMajor>& Id9T,
+				const MatrixXd& VAi,
+				MatrixXd& HiV,
+				MatrixXd& HiVAi,
+				MatrixXd& C,
+				MatrixXd& Phi,
+				MatrixXd& L,
+				const MatrixXd& IdL,
+				MatrixXd& Q);	
 
 }
 #endif

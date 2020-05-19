@@ -32,7 +32,16 @@ int exact::newton_solve(VectorXd& Fvec,
 						const Eigen::SparseMatrix<double, Eigen::RowMajor>& Y, 
 						const Eigen::SparseMatrix<double, Eigen::RowMajor>& B, 
 						const VectorXd& c,
-						const std::vector<Eigen::VectorXi>& bone_tets){
+						const std::vector<Eigen::VectorXi>& bone_tets,
+						const SparseMatrix<double, Eigen::RowMajor>& wId9T,
+						const MatrixXd& wVAi,
+						MatrixXd& wHiV,
+						MatrixXd& wHiVAi,
+						MatrixXd& wC,
+						MatrixXd& wPhi,
+						MatrixXd& wL,
+						const MatrixXd& wIdL,
+						MatrixXd& wQ){
 
 	int MAX_ITERS = 100;
 	double tol = 1e-3;
@@ -85,7 +94,8 @@ int exact::newton_solve(VectorXd& Fvec,
 		}
 
 		timer.start();
-		exact::woodbury(lambda, Fvec, g, Hinv, H, PF, d, Ai, Vtilde);
+		exact::woodbury(lambda, Fvec, g, Hinv, H, PF, d, Ai, Vtilde,
+						wId9T, wVAi, wHiV, wHiVAi, wC, wPhi, wL, wIdL, wQ);
 		timer.stop();
 		double time3 = timer.getElapsedTimeInMicroSec();
 
@@ -105,8 +115,8 @@ int exact::newton_solve(VectorXd& Fvec,
 		timer.stop();
 		double time5 = timer.getElapsedTimeInMicroSec();
 
-		std::cout<<"times: "<<time1<<", "<<time2<<", "<<time3<<", "<<time4<<", "<<time5<<std::endl;
-		exit(0);
+		// std::cout<<"times: "<<time1<<", "<<time2<<", "<<time3<<", "<<time4<<", "<<time5<<std::endl;
+		
 		// igl::writeDMAT("dF.dmat", deltaF);
 		
 		// //KKT 

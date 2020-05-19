@@ -221,11 +221,19 @@ void exact::setupStore(Store& store){
 		MatrixXd Ai = MatrixXd(G.transpose()*store.H_a*G).inverse();
 		MatrixXd Vtilde = B*Y*G;
 		VectorXd Bc = B*(store.b + Y*Y.transpose()*q0);
-		SparseMatrix<double> Id9T(9*store.T.rows(), 9*store.T.rows());
-		Id9T.setIdentity();
-		// store.J = (Id9T - Vtilde*Ai*Vtilde.transpose());
+		SparseMatrix<double> wId9T(9*store.T.rows(), 9*store.T.rows());
+		wId9T.setIdentity();
 
-		VectorXd d = Id9T*Bc;
+		MatrixXd wVAi = Vtilde*Ai;
+		MatrixXd wHiV(H.rows(), Vtilde.cols());
+		MatrixXd wHiVAi(H.rows(), Ai.cols());
+		MatrixXd wC(Ai.rows(), Ai.cols());
+		MatrixXd wPhi(wHiV.rows(), wHiV.cols() + Vtilde.cols());
+		MatrixXd wL(2*Ai.rows(), 2*Ai.cols());
+		MatrixXd wIdL = MatrixXd::Identity(2*Ai.rows(), 2*Ai.cols());
+		MatrixXd wQ(wL.rows(), wL.cols());
+
+		VectorXd d = wId9T*Bc;
 		VectorXd d1 = Vtilde.transpose()*Bc;
 		VectorXd d2 = Ai*d1;
 		VectorXd d3 = Vtilde*d2;
@@ -263,7 +271,9 @@ void exact::setupStore(Store& store){
 								Y, 
 								B, 
 								c,
-								store.bone_tets);
+								store.bone_tets, 
+								wId9T, wVAi, wHiV, wHiVAi, wC, wPhi, wL, wIdL, wQ);
+
 			exact::acap_solve(x, ProjectF, ACAP, Y, B, Fvec, c);
 			store.printState(it, "wood", x);
 		}

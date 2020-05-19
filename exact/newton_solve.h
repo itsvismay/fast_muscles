@@ -27,7 +27,16 @@ namespace exact
 						const Eigen::SparseMatrix<double, Eigen::RowMajor>& Y, 
 						const Eigen::SparseMatrix<double, Eigen::RowMajor>& B, 
 						const VectorXd& c,
-						const std::vector<Eigen::VectorXi>& bone_tets);	
+						const std::vector<Eigen::VectorXi>& bone_tets,
+						const SparseMatrix<double, Eigen::RowMajor>& wId9T,
+						const MatrixXd& wVAi,
+						MatrixXd& wHiV,
+						MatrixXd& wHiVAi,
+						MatrixXd& wC,
+						MatrixXd& wPhi,
+						MatrixXd& wL,
+						const MatrixXd& wIdL,
+						MatrixXd& wQ);	
 
 }
 #endif
