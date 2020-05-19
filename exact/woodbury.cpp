@@ -11,18 +11,17 @@
 
 using namespace Eigen;
 
-int exact::woodbury(const exact::Store& store,
-						VectorXd& lambda,
-						SparseMatrix<double, Eigen::RowMajor>& PF,
-						VectorXd& Fvec,
-						VectorXd& g,
-						VectorXd& d,
-						Eigen::SparseLU<Eigen::SparseMatrix<double, Eigen::RowMajor>>& Hinv,
-						Eigen::SparseMatrix<double, Eigen::RowMajor>& H,
-						MatrixXd& Ai, 
-						MatrixXd& Vtilde){
+int exact::woodbury(VectorXd& lambda,
+				VectorXd& Fvec,
+				VectorXd& g,
+				Eigen::SparseLU<Eigen::SparseMatrix<double, Eigen::RowMajor>>& Hinv,
+				Eigen::SparseMatrix<double, Eigen::RowMajor>& H,
+				const SparseMatrix<double, Eigen::RowMajor>& PF,
+				const VectorXd& d,
+				const MatrixXd& Ai, 
+				const MatrixXd& Vtilde){
 
-	SparseMatrix<double, Eigen::RowMajor> Id9T(9*store.T.rows(), 9*store.T.rows());
+	SparseMatrix<double, Eigen::RowMajor> Id9T(H.rows(), H.cols());
 	Id9T.setIdentity();
 
 	MatrixXd VAi = PF.transpose()*Vtilde*Ai;

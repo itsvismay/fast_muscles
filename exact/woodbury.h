@@ -12,16 +12,15 @@ using namespace Eigen;
 namespace exact
 {
 
-	int woodbury(const exact::Store& store,
-				VectorXd& lambda,
-				SparseMatrix<double, Eigen::RowMajor>& PF,
+	int woodbury(VectorXd& lambda,
 				VectorXd& Fvec,
 				VectorXd& g,
-				VectorXd& d,
 				Eigen::SparseLU<Eigen::SparseMatrix<double, Eigen::RowMajor>>& Hinv,
 				Eigen::SparseMatrix<double, Eigen::RowMajor>& H,
-				MatrixXd& Ai, 
-				MatrixXd& Vtilde);	
+				const SparseMatrix<double, Eigen::RowMajor>& PF,
+				const VectorXd& d,
+				const MatrixXd& Ai, 
+				const MatrixXd& Vtilde);	
 
 }
 #endif

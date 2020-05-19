@@ -58,7 +58,7 @@ namespace exact{
 
 		nlohmann::json joutput = {{"info",nlohmann::json::object()}, {"run", nlohmann::json::array()}, {"summary",nlohmann::json::object()}};
 		
-		int printState(int step, std::string name, Eigen::VectorXd& y){
+		int printState (int step, std::string name, Eigen::VectorXd& y) const{
 			std::string outputfile = jinput["output"];
 			Eigen::Map<Eigen::MatrixXd> newV(y.data(), V.cols(), V.rows());
 

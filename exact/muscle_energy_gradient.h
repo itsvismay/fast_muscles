@@ -9,17 +9,29 @@ using namespace Eigen;
 namespace exact
 {
 	namespace muscle{
+		//output: energy
+		//inputs: 
+		//Fvec: deformation gradient
+		//T: Tets
+		//etc...
+		double energy(VectorXd& Fvec,
+					const MatrixXi& T,
+					const VectorXd& rest_tet_vols,
+					const MatrixXd& Uvec);
 
-		double energy(const Store& store, VectorXd& Fvec, const Eigen::VectorXi& bone_or_muscle);
-		double energy(const Store& store, VectorXd& Fvec);
+		void gradient(VectorXd& grad, 
+					const VectorXd& Fvec,
+					const MatrixXi& T,
+					const VectorXd& rest_tet_vols,
+					const MatrixXd& Uvec );
 
-		void gradient(const Store& store, const VectorXd& Fvec, VectorXd& grad, const Eigen::VectorXi& bone_or_muscle);
-		void gradient(const Store& store, const VectorXd& Fvec, VectorXd& grad);
+		void hessian(SparseMatrix<double, Eigen::RowMajor>& H, 
+					const VectorXd& Fvec,
+					const MatrixXi& T,
+					const VectorXd& rest_tet_vols,
+					const MatrixXd& Uvec);
 
-		void hessian(const Store& store, const VectorXd& Fvec, SparseMatrix<double, Eigen::RowMajor>& H, const Eigen::VectorXi& bone_or_muscle);
-		void hessian(const Store& store, const VectorXd& Fvec, SparseMatrix<double, Eigen::RowMajor>& H);
-
-		void set_muscle_mag(const Store& store, const int step);
+		void set_muscle_mag(const int step);
 	}
 }
 

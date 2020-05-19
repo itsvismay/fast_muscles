@@ -10,23 +10,33 @@
 #include "woodbury.h"
 #include "muscle_energy_gradient.h"
 #include "stablenh_energy_gradient.h"
-#include "store.h"
+#include "linesearch.h"
 
 using namespace Eigen;
 using Store = exact::Store;
 
-int exact::newton_solve(const Store& store, 
-						VectorXd& Fvec, 
-						VectorXi& bone_or_muscle, 
-						SparseMatrix<double, Eigen::RowMajor>& PF, 
-						VectorXd& d, 
-						MatrixXd& Ai, 
-						MatrixXd& Vtilde, 
-						double activation){
+int exact::newton_solve(VectorXd& Fvec, 
+						VectorXd& q,
+						const MatrixXi& T,
+						const VectorXd& eY,
+						const VectorXd& eP,
+						const MatrixXd& Uvec,
+						const VectorXd& rest_tet_vols,
+						const VectorXi& bone_or_muscle, 
+						const SparseMatrix<double, Eigen::RowMajor>& PF, 
+						const VectorXd& d, 
+						const MatrixXd& Ai, 
+						const MatrixXd& Vtilde, 
+						const double activation,
+						const Eigen::SparseLU<Eigen::SparseMatrix<double, Eigen::RowMajor>>& ACAP, 
+						const Eigen::SparseMatrix<double, Eigen::RowMajor>& Y, 
+						const Eigen::SparseMatrix<double, Eigen::RowMajor>& B, 
+						const VectorXd& c,
+						const std::vector<Eigen::VectorXi>& bone_tets){
 
-	int MAX_ITERS = 1;
+	int MAX_ITERS = 100;
 	double tol = 1e-3;
-
+	int tot_ls_its=0;
 	VectorXd g = VectorXd::Zero(Fvec.size());
 	VectorXd g_n = VectorXd::Zero(Fvec.size());
 	VectorXd g_m = VectorXd::Zero(Fvec.size());
@@ -37,36 +47,35 @@ int exact::newton_solve(const Store& store,
 	SparseMatrix<double, Eigen::RowMajor> H_n(Fvec.size(), Fvec.size());
 	SparseMatrix<double, Eigen::RowMajor> H_m(Fvec.size(), Fvec.size());
 
-	Eigen::SparseLU<Eigen::SparseMatrix<double, Eigen::RowMajor>> Hinv, BigHinv;
+	Eigen::SparseLU<Eigen::SparseMatrix<double, Eigen::RowMajor>> Hinv;
 
-	SparseMatrix<double, Eigen::RowMajor> Id9T(9*store.T.rows(), 9*store.T.rows());
-	Id9T.setIdentity();
 	SparseMatrix<double, Eigen::RowMajor> Id(Fvec.size(), Fvec.size());
 	Id.setIdentity();
 	// std::cout<<Fvec.transpose()<<std::endl;
-
+	igl::Timer timer;
 	for(int its = 0; its<MAX_ITERS; its++){
-		exact::stablenh::hessian(store, Fvec, H_n);
-		exact::muscle::hessian(store, Fvec, H_m);
-		exact::stablenh::gradient(store, Fvec, g_n);
-		exact::muscle::gradient(store, Fvec, g_m);
+		timer.start();
+		exact::stablenh::gradient(g_n, Fvec, T, eY, eP, rest_tet_vols);
+		exact::stablenh::hessian(H_n, Fvec, T, eY, eP, rest_tet_vols);
+		exact::muscle::gradient(g_m, Fvec, T, rest_tet_vols, Uvec);
+		exact::muscle::hessian(H_m, Fvec, T, rest_tet_vols, Uvec);
+		timer.stop();
+		double time1 = timer.getElapsedTimeInMicroSec();
 
-		double E1n = exact::stablenh::energy(store, Fvec);
-		double E1m = activation*exact::muscle::energy(store, Fvec);
+		timer.start();
+		double E1n = exact::stablenh::energy(Fvec, T, eY, eP, rest_tet_vols);
+		double E1m = activation*exact::muscle::energy(Fvec, T, rest_tet_vols, Uvec);
 		double E1 = E1n + E1m;
+		timer.stop();
+		double time2 = timer.getElapsedTimeInMicroSec();
 
-
-		VectorXd g = g_n + activation*g_m;
-		std::cout<<"E1: "<<E1<<","<<E1n<<","<<E1m<<std::endl;
-		std::cout<<"	grad: "<<g.norm()<<std::endl;
-		std::cout<<"	g_n: "<<g_n.norm()<<std::endl;
-		std::cout<<"	g_m: "<<activation*g_m.norm()<<std::endl;
+		g = g_n + activation*g_m;
+		// std::cout<<"E1: "<<E1<<","<<E1n<<","<<E1m<<std::endl;
+		// std::cout<<"	grad: "<<g.norm()<<std::endl;
+		// std::cout<<"	g_n: "<<g_n.norm()<<std::endl;
+		// std::cout<<"	g_m: "<<activation*g_m.norm()<<std::endl;
 	
 		H = H_n + activation*H_m + 1e-6*Id;;
-		SparseMatrix<double, RowMajor> BigH = PF*H*PF.transpose();
-		BigH += 1e-6*Id9T;
-
-		BigHinv.compute(BigH);
 		Hinv.compute(H);
 		
 		if(Hinv.info()!=Eigen::Success){
@@ -74,32 +83,37 @@ int exact::newton_solve(const Store& store,
 			std::cout<<Hinv.info()<<std::endl;
 			exit(0);
 		}
-		if(BigHinv.info()!=Eigen::Success){
-			std::cout<<"Big H SOLVER FAILED iteration: "<<its<<std::endl;
-			std::cout<<Hinv.info()<<std::endl;
-			exit(0);
-		}
 
-		exact::woodbury(store, lambda, PF, Fvec, g, d, Hinv, H, Ai, Vtilde);
-		// std::cout<<"lambda:"<<lambda.size()<<std::endl;
-		// std::cout<<"Fvec:"<<Fvec.size()<<std::endl;
-		// std::cout<<"Vtilde:"<<Vtilde.rows()<<","<<Vtilde.cols()<<std::endl;
-		// std::cout<<"Vtilde:"<<Vtilde.rows()<<","<<Vtilde.cols()<<std::endl;
-		VectorXd Jlambda = Id9T*lambda;
+		timer.start();
+		exact::woodbury(lambda, Fvec, g, Hinv, H, PF, d, Ai, Vtilde);
+		timer.stop();
+		double time3 = timer.getElapsedTimeInMicroSec();
+
+		timer.start();
+		VectorXd Jlambda = Id*lambda;
 		VectorXd d1 = Vtilde.transpose()*lambda;
 		VectorXd d2 = Ai*d1;
 		VectorXd d3 = Vtilde*d2;
 		Jlambda -= d3;
 
 		VectorXd deltaF = -1*Hinv.solve(g + PF.transpose()*Jlambda);
+		timer.stop();
+		double time4 = timer.getElapsedTimeInMicroSec();
 
+		timer.start();
+		double alpha = exact::linesearch(tot_ls_its, Fvec, g, deltaF, activation, q, T, eY, eP, rest_tet_vols, Uvec, ACAP, Y, B, PF, c, bone_tets);
+		timer.stop();
+		double time5 = timer.getElapsedTimeInMicroSec();
+
+		std::cout<<"times: "<<time1<<", "<<time2<<", "<<time3<<", "<<time4<<", "<<time5<<std::endl;
+		exit(0);
 		// igl::writeDMAT("dF.dmat", deltaF);
 		
 		// //KKT 
 		// VectorXd rhs(g.size()+d.size());
-		// rhs<<-g, (d - store.J*PF*Fvec);
+		// rhs<<-g, (d - *PF*Fvec);
 		// MatrixXd fH = MatrixXd(H);
-		// MatrixXd JPF = store.J*PF;
+		// MatrixXd JPF = *PF;
 		// MatrixXd KKT = MatrixXd::Zero(H.rows() + JPF.rows(), H.cols()+JPF.rows());
 		// KKT.block(0,0, H.rows(), H.cols()) = fH;
 		// KKT.block(H.rows(), 0, JPF.rows(), JPF.cols()) = JPF;
@@ -110,13 +124,13 @@ int exact::newton_solve(const Store& store,
 		// VectorXd deltaF = res.head(Fvec.size());
 		
 
-		Fvec += deltaF;
+		Fvec += alpha*deltaF;
 
 		
-		double E2n = exact::stablenh::energy(store, Fvec);
-		double E2m = activation*exact::muscle::energy(store, Fvec);
+		double E2n = exact::stablenh::energy(Fvec, T, eY, eP, rest_tet_vols);
+		double E2m = activation*exact::muscle::energy(Fvec, T, rest_tet_vols, Uvec);
 		double E2 = E2n + E2m;
-		std::cout<<"E2: "<<E2<<","<<E2n<<","<<E2m<<std::endl;
+		// std::cout<<"E2: "<<E2<<","<<E2n<<","<<E2m<<std::endl;
 
 		std::cout<<"delta E: "<<fabs(E2- E1)<<std::endl;
 

@@ -155,7 +155,11 @@ void exact::setupStore(Store& store){
 		for(int m=0; m<store.muscle_tets.size(); m++){
 			for(int t=0; t<store.muscle_tets[m].size(); t++){
 				//no tendons for now, add later
-				store.eY[store.muscle_tets[m][t]] = 60000;
+				// if(store.relativeStiffness[store.muscle_tets[m][t]]>1){
+				// 	store.eY[store.muscle_tets[m][t]] = 4.5e8;
+				// }else{
+					store.eY[store.muscle_tets[m][t]] = 60000;
+				// }
 				densities[store.muscle_tets[m][t]] = 1000;//kg per m^3
 			}
 		}
@@ -171,10 +175,10 @@ void exact::setupStore(Store& store){
 		store.grad_n = VectorXd::Zero(Fvec.size());
 		store.grad_m = VectorXd::Zero(Fvec.size());
 
-		exact::muscle::hessian(store, Fvec, store.H_m);
-		exact::stablenh::hessian(store, Fvec, store.H_n);
-		exact::muscle::gradient(store, Fvec, store.grad_m);
-		exact::stablenh::gradient(store, Fvec, store.grad_n);
+		exact::stablenh::gradient(store.grad_n, Fvec, store.T, store.eY, store.eP, store.rest_tet_vols);
+		exact::stablenh::hessian(store.H_n, Fvec, store.T, store.eY, store.eP, store.rest_tet_vols);
+		exact::muscle::gradient(store.grad_m, Fvec, store.T, store.rest_tet_vols, store.Uvec);
+		exact::muscle::hessian(store.H_m, Fvec, store.T, store.rest_tet_vols, store.Uvec);
 
 
 
@@ -228,7 +232,7 @@ void exact::setupStore(Store& store){
 		d -= d3;
 
 
-	std::cout<<"--Write out"<<std::endl;
+	// std::cout<<"--Write out"<<std::endl;
 		//H_m
 		// igl::writeDMAT(outputfile+"/PF.dmat", MatrixXd(ProjectF));
 		// igl::writeDMAT(outputfile+"/P.dmat", MatrixXd(store.P));
@@ -240,51 +244,68 @@ void exact::setupStore(Store& store){
 		// igl::writeDMAT(inputfile+"/grad_n.dmat", MatrixXd(store.grad_n));
 		store.printState(0, "wood", x);
 		
-		for(int it = 1; it<200; it++){
-			exact::newton_solve(store, Fvec, bone_or_muscle, ProjectF, d, Ai, Vtilde, (60000/200)*it);
+		for(int it = 1; it<100; it++){
 			VectorXd c = store.b + Y*Y.transpose()*q0;
+			exact::newton_solve(Fvec, 
+								x,
+								store.T,
+								store.eY,
+								store.eP,
+								store.Uvec,
+								store.rest_tet_vols,
+								bone_or_muscle, 
+								ProjectF, 
+								d, 
+								Ai, 
+								Vtilde, 
+								(100000/100)*it,
+								ACAP, 
+								Y, 
+								B, 
+								c,
+								store.bone_tets);
 			exact::acap_solve(x, ProjectF, ACAP, Y, B, Fvec, c);
 			store.printState(it, "wood", x);
 		}
 
 
-	std::cout<<"---Viewer parameters"<<std::endl;
-		{
-			VectorXd vertex_wise_YM =Eigen::VectorXd::Zero(store.V.rows());
-			store.elogVY = Eigen::VectorXd::Zero(store.V.rows());
-			// volume associated with each vertex
-			Eigen::VectorXd Vvol = Eigen::VectorXd::Zero(store.V.rows());
-			Eigen::VectorXd Tvol;
-			igl::volume(store.V,store.T,Tvol);
-			// loop over tets
-			for(int i = 0;i<store.T.rows();i++)
-			{
-				const double vol4 = Tvol(i)/4.0;
-				for(int j = 0;j<4;j++)
-				{
-					Vvol(store.T(i,j)) += vol4;
-					store.elogVY(store.T(i,j)) += vol4*log10(store.eY(i));
-					vertex_wise_YM(store.T(i,j)) = store.eY(i);
-				}
-			}
-			// loop over vertices to divide to take average
-			for(int i = 0;i<store.V.rows();i++)
-			{
-				store.elogVY(i) /= Vvol(i);
-			}
+	// std::cout<<"---Viewer parameters"<<std::endl;
+	// 	{
+	// 		VectorXd vertex_wise_YM =Eigen::VectorXd::Zero(store.V.rows());
+	// 		store.elogVY = Eigen::VectorXd::Zero(store.V.rows());
+	// 		// volume associated with each vertex
+	// 		Eigen::VectorXd Vvol = Eigen::VectorXd::Zero(store.V.rows());
+	// 		Eigen::VectorXd Tvol;
+	// 		igl::volume(store.V,store.T,Tvol);
+	// 		// loop over tets
+	// 		for(int i = 0;i<store.T.rows();i++)
+	// 		{
+	// 			const double vol4 = Tvol(i)/4.0;
+	// 			for(int j = 0;j<4;j++)
+	// 			{
+	// 				Vvol(store.T(i,j)) += vol4;
+	// 				store.elogVY(store.T(i,j)) += vol4*log10(store.eY(i));
+	// 				vertex_wise_YM(store.T(i,j)) = store.eY(i);
+	// 			}
+	// 		}
+	// 		// loop over vertices to divide to take average
+	// 		for(int i = 0;i<store.V.rows();i++)
+	// 		{
+	// 			store.elogVY(i) /= Vvol(i);
+	// 		}
 
-			VectorXd surface_youngs = VectorXd::Zero(store.F.rows());
+	// 		VectorXd surface_youngs = VectorXd::Zero(store.F.rows());
 
-			for(int ff =0 ; ff<store.F.rows(); ff++){
-				Vector3i face = store.F.row(ff);
-				Vector3d face_material_YM(vertex_wise_YM(face(0)), vertex_wise_YM(face(1)), vertex_wise_YM(face(2)));
-				double minYM = face_material_YM.minCoeff();
-				surface_youngs(ff) = minYM;
+	// 		for(int ff =0 ; ff<store.F.rows(); ff++){
+	// 			Vector3i face = store.F.row(ff);
+	// 			Vector3d face_material_YM(vertex_wise_YM(face(0)), vertex_wise_YM(face(1)), vertex_wise_YM(face(2)));
+	// 			double minYM = face_material_YM.minCoeff();
+	// 			surface_youngs(ff) = minYM;
 
-			}
+	// 		}
 
-			igl::writeDMAT(inputfile +"/surface_mesh_youngs.dmat", surface_youngs, true);
-		}
+	// 		igl::writeDMAT(inputfile +"/surface_mesh_youngs.dmat", surface_youngs, true);
+	// 	}
 
 
 

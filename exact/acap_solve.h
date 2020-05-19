@@ -10,12 +10,12 @@ namespace exact
 {
 
 	int acap_solve(VectorXd&  x, 
-					SparseMatrix<double, Eigen::RowMajor>& PF, 
-					Eigen::SparseLU<Eigen::SparseMatrix<double, Eigen::RowMajor>>& Ha_inv, 
-					SparseMatrix<double, Eigen::RowMajor>& P, 
-					SparseMatrix<double, Eigen::RowMajor>& B, 
-					VectorXd& F, 
-					VectorXd& c);	
+					const SparseMatrix<double, Eigen::RowMajor>& PF, 
+					const Eigen::SparseLU<Eigen::SparseMatrix<double, Eigen::RowMajor>>& Ha_inv, 
+					const SparseMatrix<double, Eigen::RowMajor>& P, 
+					const SparseMatrix<double, Eigen::RowMajor>& B, 
+					const VectorXd& F, 
+					const VectorXd& c);	
 
 }
 #endif
