@@ -33,9 +33,7 @@ int main(int argc, char *argv[])
     int num_threads = 1;
     if(argc==3){
       num_threads = std::stoi(argv[2]);
-      #ifdef __linux__
-        omp_set_num_threads(num_threads);
-      #endif
+      omp_set_num_threads(num_threads);
       std::ifstream input_file(argv[1]);
       input_file >> j_input;
       std::cout<<"Threads: "<<Eigen::nbThreads( )<<std::endl;

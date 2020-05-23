@@ -28,7 +28,6 @@ int exact::newton_solve(VectorXd& Fvec,
 						const MatrixXd& Ai, 
 						const MatrixXd& Vtilde, 
 						const double activation,
-						const Eigen::SparseLU<Eigen::SparseMatrix<double, Eigen::RowMajor>>& ACAP, 
 						const Eigen::SparseMatrix<double, Eigen::RowMajor>& Y, 
 						const Eigen::SparseMatrix<double, Eigen::RowMajor>& B, 
 						const VectorXd& c,
@@ -39,6 +38,7 @@ int exact::newton_solve(VectorXd& Fvec,
 						MatrixXd& wHiVAi,
 						MatrixXd& wC,
 						MatrixXd& wPhi,
+						MatrixXd& wHPhi,
 						MatrixXd& wL,
 						const MatrixXd& wIdL,
 						MatrixXd& wQ){
@@ -61,13 +61,16 @@ int exact::newton_solve(VectorXd& Fvec,
 	SparseMatrix<double, Eigen::RowMajor> Id(Fvec.size(), Fvec.size());
 	Id.setIdentity();
 	// std::cout<<Fvec.transpose()<<std::endl;
+	MatrixXd denseH = MatrixXd::Zero(Fvec.size(), 9);
+	MatrixXd denseHi = MatrixXd::Zero(Fvec.size(), 9);
+
 	igl::Timer timer;
+	exact::muscle::hessian(H_m, Fvec, T, rest_tet_vols, Uvec);
 	for(int its = 0; its<MAX_ITERS; its++){
 		timer.start();
 		exact::stablenh::gradient(g_n, Fvec, T, eY, eP, rest_tet_vols);
-		exact::stablenh::hessian(H_n, Fvec, T, eY, eP, rest_tet_vols);
 		exact::muscle::gradient(g_m, Fvec, T, rest_tet_vols, Uvec);
-		exact::muscle::hessian(H_m, Fvec, T, rest_tet_vols, Uvec);
+		exact::stablenh::hessian(H_n, Fvec, T, eY, eP, rest_tet_vols);
 		timer.stop();
 		double time1 = timer.getElapsedTimeInMicroSec();
 
@@ -92,10 +95,14 @@ int exact::newton_solve(VectorXd& Fvec,
 			std::cout<<Hinv.info()<<std::endl;
 			exit(0);
 		}
+		timer.start();
+		exact::sparse_to_dense(denseH, denseHi, H);
+		timer.stop();
+		double time6 = timer.getElapsedTimeInMicroSec();
 
 		timer.start();
-		exact::woodbury(lambda, Fvec, g, Hinv, H, PF, d, Ai, Vtilde,
-						wId9T, wVAi, wHiV, wHiVAi, wC, wPhi, wL, wIdL, wQ);
+		exact::woodbury(lambda, Fvec, g, denseHi, denseH, H, PF, d, Ai, Vtilde,
+						wId9T, wVAi, wHiV, wHiVAi, wC, wPhi, wHPhi, wL, wIdL, wQ);
 		timer.stop();
 		double time3 = timer.getElapsedTimeInMicroSec();
 
@@ -111,11 +118,11 @@ int exact::newton_solve(VectorXd& Fvec,
 		double time4 = timer.getElapsedTimeInMicroSec();
 
 		timer.start();
-		double alpha = exact::linesearch(tot_ls_its, Fvec, g, deltaF, activation, q, T, eY, eP, rest_tet_vols, Uvec, ACAP, Y, B, PF, c, bone_tets);
+		double alpha = exact::linesearch(tot_ls_its, Fvec, g, deltaF, activation, q, T, eY, eP, rest_tet_vols, Uvec, Y, B, PF, c, bone_tets);
 		timer.stop();
 		double time5 = timer.getElapsedTimeInMicroSec();
 
-		// std::cout<<"times: "<<time1<<", "<<time2<<", "<<time3<<", "<<time4<<", "<<time5<<std::endl;
+		// std::cout<<"times: "<<time1<<", "<<time2<<", "<<time3<<", "<<time4<<", "<<time5<<", "<<time6<<std::endl;
 		
 		// igl::writeDMAT("dF.dmat", deltaF);
 		
@@ -149,7 +156,7 @@ int exact::newton_solve(VectorXd& Fvec,
 			exit(0);
 		}
 		if(fabs(E2- E1) < tol){
-			//convergence
+			std::cout<<"NM converged"<<std::endl;
 			break;
 		}
 	}

@@ -1,5 +1,4 @@
 #include "linesearch.h"
-#include "acap_solve.h"
 #include "muscle_energy_gradient.h"
 #include "stablenh_energy_gradient.h"
 
@@ -44,7 +43,6 @@ double exact::linesearch(int& tot_ls_its,
                         const VectorXd& eP, 
                         const VectorXd& rest_tet_vols, 
                         const MatrixXd& Uvec,
-						const Eigen::SparseLU<Eigen::SparseMatrix<double, Eigen::RowMajor>>& ACAP, 
 						const Eigen::SparseMatrix<double, Eigen::RowMajor>& Y, 
 						const Eigen::SparseMatrix<double, Eigen::RowMajor>& B, 
 						const SparseMatrix<double, Eigen::RowMajor>& PF,
@@ -71,7 +69,7 @@ double exact::linesearch(int& tot_ls_its,
         std::invalid_argument("'step' must be positive");
 
     //polar_dec(store, x);
-    exact::acap_solve( q, PF, ACAP, Y, B, x, c);
+    //exact::acap_solve( q, PF, ACAP, Y, B, x, c);
 
    	double fx = exact::stablenh::energy(x, T, eY, eP, rest_tet_vols) 
                 + activation*exact::muscle::energy(x, T, rest_tet_vols, Uvec);
@@ -94,11 +92,11 @@ double exact::linesearch(int& tot_ls_its,
         // x_{k+1} = x_k + step * d_k
         x = xp + step * drt;
 
-        //polar_dec(store, x);
+        //polar_dec(x, bone_tets);
 
         // Evaluate this candidate
         // store.printState(iter, "ls", q);
-        exact::acap_solve(q, PF, ACAP, Y, B, x, c);
+        //exact::acap_solve(q, PF, ACAP, Y, B, x, c);
        	fx = exact::stablenh::energy(x, T, eY, eP, rest_tet_vols) 
                 + activation*exact::muscle::energy(x, T, rest_tet_vols, Uvec);
 

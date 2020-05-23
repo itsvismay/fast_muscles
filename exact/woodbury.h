@@ -15,8 +15,9 @@ namespace exact
 	int woodbury(VectorXd& lambda,
 				VectorXd& Fvec,
 				VectorXd& g,
-				Eigen::SparseLU<Eigen::SparseMatrix<double, Eigen::RowMajor>>& Hinv,
-				Eigen::SparseMatrix<double, Eigen::RowMajor>& H,
+				MatrixXd& denseHinv,
+				MatrixXd& denseH,
+				SparseMatrix<double, Eigen::RowMajor>& H,
 				const SparseMatrix<double, Eigen::RowMajor>& PF,
 				const VectorXd& d,
 				const MatrixXd& Ai, 
@@ -27,9 +28,13 @@ namespace exact
 				MatrixXd& HiVAi,
 				MatrixXd& C,
 				MatrixXd& Phi,
+				MatrixXd& HPhi,
 				MatrixXd& L,
 				const MatrixXd& IdL,
-				MatrixXd& Q);	
+				MatrixXd& Q);
+
+	void sparse_to_dense(MatrixXd& denseHess, MatrixXd& denseHessInv, SparseMatrix<double, Eigen::RowMajor>& H);
+
 
 }
 #endif

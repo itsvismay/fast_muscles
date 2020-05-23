@@ -3,13 +3,14 @@
 #include <Eigen/Sparse>
 #include <Eigen/Dense>
 #include <Eigen/LU>
+#include <Eigen/SparseCholesky>
 #include "store.h"
 
 using Store= exact::Store;
 using namespace Eigen;
 
 namespace exact
-{
+{	
 	int newton_solve(VectorXd& Fvec, 
 						VectorXd& q,
 						const MatrixXi& T,
@@ -23,7 +24,6 @@ namespace exact
 						const MatrixXd& Ai, 
 						const MatrixXd& Vtilde, 
 						const double activation,
-						const Eigen::SparseLU<Eigen::SparseMatrix<double, Eigen::RowMajor>>& ACAP, 
 						const Eigen::SparseMatrix<double, Eigen::RowMajor>& Y, 
 						const Eigen::SparseMatrix<double, Eigen::RowMajor>& B, 
 						const VectorXd& c,
@@ -34,6 +34,7 @@ namespace exact
 						MatrixXd& wHiVAi,
 						MatrixXd& wC,
 						MatrixXd& wPhi,
+						MatrixXd& wHPhi,
 						MatrixXd& wL,
 						const MatrixXd& wIdL,
 						MatrixXd& wQ);	

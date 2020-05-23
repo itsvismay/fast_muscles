@@ -1,8 +1,7 @@
 #include "stablenh_energy_gradient.h"
-#include "store.h"
+#include "omp.h"
 #include <iostream>
 using namespace Eigen;
-using Store = exact::Store;
 typedef Eigen::Triplet<double> Trip;
 
 
@@ -103,8 +102,10 @@ void exact::stablenh::hessian( Eigen::SparseMatrix<double, Eigen::RowMajor>& hes
 								const Eigen::VectorXd& eP,
 								const Eigen::VectorXd& rest_tet_vols){
 		hess.setZero();
-		std::vector<Trip> hess_trips;
-		hess_trips.reserve(9*9*T.rows());
+		std::vector<Trip> hess_trips(9*9*T.rows());
+		std::mutex door;
+		int idx = 0;
+		#pragma omp parallel for shared(idx)
 		for(int t=0; t<T.rows(); t++){
 			double youngsModulus = eY[t];
 			double poissonsRatio = eP[t];
@@ -299,11 +300,15 @@ void exact::stablenh::hessian( Eigen::SparseMatrix<double, Eigen::RowMajor>& hes
 
 	        ddw = Evec * DiagEval * Evec.transpose();
 
-			for(int i=0; i<ddw.rows(); i++){
-				for(int j=0; j<ddw.cols(); j++){
-					hess_trips.push_back(Trip(9*f_index + i, 9*f_index + j, rest_tet_vols[t]*ddw(i,j)));
+	        {
+		        std::lock_guard<std::mutex> lg(door);
+				for(int i=0; i<ddw.rows(); i++){
+					for(int j=0; j<ddw.cols(); j++){
+						hess_trips[idx] = Trip(9*f_index + i, 9*f_index + j, rest_tet_vols[t]*ddw(i,j));
+						idx += 1;
+					}
 				}
-			}
+	        }
 		}
 		hess.setFromTriplets(hess_trips.begin(), hess_trips.end());	
 }

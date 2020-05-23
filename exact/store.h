@@ -5,15 +5,9 @@
 #include <Eigen/Sparse>
 #include <Eigen/Dense>
 #include <igl/Timer.h>
-#include <Eigen/LU>
 #include <igl/writeOBJ.h>
 #include <Eigen/IterativeLinearSolvers>
-
-#ifdef __linux__
-#include <Eigen/PardisoSupport>
 #include <omp.h>
-#endif
-
 
 #define NUM_MODES 48
 typedef Eigen::Triplet<double> Trip;
@@ -43,11 +37,6 @@ namespace exact{
 		Eigen::SparseMatrix<double, Eigen::RowMajor> Y, B, P, M, H_n, H_m, H_a;
 		Eigen::VectorXd x0, b, rest_tet_vols, muscle_mag, eY, eP, elogVY, relativeStiffness,
 			grad_n, grad_m;
-
-		#ifdef __linux__
-		#else
-		#endif
-		
 		
 		
 

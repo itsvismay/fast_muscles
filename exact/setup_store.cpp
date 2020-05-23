@@ -33,8 +33,9 @@
 #include <sstream>
 #include <iomanip>
 #include <Eigen/Sparse>
+// #include <Eigen/Pardiso>
 #include <unsupported/Eigen/SparseExtra>
-// #include <omp.h>
+
 
 #include "store.h"
 #include "read_config_files.h"
@@ -46,6 +47,7 @@
 #include "setup_hessian_modes.h"
 #include "project_bone_F.h"
 #include "bone_vertices_projection.h"
+#include "passlambda.h"
 
 
 
@@ -186,7 +188,9 @@ void exact::setupStore(Store& store){
 		store.H_a = Y.transpose()*(B.transpose()*B)*Y;
 		//x = P'*((P*B'*B*P')\(P*B'*F - P*B'*B*b)) + b;
 		Eigen::SparseLU<Eigen::SparseMatrix<double, Eigen::RowMajor>> ACAP;
+		//ACAP.pardisoParameterArray()[2] = Eigen::nbThreads();
 		ACAP.compute(store.H_a);
+		
 		VectorXd x = Y*ACAP.solve(Y.transpose()*B.transpose()*(ProjectF*Fvec - B*store.b)) + store.b;
 
 
@@ -217,6 +221,7 @@ void exact::setupStore(Store& store){
 
 
 	std::cout<<"--Woodbury solve setup"<<std::endl;
+
 		SparseMatrix<double, Eigen::RowMajor> H = store.H_m + store.H_n;
 		MatrixXd Ai = MatrixXd(G.transpose()*store.H_a*G).inverse();
 		MatrixXd Vtilde = B*Y*G;
@@ -229,15 +234,20 @@ void exact::setupStore(Store& store){
 		MatrixXd wHiVAi(H.rows(), Ai.cols());
 		MatrixXd wC(Ai.rows(), Ai.cols());
 		MatrixXd wPhi(wHiV.rows(), wHiV.cols() + Vtilde.cols());
-		MatrixXd wL(2*Ai.rows(), 2*Ai.cols());
-		MatrixXd wIdL = MatrixXd::Identity(2*Ai.rows(), 2*Ai.cols());
+		MatrixXd wHPhi(H.rows(), wPhi.cols());
+		MatrixXd wL = MatrixXd::Zero(2*Ai.rows(), 2*Ai.cols());
+		MatrixXd wIdL = MatrixXd::Identity(Ai.rows(), Ai.cols());
 		MatrixXd wQ(wL.rows(), wL.cols());
 
-		VectorXd d = wId9T*Bc;
+		wPhi.block(0, Vtilde.cols(), Vtilde.rows(), Vtilde.cols()) = Vtilde;
+		wL.block(0,0, Ai.rows(), Ai.rows()) = MatrixXd::Zero(Ai.rows(), Ai.cols()); //TL
+		wL.block(0, Ai.cols(), Ai.rows(), Ai.cols()) = -Ai; //BL
+		wL.block(Ai.rows(), 0, Ai.rows(), Ai.cols()) = -Ai; //TR
+
 		VectorXd d1 = Vtilde.transpose()*Bc;
 		VectorXd d2 = Ai*d1;
 		VectorXd d3 = Vtilde*d2;
-		d -= d3;
+		VectorXd d = Bc - d3;
 
 
 	// std::cout<<"--Write out"<<std::endl;
@@ -267,12 +277,11 @@ void exact::setupStore(Store& store){
 								Ai, 
 								Vtilde, 
 								(100000/100)*it,
-								ACAP, 
 								Y, 
 								B, 
 								c,
 								store.bone_tets, 
-								wId9T, wVAi, wHiV, wHiVAi, wC, wPhi, wL, wIdL, wQ);
+								wId9T, wVAi, wHiV, wHiVAi, wC, wPhi, wHPhi, wL, wIdL, wQ);
 
 			exact::acap_solve(x, ProjectF, ACAP, Y, B, Fvec, c);
 			store.printState(it, "wood", x);

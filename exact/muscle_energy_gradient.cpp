@@ -1,7 +1,6 @@
 #include "muscle_energy_gradient.h"
-#include "store.h"
 #include <iostream>
-using Store = exact::Store;
+#include "omp.h"
 using namespace Eigen;
 
 double exact::muscle::energy(VectorXd& Fvec,
@@ -86,24 +85,40 @@ void exact::muscle::hessian(SparseMatrix<double, Eigen::RowMajor>& H,
 							const MatrixXd& Uvec){
 	H.setZero();
 
-	std::vector<Trip> mat_trips;
+	std::vector<Trip> mat_trips(9*T.rows());
 	SparseMatrix<double, Eigen::RowMajor> mat;
+	std::mutex door;
+	int idx = 0;
+	#pragma omp parallel for shared(idx)
 	for(int t=0; t<T.rows(); t++){
-		int f_index = t;
-		Vector3d u = std::sqrt(rest_tet_vols[t])*Uvec.row(t);
-			
+			int f_index = t;
+			Vector3d u = std::sqrt(rest_tet_vols[t])*Uvec.row(t);
+				
 
-		mat_trips.push_back(Trip(3*t+0, 9*f_index + 0, u[0]));
-		mat_trips.push_back(Trip(3*t+0, 9*f_index + 1, u[1]));
-		mat_trips.push_back(Trip(3*t+0, 9*f_index + 2, u[2]));
+		{
+		    std::lock_guard<std::mutex> lg(door);
+			mat_trips[idx] = Trip(3*t+0, 9*f_index + 0, u[0]);
+			idx += 1;
+			mat_trips[idx] = Trip(3*t+0, 9*f_index + 1, u[1]);
+			idx += 1;
+			mat_trips[idx] = Trip(3*t+0, 9*f_index + 2, u[2]);
+			idx += 1;
 
-		mat_trips.push_back(Trip(3*t+1, 9*f_index + 3, u[0]));
-		mat_trips.push_back(Trip(3*t+1, 9*f_index + 4, u[1]));
-		mat_trips.push_back(Trip(3*t+1, 9*f_index + 5, u[2]));
+			mat_trips[idx] = Trip(3*t+1, 9*f_index + 3, u[0]);
+			idx += 1;
+			mat_trips[idx] = Trip(3*t+1, 9*f_index + 4, u[1]);
+			idx += 1;
+			mat_trips[idx] = Trip(3*t+1, 9*f_index + 5, u[2]);
+			idx += 1;
 
-		mat_trips.push_back(Trip(3*t+2, 9*f_index + 6, u[0]));
-		mat_trips.push_back(Trip(3*t+2, 9*f_index + 7, u[1]));
-		mat_trips.push_back(Trip(3*t+2, 9*f_index + 8, u[2]));
+			mat_trips[idx] = Trip(3*t+2, 9*f_index + 6, u[0]);
+			idx += 1;
+			mat_trips[idx] = Trip(3*t+2, 9*f_index + 7, u[1]);
+			idx += 1;
+			mat_trips[idx] = Trip(3*t+2, 9*f_index + 8, u[2]);
+			idx += 1;
+		}
+
 	}
 	mat.resize(3*T.rows(), Fvec.size());
 	mat.setFromTriplets(mat_trips.begin(), mat_trips.end());

@@ -115,6 +115,7 @@ void famu::muscle::gradient(Store& store, VectorXd& grad){
 
 		grad.segment<9>(9*f_index) += store.rest_tet_volume[t]*tet_grad;
 	}
+
 }
 
 void famu::muscle::fastHessian(Store& store, SparseMatrix<double, Eigen::RowMajor>& hess, Eigen::MatrixXd& denseHess){
