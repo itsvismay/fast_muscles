@@ -1,7 +1,7 @@
 #include "muscle_energy_gradient.h"
 #include <iostream>
 #include <mutex>
-#include "omp.h"
+#include <omp.h>
 using namespace Eigen;
 
 double exact::muscle::energy(VectorXd& Fvec,

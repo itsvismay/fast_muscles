@@ -27,14 +27,13 @@
 
 #include <linear_tetmesh_B.h>
 #include <fixed_point_constraint_matrix.h>
-#include <emu_to_lame.h>
 #include <linear_tetmesh_mass_matrix.h>
 
 #include <sstream>
 #include <iomanip>
 #include <Eigen/Sparse>
 #ifdef __linux__
-#include <Eigen/Pardiso>
+#include <Eigen/PardisoSupport>
 #endif
 #include <unsupported/Eigen/SparseExtra>
 
@@ -191,10 +190,10 @@ void exact::setupStore(Store& store){
 		SparseMatrix<double> H_a_colmajor = store.H_a;
 		//x = P'*((P*B'*B*P')\(P*B'*F - P*B'*B*b)) + b;
 		#ifdef __linux__
-		Eigen::PardisoLDLT<Eigen::SparseMatrix<double>>
+		Eigen::PardisoLDLT<Eigen::SparseMatrix<double>> ACAP;
 		ACAP.pardisoParameterArray()[2] = Eigen::nbThreads();
 		#else
-		Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> ACAP;
+		Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> ACAP;	
 		#endif
 		ACAP.compute(H_a_colmajor);
 		

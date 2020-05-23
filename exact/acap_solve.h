@@ -5,7 +5,7 @@
 #include <Eigen/LU>
 #include <Eigen/SparseCholesky>
 #ifdef __linux__
-#include <Eigen/Pardiso>
+#include <Eigen/PardisoSupport>
 #endif
 
 using namespace Eigen;
