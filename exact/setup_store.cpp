@@ -33,7 +33,9 @@
 #include <sstream>
 #include <iomanip>
 #include <Eigen/Sparse>
-// #include <Eigen/Pardiso>
+#ifdef __linux__
+#include <Eigen/Pardiso>
+#endif
 #include <unsupported/Eigen/SparseExtra>
 
 
@@ -186,10 +188,15 @@ void exact::setupStore(Store& store){
 
 	std::cout<<"--ACAP solve constraint"<<std::endl;
 		store.H_a = Y.transpose()*(B.transpose()*B)*Y;
+		SparseMatrix<double> H_a_colmajor = store.H_a;
 		//x = P'*((P*B'*B*P')\(P*B'*F - P*B'*B*b)) + b;
-		Eigen::SparseLU<Eigen::SparseMatrix<double, Eigen::RowMajor>> ACAP;
-		//ACAP.pardisoParameterArray()[2] = Eigen::nbThreads();
-		ACAP.compute(store.H_a);
+		#ifdef __linux__
+		Eigen::PardisoLDLT<Eigen::SparseMatrix<double>>
+		ACAP.pardisoParameterArray()[2] = Eigen::nbThreads();
+		#else
+		Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> ACAP;
+		#endif
+		ACAP.compute(H_a_colmajor);
 		
 		VectorXd x = Y*ACAP.solve(Y.transpose()*B.transpose()*(ProjectF*Fvec - B*store.b)) + store.b;
 
@@ -276,7 +283,7 @@ void exact::setupStore(Store& store){
 								d, 
 								Ai, 
 								Vtilde, 
-								(100000/100)*it,
+								(200000/100)*it,
 								Y, 
 								B, 
 								c,
