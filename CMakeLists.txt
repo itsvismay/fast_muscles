@@ -1,7 +1,7 @@
-cmake_minimum_required(VERSION 3.17)
 project(elastic)
 
 if(APPLE)
+	cmake_minimum_required(VERSION 3.17)
 	set(CMAKE_CXX_STANDARD 17)
 	set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 	set(JSON_HPP_SRC_DIR "ThirdParty/json/single_include/nlohmann")
@@ -57,6 +57,8 @@ if(APPLE)
     #target_link_libraries(fd_famu  igl::core igl::png igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui igl::embree OpenMP::OpenMP_CXX ${BLAS_LIBRARIES})
     
 else()
+	cmake_minimum_required(VERSION 3.10)
+	set(CMAKE_CXX_STANDARD 14)
 	set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 	set(JSON_HPP_SRC_DIR "ThirdParty/json/single_include/nlohmann")
 	set(SPECTRA_DIR "ThirdParty/Spectra/include")
@@ -90,14 +92,14 @@ else()
 	include_directories(${EIGEN335_INCLUDE_DIRS})
 	include_directories(${NEW_BFGSB_SRC_DIR})
 
-	file(GLOB SRCFILES famu/*.cpp)
+	file(GLOB SRCFILES exact/*.cpp)
+	add_executable(exact "exact.cpp" ${SRCFILES} ${EXTERNALS})
+	target_link_libraries(exact ${MKL_LIBS} igl::core igl::png igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui OpenMP::OpenMP_CXX)
+	
+	#add_executable(famu "famu.cpp" ${SRCFILES} ${EXTERNALS})
+    	#target_link_libraries(famu  ${MKL_LIBS} Eigen3::Eigen -lblas -llapack -lglfw -lumfpack -lamd igl::core igl::png igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui igl::embree OpenMP::OpenMP_CXX ${SUITESPARSE_LIBRARIES} )
 
-	add_executable(famu "famu.cpp" ${SRCFILES} ${EXTERNALS})
-
-    target_link_libraries(famu  ${MKL_LIBS} Eigen3::Eigen -lblas -llapack -lglfw -lumfpack -lamd igl::core igl::png igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui igl::embree OpenMP::OpenMP_CXX ${SUITESPARSE_LIBRARIES} )
-
-    add_executable(fd_famu "fd_famu.cpp" ${SRCFILES} ${EXTERNALS})
-
-    target_link_libraries(fd_famu  ${MKL_LIBS} Eigen3::Eigen -lblas -llapack -lglfw -lumfpack -lamd igl::core igl::png igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui igl::embree OpenMP::OpenMP_CXX ${SUITESPARSE_LIBRARIES} )
+    	#add_executable(fd_famu "fd_famu.cpp" ${SRCFILES} ${EXTERNALS})
+    	#target_link_libraries(fd_famu  ${MKL_LIBS} Eigen3::Eigen -lblas -llapack -lglfw -lumfpack -lamd igl::core igl::png igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui igl::embree OpenMP::OpenMP_CXX ${SUITESPARSE_LIBRARIES} )
 
 endif(APPLE)

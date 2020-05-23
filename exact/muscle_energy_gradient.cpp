@@ -1,5 +1,6 @@
 #include "muscle_energy_gradient.h"
 #include <iostream>
+#include <mutex>
 #include "omp.h"
 using namespace Eigen;
 

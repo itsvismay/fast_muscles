@@ -1,5 +1,6 @@
 #include "stablenh_energy_gradient.h"
 #include "omp.h"
+#include <mutex>
 #include <iostream>
 using namespace Eigen;
 typedef Eigen::Triplet<double> Trip;
