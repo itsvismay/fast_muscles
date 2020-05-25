@@ -90,14 +90,14 @@ void exact::muscle::hessian(SparseMatrix<double, Eigen::RowMajor>& H,
 	SparseMatrix<double, Eigen::RowMajor> mat;
 	std::mutex door;
 	int idx = 0;
-	#pragma omp parallel for shared(idx)
+	//#pragma omp parallel for shared(idx)
 	for(int t=0; t<T.rows(); t++){
 			int f_index = t;
 			Vector3d u = std::sqrt(rest_tet_vols[t])*Uvec.row(t);
 				
 
 		{
-		    std::lock_guard<std::mutex> lg(door);
+		    //std::lock_guard<std::mutex> lg(door);
 			mat_trips[idx] = Trip(3*t+0, 9*f_index + 0, u[0]);
 			idx += 1;
 			mat_trips[idx] = Trip(3*t+0, 9*f_index + 1, u[1]);

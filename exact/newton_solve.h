@@ -13,6 +13,7 @@ namespace exact
 {	
 	int newton_solve(VectorXd& Fvec, 
 						VectorXd& q,
+						const double tol,
 						const MatrixXi& T,
 						const VectorXd& eY,
 						const VectorXd& eP,
@@ -37,7 +38,8 @@ namespace exact
 						MatrixXd& wHPhi,
 						MatrixXd& wL,
 						const MatrixXd& wIdL,
-						MatrixXd& wQ);	
+						MatrixXd& wQ,
+						const exact::Store& store);	
 
 }
 #endif

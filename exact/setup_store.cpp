@@ -71,6 +71,7 @@ void exact::setupStore(Store& store){
 		store.joutput["info"]["Fsize"] = store.F.rows();
 		store.joutput["info"]["NumModes"] = NUM_MODES;
 		store.joutput["info"]["NumThreads"] = Eigen::nbThreads();
+		
 
 	std::cout<<"---Set boundary conditions"<<std::endl;
 		cout<<"If it fails here, make sure indexing is within bounds"<<endl;
@@ -126,6 +127,7 @@ void exact::setupStore(Store& store){
 			q0[3*i+1] = store.V(i,1); 
 			q0[3*i+2] = store.V(i,2);   
 	    }
+
 	    SparseMatrix<double, Eigen::RowMajor> B;
 		sim::linear_tetmesh_B(B, store.V, store.T);
 		store.B = ProjectF.transpose()*B;
@@ -158,15 +160,14 @@ void exact::setupStore(Store& store){
 		for(int m=0; m<store.muscle_tets.size(); m++){
 			for(int t=0; t<store.muscle_tets[m].size(); t++){
 				//no tendons for now, add later
-				// if(store.relativeStiffness[store.muscle_tets[m][t]]>1){
-				// 	store.eY[store.muscle_tets[m][t]] = 4.5e8;
-				// }else{
+				if(store.relativeStiffness[store.muscle_tets[m][t]]>1){
+					store.eY[store.muscle_tets[m][t]] = 4.5e8;
+				}else{
 					store.eY[store.muscle_tets[m][t]] = 60000;
-				// }
+				}
 				densities[store.muscle_tets[m][t]] = 1000;//kg per m^3
 			}
 		}
-		store.eY = 60000*VectorXd::Ones(store.T.rows());
 
 		std::string inputfile = store.jinput["data"];
 		sim::linear_tetmesh_mass_matrix(store.M, store.V, store.T, densities, store.rest_tet_vols);
@@ -196,18 +197,19 @@ void exact::setupStore(Store& store){
 		Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> ACAP;	
 		#endif
 		ACAP.compute(H_a_colmajor);
-		
+
+		store.ACAP.compute(H_a_colmajor);
 		VectorXd x = Y*ACAP.solve(Y.transpose()*B.transpose()*(ProjectF*Fvec - B*store.b)) + store.b;
 
 
 	std::cout<<"--Modes"<<std::endl;
 		MatrixXd temp1;
 		VectorXd eigenvalues;
-		int num_modes = 50;
+		int num_modes = 150;
 		std::string outputfile = store.jinput["output"];
 		igl::readDMAT(outputfile+"/"+std::to_string(num_modes)+"modes.dmat", temp1);
 		if(temp1.rows() == 0){			
-			SparseMatrix<double> FindMyModes = Y.transpose()*B.transpose()*ProjectF*(store.H_n + 100000*store.H_m)*ProjectF.transpose()*B*Y;
+			SparseMatrix<double> FindMyModes = Y.transpose()*B.transpose()*(store.H_n + 100000*store.H_m)*B*Y;
 			SparseMatrix<double> FindMyModesMass = Y.transpose()*store.M*Y;
 			Eigen::saveMarket(FindMyModes, outputfile+"/FindMyModes.txt");
 			Eigen::saveMarket(FindMyModesMass, outputfile+"/FindMyModesMass.txt");
@@ -266,12 +268,13 @@ void exact::setupStore(Store& store){
 		// igl::writeDMAT(inputfile+"/grad_m.dmat", MatrixXd(store.grad_m));
 		// igl::writeDMAT(inputfile+"/H_n.dmat", MatrixXd(store.H_n));
 		// igl::writeDMAT(inputfile+"/grad_n.dmat", MatrixXd(store.grad_n));
-		store.printState(0, "wood", x);
 		
-		for(int it = 1; it<100; it++){
+			store.printState(0, "wood", x);
 			VectorXd c = store.b + Y*Y.transpose()*q0;
+			double tol = store.jinput["nm_tolerance"];
 			exact::newton_solve(Fvec, 
 								x,
+								tol,
 								store.T,
 								store.eY,
 								store.eP,
@@ -282,16 +285,17 @@ void exact::setupStore(Store& store){
 								d, 
 								Ai, 
 								Vtilde, 
-								(200000/100)*it,
+								50000,
 								Y, 
 								B, 
 								c,
 								store.bone_tets, 
-								wId9T, wVAi, wHiV, wHiVAi, wC, wPhi, wHPhi, wL, wIdL, wQ);
+								wId9T, wVAi, wHiV, wHiVAi, wC, wPhi, wHPhi, wL, wIdL, wQ,
+								store);
 
 			exact::acap_solve(x, ProjectF, ACAP, Y, B, Fvec, c);
-			store.printState(it, "wood", x);
-		}
+			store.printState(1, "wood", x);
+		
 
 
 	// std::cout<<"---Viewer parameters"<<std::endl;

@@ -132,6 +132,7 @@ int exact::woodbury(VectorXd& lambda,
 	for(int i=0; i<denseHinv.rows()/9; i++){
 		Hig.segment<9>(9*i) = denseHinv.block<9,9>(9*i,0)*g.segment<9>(9*i);
 	}
+	std::cout<<"	Hig: "<<Hig.norm()<<std::endl;
 		
 		VectorXd d1 = V.transpose()*Hig;
 		VectorXd d2 = Ai*d1;

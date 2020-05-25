@@ -38,6 +38,7 @@ namespace exact{
 		Eigen::VectorXd x0, b, rest_tet_vols, muscle_mag, eY, eP, elogVY, relativeStiffness,
 			grad_n, grad_m;
 		
+		Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> ACAP;
 		
 
 		
@@ -51,7 +52,13 @@ namespace exact{
 			std::string outputfile = jinput["output"];
 			Eigen::Map<Eigen::MatrixXd> newV(y.data(), V.cols(), V.rows());
 
-			igl::writeOBJ(outputfile+"/"+name+std::to_string(step)+".obj", (newV.transpose()+V), F); //output mesh
+			igl::writeOBJ(outputfile+"/"+name+std::to_string(step)+".obj", newV.transpose(), F); //output mesh
+		
+		}
+		int printState (int step, std::string name, Eigen::MatrixXd& newV) const{
+			std::string outputfile = jinput["output"];
+
+			igl::writeOBJ(outputfile+"/"+name+std::to_string(step)+".obj", newV, F); //output mesh
 		
 		}
 

@@ -17,6 +17,7 @@ using Store = exact::Store;
 
 int exact::newton_solve(VectorXd& Fvec, 
 						VectorXd& q,
+						const double tol,
 						const MatrixXi& T,
 						const VectorXd& eY,
 						const VectorXd& eP,
@@ -41,14 +42,15 @@ int exact::newton_solve(VectorXd& Fvec,
 						MatrixXd& wHPhi,
 						MatrixXd& wL,
 						const MatrixXd& wIdL,
-						MatrixXd& wQ){
+						MatrixXd& wQ,
+						const exact::Store& store){
 
-	int MAX_ITERS = 100;
-	double tol = 1e-3;
+	int MAX_ITERS = 1000;
 	int tot_ls_its=0;
 	VectorXd g = VectorXd::Zero(Fvec.size());
 	VectorXd g_n = VectorXd::Zero(Fvec.size());
 	VectorXd g_m = VectorXd::Zero(Fvec.size());
+	VectorXd deltaF = VectorXd::Zero(Fvec.size());
 	
 	VectorXd lambda;
 
@@ -56,7 +58,6 @@ int exact::newton_solve(VectorXd& Fvec,
 	SparseMatrix<double, Eigen::RowMajor> H_n(Fvec.size(), Fvec.size());
 	SparseMatrix<double, Eigen::RowMajor> H_m(Fvec.size(), Fvec.size());
 
-	Eigen::SparseLU<Eigen::SparseMatrix<double, Eigen::RowMajor>> Hinv;
 
 	SparseMatrix<double, Eigen::RowMajor> Id(Fvec.size(), Fvec.size());
 	Id.setIdentity();
@@ -82,19 +83,13 @@ int exact::newton_solve(VectorXd& Fvec,
 		double time2 = timer.getElapsedTimeInMicroSec();
 
 		g = g_n + activation*g_m;
-		// std::cout<<"E1: "<<E1<<","<<E1n<<","<<E1m<<std::endl;
-		// std::cout<<"	grad: "<<g.norm()<<std::endl;
-		// std::cout<<"	g_n: "<<g_n.norm()<<std::endl;
-		// std::cout<<"	g_m: "<<activation*g_m.norm()<<std::endl;
+		std::cout<<"	E1: "<<E1<<","<<E1n<<","<<E1m<<std::endl;
+		std::cout<<"	grad: "<<g.norm()<<std::endl;
+		std::cout<<"	g_n: "<<g_n.norm()<<std::endl;
+		std::cout<<"	g_m: "<<activation*g_m.norm()<<std::endl;
 	
 		H = H_n + activation*H_m + 1e-6*Id;;
-		Hinv.compute(H);
 		
-		if(Hinv.info()!=Eigen::Success){
-			std::cout<<"H SOLVER FAILED iteration: "<<its<<std::endl;
-			std::cout<<Hinv.info()<<std::endl;
-			exit(0);
-		}
 		timer.start();
 		exact::sparse_to_dense(denseH, denseHi, H);
 		timer.stop();
@@ -113,12 +108,16 @@ int exact::newton_solve(VectorXd& Fvec,
 		VectorXd d3 = Vtilde*d2;
 		Jlambda -= d3;
 
-		VectorXd deltaF = -1*Hinv.solve(g + PF.transpose()*Jlambda);
+
+		VectorXd  rhs = g + Jlambda;
+		for(int i=0; i<denseHi.rows()/9; i++){
+			deltaF.segment<9>(9*i) = -denseHi.block<9,9>(9*i,0)*rhs.segment<9>(9*i);
+		}
 		timer.stop();
 		double time4 = timer.getElapsedTimeInMicroSec();
 
 		timer.start();
-		double alpha = exact::linesearch(tot_ls_its, Fvec, g, deltaF, activation, q, T, eY, eP, rest_tet_vols, Uvec, Y, B, PF, c, bone_tets);
+		double alpha = exact::linesearch(tot_ls_its, Fvec, g, deltaF, activation, q, T, eY, eP, rest_tet_vols, Uvec, Y, B, PF, c, bone_tets, store);
 		timer.stop();
 		double time5 = timer.getElapsedTimeInMicroSec();
 

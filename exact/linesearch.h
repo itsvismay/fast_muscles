@@ -4,7 +4,7 @@
 #include <Eigen/Dense>
 #include <Eigen/LU>
 #include <Eigen/SparseCholesky>
-
+#include "store.h"
 using namespace Eigen;
 
 namespace exact
@@ -26,7 +26,8 @@ namespace exact
 						const Eigen::SparseMatrix<double, Eigen::RowMajor>& B,
 						const SparseMatrix<double, Eigen::RowMajor>& PF,
 						const VectorXd& c,
-						const std::vector<Eigen::VectorXi>& bone_tets);	
+						const std::vector<Eigen::VectorXi>& bone_tets,
+						const exact::Store& store);	
 
 }
 #endif
