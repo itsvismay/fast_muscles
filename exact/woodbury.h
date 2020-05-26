@@ -5,6 +5,7 @@
 #include <Eigen/Dense>
 #include <Eigen/LU>
 
+
 #include "store.h"
 
 using namespace Eigen;
@@ -18,6 +19,7 @@ namespace exact
 				MatrixXd& denseHinv,
 				MatrixXd& denseH,
 				SparseMatrix<double, Eigen::RowMajor>& H,
+				Eigen::SparseLU<Eigen::SparseMatrix<double, Eigen::RowMajor>>& Hinv,
 				const SparseMatrix<double, Eigen::RowMajor>& PF,
 				const VectorXd& d,
 				const MatrixXd& Ai, 

@@ -60,6 +60,7 @@ using namespace std;
 void exact::setupStore(Store& store){
 	std::cout<<"---Read Mesh"<<std::endl;
 		exact::read_config_files(store);
+		Eigen::initParallel();
 
 	std::cout<<"---Record Mesh Setup Info"<<std::endl;
 		std::cout<<"EIGEN:"<<EIGEN_MAJOR_VERSION<<EIGEN_MINOR_VERSION<<std::endl;
@@ -185,7 +186,6 @@ void exact::setupStore(Store& store){
 		exact::muscle::hessian(store.H_m, Fvec, store.T, store.rest_tet_vols, store.Uvec);
 
 
-
 	std::cout<<"--ACAP solve constraint"<<std::endl;
 		store.H_a = Y.transpose()*(B.transpose()*B)*Y;
 		SparseMatrix<double> H_a_colmajor = store.H_a;
@@ -205,7 +205,7 @@ void exact::setupStore(Store& store){
 	std::cout<<"--Modes"<<std::endl;
 		MatrixXd temp1;
 		VectorXd eigenvalues;
-		int num_modes = 150;
+		int num_modes = 50;
 		std::string outputfile = store.jinput["output"];
 		igl::readDMAT(outputfile+"/"+std::to_string(num_modes)+"modes.dmat", temp1);
 		if(temp1.rows() == 0){			
@@ -223,13 +223,13 @@ void exact::setupStore(Store& store){
 			igl::readDMAT(outputfile+"/"+std::to_string(num_modes)+"eigs.dmat", eigenvalues);
 		}
 		
-		MatrixXd G = temp1;
+		// MatrixXd G = temp1;
+		MatrixXd G = MatrixXd::Identity(Y.cols(), Y.cols());
 
 	
 
 
 	std::cout<<"--Woodbury solve setup"<<std::endl;
-
 		SparseMatrix<double, Eigen::RowMajor> H = store.H_m + store.H_n;
 		MatrixXd Ai = MatrixXd(G.transpose()*store.H_a*G).inverse();
 		MatrixXd Vtilde = B*Y*G;
@@ -257,18 +257,17 @@ void exact::setupStore(Store& store){
 		VectorXd d3 = Vtilde*d2;
 		VectorXd d = Bc - d3;
 
+		store.J = MatrixXd::Identity(Fvec.size(), Fvec.size()) - Vtilde*Ai*Vtilde.transpose();
 
-	// std::cout<<"--Write out"<<std::endl;
+	std::cout<<"--Write out"<<std::endl;
 		//H_m
-		// igl::writeDMAT(outputfile+"/PF.dmat", MatrixXd(ProjectF));
-		// igl::writeDMAT(outputfile+"/P.dmat", MatrixXd(store.P));
-		// igl::writeDMAT(outputfile+"/Y.dmat", MatrixXd(Y));
-		// exit(0);
-		// igl::writeDMAT(inputfile+"/H_m.dmat", MatrixXd(store.H_m));
-		// igl::writeDMAT(inputfile+"/grad_m.dmat", MatrixXd(store.grad_m));
-		// igl::writeDMAT(inputfile+"/H_n.dmat", MatrixXd(store.H_n));
-		// igl::writeDMAT(inputfile+"/grad_n.dmat", MatrixXd(store.grad_n));
-		
+		igl::writeDMAT(inputfile + "/Y.dmat", MatrixXd(Y));
+		igl::writeDMAT(inputfile + "/H_m.dmat", MatrixXd(store.H_m));
+		igl::writeDMAT(inputfile + "/grad_m.dmat", MatrixXd(store.grad_m));
+		igl::writeDMAT(inputfile + "/H_n.dmat", MatrixXd(store.H_n));
+		igl::writeDMAT(inputfile + "/grad_n.dmat", MatrixXd(store.grad_n));
+
+
 			store.printState(0, "wood", x);
 			VectorXd c = store.b + Y*Y.transpose()*q0;
 			double tol = store.jinput["nm_tolerance"];
