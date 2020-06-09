@@ -20,6 +20,9 @@
 #include <imgui/imgui.h>
 #include <igl/null.h>
 #include <json.hpp>
+#include <igl/per_corner_normals.h>
+#include <igl/per_face_normals.h>
+#include <igl/per_vertex_normals.h>
 
 #include <sstream>
 #include <iomanip>
@@ -236,11 +239,15 @@ int main(int argc, char *argv[])
         return false;
     };
 
+  Eigen::MatrixXd N_corners;
+  igl::per_vertex_normals(store.V,store.F,N_corners);
+
   fancy_data_index = viewer.selected_data_index;
   viewer.data_list[fancy_data_index].set_mesh(store.V, store.F);
   viewer.data_list[fancy_data_index].show_lines = false;
   viewer.data_list[fancy_data_index].invert_normals = true;
   viewer.data_list[fancy_data_index].set_face_based(false);
+  viewer.data_list[fancy_data_index].set_normals(N_corners);
   viewer.append_mesh();
   debug_data_index = viewer.selected_data_index;
   viewer.data_list[debug_data_index].set_mesh(store.V, store.F);

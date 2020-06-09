@@ -86,10 +86,9 @@ void exact::muscle::hessian(SparseMatrix<double, Eigen::RowMajor>& H,
 							const MatrixXd& Uvec){
 	H.setZero();
 
-	std::vector<Trip> mat_trips(9*T.rows());
+	std::vector<Trip> mat_trips;
 	SparseMatrix<double, Eigen::RowMajor> mat;
-	std::mutex door;
-	int idx = 0;
+
 	//#pragma omp parallel for shared(idx)
 	for(int t=0; t<T.rows(); t++){
 			int f_index = t;
@@ -98,26 +97,17 @@ void exact::muscle::hessian(SparseMatrix<double, Eigen::RowMajor>& H,
 
 		{
 		    //std::lock_guard<std::mutex> lg(door);
-			mat_trips[idx] = Trip(3*t+0, 9*f_index + 0, u[0]);
-			idx += 1;
-			mat_trips[idx] = Trip(3*t+0, 9*f_index + 1, u[1]);
-			idx += 1;
-			mat_trips[idx] = Trip(3*t+0, 9*f_index + 2, u[2]);
-			idx += 1;
+			mat_trips.push_back(Trip(3*t+0, 9*f_index + 0, u[0]));
+			mat_trips.push_back(Trip(3*t+0, 9*f_index + 1, u[1]));
+			mat_trips.push_back(Trip(3*t+0, 9*f_index + 2, u[2]));
 
-			mat_trips[idx] = Trip(3*t+1, 9*f_index + 3, u[0]);
-			idx += 1;
-			mat_trips[idx] = Trip(3*t+1, 9*f_index + 4, u[1]);
-			idx += 1;
-			mat_trips[idx] = Trip(3*t+1, 9*f_index + 5, u[2]);
-			idx += 1;
+			mat_trips.push_back(Trip(3*t+1, 9*f_index + 3, u[0]));
+			mat_trips.push_back(Trip(3*t+1, 9*f_index + 4, u[1]));
+			mat_trips.push_back(Trip(3*t+1, 9*f_index + 5, u[2]));
 
-			mat_trips[idx] = Trip(3*t+2, 9*f_index + 6, u[0]);
-			idx += 1;
-			mat_trips[idx] = Trip(3*t+2, 9*f_index + 7, u[1]);
-			idx += 1;
-			mat_trips[idx] = Trip(3*t+2, 9*f_index + 8, u[2]);
-			idx += 1;
+			mat_trips.push_back(Trip(3*t+2, 9*f_index + 6, u[0]));
+			mat_trips.push_back(Trip(3*t+2, 9*f_index + 7, u[1]));
+			mat_trips.push_back(Trip(3*t+2, 9*f_index + 8, u[2]));
 		}
 
 	}

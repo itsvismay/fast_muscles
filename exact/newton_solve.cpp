@@ -106,6 +106,7 @@ int exact::newton_solve(VectorXd& Fvec,
 		for(int i=0; i<denseHi.rows()/9; i++){
 			deltaF.segment<9>(9*i) = -denseHi.block<9,9>(9*i,0)*rhs.segment<9>(9*i);
 		}
+		deltaF = -Hinv.solve(g+Jlambda);
 
 		std::cout<<"Outputs"<<std::endl;
 		std::cout<<"	lambda: "<<lambda.norm()<<std::endl;

@@ -105,7 +105,6 @@ void exact::stablenh::hessian( Eigen::SparseMatrix<double, Eigen::RowMajor>& hes
 		hess.setZero();
 		std::vector<Trip> hess_trips(9*9*T.rows());
 		std::mutex door;
-		int idx = 0;
 		//#pragma omp parallel for shared(idx)
 		for(int t=0; t<T.rows(); t++){
 			double youngsModulus = eY[t];
@@ -305,8 +304,7 @@ void exact::stablenh::hessian( Eigen::SparseMatrix<double, Eigen::RowMajor>& hes
 		        //std::lock_guard<std::mutex> lg(door);
 				for(int i=0; i<ddw.rows(); i++){
 					for(int j=0; j<ddw.cols(); j++){
-						hess_trips[idx] = Trip(9*f_index + i, 9*f_index + j, rest_tet_vols[t]*ddw(i,j));
-						idx += 1;
+						hess_trips.push_back(Trip(9*f_index + i, 9*f_index + j, rest_tet_vols[t]*ddw(i,j)));
 					}
 				}
 	        }
