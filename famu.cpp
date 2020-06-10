@@ -77,12 +77,12 @@ int main(int argc, char *argv[])
       std::cout<<"Iteration :"<<iii<<std::endl;
       famu::muscle::set_muscle_mag(store, iii);
 		  {
-        // niters = famu::newton_static_solve(store);
+        niters = famu::newton_static_solve(store);
       }
 
       {
-        niters = solver.minimizeWithPreconditioner(fullsolver, store.dFvec, fx, store);
-        famu::acap::solve(store, store.dFvec, false);
+        // niters = solver.minimizeWithPreconditioner(fullsolver, store.dFvec, fx, store);
+        // famu::acap::solve(store, store.dFvec, false);
       }
       {
       // niters = solver.minimize(fullsolver, store.dFvec, fx);

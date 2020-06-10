@@ -476,11 +476,11 @@ int famu::one_nm_solve(Store& store){
 
         		}
         		store.tot_Fc += store.Y.transpose()*-1*store.UnPickBoundaryForCollisions*store.UnPickBoundaryForCollisions.transpose()*temp;
-				// std::string name = "nm-mesh";
-		  //       store.printState(iter, name);
 
 				store.dFvec.tail(store.RemFixedBones.rows()) += contact_dir;
     	}
+			std::string name = "nm-mesh";
+	        store.printState(iter, name);
 
         std::cout<<std::endl;
     	////////////////////////////////////
