@@ -8,15 +8,17 @@ f6 = readDMAT("../../FastMusclesPaperFigs/MeatHand/run1/48eigs.dmat");
 f7 = readDMAT("../../FastMusclesPaperFigs/SoftRobot/run1/48eigs.dmat");
 
 %plot configs
-for f = [f0, f1, f2, f3, f4, f5, f6, f7]
-    h = plot(t,f);
+it = 0;
+for f = [f0, f1,  f2, f3, f4, f5, f6, f7]
+    h = plot(fliplr(t),1./f);
     h.LineWidth = 5;
     h.Color = [82, 91, 210]/255;
     h.Marker = ".";
-    h.MarkerSize = 30;
+    h.MarkerSize = 10;
     h.MarkerFaceColor = [82, 91, 210]/255
     h.MarkerEdgeColor = [82, 91, 210]/255;
-hold on
+    hold on
+    it = it+1;
 end
 fig = gcf;
 fig.Units = "inches";
@@ -26,11 +28,11 @@ fig.Position = [0 0 4 2];
 
 a = gca;
 a.XLim = [t0, t1];
-a.YLim = [0, 3];
+a.YLim = [0, max(1./[f0; f1;f2;f3;f4;f5;f6;f7])];
 a.GridColor = [0 0 0]/255;
 a.Color = [229 229 229]/255;
 a.XTick = [0, 10, 20, 30, 40];
-a.YTick = [0,1,2,3];
+a.YTick = [0,100,200,300];
 a.YGrid = "On";
 a.GridColor = [1 1 1];
 a.GridAlpha = 1;
