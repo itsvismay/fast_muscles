@@ -411,7 +411,6 @@ int famu::one_nm_solve(Store& store){
 			fastWoodbury(store, graddFvec, X, denseHess, delta_dFvec);
 			timer.stop();
 			woodtimes += timer.getElapsedTimeInMicroSec();
-			// cout<<"		woodbury diff: "<<(delta_dFvec - test_drt).norm()<<endl;
 
 		}
 
@@ -425,7 +424,6 @@ int famu::one_nm_solve(Store& store){
 		double alpha = line_search(tot_ls_its, store, graddFvec, delta_dFvec, denseHess);
 		timer.stop();
 		linetimes += timer.getElapsedTimeInMicroSec();
-
 
 
 

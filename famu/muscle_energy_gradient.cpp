@@ -6,9 +6,8 @@ using namespace Eigen;
 
 void famu::muscle::setupFastMuscles(Store& store){
 	store.fastMuscles.clear();
-
-	std::vector<Trip> mat_trips;
 	for(int i=0; i<store.muscle_tets.size(); i++){
+		std::vector<Trip> mat_trips;
 		SparseMatrix<double, Eigen::RowMajor> mat;
 		for(int j=0; j<store.muscle_tets[i].size(); j++){
 			int t = store.muscle_tets[i][j];
@@ -28,8 +27,8 @@ void famu::muscle::setupFastMuscles(Store& store){
 			mat_trips.push_back(Trip(3*t+2, 9*f_index + 7, u[1]));
 			mat_trips.push_back(Trip(3*t+2, 9*f_index + 8, u[2]));
 		}
-
 		mat.resize(3*store.T.rows(), store.dFvec.size());
+		std::cout<<"--1"<<mat_trips.size()<<std::endl;
 		mat.setFromTriplets(mat_trips.begin(), mat_trips.end());
 		
 		store.fastMuscles.push_back(mat.transpose()*mat);
@@ -138,8 +137,3 @@ void famu::muscle::set_muscle_mag(Store& store, int step){
 	famu::muscle::setupFastMuscles(store);
 	famu::muscle::fastHessian(store, store.muscleHess, store.denseMuscleHess);
 }
-
-
-
-
-

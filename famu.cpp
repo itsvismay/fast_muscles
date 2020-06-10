@@ -74,10 +74,19 @@ int main(int argc, char *argv[])
     std::string name = "mesh";
     for(iii=0; iii<store.muscle_steps.size(); iii++){
       store.printState(iii, name);
+      std::cout<<"Iteration :"<<iii<<std::endl;
       famu::muscle::set_muscle_mag(store, iii);
-		  niters = famu::newton_static_solve(store);
-      //niters = solver.minimizeWithPreconditioner(fullsolver, store.dFvec, fx, LDLT);
+		  {
+        // niters = famu::newton_static_solve(store);
+      }
+
+      {
+        niters = solver.minimizeWithPreconditioner(fullsolver, store.dFvec, fx, store);
+        famu::acap::solve(store, store.dFvec, false);
+      }
+      {
       // niters = solver.minimize(fullsolver, store.dFvec, fx);
+      }
     }
     store.printState(iii, name);
 		store.saveResults();

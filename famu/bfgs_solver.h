@@ -162,7 +162,7 @@ namespace famu{
 			}
 			cout<<"		ACAP Energy: "<<EACAP<<endl;
 			cout<<"		ENH Energy: "<<ENH<<endl;
-			cout<<"	EM Energy: "<<EM<<endl;
+			cout<<"		EM Energy: "<<EM<<endl;
 			return E;
 		}
 	};
