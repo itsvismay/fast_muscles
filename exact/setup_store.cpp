@@ -22,7 +22,6 @@
 #include <igl/null.h>
 #include <json.hpp>
 #include <Eigen/SparseCholesky>
-#include <LBFGS.h>
 
 
 #include <linear_tetmesh_B.h>
@@ -54,7 +53,7 @@
 
 using namespace Eigen;
 using Store = exact::Store;
-using namespace LBFGSpp;
+// using namespace LBFGSpp;
 using namespace std;
 
 void exact::setupStore(Store& store){
@@ -153,22 +152,22 @@ void exact::setupStore(Store& store){
 	    }
 		store.muscle_mag = VectorXd::Zero(store.T.rows());
 		//YM, poissons
-		store.eY = 6e5*VectorXd::Ones(store.T.rows());
+		store.eY = 1e10*VectorXd::Ones(store.T.rows());
 		store.eP = 0.45*VectorXd::Ones(store.T.rows());
 		store.muscle_mag = VectorXd::Zero(store.T.rows());
 		VectorXd densities = 150*VectorXd::Ones(store.T.rows()); //kg per m^3
 
-		// for(int m=0; m<store.muscle_tets.size(); m++){
-		// 	for(int t=0; t<store.muscle_tets[m].size(); t++){
-		// 		//no tendons for now, add later
-		// 		if(store.relativeStiffness[store.muscle_tets[m][t]]>1){
-		// 			store.eY[store.muscle_tets[m][t]] = 4.5e8;
-		// 		}else{
-		// 			store.eY[store.muscle_tets[m][t]] = 60000;
-		// 		}
-		// 		densities[store.muscle_tets[m][t]] = 1000;//kg per m^3
-		// 	}
-		// }
+		for(int m=0; m<store.muscle_tets.size(); m++){
+			for(int t=0; t<store.muscle_tets[m].size(); t++){
+				//no tendons for now, add later
+				if(store.relativeStiffness[store.muscle_tets[m][t]]>1){
+					store.eY[store.muscle_tets[m][t]] = 4.5e8;
+				}else{
+					store.eY[store.muscle_tets[m][t]] = 60000;
+				}
+				densities[store.muscle_tets[m][t]] = 1000;//kg per m^3
+			}
+		}
 
 		std::string inputfile = store.jinput["data"];
 		sim::linear_tetmesh_mass_matrix(store.M, store.V, store.T, densities, store.rest_tet_vols);

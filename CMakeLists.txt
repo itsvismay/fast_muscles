@@ -36,7 +36,7 @@ if(APPLE)
 	include_directories(${JSON_HPP_SRC_DIR})
 	include_directories(${SPECTRA_DIR})
 	include_directories(${EIGEN335_INCLUDE_DIRS})
-	include_directories(${NEW_BFGSB_SRC_DIR})
+	#include_directories(${NEW_BFGSB_SRC_DIR})
 	include_directories(${BARTELS_INCLUDE_DIR})
 
 

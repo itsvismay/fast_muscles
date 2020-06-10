@@ -6,7 +6,7 @@
 #include <igl/png/writePNG.h>
 #include <imgui/imgui.h>
 #include <json.hpp>
-#include <LBFGS.h>
+// #include <LBFGS.h>
 
 
 #include <sstream>
@@ -19,7 +19,7 @@
 using namespace Eigen;
 using namespace std;
 using json = nlohmann::json;
-using namespace LBFGSpp;
+// using namespace LBFGSpp;
 
 using Store = exact::Store;
 json j_input;
