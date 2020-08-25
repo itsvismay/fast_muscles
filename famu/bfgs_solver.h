@@ -153,16 +153,14 @@ namespace famu{
 				famu::acap::fastGradient(*store, acap_grad);
 				graddFvec = muscle_grad + neo_grad + acap_grad;
 				graddFvec = store->RemFixedBones*(muscle_grad + neo_grad + acap_grad - store->ContactForce);
-				
-				
-				
 
-				cout<<"---BFGS Info---"<<endl;
-				cout<<"	Total Grad N: "<<graddFvec.norm()<<endl;
+				// cout<<"---BFGS Info---"<<endl;
+				// cout<<"	Total Grad N: "<<graddFvec.norm()<<endl;
 			}
-			cout<<"		ACAP Energy: "<<EACAP<<endl;
-			cout<<"		ENH Energy: "<<ENH<<endl;
-			cout<<"		EM Energy: "<<EM<<endl;
+			// cout<<"		ACAP Energy: "<<EACAP<<endl;
+			// cout<<"		ENH Energy: "<<ENH<<endl;
+			// cout<<"		EM Energy: "<<EM<<endl;
+			// std::cout<<E<<std::endl;
 			return E;
 		}
 	};

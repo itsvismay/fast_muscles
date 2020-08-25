@@ -207,7 +207,7 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
         step *= width;
     }
     // cout<<"			ls iters: "<<iter<<endl;
-    cout<<"			step: "<<step<<endl;
+    // cout<<"			step: "<<step<<endl;
     return step;
 }
 
@@ -482,7 +482,6 @@ int famu::one_nm_solve(Store& store){
 			std::string name = "nm-mesh";
 	        store.printState(iter, name);
 
-        std::cout<<std::endl;
     	////////////////////////////////////
 
 
@@ -490,8 +489,9 @@ int famu::one_nm_solve(Store& store){
 
     	polar_dec(store, store.dFvec);
 		double fx = Energy(store, store.dFvec);
+        std::cout<<prevfx<<", "<<std::endl;
 		if(store.jinput["springk"]==0){
-			std::cout<<(graddFvec.squaredNorm()/graddFvec.size())<<", "<<(fabs(fx-prevfx)) <<endl;
+			// std::cout<<(graddFvec.squaredNorm()/graddFvec.size())<<", "<<(fabs(fx-prevfx)) <<endl;
 			if(graddFvec.squaredNorm()/graddFvec.size()<1e-4 || fabs(fx - prevfx)< 1e-3){
 				
 				break;

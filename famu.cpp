@@ -61,9 +61,9 @@ int main(int argc, char *argv[])
       int DIM = store.dFvec.size();
       famu::FullSolver fullsolver(DIM, &store);
       LBFGSParam<double> param;
-      param.epsilon = 1e-1;
-      param.delta = 1e-5;
-      param.past = 1;
+      // param.epsilon = 1e-3;
+      // param.delta = 1e-5;
+      // param.past = 5;
       
       param.linesearch = LBFGSpp::LBFGS_LINESEARCH_BACKTRACKING_ARMIJO;
       LBFGSSolver<double> solver(param);
@@ -77,7 +77,7 @@ int main(int argc, char *argv[])
       std::cout<<"Iteration :"<<iii<<std::endl;
       famu::muscle::set_muscle_mag(store, iii);
 		  {
-        niters = famu::newton_static_solve(store);
+        // niters = famu::newton_static_solve(store);
       }
 
       {
@@ -85,7 +85,7 @@ int main(int argc, char *argv[])
         // famu::acap::solve(store, store.dFvec, false);
       }
       {
-      // niters = solver.minimize(fullsolver, store.dFvec, fx);
+        niters = solver.minimize(fullsolver, store.dFvec, fx);
       }
     }
     store.printState(iii, name);
