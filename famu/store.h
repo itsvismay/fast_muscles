@@ -76,8 +76,8 @@ namespace famu{
 		Eigen::PardisoLU<Eigen::SparseMatrix<double, Eigen::RowMajor>> ACAP_KKT_SPLU, ACAP_KKT_SPLU2;
 		Eigen::PardisoLU<Eigen::SparseMatrix<double, Eigen::RowMajor>> NM_SPLU;//TODO: optimize this away
 		#else
-		// Eigen::SparseLU<Eigen::SparseMatrix<double, Eigen::RowMajor>> ACAP_KKT_SPLU, ACAP_KKT_SPLU2;
-		Eigen::ConjugateGradient<Eigen::SparseMatrix<double>, Eigen::Lower|Eigen::Upper> ACAP_KKT_SPLU, ACAP_KKT_SPLU2;
+		Eigen::SparseLU<Eigen::SparseMatrix<double, Eigen::RowMajor>> ACAP_KKT_SPLU, ACAP_KKT_SPLU2;
+		// Eigen::ConjugateGradient<Eigen::SparseMatrix<double>, Eigen::Lower|Eigen::Upper> ACAP_KKT_SPLU, ACAP_KKT_SPLU2;
 		Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> NM_SPLU;//TODO: optimize this away
 		#endif
 

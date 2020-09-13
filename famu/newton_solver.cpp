@@ -493,8 +493,11 @@ int famu::one_nm_solve(Store& store){
     	polar_dec(store, store.dFvec);
 		double fx = Energy(store, store.dFvec);
 		if(store.jinput["springk"]==0){
+			if(iter==1){
+				initialGradient = graddFvec.squaredNorm()/graddFvec.size();
+			}
 			std::cout<<(graddFvec.squaredNorm()/graddFvec.size())<<", "<<(fabs(fx-prevfx)) <<endl;
-			if(graddFvec.squaredNorm()/graddFvec.size()<store.gradNormConvergence || fabs(fx - prevfx)< 1e-4){
+			if((graddFvec.squaredNorm()/graddFvec.size())< 1 || fabs(fx - prevfx)< 1e-3){
 				
 				break;
 			}

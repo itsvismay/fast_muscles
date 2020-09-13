@@ -54,10 +54,11 @@ void famu::setup_hessian_modes(Store& store, SparseMatrix<double>& A, MatrixXd& 
 
         cout<<"+EIG SOLVE"<<endl;
 
-        cout<<"     eig1"<<endl;
+        cout<<"     eig1: num modes- "<<nummodes<<", size- "<<A.rows()<<endl;
+
         //Spectra seems to freak out if you use row storage, this copy just ensures everything is setup the way the solver likes
         Spectra::SparseSymMatProd<double>Aop(A);
-        Spectra::SymEigsSolver<double, Spectra::SMALLEST_MAGN, Spectra::SparseSymMatProd<double> > geigs(&Aop, nummodes, std::min(5*nummodes, (int)A.rows()) );
+        Spectra::SymEigsSolver<double, Spectra::SMALLEST_MAGN, Spectra::SparseSymMatProd<double> > geigs(&Aop, nummodes, std::min(3*nummodes, (int)A.rows()) );
         geigs.init();
  
         cout<<"     eig2"<<endl;

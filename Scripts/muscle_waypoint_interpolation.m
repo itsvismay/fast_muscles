@@ -1,8 +1,8 @@
-fname = '../data/meat_hand/run1/input.json';
+fname = '../data/bigsoftrobot/run1/input.json';
 val = jsondecode(fileread(fname));
 waypoints = val.muscle_waypoints;
 n = fieldnames(waypoints);
-h = 0.05;
+h = 0.01;
 waymatrix = cell2mat(struct2cell(waypoints));
 fullmatrix = zeros(length(n), 1+(size(waymatrix,2)-1)/h);
 names = {};
