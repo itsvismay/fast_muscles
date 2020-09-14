@@ -1,4 +1,4 @@
-fname = '../data/meat_hand/run1/input.json';
+fname = '../data/anothersoftrobot/run1/input.json';
 val = jsondecode(fileread(fname));
 waypoints = val.muscle_waypoints;
 n = fieldnames(waypoints);

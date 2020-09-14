@@ -75,7 +75,7 @@ double famu::line_search(int& tot_ls_its, Store& store, VectorXd& grad, VectorXd
 	// Decreasing and increasing factors
 	VectorXd x = store.dFvec;
 	VectorXd xp = x;
-	double step = 1;
+	double step = 5;
 	if(store.jinput["springk"]!=0){
 		step = store.jinput["ls_max_alpha"];
 	}
@@ -494,7 +494,7 @@ int famu::one_nm_solve(Store& store){
 		double fx = Energy(store, store.dFvec);
 		if(store.jinput["springk"]==0){
 			std::cout<<(graddFvec.squaredNorm()/graddFvec.size())<<", "<<(fabs(fx-prevfx)) <<endl;
-			if(graddFvec.squaredNorm()/graddFvec.size()<store.gradNormConvergence || fabs(fx - prevfx)< 1e-4){
+			if(graddFvec.squaredNorm()/graddFvec.size()<store.gradNormConvergence || fabs(fx - prevfx)< 1e-1){
 				
 				break;
 			}
